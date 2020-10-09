@@ -58,7 +58,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
 
     if ( i == uri.length() || uri[i] != '=' )
     {
-      QgsDebugMsg( QStringLiteral( "= expected after parameter name, skipping text '%1'" ).arg( pname ) );
+      // no "=", so likely not a parameter name
       continue;
     }
 
@@ -159,7 +159,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
       }
       else if ( pname == QLatin1String( "connect_timeout" ) )
       {
-        QgsDebugMsg( QStringLiteral( "connection timeout ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "connection timeout ignored" ), 3 );
       }
       else if ( pname == QLatin1String( "dbname" ) )
       {
@@ -648,7 +648,7 @@ void QgsDataSourceUri::setEncodedUri( const QByteArray &uri )
     else if ( item.first == QLatin1String( "authcfg" ) )
       mAuthConfigId = item.second;
     else
-      mParams.insertMulti( item.first, item.second );
+      mParams.insert( item.first, item.second );
   }
 }
 
@@ -787,7 +787,7 @@ void QgsDataSourceUri::setParam( const QString &key, const QString &value )
   else
   {
     // may be multiple
-    mParams.insertMulti( key, value );
+    mParams.insert( key, value );
   }
 }
 

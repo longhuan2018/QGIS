@@ -222,7 +222,11 @@ double QgsLayoutUtils::textWidthMM( const QFont &font, const QString &text )
   //ref: http://osgeo-org.1560.x6.nabble.com/Multi-line-labels-and-font-bug-td4157152.html
   QFont metricsFont = scaledFontPixelSize( font );
   QFontMetricsF fontMetrics( metricsFont );
+#if QT_VERSION < QT_VERSION_CHECK(5, 11, 0)
   return ( fontMetrics.width( text ) / FONT_WORKAROUND_SCALE );
+#else
+  return ( fontMetrics.horizontalAdvance( text ) / FONT_WORKAROUND_SCALE );
+#endif
 }
 
 double QgsLayoutUtils::textHeightMM( const QFont &font, const QString &text, double multiLineHeight )
@@ -252,7 +256,7 @@ void QgsLayoutUtils::drawText( QPainter *painter, QPointF position, const QStrin
   //ref: http://osgeo-org.1560.x6.nabble.com/Multi-line-labels-and-font-bug-td4157152.html
   QFont textFont = scaledFontPixelSize( font );
 
-  painter->save();
+  QgsScopedQPainterState painterState( painter );
   painter->setFont( textFont );
   if ( color.isValid() )
   {
@@ -261,7 +265,6 @@ void QgsLayoutUtils::drawText( QPainter *painter, QPointF position, const QStrin
   double scaleFactor = 1.0 / FONT_WORKAROUND_SCALE;
   painter->scale( scaleFactor, scaleFactor );
   painter->drawText( position * FONT_WORKAROUND_SCALE, text );
-  painter->restore();
 }
 
 void QgsLayoutUtils::drawText( QPainter *painter, const QRectF &rect, const QString &text, const QFont &font, const QColor &color, const Qt::AlignmentFlag halignment, const Qt::AlignmentFlag valignment, const int flags )
@@ -278,7 +281,7 @@ void QgsLayoutUtils::drawText( QPainter *painter, const QRectF &rect, const QStr
   QRectF scaledRect( rect.x() * FONT_WORKAROUND_SCALE, rect.y() * FONT_WORKAROUND_SCALE,
                      rect.width() * FONT_WORKAROUND_SCALE, rect.height() * FONT_WORKAROUND_SCALE );
 
-  painter->save();
+  QgsScopedQPainterState painterState( painter );
   painter->setFont( textFont );
   if ( color.isValid() )
   {
@@ -287,7 +290,6 @@ void QgsLayoutUtils::drawText( QPainter *painter, const QRectF &rect, const QStr
   double scaleFactor = 1.0 / FONT_WORKAROUND_SCALE;
   painter->scale( scaleFactor, scaleFactor );
   painter->drawText( scaledRect, halignment | valignment | flags, text );
-  painter->restore();
 }
 
 QRectF QgsLayoutUtils::largestRotatedRectWithinBounds( const QRectF &originalRect, const QRectF &boundsRect, const double rotation )
@@ -461,6 +463,22 @@ double QgsLayoutUtils::calculatePrettySize( const double minimumSize, const doub
     // Pick size from {lowerNiceUnitsPerSeg, upperNiceUnitsPerSeg}, use the larger if possible
     return upperNiceUnitsPerSeg < minimumSize ? lowerNiceUnitsPerSeg : upperNiceUnitsPerSeg;
   }
+}
+
+bool QgsLayoutUtils::itemIsAClippingSource( const QgsLayoutItem *item )
+{
+  if ( !( item->itemFlags() & QgsLayoutItem::FlagProvidesClipPath ) )
+    return false; // not a clipping provider, so shortcut out
+
+  // current only maps can be clipped
+  QList< QgsLayoutItemMap * > maps;
+  item->layout()->layoutItems( maps );
+  for ( QgsLayoutItemMap *map : qgis::as_const( maps ) )
+  {
+    if ( map->itemClippingSettings()->isActive() && map->itemClippingSettings()->sourceItem() == item )
+      return true;
+  }
+  return false;
 }
 
 double QgsLayoutUtils::pointsToMM( const double pointSize )

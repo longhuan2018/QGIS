@@ -39,14 +39,19 @@ QString QgsAuthCertUtils::getSslProtocolName( QSsl::SslProtocol protocol )
   {
     case QSsl::SecureProtocols:
       return QObject::tr( "SecureProtocols" );
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
     case QSsl::TlsV1SslV3:
       return QObject::tr( "TlsV1SslV3" );
+#endif
     case QSsl::TlsV1_0:
       return QObject::tr( "TlsV1" );
+#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
+    // not supported by Qt 5.15+
     case QSsl::SslV3:
       return QObject::tr( "SslV3" );
     case QSsl::SslV2:
       return QObject::tr( "SslV2" );
+#endif
     default:
       return QString();
   }
@@ -1326,7 +1331,7 @@ QList<QSslError> QgsAuthCertUtils::validateCertChain( const QList<QSslCertificat
     }
   }
 
-  // Check that no certs in the chain are expired or not yet valid or blacklisted
+  // Check that no certs in the chain are expired or not yet valid or blocklisted
   const QList<QSslCertificate> constTrustedChain( trustedChain );
   for ( const auto &cert : constTrustedChain )
   {
