@@ -1221,7 +1221,7 @@ static QVariant fcnTitle( const QVariantList &values, const QgsExpressionContext
     if ( elems[i].size() > 1 )
       elems[i] = elems[i].at( 0 ).toUpper() + elems[i].mid( 1 ).toLower();
   }
-  return QVariant( elems.join( QStringLiteral( " " ) ) );
+  return QVariant( elems.join( QLatin1Char( ' ' ) ) );
 }
 
 static QVariant fcnTrim( const QVariantList &values, const QgsExpressionContext *, QgsExpression *parent, const QgsExpressionNodeFunction * )
@@ -6333,13 +6333,13 @@ const QList<QgsExpressionFunction *> &QgsExpression::Functions()
 
     QMap< QString, QgsExpressionFunction::FcnEval > geometry_overlay_definitions
     {
-      { QStringLiteral( "geometry_overlay_intersects" ), fcnGeomOverlayIntersects },
-      { QStringLiteral( "geometry_overlay_contains" ), fcnGeomOverlayContains },
-      { QStringLiteral( "geometry_overlay_crosses" ), fcnGeomOverlayCrosses },
-      { QStringLiteral( "geometry_overlay_equals" ), fcnGeomOverlayEquals },
-      { QStringLiteral( "geometry_overlay_touches" ), fcnGeomOverlayTouches },
-      { QStringLiteral( "geometry_overlay_disjoint" ), fcnGeomOverlayDisjoint },
-      { QStringLiteral( "geometry_overlay_within" ), fcnGeomOverlayWithin },
+      { QStringLiteral( "overlay_intersects" ), fcnGeomOverlayIntersects },
+      { QStringLiteral( "overlay_contains" ), fcnGeomOverlayContains },
+      { QStringLiteral( "overlay_crosses" ), fcnGeomOverlayCrosses },
+      { QStringLiteral( "overlay_equals" ), fcnGeomOverlayEquals },
+      { QStringLiteral( "overlay_touches" ), fcnGeomOverlayTouches },
+      { QStringLiteral( "overlay_disjoint" ), fcnGeomOverlayDisjoint },
+      { QStringLiteral( "overlay_within" ), fcnGeomOverlayWithin },
     };
     QMapIterator< QString, QgsExpressionFunction::FcnEval > i( geometry_overlay_definitions );
     while ( i.hasNext() )
@@ -6358,7 +6358,7 @@ const QList<QgsExpressionFunction *> &QgsExpression::Functions()
       functions << fcnGeomOverlayFunc;
     }
 
-    QgsStaticExpressionFunction *fcnGeomOverlayNearestFunc   = new QgsStaticExpressionFunction( QStringLiteral( "geometry_overlay_nearest" ), QgsExpressionFunction::ParameterList()
+    QgsStaticExpressionFunction *fcnGeomOverlayNearestFunc   = new QgsStaticExpressionFunction( QStringLiteral( "overlay_nearest" ), QgsExpressionFunction::ParameterList()
         << QgsExpressionFunction::Parameter( QStringLiteral( "layer" ) )
         << QgsExpressionFunction::Parameter( QStringLiteral( "expression" ), true, QVariant(), true )
         << QgsExpressionFunction::Parameter( QStringLiteral( "filter" ), true, QVariant(), true )

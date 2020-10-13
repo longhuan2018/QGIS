@@ -611,12 +611,12 @@ QString QgsProcessingUtils::variantToPythonLiteral( const QVariant &value )
 QString QgsProcessingUtils::stringToPythonLiteral( const QString &string )
 {
   QString s = string;
-  s.replace( '\\', QStringLiteral( "\\\\" ) );
-  s.replace( '\n', QStringLiteral( "\\n" ) );
-  s.replace( '\r', QStringLiteral( "\\r" ) );
-  s.replace( '\t', QStringLiteral( "\\t" ) );
-  s.replace( '"', QStringLiteral( "\\\"" ) );
-  s.replace( '\'', QStringLiteral( "\\\'" ) );
+  s.replace( '\\', QLatin1String( "\\\\" ) );
+  s.replace( '\n', QLatin1String( "\\n" ) );
+  s.replace( '\r', QLatin1String( "\\r" ) );
+  s.replace( '\t', QLatin1String( "\\t" ) );
+  s.replace( '"', QLatin1String( "\\\"" ) );
+  s.replace( '\'', QLatin1String( "\\\'" ) );
   s = s.prepend( '\'' ).append( '\'' );
   return s;
 }
@@ -640,7 +640,7 @@ void QgsProcessingUtils::parseDestinationString( QString &destination, QString &
 
   if ( matched )
   {
-    if ( providerKey == QStringLiteral( "postgis" ) ) // older processing used "postgis" instead of "postgres"
+    if ( providerKey == QLatin1String( "postgis" ) ) // older processing used "postgis" instead of "postgres"
     {
       providerKey = QStringLiteral( "postgres" );
     }
@@ -908,14 +908,14 @@ QVariant QgsProcessingUtils::generateIteratingDestination( const QVariant &input
     }
     else if ( res.startsWith( QLatin1String( "memory:" ) ) )
     {
-      return res + '_' + id.toString();
+      return QString( res + '_' + id.toString() );
     }
     else
     {
       // assume a filename type output for now
       // TODO - uris?
       int lastIndex = res.lastIndexOf( '.' );
-      return res.left( lastIndex ) + '_' + id.toString() + res.mid( lastIndex );
+      return QString( res.left( lastIndex ) + '_' + id.toString() + res.mid( lastIndex ) );
     }
   }
 }
@@ -1008,7 +1008,7 @@ QString QgsProcessingUtils::formatHelpMapAsHtml( const QVariantMap &map, const Q
   if ( !map.value( QStringLiteral( "ALG_VERSION" ) ).toString().isEmpty() )
     s += QObject::tr( "<p align=\"right\">Algorithm version: %1</p>" ).arg( getText( QStringLiteral( "ALG_VERSION" ) ) );
 
-  s += QStringLiteral( "</body></html>" );
+  s += QLatin1String( "</body></html>" );
   return s;
 }
 
