@@ -1,5 +1,5 @@
 language: python
-python: "3.8"
+python: "3.8.6"
 compiler: clang
 dist: bionic
 sudo: false
@@ -8,7 +8,7 @@ cache:
   pip: true
   directories:
     - ${HOME}/.ccache_testing
-  timeout: 1000
+  timeout: 1000000
 if: NOT branch =~ /^(cherry-pick-)?backport-\d+-/ AND NOT branch =~ /-patch-\d+$/
 
 env:
