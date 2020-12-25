@@ -273,9 +273,15 @@ class CORE_EXPORT QgsSymbolLayerUtils
      * \param ramp color ramp
      * \param size target pixmap size
      * \param padding space between icon edge and color ramp
+     * \param direction direction to render pixmap (since QGIS 3.18)
+     * \param flipDirection set to TRUE to flip the direction of the ramp. For horizontal \a directions, ramps will be
+     * rendered left to right by default. For vertical \a directions, ramps will be rendered top to bottom by default. Setting
+     * this flag to TRUE will reverse these default directions.
+     * \param drawTransparentBackground set to FALSE to disable the checkerboard effect drawn below transparent colors in the ramp
      * \see colorRampPreviewIcon()
      */
-    static QPixmap colorRampPreviewPixmap( QgsColorRamp *ramp, QSize size, int padding = 0 );
+    static QPixmap colorRampPreviewPixmap( QgsColorRamp *ramp, QSize size, int padding = 0, Qt::Orientation direction = Qt::Horizontal,
+                                           bool flipDirection = false, bool drawTransparentBackground = true );
 
     static void drawStippledBackground( QPainter *painter, QRect rect );
 
@@ -537,11 +543,10 @@ class CORE_EXPORT QgsSymbolLayerUtils
      * \param data mime data to parse
      * \param hasAlpha will be set to TRUE if mime data was interpreted as a color containing
      * an explicit alpha value
-     * \returns valid color if mimedata could be interpreted as a color, otherwise an
-     * invalid color
+     * \returns valid color if mimedata could be interpreted as a color, otherwise an invalid color
      * \since QGIS 2.5
      */
-    static QColor colorFromMimeData( const QMimeData *data, bool &hasAlpha );
+    static QColor colorFromMimeData( const QMimeData *data, bool &hasAlpha SIP_OUT );
 
     /**
      * Attempts to parse mime data as a list of named colors

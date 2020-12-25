@@ -13,6 +13,7 @@
 
 
 
+
 class QgsMeshDriverMetadata
 {
 %Docstring
@@ -55,6 +56,7 @@ Constructs driver metadata with selected capabilities
 :param name: name/key of the driver
 :param description: short description of the driver
 :param capabilities: driver's capabilities
+:param writeDatasetOnFileSuffix: suffix used to write datasets on file
 %End
 
     MeshDriverCapabilities capabilities() const;
@@ -105,6 +107,14 @@ library object.
 %End
   public:
 
+    enum ProviderMetadataCapability
+    {
+      PriorityForUri,
+      LayerTypesForUri,
+    };
+    typedef QFlags<QgsProviderMetadata::ProviderMetadataCapability> ProviderMetadataCapabilities;
+
+
 
     QgsProviderMetadata( const QString &key, const QString &description, const QString &library = QString() );
 %Docstring
@@ -130,6 +140,13 @@ This key string is used for the associative container in :py:class:`QgsProviderR
 This returns descriptive text for the provider
 
 This is used to provide a descriptive list of available data providers.
+%End
+
+    virtual QgsProviderMetadata::ProviderMetadataCapabilities capabilities() const;
+%Docstring
+Returns the provider metadata capabilities.
+
+.. versionadded:: 3.18
 %End
 
  QString library() const /Deprecated/;
@@ -162,7 +179,8 @@ Cleanup the provider
       FilterVector,
       FilterRaster,
       FilterMesh,
-      FilterMeshDataset
+      FilterMeshDataset,
+      FilterPointCloud,
     };
 
     virtual QString filters( FilterType type );
@@ -181,6 +199,59 @@ Builds the list of available mesh drivers metadata
 .. versionadded:: 3.12
 %End
 
+    virtual int priorityForUri( const QString &uri ) const;
+%Docstring
+Returns an integer representing the priority which this provider should have when opening
+a dataset with the specified ``uri``.
+
+A larger priority means that the provider should be selected over others with a lower
+priority for the same URI.
+
+The default implementation returns 0 for all URIs.
+
+.. warning::
+
+   Not all providers implement this functionality. Check whether :py:func:`~QgsProviderMetadata.capabilities` returns the
+   ProviderMetadataCapability.PriorityForUri to determine whether a specific provider metadata object
+   supports this method.
+
+.. versionadded:: 3.18
+%End
+
+    virtual QList< QgsMapLayerType > validLayerTypesForUri( const QString &uri ) const;
+%Docstring
+Returns a list of valid layer types which the provider can be used with when
+opening the specified ``uri``.
+
+.. warning::
+
+   Not all providers implement this functionality. Check whether :py:func:`~QgsProviderMetadata.capabilities` returns the
+   ProviderMetadataCapability.LayerTypesForUri to determine whether a specific provider metadata object
+   supports this method.
+
+.. versionadded:: 3.18
+%End
+
+    virtual bool uriIsBlocklisted( const QString &uri ) const;
+%Docstring
+Returns ``True`` if the specified ``uri`` is known by this provider to be something which should
+be blocklisted from the QGIS interface, e.g. an internal detail only.
+
+Specifically, this method can be utilized by the browser panel to hide noisy internal details
+by returning ``True`` for URIs which are known to be sidecar files only, such as ".aux.xml" files
+or ".shp.xml" files, or the "ept-build.json" files which sit alongside Entwine "ept.json" point
+cloud sources.
+
+The default method returns ``False`` for all URIs.
+
+.. warning::
+
+   Returning ``True`` from an implementation of this method indicates that ALL providers should
+   ignore the specified ``uri``, not just the provider associated with this metadata!
+
+.. versionadded:: 3.18
+%End
+
     virtual QgsDataProvider *createProvider( const QString &uri,
         const QgsDataProvider::ProviderOptions &options,
         QgsDataProvider::ReadFlags flags = QgsDataProvider::ReadFlags() ) /Factory/;
@@ -197,7 +268,7 @@ Class factory to return a pointer to a newly created QgsDataProvider object
     static void setBoolParameter( QVariantMap &uri, const QString &parameter, const QVariant &value );
 %Docstring
 Sets the ``value`` into the ``uri`` ``parameter`` as a bool.
-eg. "yes" value will be saved as true, 0 will be saved as false
+eg. "yes" value will be saved as ``True``, 0 will be saved as ``False``
 
 .. versionadded:: 3.14
 %End
@@ -205,7 +276,7 @@ eg. "yes" value will be saved as true, 0 will be saved as false
     static bool boolParameter( const QVariantMap &uri, const QString &parameter, bool defaultValue = false );
 %Docstring
 Returns the ``parameter`` value in the ``uri`` as a bool.
-eg. "yes" value will be returned as true, 0 will be returned as false
+eg. "yes" value will be returned as ``True``, 0 will be returned as ``False``
 
 .. versionadded:: 3.14
 %End
@@ -246,7 +317,7 @@ Returns pyramid resampling methods available for provider
 .. versionadded:: 3.10
 %End
 
-    virtual QVariantMap decodeUri( const QString &uri );
+    virtual QVariantMap decodeUri( const QString &uri ) const;
 %Docstring
 Breaks a provider data source URI into its component paths (e.g. file path, layer name).
 
@@ -270,7 +341,7 @@ Breaks a provider data source URI into its component paths (e.g. file path, laye
 .. versionadded:: 3.10
 %End
 
-    virtual QString encodeUri( const QVariantMap &parts );
+    virtual QString encodeUri( const QVariantMap &parts ) const;
 %Docstring
 Reassembles a provider data source URI from its component paths (e.g. file path, layer name).
 
@@ -443,6 +514,12 @@ Stores the connection in the settings
 .. versionadded:: 3.10
 %End
 
+    SIP_PYOBJECT __repr__();
+%MethodCode
+    QString str = QStringLiteral( "<QgsProviderMetadata: %1>" ).arg( sipCpp->key() );
+    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+%End
+
   signals:
 
     void connectionCreated( const QString &name );
@@ -483,6 +560,10 @@ relating to the connection have been updated.
 
 
 };
+
+QFlags<QgsProviderMetadata::ProviderMetadataCapability> operator|(QgsProviderMetadata::ProviderMetadataCapability f1, QFlags<QgsProviderMetadata::ProviderMetadataCapability> f2);
+
+
 
 /************************************************************************
  * This file has been generated automatically from                      *

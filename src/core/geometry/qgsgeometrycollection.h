@@ -186,6 +186,8 @@ class CORE_EXPORT QgsGeometryCollection: public QgsAbstractGeometry
 
     bool fromWkb( QgsConstWkbPtr &wkb ) override;
     bool fromWkt( const QString &wkt ) override;
+
+    int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QString asWkt( int precision = 17 ) const override;
     QDomElement asGml2( QDomDocument &doc, int precision = 17, const QString &ns = "gml", QgsAbstractGeometry::AxisOrder axisOrder = QgsAbstractGeometry::AxisOrder::XY ) const override;
@@ -245,7 +247,7 @@ class CORE_EXPORT QgsGeometryCollection: public QgsAbstractGeometry
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsGeometryCollection *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsGeometryCollection *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::isMultiType( geom->wkbType() ) )
         return static_cast<const QgsGeometryCollection *>( geom );

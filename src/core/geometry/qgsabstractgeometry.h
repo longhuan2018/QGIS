@@ -18,6 +18,7 @@ email                : marco.hugentobler at sourcepole dot com
 
 #include <array>
 #include <functional>
+#include <type_traits>
 #include <QString>
 
 #include "qgis_core.h"
@@ -251,6 +252,15 @@ class CORE_EXPORT QgsAbstractGeometry
       FlagExportTrianglesAsPolygons = 1 << 0, //!< Triangles should be exported as polygon geometries
     };
     Q_DECLARE_FLAGS( WkbFlags, WkbFlag )
+
+    /**
+     * Returns the length of the QByteArray returned by asWkb()
+     *
+     * The optional \a flags argument specifies flags controlling WKB export behavior
+     *
+     * \since QGIS 3.16
+     */
+    virtual int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const = 0;
 
     /**
      * Returns a WKB representation of the geometry.
@@ -1145,7 +1155,7 @@ struct CORE_EXPORT QgsVertexId
 template <class T>
 inline T qgsgeometry_cast( const QgsAbstractGeometry *geom )
 {
-  return const_cast<T>( reinterpret_cast<T>( 0 )->cast( geom ) );
+  return const_cast<T>( std::remove_pointer<T>::type::cast( geom ) );
 }
 
 #endif

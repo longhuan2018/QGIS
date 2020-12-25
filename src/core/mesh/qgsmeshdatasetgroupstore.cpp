@@ -20,11 +20,16 @@
 #include "qgsmeshlayerutils.h"
 #include "qgsapplication.h"
 #include "qgsmeshvirtualdatasetgroup.h"
-
+#include "qgslogger.h"
 
 QList<int> QgsMeshDatasetGroupStore::datasetGroupIndexes() const
 {
   return mRegistery.keys();
+}
+
+QList<int> QgsMeshDatasetGroupStore::enabledDatasetGroupIndexes() const
+{
+  return mDatasetGroupTreeRootItem->enabledDatasetGroupIndexes();
 }
 
 int QgsMeshDatasetGroupStore::datasetGroupCount() const

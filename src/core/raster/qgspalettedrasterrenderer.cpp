@@ -22,6 +22,7 @@
 #include "qgsstyleentityvisitor.h"
 #include "qgsmessagelog.h"
 #include "qgsrasteriterator.h"
+#include "qgslayertreemodellegendnode.h"
 
 #include <QColor>
 #include <QDomDocument>
@@ -67,7 +68,7 @@ QgsRasterRenderer *QgsPalettedRasterRenderer::create( const QDomElement &elem, Q
     QDomNodeList paletteEntries = paletteElem.elementsByTagName( QStringLiteral( "paletteEntry" ) );
 
     QDomElement entryElem;
-    int value;
+    double value;
 
     for ( int i = 0; i < paletteEntries.size(); ++i )
     {
@@ -317,15 +318,38 @@ bool QgsPalettedRasterRenderer::accept( QgsStyleEntityVisitorInterface *visitor 
   return true;
 }
 
-void QgsPalettedRasterRenderer::legendSymbologyItems( QList< QPair< QString, QColor > > &symbolItems ) const
+QList< QPair< QString, QColor > > QgsPalettedRasterRenderer::legendSymbologyItems() const
 {
-  ClassData::const_iterator it = mClassData.constBegin();
-  for ( ; it != mClassData.constEnd(); ++it )
+  QList< QPair< QString, QColor > > symbolItems;
+  for ( const QgsPalettedRasterRenderer::Class &classData : mClassData )
   {
-    QString lab = it->label.isEmpty() ? QString::number( it->value ) : it->label;
-    symbolItems << qMakePair( lab, it->color );
+    const QString lab = classData.label.isEmpty() ? QString::number( classData.value ) : classData.label;
+    symbolItems << qMakePair( lab, classData.color );
   }
+  return symbolItems;
 }
+
+
+QList<QgsLayerTreeModelLegendNode *> QgsPalettedRasterRenderer::createLegendNodes( QgsLayerTreeLayer *nodeLayer )
+{
+  QList<QgsLayerTreeModelLegendNode *> res;
+
+  const QString name = displayBandName( mBand );
+  if ( !name.isEmpty() )
+  {
+    res << new QgsSimpleLegendNode( nodeLayer, name );
+  }
+
+  const QList< QPair< QString, QColor > > items = legendSymbologyItems();
+  res.reserve( res.size() + items.size() );
+  for ( const QPair< QString, QColor > &item : items )
+  {
+    res << new QgsRasterSymbolLegendNode( nodeLayer, item.second, item.first );
+  }
+
+  return res;
+}
+
 
 QList<int> QgsPalettedRasterRenderer::usesBands() const
 {
@@ -353,8 +377,7 @@ QgsPalettedRasterRenderer::ClassData QgsPalettedRasterRenderer::colorTableToClas
   QgsPalettedRasterRenderer::ClassData classes;
   for ( ; colorIt != table.constEnd(); ++colorIt )
   {
-    int idx = ( int )( colorIt->value );
-    classes << QgsPalettedRasterRenderer::Class( idx, colorIt->color, colorIt->label );
+    classes << QgsPalettedRasterRenderer::Class( colorIt->value, colorIt->color, colorIt->label );
   }
   return classes;
 }
@@ -499,7 +522,7 @@ QgsPalettedRasterRenderer::ClassData QgsPalettedRasterRenderer::classDataFromRas
     QgsRasterIterator iter( raster );
     iter.startRasterRead( bandNumber, raster->xSize(), raster->ySize(), raster->extent(), feedback );
 
-    int nbBlocksWidth = static_cast< int >( std::ceil( 1.0 * raster->ySize() / maxWidth ) );
+    int nbBlocksWidth = static_cast< int >( std::ceil( 1.0 * raster->xSize() / maxWidth ) );
     int nbBlocksHeight = static_cast< int >( std::ceil( 1.0 * raster->ySize() / maxHeight ) );
     int nbBlocks = nbBlocksWidth * nbBlocksHeight;
 
@@ -609,11 +632,9 @@ QgsPalettedRasterRenderer::ClassData QgsPalettedRasterRenderer::classDataFromRas
 void QgsPalettedRasterRenderer::updateArrays()
 {
   mColors.clear();
-  int i = 0;
   ClassData::const_iterator it = mClassData.constBegin();
   for ( ; it != mClassData.constEnd(); ++it )
   {
     mColors[it->value] = qPremultiply( it->color.rgba() );
-    i++;
   }
 }

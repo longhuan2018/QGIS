@@ -75,6 +75,7 @@ class CORE_EXPORT QgsSimpleLineSymbolLayer : public QgsLineSymbolLayer
     QString ogrFeatureStyle( double mmScaleFactor, double mapUnitScaleFactor ) const override;
     void setOutputUnit( QgsUnitTypes::RenderUnit unit ) override;
     QgsUnitTypes::RenderUnit outputUnit() const override;
+    bool usesMapUnits() const override;
     void setMapUnitScale( const QgsMapUnitScale &scale ) override;
     QgsMapUnitScale mapUnitScale() const override;
     double estimateMaxBleed( const QgsRenderContext &context ) const override;
@@ -592,7 +593,7 @@ class CORE_EXPORT QgsTemplatedLineSymbolLayerBase : public QgsLineSymbolLayer
     */
     const QgsMapUnitScale &averageAngleMapUnitScale() const { return mAverageAngleLengthMapUnitScale; }
 
-    void renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context ) FINAL;
+    void renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context ) override;
     void renderPolygonStroke( const QPolygonF &points, const QVector<QPolygonF> *rings, QgsSymbolRenderContext &context ) FINAL;
     QgsUnitTypes::RenderUnit outputUnit() const FINAL;
     void setMapUnitScale( const QgsMapUnitScale &scale ) FINAL;
@@ -628,7 +629,7 @@ class CORE_EXPORT QgsTemplatedLineSymbolLayerBase : public QgsLineSymbolLayer
      * in the \a layer argument. A \a layer of -1 indicates that all symbol layers should be
      * rendered.
      *
-     * If \a selected is true then the symbol will be drawn using the "selected feature"
+     * If \a selected is TRUE then the symbol will be drawn using the "selected feature"
      * style and colors instead of the symbol's normal style.
      */
     virtual void renderSymbol( const QPointF &point, const QgsFeature *feature, QgsRenderContext &context, int layer = -1, bool selected = false ) = 0;
@@ -734,6 +735,7 @@ class CORE_EXPORT QgsMarkerLineSymbolLayer : public QgsTemplatedLineSymbolLayerB
     double width( const QgsRenderContext &context ) const override;
     double estimateMaxBleed( const QgsRenderContext &context ) const override;
     void setOutputUnit( QgsUnitTypes::RenderUnit unit ) override;
+    bool usesMapUnits() const override;
     QSet<QString> usedAttributes( const QgsRenderContext &context ) const override;
     bool hasDataDefinedProperties() const override;
     void setDataDefinedProperty( QgsSymbolLayer::Property key, const QgsProperty &property ) override;
@@ -751,6 +753,8 @@ class CORE_EXPORT QgsMarkerLineSymbolLayer : public QgsTemplatedLineSymbolLayerB
      * \deprecated Use setRotateSymbols() instead.
      */
     Q_DECL_DEPRECATED void setRotateMarker( bool rotate ) SIP_DEPRECATED { setRotateSymbols( rotate ); }
+
+    void renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context ) override;
 
   protected:
 
@@ -817,6 +821,7 @@ class CORE_EXPORT QgsHashedLineSymbolLayer : public QgsTemplatedLineSymbolLayerB
     QSet<QString> usedAttributes( const QgsRenderContext &context ) const override;
     bool hasDataDefinedProperties() const override;
     void setDataDefinedProperty( QgsSymbolLayer::Property key, const QgsProperty &property ) override;
+    bool usesMapUnits() const override;
 
     /**
      * Returns the angle to use when drawing the hashed lines sections, in degrees clockwise.
@@ -875,6 +880,8 @@ class CORE_EXPORT QgsHashedLineSymbolLayer : public QgsTemplatedLineSymbolLayerB
      * \see hashLength()
      */
     const QgsMapUnitScale &hashLengthMapUnitScale() const { return mHashLengthMapUnitScale; }
+
+    void renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context ) override;
 
   protected:
 

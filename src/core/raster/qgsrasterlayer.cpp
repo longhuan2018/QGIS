@@ -300,17 +300,12 @@ void QgsRasterLayer::draw( QPainter *theQPainter,
   }
 
   QgsDebugMsgLevel( QStringLiteral( "total raster draw time (ms):     %1" ).arg( time.elapsed(), 5 ), 4 );
-} //end of draw method
+}
 
 QgsLegendColorList QgsRasterLayer::legendSymbologyItems() const
 {
-  QList< QPair< QString, QColor > > symbolList;
   QgsRasterRenderer *renderer = mPipe.renderer();
-  if ( renderer )
-  {
-    renderer->legendSymbologyItems( symbolList );
-  }
-  return symbolList;
+  return renderer ? renderer->legendSymbologyItems() : QList< QPair< QString, QColor > >();;
 }
 
 QString QgsRasterLayer::htmlMetadata() const
@@ -588,6 +583,21 @@ double QgsRasterLayer::rasterUnitsPerPixelY() const
     return mDataProvider->extent().height() / mDataProvider->ySize();
   }
   return 1;
+}
+
+void QgsRasterLayer::setOpacity( double opacity )
+{
+  if ( !mPipe.renderer() || mPipe.renderer()->opacity() == opacity )
+    return;
+
+  mPipe.renderer()->setOpacity( opacity );
+  emit opacityChanged( opacity );
+  emit styleChanged();
+}
+
+double QgsRasterLayer::opacity() const
+{
+  return mPipe.renderer() ? mPipe.renderer()->opacity() : 1.0;
 }
 
 void QgsRasterLayer::init()
@@ -1760,7 +1770,7 @@ QImage QgsRasterLayer::previewAsImage( QSize size, const QColor &bgColor, QImage
 /*
  * \param QDomNode node that will contain the symbology definition for this layer.
  * \param errorMessage reference to string that will be updated with any error messages
- * \return true in case of success.
+ * \return TRUE in case of success.
  */
 bool QgsRasterLayer::readSymbology( const QDomNode &layer_node, QString &errorMessage,
                                     QgsReadWriteContext &context, QgsMapLayer::StyleCategories categories )

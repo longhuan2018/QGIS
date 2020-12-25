@@ -176,6 +176,8 @@ QgsMapLayer *QgsProcessingUtils::mapLayerFromStore( const QString &string, QgsMa
         return !canUseLayer( qobject_cast< QgsVectorTileLayer * >( layer ) );
       case QgsMapLayerType::AnnotationLayer:
         return true;
+      case QgsMapLayerType::PointCloudLayer:
+        return true;
     }
     return true;
   } ), layers.end() );
@@ -601,6 +603,18 @@ QString QgsProcessingUtils::variantToPythonLiteral( const QVariant &value )
       return parts.join( ',' ).prepend( '{' ).append( '}' );
     }
 
+    case QVariant::DateTime:
+    {
+      const QDateTime dateTime = value.toDateTime();
+      return QStringLiteral( "QDateTime(QDate(%1, %2, %3), QTime(%4, %5, %6))" )
+             .arg( dateTime.date().year() )
+             .arg( dateTime.date().month() )
+             .arg( dateTime.date().day() )
+             .arg( dateTime.time().hour() )
+             .arg( dateTime.time().minute() )
+             .arg( dateTime.time().second() );
+    }
+
     default:
       break;
   }
@@ -657,10 +671,12 @@ void QgsProcessingUtils::parseDestinationString( QString &destination, QString &
         uri = dsUri.database();
         extension = QFileInfo( uri ).completeSuffix();
         format = QgsVectorFileWriter::driverForExtension( extension );
+        options.insert( QStringLiteral( "driverName" ), format );
       }
       else
       {
         extension = QFileInfo( uri ).completeSuffix();
+        options.insert( QStringLiteral( "driverName" ), QgsVectorFileWriter::driverForExtension( extension ) );
       }
       options.insert( QStringLiteral( "update" ), true );
     }
@@ -714,6 +730,8 @@ QgsFeatureSink *QgsProcessingUtils::createFeatureSink( QString &destination, Qgs
     {
       throw QgsProcessingException( QObject::tr( "Could not create memory layer" ) );
     }
+
+    layer->setCustomProperty( QStringLiteral( "OnConvertFormatRegeneratePrimaryKey" ), static_cast< bool >( sinkFlags & QgsFeatureSink::RegeneratePrimaryKey ) );
 
     // update destination to layer ID
     destination = layer->id();
@@ -794,7 +812,11 @@ QgsFeatureSink *QgsProcessingUtils::createFeatureSink( QString &destination, Qgs
 
         // use destination string as layer name (eg "postgis:..." )
         if ( !layerName.isEmpty() )
-          uri += QStringLiteral( "|layername=%1" ).arg( layerName );
+        {
+          QVariantMap parts = QgsProviderRegistry::instance()->decodeUri( providerKey, uri );
+          parts.insert( QStringLiteral( "layerName" ), layerName );
+          uri = QgsProviderRegistry::instance()->encodeUri( providerKey, parts );
+        }
 
         std::unique_ptr< QgsVectorLayer > layer = qgis::make_unique<QgsVectorLayer>( uri, destination, providerKey, layerOptions );
         // update destination to layer ID
@@ -825,11 +847,9 @@ QgsFeatureSink *QgsProcessingUtils::createFeatureSink( QString &destination, Qgs
         // use destination string as layer name (eg "postgis:..." )
         if ( !layerName.isEmpty() )
           uri += QStringLiteral( "|layername=%1" ).arg( layerName );
-        std::unique_ptr< QgsVectorLayer > layer = qgis::make_unique<QgsVectorLayer>( uri, destination, providerKey, layerOptions );
-        // update destination to layer ID
-        destination = layer->id();
+        // update destination to generated URI
+        destination = uri;
 
-        context.temporaryLayerStore()->addMapLayer( layer.release() );
         return new QgsProcessingFeatureSink( exporter.release(), destination, context, true );
       }
     }
@@ -1213,10 +1233,10 @@ QgsProcessingFeatureSource::QgsProcessingFeatureSource( QgsFeatureSource *origin
   , mInvalidGeometryCheck( QgsWkbTypes::geometryType( mSource->wkbType() ) == QgsWkbTypes::PointGeometry
                            ? QgsFeatureRequest::GeometryNoCheck // never run geometry validity checks for point layers!
                            : context.invalidGeometryCheck() )
-  , mInvalidGeometryCallback( context.invalidGeometryCallback() )
+  , mInvalidGeometryCallback( context.invalidGeometryCallback( originalSource ) )
   , mTransformErrorCallback( context.transformErrorCallback() )
-  , mInvalidGeometryCallbackSkip( context.defaultInvalidGeometryCallbackForCheck( QgsFeatureRequest::GeometrySkipInvalid ) )
-  , mInvalidGeometryCallbackAbort( context.defaultInvalidGeometryCallbackForCheck( QgsFeatureRequest::GeometryAbortOnInvalid ) )
+  , mInvalidGeometryCallbackSkip( context.defaultInvalidGeometryCallbackForCheck( QgsFeatureRequest::GeometrySkipInvalid, originalSource ) )
+  , mInvalidGeometryCallbackAbort( context.defaultInvalidGeometryCallbackForCheck( QgsFeatureRequest::GeometryAbortOnInvalid, originalSource ) )
   , mFeatureLimit( featureLimit )
 {}
 

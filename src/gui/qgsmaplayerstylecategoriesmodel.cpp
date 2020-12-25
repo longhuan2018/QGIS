@@ -33,6 +33,7 @@ QgsMapLayerStyleCategoriesModel::QgsMapLayerStyleCategoriesModel( QgsMapLayerTyp
     case QgsMapLayerType::AnnotationLayer:
     case QgsMapLayerType::PluginLayer:
     case QgsMapLayerType::MeshLayer:
+    case QgsMapLayerType::PointCloudLayer:
       // not yet handled by the model
       break;
   }
@@ -100,7 +101,7 @@ QVariant QgsMapLayerStyleCategoriesModel::data( const QModelIndex &index, int ro
         case Qt::DisplayRole:
           return tr( "Layer Configuration" );
         case Qt::ToolTipRole:
-          return tr( "Identifiable, removable, searchable, display expression, read-only" );
+          return tr( "Identifiable, removable, searchable, display expression, read-only, hidden" );
         case Qt::DecorationRole:
           return QgsApplication::getThemeIcon( QStringLiteral( "/propertyicons/system.svg" ) );
       }
@@ -270,6 +271,18 @@ QVariant QgsMapLayerStyleCategoriesModel::data( const QModelIndex &index, int ro
           return tr( "Legend settings" );
         case Qt::DecorationRole:
           return QgsApplication::getThemeIcon( QStringLiteral( "/legend.svg" ) );
+      }
+      break;
+
+    case QgsMapLayer::StyleCategory::Elevation:
+      switch ( role )
+      {
+        case Qt::DisplayRole:
+          return tr( "Elevation Properties" );
+        case Qt::ToolTipRole:
+          return tr( "Elevation properties" );
+        case Qt::DecorationRole:
+          return QIcon(); // TODO
       }
       break;
 

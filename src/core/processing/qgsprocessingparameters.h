@@ -331,6 +331,14 @@ class CORE_EXPORT QgsProcessingParameterDefinition
 {
 
 #ifdef SIP_RUN
+    % TypeHeaderCode
+#include "qgsprocessingparameteraggregate.h"
+#include "qgsprocessingparameterdxflayers.h"
+#include "qgsprocessingparameterfieldmap.h"
+#include "qgsprocessingparametertininputlayers.h"
+#include "qgsprocessingparametervectortilewriterlayers.h"
+#include "qgsprocessingparametermeshdataset.h"
+    % End
     SIP_CONVERT_TO_SUBCLASS_CODE
     if ( sipCpp->type() == QgsProcessingParameterBoolean::typeName() )
       sipType = sipType_QgsProcessingParameterBoolean;
@@ -410,6 +418,14 @@ class CORE_EXPORT QgsProcessingParameterDefinition
       sipType = sipType_QgsProcessingParameterFieldMapping;
     else if ( sipCpp->type() == QgsProcessingParameterTinInputLayers::typeName() )
       sipType = sipType_QgsProcessingParameterTinInputLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterVectorTileWriterLayers::typeName() )
+      sipType = sipType_QgsProcessingParameterVectorTileWriterLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterDxfLayers::typeName() )
+      sipType = sipType_QgsProcessingParameterDxfLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterMeshDatasetGroups::typeName() )
+      sipType = sipType_QgsProcessingParameterMeshDatasetGroups;
+    else if ( sipCpp->type() == QgsProcessingParameterMeshDatasetTime::typeName() )
+      sipType = sipType_QgsProcessingParameterMeshDatasetTime;
     else
       sipType = nullptr;
     SIP_END
@@ -505,6 +521,8 @@ class CORE_EXPORT QgsProcessingParameterDefinition
     /**
      * Returns the default value for the parameter.
      * \see setDefaultValue()
+     * \see defaultValueForGui()
+     * \see guiDefaultValueOverride()
      */
     QVariant defaultValue() const { return mDefault; }
 
@@ -512,8 +530,50 @@ class CORE_EXPORT QgsProcessingParameterDefinition
      * Sets the default \a value for the parameter. Caller takes responsibility
      * to ensure that \a value is a valid input for the parameter subclass.
      * \see defaultValue()
+     * \see setGuiDefaultValueOverride()
      */
     void setDefaultValue( const QVariant &value ) { mDefault = value; }
+
+    /**
+     * Returns the default value to use in the GUI for the parameter.
+     *
+     * Usually this will return an invalid variant, which indicates that the standard defaultValue()
+     * will be used in the GUI.
+     *
+     * \see defaultValue()
+     * \see setGuiDefaultValueOverride()
+     * \see defaultValueForGui()
+     *
+     * \since QGIS 3.18
+     */
+    QVariant guiDefaultValueOverride() const { return mGuiDefault; }
+
+    /**
+     * Sets the default \a value to use for the parameter in GUI widgets. Caller takes responsibility
+     * to ensure that \a value is a valid input for the parameter subclass.
+     *
+     * Usually the guiDefaultValueOverride() is a invalid variant, which indicates that the standard defaultValue()
+     * should be used in the GUI. In cases where it is decided that a previous default value was inappropriate,
+     * setting a non-invalid default GUI value can be used to change the default value for the parameter shown
+     * to users when running algorithms without changing the actual defaultValue() and potentially breaking
+     * third party scripts.
+     *
+     * \see guiDefaultValueOverride()
+     * \see setDefaultValue()
+     *
+     * \since QGIS 3.18
+     */
+    void setGuiDefaultValueOverride( const QVariant &value ) { mGuiDefault = value; }
+
+    /**
+     * Returns the default value to use for the parameter in a GUI.
+     *
+     * This will be the parameter's defaultValue(), unless a guiDefaultValueOverride() is set to
+     * override that.
+     *
+     * \since QGIS 3.18
+     */
+    QVariant defaultValueForGui() const { return mGuiDefault.isValid() ? mGuiDefault : mDefault; }
 
     /**
      * Returns any flags associated with the parameter.
@@ -729,6 +789,9 @@ class CORE_EXPORT QgsProcessingParameterDefinition
     //! Default value for parameter
     QVariant mDefault;
 
+    //! Default value for parameter in GUI
+    QVariant mGuiDefault;
+
     //! Parameter flags
     Flags mFlags;
 
@@ -926,6 +989,30 @@ class CORE_EXPORT QgsProcessingParameters
      * \since QGIS 3.4
      */
     static QList<int> parameterAsEnums( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition to a static enum string.
+     * \since QGIS 3.18
+     */
+    static QString parameterAsEnumString( const QgsProcessingParameterDefinition *definition, const QVariantMap &parameters, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition and \a value to a static enum string.
+     * \since QGIS 3.18
+     */
+    static QString parameterAsEnumString( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition to list of static enum strings.
+     * \since QGIS 3.18
+     */
+    static QStringList parameterAsEnumStrings( const QgsProcessingParameterDefinition *definition, const QVariantMap &parameters, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition and \a value to list of static enum strings.
+     * \since QGIS 3.18
+     */
+    static QStringList parameterAsEnumStrings( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
 
     /**
      * Evaluates the parameter with matching \a definition to a static boolean value.
@@ -2262,7 +2349,8 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
     QgsProcessingParameterEnum( const QString &name, const QString &description = QString(), const QStringList &options = QStringList(),
                                 bool allowMultiple = false,
                                 const QVariant &defaultValue = QVariant(),
-                                bool optional = false );
+                                bool optional = false,
+                                bool usesStaticStrings = false );
 
     /**
      * Returns the type name for the parameter class.
@@ -2299,6 +2387,22 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
      */
     void setAllowMultiple( bool allowMultiple );
 
+    /**
+     * Returns TRUE if the parameter uses static (non-translated) string
+     * values for its enumeration choice list.
+     * \see setUsesStaticStrings()
+     * \since QGIS 3.18
+     */
+    bool usesStaticStrings() const;
+
+    /**
+     * Sets whether the parameter uses static (non-translated) string
+     * values for its enumeration choice list.
+     * \see usesStaticStrings()
+     * \since QGIS 3.18
+     */
+    void setUsesStaticStrings( bool usesStaticStrings );
+
     QVariantMap toVariantMap() const override;
     bool fromVariantMap( const QVariantMap &map ) override;
 
@@ -2311,7 +2415,7 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
 
     QStringList mOptions;
     bool mAllowMultiple = false;
-
+    bool mUsesStaticStrings = false;
 };
 
 /**

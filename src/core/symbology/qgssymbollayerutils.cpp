@@ -874,7 +874,7 @@ QIcon QgsSymbolLayerUtils::colorRampPreviewIcon( QgsColorRamp *ramp, QSize size,
   return QIcon( colorRampPreviewPixmap( ramp, size, padding ) );
 }
 
-QPixmap QgsSymbolLayerUtils::colorRampPreviewPixmap( QgsColorRamp *ramp, QSize size, int padding )
+QPixmap QgsSymbolLayerUtils::colorRampPreviewPixmap( QgsColorRamp *ramp, QSize size, int padding, Qt::Orientation direction, bool flipDirection, bool drawTransparentBackground )
 {
   QPixmap pixmap( size );
   pixmap.fill( Qt::transparent );
@@ -883,16 +883,38 @@ QPixmap QgsSymbolLayerUtils::colorRampPreviewPixmap( QgsColorRamp *ramp, QSize s
   painter.begin( &pixmap );
 
   //draw stippled background, for transparent images
-  drawStippledBackground( &painter, QRect( padding, padding, size.width() - padding * 2, size.height() - padding  * 2 ) );
+  if ( drawTransparentBackground )
+    drawStippledBackground( &painter, QRect( padding, padding, size.width() - padding * 2, size.height() - padding  * 2 ) );
 
   // antialiasing makes the colors duller, and no point in antialiasing a color ramp
   // painter.setRenderHint( QPainter::Antialiasing );
-  for ( int i = 0; i < size.width(); i++ )
+  switch ( direction )
   {
-    QPen pen( ramp->color( static_cast< double >( i ) / size.width() ) );
-    painter.setPen( pen );
-    painter.drawLine( i, 0 + padding, i, size.height() - 1 - padding );
+    case Qt::Horizontal:
+    {
+      for ( int i = 0; i < size.width(); i++ )
+      {
+        QPen pen( ramp->color( static_cast< double >( i ) / size.width() ) );
+        painter.setPen( pen );
+        const int x = flipDirection ? size.width() - i - 1 : i;
+        painter.drawLine( x, 0 + padding, x, size.height() - 1 - padding );
+      }
+      break;
+    }
+
+    case Qt::Vertical:
+    {
+      for ( int i = 0; i < size.height(); i++ )
+      {
+        QPen pen( ramp->color( static_cast< double >( i ) / size.height() ) );
+        painter.setPen( pen );
+        const int y = flipDirection ? size.height() - i - 1 : i;
+        painter.drawLine( 0 + padding, y, size.width() - 1 - padding, y );
+      }
+      break;
+    }
   }
+
   painter.end();
   return pixmap;
 }
@@ -1048,7 +1070,7 @@ QgsSymbol *QgsSymbolLayerUtils::loadSymbol( const QDomElement &element, const Qg
   while ( !layerNode.isNull() )
   {
     QDomElement e = layerNode.toElement();
-    if ( !e.isNull() )
+    if ( !e.isNull() && e.tagName() != QLatin1String( "data_defined_properties" ) )
     {
       if ( e.tagName() != QLatin1String( "layer" ) )
       {
@@ -1115,6 +1137,13 @@ QgsSymbol *QgsSymbolLayerUtils::loadSymbol( const QDomElement &element, const Qg
   symbol->setOpacity( element.attribute( QStringLiteral( "alpha" ), QStringLiteral( "1.0" ) ).toDouble() );
   symbol->setClipFeaturesToExtent( element.attribute( QStringLiteral( "clip_to_extent" ), QStringLiteral( "1" ) ).toInt() );
   symbol->setForceRHR( element.attribute( QStringLiteral( "force_rhr" ), QStringLiteral( "0" ) ).toInt() );
+
+  QDomElement ddProps = element.firstChildElement( QStringLiteral( "data_defined_properties" ) );
+  if ( !ddProps.isNull() )
+  {
+    symbol->dataDefinedProperties().readXml( ddProps, QgsSymbol::propertyDefinitions() );
+  }
+
   return symbol;
 }
 
@@ -1189,6 +1218,10 @@ QDomElement QgsSymbolLayerUtils::saveSymbol( const QString &name, const QgsSymbo
   symEl.setAttribute( QStringLiteral( "clip_to_extent" ), symbol->clipFeaturesToExtent() ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
   symEl.setAttribute( QStringLiteral( "force_rhr" ), symbol->forceRHR() ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
   //QgsDebugMsg( "num layers " + QString::number( symbol->symbolLayerCount() ) );
+
+  QDomElement ddProps = doc.createElement( QStringLiteral( "data_defined_properties" ) );
+  symbol->dataDefinedProperties().writeXml( ddProps, QgsSymbol::propertyDefinitions() );
+  symEl.appendChild( ddProps );
 
   for ( int i = 0; i < symbol->symbolLayerCount(); i++ )
   {
@@ -3091,15 +3124,15 @@ QgsColorRamp *QgsSymbolLayerUtils::loadColorRamp( QDomElement &element )
   // parse properties
   QgsStringMap props = QgsSymbolLayerUtils::parseProperties( element );
 
-  if ( rampType == QLatin1String( "gradient" ) )
+  if ( rampType == QgsGradientColorRamp::typeString() )
     return QgsGradientColorRamp::create( props );
-  else if ( rampType == QLatin1String( "random" ) )
+  else if ( rampType == QgsLimitedRandomColorRamp::typeString() )
     return QgsLimitedRandomColorRamp::create( props );
-  else if ( rampType == QLatin1String( "colorbrewer" ) )
+  else if ( rampType == QgsColorBrewerColorRamp::typeString() )
     return QgsColorBrewerColorRamp::create( props );
-  else if ( rampType == QLatin1String( "cpt-city" ) )
+  else if ( rampType == QgsCptCityColorRamp::typeString() )
     return QgsCptCityColorRamp::create( props );
-  else if ( rampType == QLatin1String( "preset" ) )
+  else if ( rampType == QgsPresetSchemeColorRamp::typeString() )
     return QgsPresetSchemeColorRamp::create( props );
   else
   {
@@ -3153,15 +3186,15 @@ QgsColorRamp *QgsSymbolLayerUtils::loadColorRamp( const QVariant &value )
     props.insert( property.key(), property.value().toString() );
   }
 
-  if ( rampType == QLatin1String( "gradient" ) )
+  if ( rampType == QgsGradientColorRamp::typeString() )
     return QgsGradientColorRamp::create( props );
-  else if ( rampType == QLatin1String( "random" ) )
+  else if ( rampType == QgsLimitedRandomColorRamp::typeString() )
     return QgsLimitedRandomColorRamp::create( props );
-  else if ( rampType == QLatin1String( "colorbrewer" ) )
+  else if ( rampType == QgsColorBrewerColorRamp::typeString() )
     return QgsColorBrewerColorRamp::create( props );
-  else if ( rampType == QLatin1String( "cpt-city" ) )
+  else if ( rampType == QgsCptCityColorRamp::typeString() )
     return QgsCptCityColorRamp::create( props );
-  else if ( rampType == QLatin1String( "preset" ) )
+  else if ( rampType == QgsPresetSchemeColorRamp::typeString() )
     return QgsPresetSchemeColorRamp::create( props );
   else
   {
@@ -3261,23 +3294,26 @@ QMimeData *QgsSymbolLayerUtils::colorToMimeData( const QColor &color )
 
 QColor QgsSymbolLayerUtils::colorFromMimeData( const QMimeData *mimeData, bool &hasAlpha )
 {
-  if ( !mimeData->hasColor() )
-    return QColor();
-
   //attempt to read color data directly from mime
-  QColor mimeColor = mimeData->colorData().value<QColor>();
-  if ( mimeColor.isValid() )
+  if ( mimeData->hasColor() )
   {
-    hasAlpha = true;
-    return mimeColor;
+    QColor mimeColor = mimeData->colorData().value<QColor>();
+    if ( mimeColor.isValid() )
+    {
+      hasAlpha = true;
+      return mimeColor;
+    }
   }
 
   //attempt to intrepret a color from mime text data
-  hasAlpha = false;
-  QColor textColor = QgsSymbolLayerUtils::parseColorWithAlpha( mimeData->text(), hasAlpha );
-  if ( textColor.isValid() )
+  if ( mimeData->hasText() )
   {
-    return textColor;
+    hasAlpha = false;
+    QColor textColor = QgsSymbolLayerUtils::parseColorWithAlpha( mimeData->text(), hasAlpha );
+    if ( textColor.isValid() )
+    {
+      return textColor;
+    }
   }
 
   //could not get color from mime data

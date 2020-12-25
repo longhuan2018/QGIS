@@ -392,7 +392,7 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     Q_PROPERTY( QString mapTipTemplate READ mapTipTemplate WRITE setMapTipTemplate NOTIFY mapTipTemplateChanged )
     Q_PROPERTY( QgsEditFormConfig editFormConfig READ editFormConfig WRITE setEditFormConfig NOTIFY editFormConfigChanged )
     Q_PROPERTY( bool readOnly READ isReadOnly WRITE setReadOnly NOTIFY readOnlyChanged )
-    Q_PROPERTY( double opacity READ opacity WRITE setOpacity NOTIFY opacityChanged )
+    Q_PROPERTY( bool supportsEditing READ supportsEditing NOTIFY supportsEditingChanged )
 
   public:
 
@@ -516,7 +516,17 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
        */
       explicit DeleteContext( bool cascade = false, QgsProject *project = nullptr ): cascade( cascade ), project( project ) {}
 
-      QList<QgsVectorLayer *> handledLayers() const;
+      /**
+       * Returns a list of all layers affected by the delete operation.
+       *
+       * If \a includeAuxiliaryLayers is FALSE then auxiliary layers will not be included in the
+       * returned list.
+       */
+      QList<QgsVectorLayer *> handledLayers( bool includeAuxiliaryLayers = true ) const;
+
+      /**
+       * Returns a list of feature IDs from the specified \a layer affected by the delete operation.
+       */
       QgsFeatureIds handledFeatures( QgsVectorLayer *layer ) const;
 
       QMap<QgsVectorLayer *, QgsFeatureIds> mHandledFeatures SIP_SKIP;
@@ -546,6 +556,14 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     QgsVectorLayer( const QgsVectorLayer &rhs ) = delete;
     //! QgsVectorLayer cannot be copied.
     QgsVectorLayer &operator=( QgsVectorLayer const &rhs ) = delete;
+
+#ifdef SIP_RUN
+    SIP_PYOBJECT __repr__();
+    % MethodCode
+    QString str = QStringLiteral( "<QgsVectorLayer: '%1' (%2)>" ).arg( sipCpp->name(), sipCpp->dataProvider() ? sipCpp->dataProvider()->name() : QStringLiteral( "Invalid" ) );
+    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+    % End
+#endif
 
     /**
      * Returns a new instance equivalent to this one. A new provider is
@@ -1018,49 +1036,12 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
      */
     const QgsAuxiliaryLayer *auxiliaryLayer() const SIP_SKIP;
 
-    /**
-     * Reads the symbology for the current layer from the Dom node supplied.
-     * \param layerNode node that will contain the symbology definition for this layer.
-     * \param errorMessage reference to string that will be updated with any error messages
-     * \param context reading context (used for transform from relative to absolute paths)
-     * \param categories the style categories to be read
-     * \returns TRUE in case of success.
-     */
     bool readSymbology( const QDomNode &layerNode, QString &errorMessage,
                         QgsReadWriteContext &context, QgsMapLayer::StyleCategories categories = QgsMapLayer::AllStyleCategories ) FINAL;
-
-    /**
-     * Reads the style for the current layer from the Dom node supplied.
-     * \param node node that will contain the style definition for this layer.
-     * \param errorMessage reference to string that will be updated with any error messages
-     * \param context reading context (used for transform from relative to absolute paths)
-     * \param categories the style categories to be read
-     * \returns TRUE in case of success.
-     */
     bool readStyle( const QDomNode &node, QString &errorMessage,
                     QgsReadWriteContext &context, QgsMapLayer::StyleCategories categories = QgsMapLayer::AllStyleCategories ) FINAL;
-
-    /**
-     * Writes the symbology for the layer into the document provided.
-     *  \param node the node that will have the style element added to it.
-     *  \param doc the document that will have the QDomNode added.
-     *  \param errorMessage reference to string that will be updated with any error messages
-     *  \param context writing context (used for transform from absolute to relative paths)
-     *  \param categories the style categories to be written
-     *  \returns TRUE in case of success.
-     */
     bool writeSymbology( QDomNode &node, QDomDocument &doc, QString &errorMessage,
                          const QgsReadWriteContext &context, QgsMapLayer::StyleCategories categories = QgsMapLayer::AllStyleCategories ) const FINAL;
-
-    /**
-     * Writes just the style information for the layer into the document
-     *  \param node the node that will have the style element added to it.
-     *  \param doc the document that will have the QDomNode added.
-     *  \param errorMessage reference to string that will be updated with any error messages
-     *  \param context writing context (used for transform from absolute to relative paths)
-     *  \param categories the style categories to be written
-     *  \returns TRUE in case of success.
-     */
     bool writeStyle( QDomNode &node, QDomDocument &doc, QString &errorMessage,
                      const QgsReadWriteContext &context, QgsMapLayer::StyleCategories categories = QgsMapLayer::AllStyleCategories ) const FINAL;
 
@@ -1712,6 +1693,13 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     bool setReadOnly( bool readonly = true );
 
     /**
+     * Returns whether the layer supports editing or not
+     * \return FALSE if the layer is read only or the data provider has no editing capabilities
+     * \since QGIS 3.18
+     */
+    bool supportsEditing();
+
+    /**
      * Changes a feature's \a geometry within the layer's edit buffer
      * (but does not immediately commit the changes). The \a fid argument
      * specifies the ID of the feature to be changed.
@@ -1857,25 +1845,25 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
      * A set of attributes that are not advertised in WMS requests with QGIS server.
      * \deprecated since QGIS 3.16, use fields().configurationFlags() instead
      */
-    Q_DECL_DEPRECATED QSet<QString> excludeAttributesWms() const SIP_DEPRECATED { return mExcludeAttributesWMS; }
+    Q_DECL_DEPRECATED QSet<QString> excludeAttributesWms() const SIP_DEPRECATED;
 
     /**
      * A set of attributes that are not advertised in WMS requests with QGIS server.
      * \deprecated since QGIS 3.16, use setFieldConfigurationFlag instead
      */
-    Q_DECL_DEPRECATED void setExcludeAttributesWms( const QSet<QString> &att ) SIP_DEPRECATED { mExcludeAttributesWMS = att; }
+    Q_DECL_DEPRECATED void setExcludeAttributesWms( const QSet<QString> &att ) SIP_DEPRECATED;
 
     /**
      * A set of attributes that are not advertised in WFS requests with QGIS server.
      * \deprecated since QGIS 3.16, use fields().configurationFlags() instead
      */
-    Q_DECL_DEPRECATED QSet<QString> excludeAttributesWfs() const SIP_DEPRECATED { return mExcludeAttributesWFS; }
+    Q_DECL_DEPRECATED QSet<QString> excludeAttributesWfs() const SIP_DEPRECATED;
 
     /**
      * A set of attributes that are not advertised in WFS requests with QGIS server.
      * \deprecated since QGIS 3.16, use setFieldConfigurationFlag instead
      */
-    Q_DECL_DEPRECATED void setExcludeAttributesWfs( const QSet<QString> &att ) SIP_DEPRECATED { mExcludeAttributesWFS = att; }
+    Q_DECL_DEPRECATED void setExcludeAttributesWfs( const QSet<QString> &att ) SIP_DEPRECATED;
 
     /**
      * Deletes an attribute field (but does not commit it).
@@ -2241,24 +2229,6 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     //! Returns the current blending mode for features
     QPainter::CompositionMode featureBlendMode() const;
 
-    /**
-     * Sets the \a opacity for the vector layer, where \a opacity is a value between 0 (totally transparent)
-     * and 1.0 (fully opaque).
-     * \see opacity()
-     * \see opacityChanged()
-     * \since QGIS 3.0
-     */
-    void setOpacity( double opacity );
-
-    /**
-     * Returns the opacity for the vector layer, where opacity is a value between 0 (totally transparent)
-     * and 1.0 (fully opaque).
-     * \see setOpacity()
-     * \see opacityChanged()
-     * \since QGIS 3.0
-     */
-    double opacity() const;
-
     QString htmlMetadata() const FINAL;
 
     /**
@@ -2382,7 +2352,7 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
      *   to do in order to be able to save the changes.
      * - to set the property back to TRUE, once the user has fixed his data.
      *
-     * When calling \see commitChanges(), this flag is checked just after the
+     * When calling \see commitChanges() this flag is checked just after the
      * \see beforeCommitChanges() signal is emitted, so it's possible to adjust it from there.
      *
      * \note Not available in Python bindings
@@ -2401,7 +2371,7 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
      *   to do in order to be able to save the changes.
      * - to set the property back to TRUE, once the user has fixed his data.
      *
-     * When calling \see commitChanges(), this flag is checked just after the
+     * When calling \see commitChanges() this flag is checked just after the
      * \see beforeCommitChanges() signal is emitted, so it's possible to adjust it from there.
      *
      * \note Not available in Python bindings
@@ -2680,15 +2650,6 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     void featureBlendModeChanged( QPainter::CompositionMode blendMode );
 
     /**
-     * Emitted when the layer's opacity is changed, where \a opacity is a value between 0 (transparent)
-     * and 1 (opaque).
-     * \see setOpacity()
-     * \see opacity()
-     * \since QGIS 3.0
-     */
-    void opacityChanged( double opacity );
-
-    /**
      * Signal emitted when a new edit command has been started
      *
      * \param text Description for this edit command
@@ -2764,6 +2725,13 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
      * \since QGIS 3.0
      */
     void readOnlyChanged();
+
+    /**
+     * Emitted when the read only state or the data provider of this layer is changed.
+     *
+     * \since QGIS 3.18
+     */
+    void supportsEditingChanged();
 
     /**
      * Emitted when the feature count for symbols on this layer has been recalculated.
@@ -2880,12 +2848,6 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
     //! Holds the configuration for the edit form
     QgsEditFormConfig mEditFormConfig;
 
-    //! Attributes which are not published in WMS
-    QSet<QString> mExcludeAttributesWMS;
-
-    //! Attributes which are not published in WFS
-    QSet<QString> mExcludeAttributesWFS;
-
     //! Geometry type as defined in enum WkbType (qgis.h)
     QgsWkbTypes::Type mWkbType = QgsWkbTypes::Unknown;
 
@@ -2906,9 +2868,6 @@ class CORE_EXPORT QgsVectorLayer : public QgsMapLayer, public QgsExpressionConte
 
     //! Blend mode for features
     QPainter::CompositionMode mFeatureBlendMode = QPainter::CompositionMode_SourceOver;
-
-    //! Layer opacity
-    double mLayerOpacity = 1.0;
 
     //! Flag if the vertex markers should be drawn only for selection (TRUE) or for all features (FALSE)
     bool mVertexMarkerOnlyForSelection = false;

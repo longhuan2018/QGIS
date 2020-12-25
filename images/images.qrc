@@ -32,6 +32,7 @@
         <file>flags/pt_PT.svg</file>
         <file>flags/ro.svg</file>
         <file>flags/ru.svg</file>
+        <file>flags/sc.svg</file>
         <file>flags/sk.svg</file>
         <file>flags/sv.svg</file>
         <file>flags/sw.svg</file>
@@ -239,6 +240,7 @@
         <file>themes/default/mActionAddWmsLayer.svg</file>
         <file>themes/default/mActionAddXyzLayer.svg</file>
         <file>themes/default/mActionAddVectorTileLayer.svg</file>
+        <file>themes/default/mActionAddPointCloudLayer.svg</file>
         <file>themes/default/mActionAddGeonodeLayer.svg</file>
         <file>themes/default/mActionAddDelimitedTextLayer.svg</file>
         <file>themes/default/mActionAddVirtualLayer.svg</file>
@@ -453,6 +455,7 @@
         <file>themes/default/mActionFirst.svg</file>
         <file>themes/default/mIconAtlas.svg</file>
         <file>themes/default/mIconAutoPlacementSettings.svg</file>
+        <file>themes/default/mIconCamera.svg</file>
         <file>themes/default/mIconCertificate.svg</file>
         <file>themes/default/mIconCertificateMissing.svg</file>
         <file>themes/default/mIconCertificateTrusted.svg</file>
@@ -523,6 +526,7 @@
         <file>themes/default/mIconRasterGroup.svg</file>
         <file>themes/default/mIconRasterLink.svg</file>
         <file>themes/default/mIconRasterLayer.svg</file>
+        <file>themes/default/mIconShadow.svg</file>
         <file>themes/default/mIconSelectAdd.svg</file>
         <file>themes/default/mIconSelected.svg</file>
         <file>themes/default/mIconSelectIntersect.svg</file>
@@ -534,6 +538,7 @@
         <file>themes/default/mIconTreeView.svg</file>
         <file>themes/default/mIconVector.svg</file>
         <file>themes/default/mIconVectorTileLayer.svg</file>
+        <file>themes/default/mIconPointCloudLayer.svg</file>
         <file>themes/default/mIconVirtualLayer.svg</file>
         <file>themes/default/mIconWcs.svg</file>
         <file>themes/default/mIconWfs.svg</file>
@@ -854,6 +859,7 @@
         <file>themes/default/mIconModelInput.svg</file>
         <file>themes/default/mIndicatorTemporal.svg</file>
         <file>themes/default/mIndicatorTimeFromProject.svg</file>
+        <file>themes/default/mIndicatorOffline.svg</file>
         <file>themes/default/temporal_navigation/back.svg</file>
         <file>themes/default/temporal_navigation/forward.svg</file>
         <file>themes/default/temporal_navigation/next.svg</file>

@@ -73,6 +73,12 @@ QgsUnitTypes::RenderUnit QgsSimpleFillSymbolLayer::outputUnit() const
   return unit;
 }
 
+bool QgsSimpleFillSymbolLayer::usesMapUnits() const
+{
+  return mStrokeWidthUnit == QgsUnitTypes::RenderMapUnits || mStrokeWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
+}
+
 void QgsSimpleFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
 {
   mStrokeWidthMapUnitScale = scale;
@@ -98,7 +104,9 @@ void QgsSimpleFillSymbolLayer::applyDataDefinedSymbology( QgsSymbolRenderContext
   if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyFillColor ) )
   {
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mColor ) );
-    brush.setColor( mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyFillColor, context.renderContext().expressionContext(), mColor ) );
+    QColor fillColor = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyFillColor, context.renderContext().expressionContext(), mColor );
+    fillColor.setAlphaF( context.opacity() * fillColor.alphaF() );
+    brush.setColor( fillColor );
   }
   if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyFillStyle ) )
   {
@@ -110,7 +118,9 @@ void QgsSimpleFillSymbolLayer::applyDataDefinedSymbology( QgsSymbolRenderContext
   if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyStrokeColor ) )
   {
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mStrokeColor ) );
-    pen.setColor( mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mStrokeColor ) );
+    QColor penColor = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mStrokeColor );
+    penColor.setAlphaF( context.opacity() * penColor.alphaF() );
+    pen.setColor( penColor );
   }
   if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyStrokeWidth ) )
   {
@@ -276,6 +286,13 @@ void QgsSimpleFillSymbolLayer::renderPolygon( const QPolygonF &points, const QVe
   {
     return;
   }
+
+  QColor fillColor = mColor;
+  fillColor.setAlphaF( context.opacity() * mColor.alphaF() );
+  mBrush.setColor( fillColor );
+  QColor strokeColor = mStrokeColor;
+  strokeColor.setAlphaF( context.opacity() * mStrokeColor.alphaF() );
+  mPen.setColor( strokeColor );
 
   applyDataDefinedSymbology( context, mBrush, mPen, mSelPen );
 
@@ -567,7 +584,7 @@ QgsSymbolLayer *QgsGradientFillSymbolLayer::create( const QgsStringMap &props )
 
   //attempt to create color ramp from props
   QgsColorRamp *gradientRamp = nullptr;
-  if ( props.contains( QStringLiteral( "rampType" ) ) && props[QStringLiteral( "rampType" )] == QLatin1String( "cpt-city" ) )
+  if ( props.contains( QStringLiteral( "rampType" ) ) && props[QStringLiteral( "rampType" )] == QgsCptCityColorRamp::typeString() )
   {
     gradientRamp = QgsCptCityColorRamp::create( props );
   }
@@ -625,6 +642,7 @@ void QgsGradientFillSymbolLayer::applyDataDefinedSymbology( QgsSymbolRenderConte
   {
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mColor ) );
     color = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyFillColor, context.renderContext().expressionContext(), mColor );
+    color.setAlphaF( context.opacity() * color.alphaF() );
   }
 
   //second gradient color
@@ -633,6 +651,7 @@ void QgsGradientFillSymbolLayer::applyDataDefinedSymbology( QgsSymbolRenderConte
   {
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mColor2 ) );
     color2 = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertySecondaryColor, context.renderContext().expressionContext(), mColor2 );
+    color2.setAlphaF( context.opacity() * color2.alphaF() );
   }
 
   //gradient rotation angle
@@ -848,7 +867,7 @@ void QgsGradientFillSymbolLayer::applyGradient( const QgsSymbolRenderContext &co
 
   //add stops to gradient
   if ( gradientColorType == QgsGradientFillSymbolLayer::ColorRamp && gradientRamp &&
-       ( gradientRamp->type() == QLatin1String( "gradient" ) || gradientRamp->type() == QLatin1String( "cpt-city" ) ) )
+       ( gradientRamp->type() == QgsGradientColorRamp::typeString() || gradientRamp->type() == QgsCptCityColorRamp::typeString() ) )
   {
     //color ramp gradient
     QgsGradientColorRamp *gradRamp = static_cast<QgsGradientColorRamp *>( gradientRamp );
@@ -979,6 +998,11 @@ QgsUnitTypes::RenderUnit QgsGradientFillSymbolLayer::outputUnit() const
   return mOffsetUnit;
 }
 
+bool QgsGradientFillSymbolLayer::usesMapUnits() const
+{
+  return mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
+}
+
 void QgsGradientFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
 {
   mOffsetMapUnitScale = scale;
@@ -1057,7 +1081,7 @@ QgsSymbolLayer *QgsShapeburstFillSymbolLayer::create( const QgsStringMap &props 
 
   //attempt to create color ramp from props
   QgsColorRamp *gradientRamp = nullptr;
-  if ( props.contains( QStringLiteral( "rampType" ) ) && props[QStringLiteral( "rampType" )] == QLatin1String( "cpt-city" ) )
+  if ( props.contains( QStringLiteral( "rampType" ) ) && props[QStringLiteral( "rampType" )] == QgsCptCityColorRamp::typeString() )
   {
     gradientRamp = QgsCptCityColorRamp::create( props );
   }
@@ -1607,6 +1631,12 @@ QgsUnitTypes::RenderUnit QgsShapeburstFillSymbolLayer::outputUnit() const
     return mDistanceUnit;
   }
   return QgsUnitTypes::RenderUnknownUnit;
+}
+
+bool QgsShapeburstFillSymbolLayer::usesMapUnits() const
+{
+  return mDistanceUnit == QgsUnitTypes::RenderMapUnits || mDistanceUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
 }
 
 void QgsShapeburstFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
@@ -2185,6 +2215,12 @@ void QgsSVGFillSymbolLayer::toSld( QDomDocument &doc, QDomElement &element, cons
   }
 }
 
+bool QgsSVGFillSymbolLayer::usesMapUnits() const
+{
+  return mPatternWidthUnit == QgsUnitTypes::RenderMapUnits || mPatternWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mSvgStrokeWidthUnit == QgsUnitTypes::RenderMapUnits || mSvgStrokeWidthUnit == QgsUnitTypes::RenderMetersInMapUnits;
+}
+
 QgsSymbolLayer *QgsSVGFillSymbolLayer::createFromSld( QDomElement &element )
 {
   QString path, mimeType;
@@ -2453,6 +2489,13 @@ QgsUnitTypes::RenderUnit QgsLinePatternFillSymbolLayer::outputUnit() const
     return QgsUnitTypes::RenderUnknownUnit;
   }
   return unit;
+}
+
+bool QgsLinePatternFillSymbolLayer::usesMapUnits() const
+{
+  return mDistanceUnit == QgsUnitTypes::RenderMapUnits || mDistanceUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mLineWidthUnit == QgsUnitTypes::RenderMapUnits || mLineWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
 }
 
 void QgsLinePatternFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
@@ -3122,6 +3165,16 @@ QgsUnitTypes::RenderUnit QgsPointPatternFillSymbolLayer::outputUnit() const
   return unit;
 }
 
+bool QgsPointPatternFillSymbolLayer::usesMapUnits() const
+{
+  return mDistanceXUnit == QgsUnitTypes::RenderMapUnits || mDistanceXUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mDistanceYUnit == QgsUnitTypes::RenderMapUnits || mDistanceYUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mDisplacementXUnit == QgsUnitTypes::RenderMapUnits || mDisplacementXUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mDisplacementYUnit == QgsUnitTypes::RenderMapUnits || mDisplacementYUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetXUnit == QgsUnitTypes::RenderMapUnits || mOffsetXUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetYUnit == QgsUnitTypes::RenderMapUnits || mOffsetYUnit == QgsUnitTypes::RenderMetersInMapUnits;
+}
+
 void QgsPointPatternFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
 {
   QgsImageFillSymbolLayer::setMapUnitScale( scale );
@@ -3739,7 +3792,6 @@ QColor QgsCentroidFillSymbolLayer::color() const
 
 void QgsCentroidFillSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
-  mMarker->setOpacity( context.opacity() );
   mMarker->startRender( context.renderContext(), context.fields() );
 
   mCurrentFeatureId = -1;
@@ -3762,12 +3814,16 @@ void QgsCentroidFillSymbolLayer::renderPolygon( const QPolygonF &points, const Q
   {
     // in the middle of rendering a possibly multi-part feature, so we collect all the parts and defer the actual rendering
     // until after we've received the final part
+    mFeatureSymbolOpacity = context.opacity();
     mCurrentParts << part;
   }
   else
   {
     // not rendering a feature, so we can just render the polygon immediately
+    const double prevOpacity = mMarker->opacity();
+    mMarker->setOpacity( mMarker->opacity() * context.opacity() );
     render( context.renderContext(), QVector<Part>() << part, context.feature() ? *context.feature() : QgsFeature(), context.selected() );
+    mMarker->setOpacity( prevOpacity );
   }
 }
 
@@ -3780,7 +3836,13 @@ void QgsCentroidFillSymbolLayer::startFeatureRender( const QgsFeature &, QgsRend
 void QgsCentroidFillSymbolLayer::stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context )
 {
   mRenderingFeature = false;
+
+  const double prevOpacity = mMarker->opacity();
+  mMarker->setOpacity( mMarker->opacity() * mFeatureSymbolOpacity );
+
   render( context, mCurrentParts, feature, false );
+  mFeatureSymbolOpacity = 1;
+  mMarker->setOpacity( prevOpacity );
 }
 
 void QgsCentroidFillSymbolLayer::render( QgsRenderContext &context, const QVector<QgsCentroidFillSymbolLayer::Part> &parts, const QgsFeature &feature, bool selected )
@@ -3972,6 +4034,15 @@ QgsUnitTypes::RenderUnit QgsCentroidFillSymbolLayer::outputUnit() const
   return QgsUnitTypes::RenderUnknownUnit; //mOutputUnit;
 }
 
+bool QgsCentroidFillSymbolLayer::usesMapUnits() const
+{
+  if ( mMarker )
+  {
+    return mMarker->usesMapUnits();
+  }
+  return false;
+}
+
 void QgsCentroidFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
 {
   if ( mMarker )
@@ -4123,7 +4194,7 @@ void QgsRasterFillSymbolLayer::renderPolygon( const QPolygonF &points, const QVe
 
 void QgsRasterFillSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
-  applyPattern( mBrush, mImageFilePath, mWidth, mOpacity, context );
+  applyPattern( mBrush, mImageFilePath, mWidth, mOpacity * context.opacity(), context );
 }
 
 void QgsRasterFillSymbolLayer::stopRender( QgsSymbolRenderContext &context )
@@ -4167,6 +4238,12 @@ QgsRasterFillSymbolLayer *QgsRasterFillSymbolLayer::clone() const
 double QgsRasterFillSymbolLayer::estimateMaxBleed( const QgsRenderContext &context ) const
 {
   return context.convertToPainterUnits( std::max( std::fabs( mOffset.x() ), std::fabs( mOffset.y() ) ), mOffsetUnit, mOffsetMapUnitScale );
+}
+
+bool QgsRasterFillSymbolLayer::usesMapUnits() const
+{
+  return mWidthUnit == QgsUnitTypes::RenderMapUnits || mWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
 }
 
 void QgsRasterFillSymbolLayer::setImageFilePath( const QString &imagePath )
@@ -4339,7 +4416,6 @@ QColor QgsRandomMarkerFillSymbolLayer::color() const
 
 void QgsRandomMarkerFillSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
-  mMarker->setOpacity( context.opacity() );
   mMarker->startRender( context.renderContext(), context.fields() );
 }
 
@@ -4359,12 +4435,16 @@ void QgsRandomMarkerFillSymbolLayer::renderPolygon( const QPolygonF &points, con
   {
     // in the middle of rendering a possibly multi-part feature, so we collect all the parts and defer the actual rendering
     // until after we've received the final part
+    mFeatureSymbolOpacity = context.opacity();
     mCurrentParts << part;
   }
   else
   {
     // not rendering a feature, so we can just render the polygon immediately
+    const double prevOpacity = mMarker->opacity();
+    mMarker->setOpacity( mMarker->opacity() * context.opacity() );
     render( context.renderContext(), QVector< Part>() << part, context.feature() ? *context.feature() : QgsFeature(), context.selected() );
+    mMarker->setOpacity( prevOpacity );
   }
 }
 
@@ -4600,7 +4680,14 @@ void QgsRandomMarkerFillSymbolLayer::startFeatureRender( const QgsFeature &, Qgs
 void QgsRandomMarkerFillSymbolLayer::stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context )
 {
   mRenderingFeature = false;
+
+  const double prevOpacity = mMarker->opacity();
+  mMarker->setOpacity( mMarker->opacity() * mFeatureSymbolOpacity );
+
   render( context, mCurrentParts, feature, false );
+
+  mFeatureSymbolOpacity = 1;
+  mMarker->setOpacity( prevOpacity );
 }
 
 
@@ -4619,6 +4706,15 @@ QgsUnitTypes::RenderUnit QgsRandomMarkerFillSymbolLayer::outputUnit() const
     return mMarker->outputUnit();
   }
   return QgsUnitTypes::RenderUnknownUnit; //mOutputUnit;
+}
+
+bool QgsRandomMarkerFillSymbolLayer::usesMapUnits() const
+{
+  if ( mMarker )
+  {
+    return mMarker->usesMapUnits();
+  }
+  return false;
 }
 
 void QgsRandomMarkerFillSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )

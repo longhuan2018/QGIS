@@ -56,6 +56,8 @@
 #include "qgsmeshlayer3drenderer.h"
 #include "qgspoint3dsymbol.h"
 #include "qgsrulebased3drenderer.h"
+#include "qgspointcloudlayer.h"
+#include "qgspointcloudlayer3drenderer.h"
 #include "qgssourcecache.h"
 #include "qgsterrainentity_p.h"
 #include "qgsterraingenerator.h"
@@ -126,9 +128,16 @@ Qgs3DMapScene::Qgs3DMapScene( const Qgs3DMapSettings &map, QgsAbstract3DEngine *
   connect( &map, &Qgs3DMapSettings::directionalLightsChanged, this, &Qgs3DMapScene::updateLights );
   connect( &map, &Qgs3DMapSettings::showLightSourceOriginsChanged, this, &Qgs3DMapScene::updateLights );
   connect( &map, &Qgs3DMapSettings::fieldOfViewChanged, this, &Qgs3DMapScene::updateCameraLens );
+  connect( &map, &Qgs3DMapSettings::projectionTypeChanged, this, &Qgs3DMapScene::updateCameraLens );
   connect( &map, &Qgs3DMapSettings::renderersChanged, this, &Qgs3DMapScene::onRenderersChanged );
   connect( &map, &Qgs3DMapSettings::skyboxSettingsChanged, this, &Qgs3DMapScene::onSkyboxSettingsChanged );
   connect( &map, &Qgs3DMapSettings::shadowSettingsChanged, this, &Qgs3DMapScene::onShadowSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::eyeDomeLightingEnabledChanged, this, &Qgs3DMapScene::onEyeDomeShadingSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::eyeDomeLightingStrengthChanged, this, &Qgs3DMapScene::onEyeDomeShadingSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::eyeDomeLightingDistanceChanged, this, &Qgs3DMapScene::onEyeDomeShadingSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::debugShadowMapSettingsChanged, this, &Qgs3DMapScene::onDebugShadowMapSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::debugDepthMapSettingsChanged, this, &Qgs3DMapScene::onDebugDepthMapSettingsChanged );
+  connect( &map, &Qgs3DMapSettings::fpsCounterEnabledChanged, this, &Qgs3DMapScene::fpsCounterEnabledChanged );
 
   connect( QgsApplication::instance()->sourceCache(), &QgsSourceCache::remoteSourceFetched, this, [ = ]( const QString & url )
   {
@@ -212,6 +221,11 @@ Qgs3DMapScene::Qgs3DMapScene( const Qgs3DMapSettings &map, QgsAbstract3DEngine *
 
   // force initial update of chunked entities
   onCameraChanged();
+  // force initial update of eye dome shading
+  onEyeDomeShadingSettingsChanged();
+  // force initial update of debugging setting of preview quads
+  onDebugShadowMapSettingsChanged();
+  onDebugDepthMapSettingsChanged();
 }
 
 void Qgs3DMapScene::viewZoomFull()
@@ -308,6 +322,14 @@ QgsChunkedEntity::SceneState _sceneState( QgsCameraController *cameraController 
 
 void Qgs3DMapScene::onCameraChanged()
 {
+  if ( mMap.projectionType() == Qt3DRender::QCameraLens::OrthographicProjection )
+  {
+    QRect viewportRect( QPoint( 0, 0 ), mEngine->size() );
+    const float viewWidthFromCenter = mCameraController->distance();
+    const float viewHeightFromCenter =  viewportRect.height() * viewWidthFromCenter / viewportRect.width();
+    mEngine->camera()->lens()->setOrthographicProjection( -viewWidthFromCenter, viewWidthFromCenter, -viewHeightFromCenter, viewHeightFromCenter, mEngine->camera()->nearPlane(), mEngine->camera()->farPlane() );
+  }
+
   updateScene();
   bool changedCameraPlanes = updateCameraNearFarPlanes();
 
@@ -373,6 +395,29 @@ void Qgs3DMapScene::updateScene()
   updateSceneState();
 }
 
+static void _updateNearFarPlane( const QList<QgsChunkNode *> &activeNodes, const QMatrix4x4 &viewMatrix, float &fnear, float &ffar )
+{
+  for ( QgsChunkNode *node : activeNodes )
+  {
+    // project each corner of bbox to camera coordinates
+    // and determine closest and farthest point.
+    QgsAABB bbox = node->bbox();
+    for ( int i = 0; i < 8; ++i )
+    {
+      QVector4D p( ( ( i >> 0 ) & 1 ) ? bbox.xMin : bbox.xMax,
+                   ( ( i >> 1 ) & 1 ) ? bbox.yMin : bbox.yMax,
+                   ( ( i >> 2 ) & 1 ) ? bbox.zMin : bbox.zMax, 1 );
+      QVector4D pc = viewMatrix * p;
+
+      float dst = -pc.z();  // in camera coordinates, x grows right, y grows down, z grows to the back
+      if ( dst < fnear )
+        fnear = dst;
+      if ( dst > ffar )
+        ffar = dst;
+    }
+  }
+}
+
 bool Qgs3DMapScene::updateCameraNearFarPlanes()
 {
   // Update near and far plane from the terrain.
@@ -402,25 +447,16 @@ bool Qgs3DMapScene::updateCameraNearFarPlanes()
     if ( activeNodes.isEmpty() )
       activeNodes << mTerrain->rootNode();
 
-    Q_FOREACH ( QgsChunkNode *node, activeNodes )
-    {
-      // project each corner of bbox to camera coordinates
-      // and determine closest and farthest point.
-      QgsAABB bbox = node->bbox();
-      for ( int i = 0; i < 8; ++i )
-      {
-        QVector4D p( ( ( i >> 0 ) & 1 ) ? bbox.xMin : bbox.xMax,
-                     ( ( i >> 1 ) & 1 ) ? bbox.yMin : bbox.yMax,
-                     ( ( i >> 2 ) & 1 ) ? bbox.zMin : bbox.zMax, 1 );
-        QVector4D pc = viewMatrix * p;
+    _updateNearFarPlane( activeNodes, viewMatrix, fnear, ffar );
 
-        float dst = -pc.z();  // in camera coordinates, x grows right, y grows down, z grows to the back
-        if ( dst < fnear )
-          fnear = dst;
-        if ( dst > ffar )
-          ffar = dst;
-      }
+    // Also involve all the other chunked entities to make sure that they will not get
+    // clipped by the near or far plane
+    for ( QgsChunkedEntity *e : qgis::as_const( mChunkEntities ) )
+    {
+      if ( e != mTerrain )
+        _updateNearFarPlane( e->activeNodes(), viewMatrix, fnear, ffar );
     }
+
     if ( fnear < 1 )
       fnear = 1;  // does not really make sense to use negative far plane (behind camera)
 
@@ -428,7 +464,7 @@ bool Qgs3DMapScene::updateCameraNearFarPlanes()
     {
       // the update didn't work out... this should not happen
       // well at least temporarily use some conservative starting values
-      qDebug() << "oops... this should not happen! couldn't determine near/far plane. defaulting to 1...1e9";
+      qWarning() << "oops... this should not happen! couldn't determine near/far plane. defaulting to 1...1e9";
       fnear = 1;
       ffar = 1e9;
     }
@@ -444,7 +480,7 @@ bool Qgs3DMapScene::updateCameraNearFarPlanes()
     }
   }
   else
-    qDebug() << "no terrain - not setting near/far plane";
+    qWarning() << "no terrain - not setting near/far plane";
 
   return false;
 }
@@ -463,6 +499,27 @@ void Qgs3DMapScene::onFrameTriggered( float dt )
   }
 
   updateSceneState();
+
+  // lock changing the FPS counter to 5 fps
+  static int frameCount = 0;
+  static float accumulatedTime = 0.0f;
+
+  if ( !mMap.isFpsCounterEnabled() )
+  {
+    frameCount = 0;
+    accumulatedTime = 0;
+    return;
+  }
+
+  frameCount++;
+  accumulatedTime += dt;
+  if ( accumulatedTime >= 0.2f )
+  {
+    float fps = ( float )frameCount / accumulatedTime;
+    frameCount = 0;
+    accumulatedTime = 0.0f;
+    emit fpsCountChanged( fps );
+  }
 }
 
 void Qgs3DMapScene::createTerrain()
@@ -490,8 +547,11 @@ void Qgs3DMapScene::createTerrainDeferred()
 {
   double tile0width = mMap.terrainGenerator()->extent().width();
   int maxZoomLevel = Qgs3DUtils::maxZoomLevel( tile0width, mMap.mapTileResolution(), mMap.maxTerrainGroundError() );
+  QgsAABB rootBbox = mMap.terrainGenerator()->rootChunkBbox( mMap );
+  float rootError = mMap.terrainGenerator()->rootChunkError( mMap );
+  mMap.terrainGenerator()->setupQuadtree( rootBbox, rootError, maxZoomLevel );
 
-  mTerrain = new QgsTerrainEntity( maxZoomLevel, mMap );
+  mTerrain = new QgsTerrainEntity( mMap );
   //mTerrain->setEnabled(false);
   mTerrain->setParent( this );
 
@@ -608,6 +668,7 @@ void Qgs3DMapScene::updateLights()
 void Qgs3DMapScene::updateCameraLens()
 {
   mEngine->camera()->lens()->setFieldOfView( mMap.fieldOfView() );
+  mEngine->camera()->lens()->setProjectionType( mMap.projectionType() );
   onCameraChanged();
 }
 
@@ -734,6 +795,11 @@ void Qgs3DMapScene::addLayerEntity( QgsMapLayer *layer )
       sym->setMaximumTextureSize( maximumTextureSize() );
       meshRenderer->setSymbol( sym );
     }
+    else if ( layer->type() == QgsMapLayerType::PointCloudLayer && renderer->type() == QLatin1String( "pointcloud" ) )
+    {
+      QgsPointCloudLayer3DRenderer *pointCloudRenderer = static_cast<QgsPointCloudLayer3DRenderer *>( renderer );
+      pointCloudRenderer->setLayer( static_cast<QgsPointCloudLayer *>( layer ) );
+    }
 
     Qt3DCore::QEntity *newEntity = renderer->createEntity( mMap );
     if ( newEntity )
@@ -764,12 +830,13 @@ void Qgs3DMapScene::addLayerEntity( QgsMapLayer *layer )
   if ( needsSceneUpdate )
     onCameraChanged();   // needed for chunked entities
 
-  connect( layer, &QgsMapLayer::renderer3DChanged, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
+  connect( layer, &QgsMapLayer::request3DUpdate, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
 
   if ( layer->type() == QgsMapLayerType::VectorLayer )
   {
     QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( layer );
     connect( vlayer, &QgsVectorLayer::selectionChanged, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
+    connect( vlayer, &QgsVectorLayer::layerModified, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
   }
 
   if ( layer->type() == QgsMapLayerType::MeshLayer )
@@ -791,12 +858,13 @@ void Qgs3DMapScene::removeLayerEntity( QgsMapLayer *layer )
   if ( entity )
     entity->deleteLater();
 
-  disconnect( layer, &QgsMapLayer::renderer3DChanged, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
+  disconnect( layer, &QgsMapLayer::request3DUpdate, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
 
   if ( layer->type() == QgsMapLayerType::VectorLayer )
   {
     QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( layer );
     disconnect( vlayer, &QgsVectorLayer::selectionChanged, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
+    disconnect( vlayer, &QgsVectorLayer::layerModified, this, &Qgs3DMapScene::onLayerRenderer3DChanged );
     mModelVectorLayers.removeAll( layer );
   }
 
@@ -952,6 +1020,37 @@ void Qgs3DMapScene::onShadowSettingsChanged()
     shadowRenderingFrameGraph->setShadowRenderingEnabled( false );
 }
 
+void Qgs3DMapScene::onDebugShadowMapSettingsChanged()
+{
+  QgsWindow3DEngine *windowEngine = dynamic_cast<QgsWindow3DEngine *>( mEngine );
+  if ( windowEngine == nullptr )
+    return;
+  QgsShadowRenderingFrameGraph *shadowRenderingFrameGraph = windowEngine->shadowRenderingFrameGraph();
+  shadowRenderingFrameGraph->setupShadowMapDebugging( mMap.debugShadowMapEnabled(), mMap.debugShadowMapCorner(), mMap.debugShadowMapSize() );
+}
+
+void Qgs3DMapScene::onDebugDepthMapSettingsChanged()
+{
+  QgsWindow3DEngine *windowEngine = dynamic_cast<QgsWindow3DEngine *>( mEngine );
+  if ( windowEngine == nullptr )
+    return;
+  QgsShadowRenderingFrameGraph *shadowRenderingFrameGraph = windowEngine->shadowRenderingFrameGraph();
+  shadowRenderingFrameGraph->setupDepthMapDebugging( mMap.debugDepthMapEnabled(), mMap.debugDepthMapCorner(), mMap.debugDepthMapSize() );
+}
+
+void Qgs3DMapScene::onEyeDomeShadingSettingsChanged()
+{
+  QgsWindow3DEngine *windowEngine = dynamic_cast<QgsWindow3DEngine *>( mEngine );
+  if ( windowEngine == nullptr )
+    return;
+  QgsShadowRenderingFrameGraph *shadowRenderingFrameGraph = windowEngine->shadowRenderingFrameGraph();
+
+  bool edlEnabled = mMap.eyeDomeLightingEnabled();
+  double edlStrength = mMap.eyeDomeLightingStrength();
+  double edlDistance = mMap.eyeDomeLightingDistance();
+  shadowRenderingFrameGraph->setupEyeDomeLighting( edlEnabled, edlStrength, edlDistance );
+}
+
 void Qgs3DMapScene::exportScene( const Qgs3DMapExportSettings &exportSettings )
 {
   QVector<QString> notParsedLayers;
@@ -980,6 +1079,7 @@ void Qgs3DMapScene::exportScene( const Qgs3DMapExportSettings &exportSettings )
       case QgsMapLayerType::MeshLayer:
       case QgsMapLayerType::VectorTileLayer:
       case QgsMapLayerType::AnnotationLayer:
+      case QgsMapLayerType::PointCloudLayer:
         notParsedLayers.push_back( layer->name() );
         break;
     }

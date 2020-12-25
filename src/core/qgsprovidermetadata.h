@@ -33,7 +33,6 @@
 #include <functional>
 #include "qgsvectorlayerexporter.h"
 #include "qgsabstractproviderconnection.h"
-#include "qgsabstractdatabaseproviderconnection.h"
 #include "qgsfields.h"
 #include "qgsexception.h"
 
@@ -43,6 +42,8 @@ class QgsTransaction;
 
 class QgsRasterDataProvider;
 class QgsMeshDataProvider;
+class QgsAbstractDatabaseProviderConnection;
+
 struct QgsMesh;
 
 /**
@@ -81,6 +82,7 @@ class CORE_EXPORT QgsMeshDriverMetadata
      * \param name name/key of the driver
      * \param description short description of the driver
      * \param capabilities driver's capabilities
+     * \param writeDatasetOnFileSuffix suffix used to write datasets on file
      */
     QgsMeshDriverMetadata( const QString &name,
                            const QString &description,
@@ -140,6 +142,18 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
   public:
 
     /**
+     * Indicates capabilities of the provider metadata implementation.
+     *
+     * \since QGIS 3.18
+     */
+    enum ProviderMetadataCapability
+    {
+      PriorityForUri = 1 << 0, //!< Indicates that the metadata can calculate a priority for a URI
+      LayerTypesForUri = 1 << 1, //!< Indicates that the metadata can determine valid layer types for a URI
+    };
+    Q_DECLARE_FLAGS( ProviderMetadataCapabilities, ProviderMetadataCapability )
+
+    /**
      * Typedef for data provider creation function.
      * \since QGIS 3.0
      */
@@ -179,6 +193,13 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
     QString description() const;
 
     /**
+     * Returns the provider metadata capabilities.
+     *
+     * \since QGIS 3.18
+     */
+    virtual QgsProviderMetadata::ProviderMetadataCapabilities capabilities() const;
+
+    /**
      * This returns the library file name
      *
      * This is used to QLibrary calls to load the data provider (only for dynamically loaded libraries)
@@ -214,10 +235,11 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
      */
     enum class FilterType
     {
-      FilterVector = 1,
-      FilterRaster,
-      FilterMesh,
-      FilterMeshDataset
+      FilterVector = 1, //!< Vector layers
+      FilterRaster, //!< Raster layers
+      FilterMesh, //!< Mesh layers
+      FilterMeshDataset, //!< Mesh datasets
+      FilterPointCloud, //!< Point clouds (since QGIS 3.18)
     };
 
     /**
@@ -237,6 +259,53 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
     virtual QList<QgsMeshDriverMetadata> meshDriversMetadata();
 
     /**
+     * Returns an integer representing the priority which this provider should have when opening
+     * a dataset with the specified \a uri.
+     *
+     * A larger priority means that the provider should be selected over others with a lower
+     * priority for the same URI.
+     *
+     * The default implementation returns 0 for all URIs.
+     *
+     * \warning Not all providers implement this functionality. Check whether capabilities() returns the
+     * ProviderMetadataCapability::PriorityForUri to determine whether a specific provider metadata object
+     * supports this method.
+     *
+     * \since QGIS 3.18
+     */
+    virtual int priorityForUri( const QString &uri ) const;
+
+    /**
+     * Returns a list of valid layer types which the provider can be used with when
+     * opening the specified \a uri.
+     *
+     * \warning Not all providers implement this functionality. Check whether capabilities() returns the
+     * ProviderMetadataCapability::LayerTypesForUri to determine whether a specific provider metadata object
+     * supports this method.
+     *
+     * \since QGIS 3.18
+     */
+    virtual QList< QgsMapLayerType > validLayerTypesForUri( const QString &uri ) const;
+
+    /**
+     * Returns TRUE if the specified \a uri is known by this provider to be something which should
+     * be blocklisted from the QGIS interface, e.g. an internal detail only.
+     *
+     * Specifically, this method can be utilized by the browser panel to hide noisy internal details
+     * by returning TRUE for URIs which are known to be sidecar files only, such as ".aux.xml" files
+     * or ".shp.xml" files, or the "ept-build.json" files which sit alongside Entwine "ept.json" point
+     * cloud sources.
+     *
+     * The default method returns FALSE for all URIs.
+     *
+     * \warning Returning TRUE from an implementation of this method indicates that ALL providers should
+     * ignore the specified \a uri, not just the provider associated with this metadata!
+     *
+     * \since QGIS 3.18
+     */
+    virtual bool uriIsBlocklisted( const QString &uri ) const;
+
+    /**
      * Class factory to return a pointer to a newly created QgsDataProvider object
      *
      * \param uri the datasource uri
@@ -251,7 +320,7 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
 
     /**
      * Sets the \a value into the \a uri \a parameter as a bool.
-     * eg. "yes" value will be saved as true, 0 will be saved as false
+     * eg. "yes" value will be saved as TRUE, 0 will be saved as FALSE
      *
      * \since QGIS 3.14
      */
@@ -259,7 +328,7 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
 
     /**
      * Returns the \a parameter value in the \a uri as a bool.
-     * eg. "yes" value will be returned as true, 0 will be returned as false
+     * eg. "yes" value will be returned as TRUE, 0 will be returned as FALSE
      *
      * \since QGIS 3.14
      */
@@ -331,7 +400,7 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
      * \note this function may not be supported by all providers, an empty map will be returned in such case
      * \since QGIS 3.10
      */
-    virtual QVariantMap decodeUri( const QString &uri );
+    virtual QVariantMap decodeUri( const QString &uri ) const;
 
     /**
      * Reassembles a provider data source URI from its component paths (e.g. file path, layer name).
@@ -341,7 +410,7 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
      * \see decodeUri()
      * \since QGIS 3.12
      */
-    virtual QString encodeUri( const QVariantMap &parts );
+    virtual QString encodeUri( const QVariantMap &parts ) const;
 
     /**
      * Returns data item providers. Caller is responsible for ownership of the item providers
@@ -480,6 +549,14 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
      */
     virtual void saveConnection( const QgsAbstractProviderConnection *connection, const QString &name ) SIP_THROW( QgsProviderConnectionException );
 
+#ifdef SIP_RUN
+    SIP_PYOBJECT __repr__();
+    % MethodCode
+    QString str = QStringLiteral( "<QgsProviderMetadata: %1>" ).arg( sipCpp->key() );
+    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+    % End
+#endif
+
   signals:
 
     /**
@@ -544,6 +621,7 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
     QMap<QString, QgsAbstractProviderConnection *> mProviderConnections;
 
 /// @endcond
+
 #endif
 
   private:
@@ -561,5 +639,8 @@ class CORE_EXPORT QgsProviderMetadata : public QObject
     CreateDataProviderFunction mCreateFunction = nullptr;
 
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS( QgsProviderMetadata::ProviderMetadataCapabilities )
+
 
 #endif //QGSPROVIDERMETADATA_H

@@ -598,9 +598,19 @@ class GUI_EXPORT QgsSvgMarkerSymbolLayerWidget : public QgsSymbolLayerWidget, pr
 
     void setContext( const QgsSymbolWidgetContext &context ) override;
 
-  protected:
+  public slots:
+    //! Sets the SVG path
+    void setSvgPath( const QString &name );
 
-    void populateList();
+
+  protected:
+    // TODO QGIS 4: remove
+
+    /**
+     * This method does nothing anymore, the loading is automatic
+     * \deprecated since QGIS 3.16
+     */
+    Q_DECL_DEPRECATED void populateList() SIP_DEPRECATED {}
 
     /**
      * Updates the GUI to reflect the SVG marker symbol \a layer.
@@ -613,8 +623,6 @@ class GUI_EXPORT QgsSvgMarkerSymbolLayerWidget : public QgsSymbolLayerWidget, pr
     QgsSvgMarkerSymbolLayer *mLayer = nullptr;
 
   private slots:
-    void setName( const QModelIndex &idx );
-    void populateIcons( const QModelIndex &idx );
     void svgSourceChanged( const QString &text );
     void mChangeColorButton_colorChanged( const QColor &color );
     void mChangeStrokeColorButton_colorChanged( const QColor &color );
@@ -634,7 +642,6 @@ class GUI_EXPORT QgsSvgMarkerSymbolLayerWidget : public QgsSymbolLayerWidget, pr
   private:
 
     std::shared_ptr< QgsMarkerSymbol > mAssistantPreviewSymbol;
-    int mIconSize = 30;
 
 };
 
@@ -780,7 +787,6 @@ class GUI_EXPORT QgsSVGFillSymbolLayerWidget : public QgsSymbolLayerWidget, priv
 
   protected:
     QgsSVGFillSymbolLayer *mLayer = nullptr;
-    void insertIcons();
 
     /**
      * Enables or disables svg fill color, stroke color and stroke width based on whether the
@@ -793,17 +799,13 @@ class GUI_EXPORT QgsSVGFillSymbolLayerWidget : public QgsSymbolLayerWidget, priv
   private slots:
     void mTextureWidthSpinBox_valueChanged( double d );
     void svgSourceChanged( const QString &text );
-    void setFile( const QModelIndex &item );
-    void populateIcons( const QModelIndex &item );
+    void setFile( const QString &name );
     void mRotationSpinBox_valueChanged( double d );
     void mChangeColorButton_colorChanged( const QColor &color );
     void mChangeStrokeColorButton_colorChanged( const QColor &color );
     void mStrokeWidthSpinBox_valueChanged( double d );
     void mTextureWidthUnitWidget_changed();
     void mSvgStrokeWidthUnitWidget_changed();
-
-  private:
-    int mIconSize = 30;
 };
 
 //////////

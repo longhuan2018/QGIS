@@ -23,6 +23,8 @@
 #include "qgsmeshlayer.h"
 #include "qgis.h"
 
+///@cond PRIVATE
+
 QString QgsTinMeshCreationAlgorithm::group() const
 {
   return QObject::tr( "Mesh" );
@@ -132,6 +134,8 @@ QVariantMap QgsTinMeshCreationAlgorithm::processAlgorithm( const QVariantMap &pa
     destinationCrs = context.project()->crs();
   triangulation.setCrs( destinationCrs );
 
+  if ( !mVerticesLayer.isEmpty() && feedback )
+    feedback->setProgressText( QObject::tr( "Adding vertices layer(s) to the triangulation" ) );
   for ( Layer &l : mVerticesLayer )
   {
     if ( feedback && feedback->isCanceled() )
@@ -139,6 +143,8 @@ QVariantMap QgsTinMeshCreationAlgorithm::processAlgorithm( const QVariantMap &pa
     triangulation.addVertices( l.fit, l.attributeIndex, l.transform, feedback, l.featureCount );
   }
 
+  if ( !mBreakLinesLayer.isEmpty() && feedback )
+    feedback->setProgressText( QObject::tr( "Adding break lines layer(s) to the triangulation" ) );
   for ( Layer &l : mBreakLinesLayer )
   {
     if ( feedback && feedback->isCanceled() )
@@ -152,9 +158,17 @@ QVariantMap QgsTinMeshCreationAlgorithm::processAlgorithm( const QVariantMap &pa
   const QString fileName = parameterAsFile( parameters, QStringLiteral( "OUTPUT_MESH" ), context );
   int driverIndex = parameterAsEnum( parameters, QStringLiteral( "MESH_FORMAT" ), context );
   const QString driver = mAvailableFormat.at( driverIndex );
-  const QgsMesh mesh = triangulation.triangulatedMesh();
+  if ( feedback )
+    feedback->setProgressText( QObject::tr( "Creating mesh from triangulation" ) );
+  const QgsMesh mesh = triangulation.triangulatedMesh( feedback );
+
+  if ( feedback && feedback->isCanceled() )
+    return QVariantMap();
 
   const QgsProviderMetadata *providerMetadata = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "mdal" ) );
+
+  if ( feedback )
+    feedback->setProgressText( QObject::tr( "Saving mesh to file" ) );
   if ( providerMetadata )
     providerMetadata->createMeshData( mesh, fileName, driver, destinationCrs );
 
@@ -194,3 +208,5 @@ bool QgsTinMeshCreationAlgorithm::canExecute( QString *errorMessage ) const
 
   return true;
 }
+
+///@endcond PRIVATE

@@ -101,7 +101,8 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
       ReadLayerMetadata = 1 << 1, //!< Provider can read layer metadata from data store. Since QGIS 3.0. See QgsDataProvider::layerMetadata()
       WriteLayerMetadata = 1 << 2, //!< Provider can write layer metadata to the data store. Since QGIS 3.0. See QgsDataProvider::writeLayerMetadata()
       ProviderHintBenefitsFromResampling = 1 << 3, //!< Provider benefits from resampling and should apply user default resampling settings (since QGIS 3.10)
-      ProviderHintCanPerformProviderResampling = 1 << 4 //!< Provider can perform resampling (to be opposed to post rendering resampling) (since QGIS 3.16)
+      ProviderHintCanPerformProviderResampling = 1 << 4, //!< Provider can perform resampling (to be opposed to post rendering resampling) (since QGIS 3.16)
+      ReloadData = 1 << 5 //!< Is able to force reload data / clear local caches. Since QGIS 3.18, see QgsDataProvider::reloadProviderData()
     };
 
     //! Provider capabilities
@@ -151,11 +152,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     Qgis::DataType sourceDataType( int bandNo ) const override = 0;
 
     //! Returns data type for the band specified by number
-    virtual int colorInterpretation( int bandNo ) const
-    {
-      Q_UNUSED( bandNo )
-      return QgsRaster::UndefinedColorInterpretation;
-    }
+    virtual int colorInterpretation( int bandNo ) const;
 
     QString colorName( int colorInterpretation ) const
     {
@@ -220,10 +217,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     //! Reload data (data could change)
     virtual bool reload() { return true; }
 
-    virtual QString colorInterpretationName( int bandNo ) const
-    {
-      return colorName( colorInterpretation( bandNo ) );
-    }
+    QString colorInterpretationName( int bandNo ) const override;
 
     /**
      * Read band scale for raster value
@@ -450,8 +444,9 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
      */
     virtual bool setEditable( bool enabled ) { Q_UNUSED( enabled ) return false; }
 
-    //! Writes into the provider datasource
     // TODO: add data type (may be different from band type)
+
+    //! Writes into the provider datasource
     virtual bool write( void *data, int band, int width, int height, int xOffset, int yOffset )
     {
       Q_UNUSED( data )
@@ -552,7 +547,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     virtual QList< double > nativeResolutions() const;
 
     /**
-     * Returns true if the extents reported by the data provider are not reliable
+     * Returns TRUE if the extents reported by the data provider are not reliable
      * and it's possible that there is renderable content outside of these extents.
      *
      * \since QGIS 3.10.0
@@ -587,7 +582,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     /**
      * Enable or disable provider-level resampling.
      *
-     * \return true if success
+     * \return TRUE if success
      * \since QGIS 3.16
      */
     virtual bool enableProviderResampling( bool enable ) { Q_UNUSED( enable ); return false; }
@@ -620,7 +615,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     /**
      * Set resampling method to apply for zoomed-in operations.
      *
-     * \return true if success
+     * \return TRUE if success
      * \since QGIS 3.16
      */
     virtual bool setZoomedInResamplingMethod( ResamplingMethod method ) { Q_UNUSED( method ); return false; }
@@ -634,7 +629,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     /**
      * Set resampling method to apply for zoomed-out operations.
      *
-     * \return true if success
+     * \return TRUE if success
      * \since QGIS 3.16
      */
     virtual bool setZoomedOutResamplingMethod( ResamplingMethod method ) { Q_UNUSED( method ); return false; }
@@ -648,7 +643,7 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
     /**
      * Sets maximum oversampling factor for zoomed-out operations.
      *
-     * \return true if success
+     * \return TRUE if success
      * \since QGIS 3.16
      */
     virtual bool setMaxOversampling( double factor ) { Q_UNUSED( factor ); return false; }

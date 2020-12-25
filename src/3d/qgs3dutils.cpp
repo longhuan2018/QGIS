@@ -343,7 +343,7 @@ QMatrix4x4 Qgs3DUtils::stringToMatrix4x4( const QString &str )
   return m;
 }
 
-void Qgs3DUtils::extractPointPositions( QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions )
+void Qgs3DUtils::extractPointPositions( const QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions )
 {
   const QgsAbstractGeometry *g = f.geometry().constGet();
   for ( auto it = g->vertices_begin(); it != g->vertices_end(); ++it )
@@ -370,7 +370,7 @@ void Qgs3DUtils::extractPointPositions( QgsFeature &f, const Qgs3DMapSettings &m
         break;
     }
     positions.append( QVector3D( pt.x() - map.origin().x(), h, -( pt.y() - map.origin().y() ) ) );
-    //qDebug() << positions.last();
+    QgsDebugMsgLevel( QStringLiteral( "%1 %2 %3" ).arg( positions.last().x() ).arg( positions.last().y() ).arg( positions.last().z() ), 2 );
   }
 }
 

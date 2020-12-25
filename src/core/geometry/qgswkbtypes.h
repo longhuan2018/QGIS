@@ -1014,9 +1014,16 @@ class CORE_EXPORT QgsWkbTypes
     }
 
     /**
-     * Returns a display string type for a WKB type, e.g., the geometry name used in WKT geometry representations.
+     * Returns a non-translated display string type for a WKB type, e.g., the geometry name used in WKT geometry representations.
      */
     static QString displayString( Type type ) SIP_HOLDGIL;
+
+    /**
+     * Returns a translated display string type for a WKB type, e.g., the geometry name used in WKT geometry representations.
+     *
+     * \since QGIS 3.18
+     */
+    static QString translatedDisplayString( Type type ) SIP_HOLDGIL;
 
     /**
      * Returns a display string for a geometry type.
@@ -1169,13 +1176,18 @@ class CORE_EXPORT QgsWkbTypes
         return Unknown;
       else if ( type == NoGeometry )
         return NoGeometry;
-      else if ( type == Point25D ||
-                type == LineString25D ||
-                type == Polygon25D ||
-                type == MultiPoint25D ||
-                type == MultiLineString25D ||
-                type == MultiPolygon25D )
-        return type; //can't add M dimension to these types
+      else if ( type == Point25D )
+        return PointZM;
+      else if ( type == LineString25D )
+        return LineStringZM;
+      else if ( type == Polygon25D )
+        return PolygonZM;
+      else if ( type == MultiPoint25D )
+        return MultiPointZM;
+      else if ( type == MultiLineString25D )
+        return MultiLineStringZM;
+      else if ( type == MultiPolygon25D )
+        return MultiPolygonZM;
 
       //upgrade with m dimension
       Type flat = flatType( type );

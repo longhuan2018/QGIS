@@ -256,6 +256,8 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
 
     void mActionAutoFeatureForm_toggled( bool checked );
 
+    void mActionHideDerivedAttributes_toggled( bool checked );
+
     void mExpandAction_triggered( bool checked ) { Q_UNUSED( checked ) expandAll(); }
     void mCollapseAction_triggered( bool checked ) { Q_UNUSED( checked ) collapseAll(); }
 
@@ -266,6 +268,8 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
     void printCurrentItem();
 
     void mapLayerActionDestroyed();
+
+    void showHelp();
 
   private:
     QString representValue( QgsVectorLayer *vlayer, const QgsEditorWidgetSetup &setup, const QString &fieldName, const QVariant &value );
@@ -312,8 +316,6 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
     QgsDockWidget *mDock = nullptr;
 
     QVector<QgsIdentifyPlotCurve *> mPlotCurves;
-
-    void showHelp();
 
     QgsMapToolSelectionHandler::SelectionMode mSelectionMode = QgsMapToolSelectionHandler::SelectSimple;
 

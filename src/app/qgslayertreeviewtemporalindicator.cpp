@@ -41,7 +41,7 @@ void QgsLayerTreeViewTemporalIndicatorProvider::connectSignals( QgsMapLayer *lay
 
 void QgsLayerTreeViewTemporalIndicatorProvider::onIndicatorClicked( const QModelIndex &index )
 {
-  QgsLayerTreeNode *node = mLayerTreeView->layerTreeModel()->index2node( index );
+  QgsLayerTreeNode *node = mLayerTreeView->index2node( index );
   if ( !QgsLayerTree::isLayer( node ) )
     return;
 
@@ -63,6 +63,7 @@ void QgsLayerTreeViewTemporalIndicatorProvider::onIndicatorClicked( const QModel
     case QgsMapLayerType::PluginLayer:
     case QgsMapLayerType::VectorTileLayer:
     case QgsMapLayerType::AnnotationLayer:
+    case QgsMapLayerType::PointCloudLayer:
       break;
   }
 }

@@ -11,19 +11,43 @@ __date__ = '2016-09'
 __copyright__ = 'Copyright 2016, The QGIS Project'
 
 import qgis  # NOQA
-
-from qgis.core import (QgsSymbolLayerUtils,
-                       QgsMarkerSymbol,
-                       QgsArrowSymbolLayer,
-                       QgsUnitTypes)
-from qgis.PyQt.QtGui import QColor, QPolygonF
-from qgis.PyQt.QtCore import QSizeF, QPointF
+from qgis.PyQt.QtCore import (
+    QSizeF,
+    QPointF,
+    QMimeData,
+    QDir,
+    QSize,
+    Qt
+)
+from qgis.PyQt.QtGui import (
+    QColor,
+    QPolygonF,
+    QImage
+)
+from qgis.core import (
+    QgsSymbolLayerUtils,
+    QgsMarkerSymbol,
+    QgsArrowSymbolLayer,
+    QgsUnitTypes,
+    QgsRenderChecker,
+    QgsGradientColorRamp
+)
 from qgis.testing import unittest, start_app
 
 start_app()
 
 
 class PyQgsSymbolLayerUtils(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.report = "<h1>Python QgsPointCloudRgbRenderer Tests</h1>\n"
+
+    @classmethod
+    def tearDownClass(cls):
+        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        with open(report_file_path, 'a') as report_file:
+            report_file.write(cls.report)
 
     def testEncodeDecodeSize(self):
         s = QSizeF()
@@ -325,6 +349,129 @@ class PyQgsSymbolLayerUtils(unittest.TestCase):
         self.assertEqual([p for p in line],
                          [QPointF(11.0, 2.0), QPointF(11.0, 12.0), QPointF(111.0, 12.0), QPointF(111.0, 14.0),
                           QPointF(111.0, 15.0)])
+
+    def testColorFromMimeData(self):
+        data = QMimeData()
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertFalse(color.isValid())
+
+        # color data
+        data.setColorData(QColor(255, 0, 255))
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        # should be true regardless of the actual color's opacity -- a QColor object has innate knowledge of the alpha,
+        # so our input color HAS an alpha of 255
+        self.assertTrue(has_alpha)
+        self.assertEqual(color.alpha(), 255)
+
+        data.setColorData(QColor(255, 0, 255, 100))
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertEqual(color.alpha(), 100)
+        self.assertTrue(has_alpha)
+
+        # text data
+        data = QMimeData()
+        data.setText('#ff00ff')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        # should be False -- no alpha was specified
+        self.assertFalse(has_alpha)
+        self.assertEqual(color.alpha(), 255)
+
+        data.setText('#ff00ff66')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertTrue(has_alpha)
+        self.assertEqual(color.alpha(), 102)
+
+        # "#" is optional
+        data.setText('ff00ff66')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertTrue(has_alpha)
+        self.assertEqual(color.alpha(), 102)
+
+        data.setText('255,0,255')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertFalse(has_alpha)
+        self.assertEqual(color.alpha(), 255)
+
+        data.setText('255,0,255,0.5')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertTrue(has_alpha)
+        self.assertEqual(color.alpha(), 128)
+
+        data.setText('rgba(255,0,255,0.5)')
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertTrue(color.isValid())
+        self.assertEqual(color.name(), '#ff00ff')
+        self.assertTrue(has_alpha)
+        self.assertEqual(color.alpha(), 128)
+
+        # wrong data type
+        data = QMimeData()
+        data.setImageData(QImage())
+        color, has_alpha = QgsSymbolLayerUtils.colorFromMimeData(data)
+        self.assertFalse(color.isValid())
+
+    def testPreviewColorRampHorizontal(self):
+        r = QgsGradientColorRamp(QColor(200, 0, 0, 200), QColor(0, 200, 0, 255))
+
+        pix = QgsSymbolLayerUtils.colorRampPreviewPixmap(r, QSize(200, 100))
+        img = QImage(pix)
+        self.assertTrue(self.imageCheck('color_ramp_horizontal', 'color_ramp_horizontal', img))
+
+    def testPreviewColorRampHorizontalNoCheckboard(self):
+        r = QgsGradientColorRamp(QColor(200, 0, 0, 200), QColor(0, 200, 0, 255))
+
+        pix = QgsSymbolLayerUtils.colorRampPreviewPixmap(r, QSize(200, 100), drawTransparentBackground=False)
+        img = QImage(pix)
+        self.assertTrue(self.imageCheck('color_ramp_no_check', 'color_ramp_no_check', img))
+
+    def testPreviewColorRampHorizontalFlipped(self):
+        r = QgsGradientColorRamp(QColor(200, 0, 0, 200), QColor(0, 200, 0, 255))
+
+        pix = QgsSymbolLayerUtils.colorRampPreviewPixmap(r, QSize(200, 100), flipDirection=True)
+        img = QImage(pix)
+        self.assertTrue(self.imageCheck('color_ramp_horizontal_flipped', 'color_ramp_horizontal_flipped', img))
+
+    def testPreviewColorRampVertical(self):
+        r = QgsGradientColorRamp(QColor(200, 0, 0, 200), QColor(0, 200, 0, 255))
+
+        pix = QgsSymbolLayerUtils.colorRampPreviewPixmap(r, QSize(100, 200), direction=Qt.Vertical)
+        img = QImage(pix)
+        self.assertTrue(self.imageCheck('color_ramp_vertical', 'color_ramp_vertical', img))
+
+    def testPreviewColorRampVerticalFlipped(self):
+        r = QgsGradientColorRamp(QColor(200, 0, 0, 200), QColor(0, 200, 0, 255))
+
+        pix = QgsSymbolLayerUtils.colorRampPreviewPixmap(r, QSize(100, 200), direction=Qt.Vertical, flipDirection=True)
+        img = QImage(pix)
+        self.assertTrue(self.imageCheck('color_ramp_vertical_flipped', 'color_ramp_vertical_flipped', img))
+
+    def imageCheck(self, name, reference_image, image):
+        self.report += "<h2>Render {}</h2>\n".format(name)
+        temp_dir = QDir.tempPath() + '/'
+        file_name = temp_dir + name + ".png"
+        image.save(file_name, "PNG")
+        checker = QgsRenderChecker()
+        checker.setControlPathPrefix("symbol_layer_utils")
+        checker.setControlName("expected_" + reference_image)
+        checker.setRenderedImage(file_name)
+        checker.setColorTolerance(2)
+        result = checker.compareImages(name, 20)
+        PyQgsSymbolLayerUtils.report += checker.report()
+        return result
 
 
 if __name__ == '__main__':

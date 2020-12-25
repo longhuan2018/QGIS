@@ -28,6 +28,7 @@ email                : sherman at mrcc.com
 #include "qgssettings.h"
 #include "qgsapplication.h"
 #include "qgsauthmanager.h"
+#include "qgscplhttpfetchoverrider.h"
 #include "qgsdataitem.h"
 #include "qgsdataprovider.h"
 #include "qgsfeature.h"
@@ -240,10 +241,14 @@ void QgsOgrProvider::repack()
 
   }
 
-  long oldcount = mFeaturesCounted;
-  recalculateFeatureCount();
-  if ( oldcount != mFeaturesCounted )
-    emit dataChanged();
+  if ( mFeaturesCounted != QgsVectorDataProvider::Uncounted &&
+       mFeaturesCounted != QgsVectorDataProvider::UnknownCount )
+  {
+    long oldcount = mFeaturesCounted;
+    recalculateFeatureCount();
+    if ( oldcount != mFeaturesCounted )
+      emit dataChanged();
+  }
 }
 
 
@@ -490,6 +495,18 @@ QgsOgrProvider::QgsOgrProvider( QString const &uri, const ProviderOptions &optio
                           mSubsetString,
                           mOgrGeometryTypeFilter,
                           mOpenOptions );
+
+  if ( mFilePath.contains( QLatin1String( "authcfg" ) ) )
+  {
+    QRegularExpression authcfgRe( " authcfg='([^']+)'" );
+    QRegularExpressionMatch match;
+    if ( mFilePath.contains( authcfgRe, &match ) )
+    {
+      mAuthCfg = match.captured( 1 );
+    }
+  }
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
 
   open( OpenModeInitial );
 
@@ -936,7 +953,8 @@ void QgsOgrProvider::addSubLayerDetailsToSubLayerList( int i, QgsOgrLayer *layer
 
 QStringList QgsOgrProvider::subLayers() const
 {
-  return _subLayers( true );
+  const bool withFeatureCount = ( mReadFlags & QgsDataProvider::SkipFeatureCount ) == 0;
+  return _subLayers( withFeatureCount );
 }
 
 QgsLayerMetadata QgsOgrProvider::layerMetadata() const
@@ -951,6 +969,9 @@ QStringList QgsOgrProvider::subLayersWithoutFeatureCount() const
 
 QStringList QgsOgrProvider::_subLayers( bool withFeatureCount )  const
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !mValid )
   {
     return QStringList();
@@ -996,6 +1017,9 @@ QStringList QgsOgrProvider::_subLayers( bool withFeatureCount )  const
 
 void QgsOgrProvider::setEncoding( const QString &e )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   QgsSettings settings;
 
   // if the layer has the OLCStringsAsUTF8 capability, we CANNOT override the
@@ -1284,7 +1308,7 @@ QString QgsOgrProvider::storageType() const
 }
 
 
-void QgsOgrProvider::setRelevantFields( bool fetchGeometry, const QgsAttributeList &fetchAttributes )
+void QgsOgrProvider::setRelevantFields( bool fetchGeometry, const QgsAttributeList &fetchAttributes ) const
 {
   QMutex *mutex = nullptr;
   OGRLayerH ogrLayer = mOgrLayer->getHandleAndMutex( mutex );
@@ -1364,6 +1388,9 @@ QgsRectangle QgsOgrProvider::extent() const
 {
   if ( !mExtent )
   {
+    QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+    QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
     mExtent.reset( new OGREnvelope() );
 
     // get the extent_ (envelope) of the layer
@@ -1433,6 +1460,9 @@ QgsRectangle QgsOgrProvider::extent() const
 
 QVariant QgsOgrProvider::defaultValue( int fieldId ) const
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( fieldId < 0 || fieldId >= mAttributeFields.count() )
     return QVariant();
 
@@ -1519,8 +1549,7 @@ QString QgsOgrProvider::defaultValueClause( int fieldIndex ) const
 bool QgsOgrProvider::skipConstraintCheck( int fieldIndex, QgsFieldConstraints::Constraint constraint, const QVariant &value ) const
 {
   Q_UNUSED( constraint )
-  // If the field is a fid, skip in case it's the default value
-  if ( fieldIndex == 0 && mFirstFieldIsFid )
+  if ( providerProperty( EvaluateDefaultValues, false ).toBool() )
   {
     return ! mDefaultValues.value( fieldIndex ).isEmpty();
   }
@@ -1576,6 +1605,15 @@ QgsWkbTypes::Type QgsOgrProvider::wkbType() const
  */
 long QgsOgrProvider::featureCount() const
 {
+  if ( ( mReadFlags & QgsDataProvider::SkipFeatureCount ) != 0 )
+  {
+    return QgsVectorDataProvider::UnknownCount;
+  }
+  if ( mRefreshFeatureCount )
+  {
+    mRefreshFeatureCount = false;
+    recalculateFeatureCount();
+  }
   return mFeaturesCounted;
 }
 
@@ -1849,6 +1887,9 @@ bool QgsOgrProvider::addFeaturePrivate( QgsFeature &f, Flags flags )
 
 bool QgsOgrProvider::addFeatures( QgsFeatureList &flist, Flags flags )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -1867,7 +1908,10 @@ bool QgsOgrProvider::addFeatures( QgsFeatureList &flist, Flags flags )
 
   if ( inTransaction )
   {
-    commitTransaction();
+    if ( returnvalue )
+      returnvalue = commitTransaction();
+    else
+      rollbackTransaction();
   }
 
   if ( !syncToDisc() )
@@ -1875,7 +1919,14 @@ bool QgsOgrProvider::addFeatures( QgsFeatureList &flist, Flags flags )
     returnvalue = false;
   }
 
-  recalculateFeatureCount();
+  if ( mFeaturesCounted != QgsVectorDataProvider::Uncounted &&
+       mFeaturesCounted != QgsVectorDataProvider::UnknownCount )
+  {
+    if ( returnvalue )
+      mFeaturesCounted += flist.size();
+    else
+      recalculateFeatureCount();
+  }
 
   if ( returnvalue )
     clearMinMaxCache();
@@ -1979,6 +2030,9 @@ bool QgsOgrProvider::addAttributeOGRLevel( const QgsField &field, bool &ignoreEr
 
 bool QgsOgrProvider::addAttributes( const QList<QgsField> &attributes )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2097,6 +2151,9 @@ bool QgsOgrProvider::deleteAttributes( const QgsAttributeIds &attributes )
 
 bool QgsOgrProvider::renameAttributes( const QgsFieldNameMap &renamedAttributes )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2171,9 +2228,23 @@ bool QgsOgrProvider::commitTransaction()
   return true;
 }
 
+
+bool QgsOgrProvider::rollbackTransaction()
+{
+  if ( mOgrLayer->RollbackTransaction() != OGRERR_NONE )
+  {
+    pushError( tr( "OGR error rolling back transaction: %1" ).arg( CPLGetLastErrorMsg() ) );
+    return false;
+  }
+  return true;
+}
+
 bool QgsOgrProvider::_setSubsetString( const QString &theSQL, bool updateFeatureCount, bool updateCapabilities, bool hasExistingRef )
 {
   QgsCPLErrorHandler handler;
+
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
 
   if ( !mOgrOrigLayer )
     return false;
@@ -2260,12 +2331,7 @@ bool QgsOgrProvider::_setSubsetString( const QString &theSQL, bool updateFeature
 
   mOgrLayer->ResetReading();
 
-  // getting the total number of features in the layer
-  // TODO: This can be expensive, do we really need it!
-  if ( updateFeatureCount )
-  {
-    recalculateFeatureCount();
-  }
+  mRefreshFeatureCount = updateFeatureCount;
 
   // check the validity of the layer
   QgsDebugMsgLevel( QStringLiteral( "checking validity" ), 4 );
@@ -2287,6 +2353,9 @@ bool QgsOgrProvider::_setSubsetString( const QString &theSQL, bool updateFeature
 
 bool QgsOgrProvider::changeAttributeValues( const QgsChangedAttributesMap &attr_map )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2481,22 +2550,27 @@ bool QgsOgrProvider::changeAttributeValues( const QgsChangedAttributesMap &attr_
 
   if ( inTransaction )
   {
-    if ( ! commitTransaction() ) return false;
+    if ( returnValue )
+      returnValue = commitTransaction();
+    else
+      rollbackTransaction();
   }
 
   if ( mTransaction )
     mTransaction->dirtyLastSavePoint();
 
-  if ( mOgrLayer->SyncToDisk() != OGRERR_NONE )
+  if ( !syncToDisc() )
   {
     pushError( tr( "OGR error syncing to disk: %1" ).arg( CPLGetLastErrorMsg() ) );
   }
-  QgsOgrConnPool::instance()->invalidateConnections( QgsOgrProviderUtils::connectionPoolId( dataSourceUri( true ), mShareSameDatasetAmongLayers ) );
   return returnValue;
 }
 
 bool QgsOgrProvider::changeGeometryValues( const QgsGeometryMap &geometry_map )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2520,6 +2594,7 @@ bool QgsOgrProvider::changeGeometryValues( const QgsGeometryMap &geometry_map )
   }
 #endif
 
+  bool returnvalue = true;
   for ( QgsGeometryMap::const_iterator it = geometry_map.constBegin(); it != geometry_map.constEnd(); ++it )
   {
     gdal::ogr_feature_unique_ptr theOGRFeature( mOgrLayer->GetFeature( FID_TO_NUMBER( it.key() ) ) );
@@ -2575,6 +2650,7 @@ bool QgsOgrProvider::changeGeometryValues( const QgsGeometryMap &geometry_map )
     if ( mOgrLayer->SetFeature( theOGRFeature.get() ) != OGRERR_NONE )
     {
       pushError( tr( "OGR error setting feature %1: %2" ).arg( it.key() ).arg( CPLGetLastErrorMsg() ) );
+      returnvalue = false;
       continue;
     }
     mShapefileMayBeCorrupted = true;
@@ -2584,18 +2660,27 @@ bool QgsOgrProvider::changeGeometryValues( const QgsGeometryMap &geometry_map )
 
   if ( inTransaction )
   {
-    if ( ! commitTransaction() ) return false;
+    if ( returnvalue )
+      returnvalue = commitTransaction();
+    else
+      rollbackTransaction();
   }
 
   if ( mTransaction )
     mTransaction->dirtyLastSavePoint();
 
-  QgsOgrConnPool::instance()->invalidateConnections( QgsOgrProviderUtils::connectionPoolId( dataSourceUri( true ), mShareSameDatasetAmongLayers ) );
-  return syncToDisc();
+  if ( !syncToDisc() )
+  {
+    pushError( tr( "OGR error syncing to disk: %1" ).arg( CPLGetLastErrorMsg() ) );
+  }
+  return returnvalue;
 }
 
 bool QgsOgrProvider::createSpatialIndex()
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !mOgrOrigLayer )
     return false;
   if ( !doInitialActionsForEdition() )
@@ -2638,6 +2723,9 @@ QString QgsOgrProvider::createIndexName( QString tableName, QString field )
 
 bool QgsOgrProvider::createAttributeIndex( int field )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( field < 0 || field >= mAttributeFields.count() )
     return false;
 
@@ -2676,6 +2764,9 @@ bool QgsOgrProvider::createAttributeIndex( int field )
 
 bool QgsOgrProvider::deleteFeatures( const QgsFeatureIds &id )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2692,7 +2783,10 @@ bool QgsOgrProvider::deleteFeatures( const QgsFeatureIds &id )
 
   if ( inTransaction )
   {
-    if ( ! commitTransaction() ) return false;
+    if ( returnvalue )
+      returnvalue = commitTransaction();
+    else
+      rollbackTransaction();
   }
 
   if ( mTransaction )
@@ -2703,7 +2797,22 @@ bool QgsOgrProvider::deleteFeatures( const QgsFeatureIds &id )
     returnvalue = false;
   }
 
-  recalculateFeatureCount();
+  if ( mGDALDriverName == QLatin1String( "ESRI Shapefile" ) )
+  {
+    // Shapefile behaves in a special way due to possible recompaction
+    recalculateFeatureCount();
+  }
+  else
+  {
+    if ( mFeaturesCounted != QgsVectorDataProvider::Uncounted &&
+         mFeaturesCounted != QgsVectorDataProvider::UnknownCount )
+    {
+      if ( returnvalue )
+        mFeaturesCounted -= id.size();
+      else
+        recalculateFeatureCount();
+    }
+  }
 
   clearMinMaxCache();
 
@@ -2714,6 +2823,9 @@ bool QgsOgrProvider::deleteFeatures( const QgsFeatureIds &id )
 
 bool QgsOgrProvider::deleteFeature( QgsFeatureId id )
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( !doInitialActionsForEdition() )
     return false;
 
@@ -2903,6 +3015,7 @@ void QgsOgrProvider::computeCapabilities()
   }
 
   ability |= ReadLayerMetadata;
+  ability |= ReloadData;
 
   if ( updateModeActivated )
     leaveUpdateMode();
@@ -3460,7 +3573,7 @@ QString createFilters( const QString &type )
   }
 }
 
-QVariantMap QgsOgrProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsOgrProviderMetadata::decodeUri( const QString &uri ) const
 {
   QString path = uri;
   QString layerName;
@@ -3569,7 +3682,7 @@ QVariantMap QgsOgrProviderMetadata::decodeUri( const QString &uri )
   return uriComponents;
 }
 
-QString QgsOgrProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsOgrProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   const QString path = parts.value( QStringLiteral( "path" ) ).toString();
   const QString layerName = parts.value( QStringLiteral( "layerName" ) ).toString();
@@ -3941,6 +4054,8 @@ QSet<QVariant> QgsOgrProvider::uniqueValues( int index, int limit ) const
     return uniqueValues; //not a provider field
   }
 
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
 
   QByteArray sql = "SELECT DISTINCT " + quotedIdentifier( textEncoding()->fromUnicode( fld.name() ) );
 
@@ -3999,10 +4114,35 @@ QStringList QgsOgrProvider::uniqueStringsMatching( int index, const QString &sub
     return results; //not a provider field
   }
 
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
+  // uniqueStringsMatching() is supposed to be case insensitive, so use the
+  // ILIKE operator when it is available.
+  // Prior to GDAL 3.1, with OGR SQL, LIKE behaved like ILIKE
+  bool supportsILIKE = false;
+  {
+    QByteArray sql = "SELECT 1 FROM ";
+    sql += quotedIdentifier( mOgrLayer->name() );
+    sql += " WHERE 'a' ILIKE 'A' LIMIT 1";
+    QgsOgrLayerUniquePtr l = mOgrLayer->ExecuteSQL( sql );
+    if ( l )
+    {
+      gdal::ogr_feature_unique_ptr f;
+      f.reset( l->GetNextFeature() );
+      supportsILIKE = f != nullptr;
+    }
+  }
+
   QByteArray sql = "SELECT DISTINCT " + quotedIdentifier( textEncoding()->fromUnicode( fld.name() ) );
   sql += " FROM " + quotedIdentifier( mOgrLayer->name() );
 
-  sql += " WHERE " + quotedIdentifier( textEncoding()->fromUnicode( fld.name() ) ) + " LIKE '%" +  textEncoding()->fromUnicode( substring ) + "%'";
+  sql += " WHERE " + quotedIdentifier( textEncoding()->fromUnicode( fld.name() ) );
+  if ( supportsILIKE )
+    sql += " ILIKE '%";
+  else
+    sql += " LIKE '%";
+  sql += textEncoding()->fromUnicode( substring ) + "%'";
 
   if ( !mSubsetString.isEmpty() )
   {
@@ -4034,6 +4174,9 @@ QStringList QgsOgrProvider::uniqueStringsMatching( int index, const QString &sub
 
 QgsFeatureSource::SpatialIndexPresence QgsOgrProvider::hasSpatialIndex() const
 {
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   if ( mOgrLayer && mOgrLayer->TestCapability( OLCFastSpatialFilter ) )
     return QgsFeatureSource::SpatialIndexPresent;
   else if ( mOgrLayer )
@@ -4048,6 +4191,10 @@ QVariant QgsOgrProvider::minimumValue( int index ) const
   {
     return QVariant();
   }
+
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   const QgsField originalField = mAttributeFields.at( index );
   QgsField fld = originalField;
 
@@ -4104,6 +4251,10 @@ QVariant QgsOgrProvider::maximumValue( int index ) const
   {
     return QVariant();
   }
+
+  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrProvider" ) );
+
   const QgsField originalField = mAttributeFields.at( index );
   QgsField fld = originalField;
 
@@ -4473,6 +4624,8 @@ QString QgsOgrProviderUtils::quotedValue( const QVariant &value )
 
 bool QgsOgrProvider::syncToDisc()
 {
+  QgsOgrConnPool::instance()->invalidateConnections( QgsOgrProviderUtils::connectionPoolId( dataSourceUri( true ), mShareSameDatasetAmongLayers ) );
+
   //for shapefiles, remove spatial index files and create a new index
   QgsOgrConnPool::instance()->unref( QgsOgrProviderUtils::connectionPoolId( dataSourceUri( true ), mShareSameDatasetAmongLayers ) );
   bool shapeIndex = false;
@@ -4522,7 +4675,7 @@ bool QgsOgrProvider::syncToDisc()
   return true;
 }
 
-void QgsOgrProvider::recalculateFeatureCount()
+void QgsOgrProvider::recalculateFeatureCount() const
 {
   if ( !mOgrLayer )
   {
@@ -4550,7 +4703,6 @@ void QgsOgrProvider::recalculateFeatureCount()
   else
   {
     mFeaturesCounted = 0;
-    mOgrLayer->ResetReading();
     setRelevantFields( true, QgsAttributeList() );
     mOgrLayer->ResetReading();
     gdal::ogr_feature_unique_ptr fet;
@@ -4567,7 +4719,7 @@ void QgsOgrProvider::recalculateFeatureCount()
       }
     }
     mOgrLayer->ResetReading();
-
+    setRelevantFields( true, attributeIndexes() );
   }
 
   if ( filter )
@@ -4785,7 +4937,7 @@ void QgsOgrProvider::open( OpenMode mode )
 
     // WARNING if this is the initial open - we don't already have a connection ref, and will be creating one later. So we *mustn't* grab an extra connection ref
     // while setting the subset string, or we'll be left with an extra reference which is never cleared.
-    mValid = _setSubsetString( origSubsetString, true, false, mode != OpenModeInitial );
+    mValid = _setSubsetString( origSubsetString, false, false, mode != OpenModeInitial );
 
     blockSignals( false );
     if ( mValid )
@@ -4847,15 +4999,12 @@ void QgsOgrProvider::open( OpenMode mode )
 
       if ( !mSubsetString.isEmpty() )
       {
-        int featuresCountedBackup = mFeaturesCounted;
-        mFeaturesCounted = -1;
         // Do not update capabilities here
         // but ensure subset is set (setSubsetString does nothing if the passed sql subset string is equal to
         // mSubsetString, which is the case when reloading the dataset)
         QString origSubsetString = mSubsetString;
         mSubsetString.clear();
         mValid = _setSubsetString( origSubsetString, false, false );
-        mFeaturesCounted = featuresCountedBackup;
       }
     }
   }
@@ -4867,6 +5016,8 @@ void QgsOgrProvider::open( OpenMode mode )
     setProperty( "_debug_open_mode", "read-write" );
   else
     setProperty( "_debug_open_mode", "read-only" );
+
+  mRefreshFeatureCount = true;
 }
 
 void QgsOgrProvider::close()
@@ -7025,20 +7176,20 @@ QgsTransaction *QgsOgrProviderMetadata::createTransaction( const QString &connSt
   return new QgsOgrTransaction( connString, ds );
 }
 
-QgsGeoPackageProjectStorage *gProjectStorage = nullptr;   // when not null it is owned by QgsApplication::projectStorageRegistry()
+QgsGeoPackageProjectStorage *gGeoPackageProjectStorage = nullptr;   // when not null it is owned by QgsApplication::projectStorageRegistry()
 
 void QgsOgrProviderMetadata::initProvider()
 {
-  Q_ASSERT( !gProjectStorage );
-  gProjectStorage = new QgsGeoPackageProjectStorage;
-  QgsApplication::projectStorageRegistry()->registerProjectStorage( gProjectStorage );  // takes ownership
+  Q_ASSERT( !gGeoPackageProjectStorage );
+  gGeoPackageProjectStorage = new QgsGeoPackageProjectStorage;
+  QgsApplication::projectStorageRegistry()->registerProjectStorage( gGeoPackageProjectStorage );  // takes ownership
 }
 
 
 void QgsOgrProviderMetadata::cleanupProvider()
 {
-  QgsApplication::projectStorageRegistry()->unregisterProjectStorage( gProjectStorage );  // destroys the object
-  gProjectStorage = nullptr;
+  QgsApplication::projectStorageRegistry()->unregisterProjectStorage( gGeoPackageProjectStorage );  // destroys the object
+  gGeoPackageProjectStorage = nullptr;
   QgsOgrConnPool::cleanupInstance();
   // NOTE: QgsApplication takes care of
   // calling OGRCleanupAll();
@@ -7058,11 +7209,31 @@ QString QgsOgrProviderMetadata::filters( FilterType type )
   {
     case QgsProviderMetadata::FilterType::FilterVector:
       return QgsOgrProviderUtils::fileVectorFilters();
-    default:
+
+    case QgsProviderMetadata::FilterType::FilterRaster:
+    case QgsProviderMetadata::FilterType::FilterMesh:
+    case QgsProviderMetadata::FilterType::FilterMeshDataset:
+    case QgsProviderMetadata::FilterType::FilterPointCloud:
       return QString();
   }
+  return QString();
 }
 
+bool QgsOgrProviderMetadata::uriIsBlocklisted( const QString &uri ) const
+{
+  const QVariantMap parts = decodeUri( uri );
+  if ( !parts.contains( QStringLiteral( "path" ) ) )
+    return false;
+
+  QFileInfo fi( parts.value( QStringLiteral( "path" ) ).toString() );
+  const QString suffix = fi.completeSuffix();
+
+  // internal details only
+  if ( suffix.compare( QLatin1String( "shp.xml" ), Qt::CaseInsensitive ) == 0 )
+    return true;
+
+  return false;
+}
 
 QMap<QString, QgsAbstractProviderConnection *> QgsOgrProviderMetadata::connections( bool cached )
 {

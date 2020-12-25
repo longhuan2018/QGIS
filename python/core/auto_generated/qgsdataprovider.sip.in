@@ -33,6 +33,10 @@ Abstract base class for spatial data provider implementations.
     {
       sipType = sipType_QgsMeshDataProvider;
     }
+    else if ( qobject_cast<QgsPointCloudDataProvider *>( sipCpp ) )
+    {
+      sipType = sipType_QgsPointCloudDataProvider;
+    }
     else
     {
       sipType = 0;
@@ -69,6 +73,7 @@ Abstract base class for spatial data provider implementations.
     enum ReadFlag
     {
       FlagTrustDataSource,
+      SkipFeatureCount,
     };
     typedef QFlags<QgsDataProvider::ReadFlag> ReadFlags;
 
@@ -296,12 +301,16 @@ databases and servers.
    It'd be nice to eventually be raster/vector neutral.
 %End
 
+
     virtual void reloadData();
 %Docstring
-Reloads the data from the source by calling :py:func:`~QgsDataProvider.reloadProviderData` implemented
-by providers with data caches to synchronize, changes in the data source, feature
-counts and other specific actions.
+Reloads the data from the source for providers with data caches to synchronize,
+changes in the data source, feature counts and other specific actions.
 Emits the `dataChanged` signal
+
+.. note::
+
+   only available for providers which implement the :py:func:`~QgsDataProvider.reloadProviderData` method.
 %End
 
     virtual QDateTime timestamp() const;

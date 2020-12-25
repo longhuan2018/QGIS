@@ -283,6 +283,13 @@ Returns the path to the icons image directory.
 Returns the path to the srs.db file.
 %End
 
+    static void setSvgPaths( const QStringList &svgPaths );
+%Docstring
+Sets the paths to svg directories and invalidates the svg path list cache.
+
+.. versionadded:: 3.18
+%End
+
     static QStringList svgPaths();
 %Docstring
 Returns the paths to svg directories.
@@ -674,6 +681,13 @@ Returns the application's renderer registry, used for managing vector layer rend
 %End
 
 
+    static QgsPointCloudRendererRegistry *pointCloudRendererRegistry() /KeepReference/;
+%Docstring
+Returns the application's point cloud renderer registry, used for managing point cloud layer 2D renderers.
+
+.. versionadded:: 3.18
+%End
+
     static QgsDataItemProviderRegistry *dataItemProviderRegistry() /KeepReference/;
 %Docstring
 Returns the application's data item provider registry, which keeps a list of data item
@@ -935,6 +949,17 @@ Do not include generated variables (like system name, user name etc.)
 Set a single custom expression variable.
 
 .. versionadded:: 3.0
+%End
+
+    static int scaleIconSize( int standardSize, bool applyDevicePixelRatio = false );
+%Docstring
+Scales an icon size to compensate for display pixel density, making the icon
+size hi-dpi friendly, whilst still resulting in pixel-perfect sizes for low-dpi
+displays.
+
+``standardSize`` should be set to a standard icon size, e.g. 16, 24, 48, etc.
+
+.. versionadded:: 3.16
 %End
 
     int maxConcurrentConnectionsPerPool() const;

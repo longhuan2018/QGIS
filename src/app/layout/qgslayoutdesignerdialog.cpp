@@ -552,14 +552,14 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   {
     mView->setPreviewModeEnabled( false );
   } );
-  connect( mActionPreviewModeGrayscale, &QAction::triggered, this, [ = ]
-  {
-    mView->setPreviewMode( QgsPreviewEffect::PreviewGrayscale );
-    mView->setPreviewModeEnabled( true );
-  } );
   connect( mActionPreviewModeMono, &QAction::triggered, this, [ = ]
   {
     mView->setPreviewMode( QgsPreviewEffect::PreviewMono );
+    mView->setPreviewModeEnabled( true );
+  } );
+  connect( mActionPreviewModeGrayscale, &QAction::triggered, this, [ = ]
+  {
+    mView->setPreviewMode( QgsPreviewEffect::PreviewGrayscale );
     mView->setPreviewModeEnabled( true );
   } );
   connect( mActionPreviewProtanope, &QAction::triggered, this, [ = ]
@@ -572,6 +572,11 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
     mView->setPreviewMode( QgsPreviewEffect::PreviewDeuteranope );
     mView->setPreviewModeEnabled( true );
   } );
+  connect( mActionPreviewTritanope, &QAction::triggered, this, [ = ]
+  {
+    mView->setPreviewMode( QgsPreviewEffect::PreviewTritanope );
+    mView->setPreviewModeEnabled( true );
+  } );
   QActionGroup *previewGroup = new QActionGroup( this );
   previewGroup->setExclusive( true );
   mActionPreviewModeOff->setActionGroup( previewGroup );
@@ -579,6 +584,7 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   mActionPreviewModeMono->setActionGroup( previewGroup );
   mActionPreviewProtanope->setActionGroup( previewGroup );
   mActionPreviewDeuteranope->setActionGroup( previewGroup );
+  mActionPreviewTritanope->setActionGroup( previewGroup );
 
   connect( mActionSaveAsTemplate, &QAction::triggered, this, &QgsLayoutDesignerDialog::saveAsTemplate );
   connect( mActionLoadFromTemplate, &QAction::triggered, this, &QgsLayoutDesignerDialog::addItemsFromTemplate );
@@ -683,6 +689,16 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   connect( mActionUnlockAll, &QAction::triggered, this, &QgsLayoutDesignerDialog::unlockAllItems );
   connect( mActionLockItems, &QAction::triggered, this, &QgsLayoutDesignerDialog::lockSelectedItems );
 
+  QStringList docksTitle = settings.value( QStringLiteral( "LayoutDesigner/hiddenDocksTitle" ), QStringList(), QgsSettings::App ).toStringList();
+  QStringList docksActive = settings.value( QStringLiteral( "LayoutDesigner/hiddenDocksActive" ), QStringList(), QgsSettings::App ).toStringList();
+  if ( !docksTitle.isEmpty() )
+  {
+    for ( const auto &title : docksTitle )
+    {
+      mPanelStatus.insert( title, PanelStatus( true, docksActive.contains( title ) ) );
+    }
+  }
+  mActionHidePanels->setChecked( !docksTitle.isEmpty() );
   connect( mActionHidePanels, &QAction::toggled, this, &QgsLayoutDesignerDialog::setPanelVisibility );
 
   connect( mActionDeleteSelection, &QAction::triggered, this, [ = ]
@@ -932,6 +948,31 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   connect( mView, &QgsLayoutView::statusMessage, this, &QgsLayoutDesignerDialog::statusMessageReceived );
 
   connect( QgsProject::instance(), &QgsProject::isDirtyChanged, this, &QgsLayoutDesignerDialog::updateWindowTitle );
+}
+
+QgsLayoutDesignerDialog::~QgsLayoutDesignerDialog()
+{
+  QgsSettings settings;
+  if ( !mPanelStatus.isEmpty() )
+  {
+    QStringList docksTitle;
+    QStringList docksActive;
+
+    for ( const auto &panel : mPanelStatus.toStdMap() )
+    {
+      if ( panel.second.isVisible )
+        docksTitle << panel.first;
+      if ( panel.second.isActive )
+        docksActive << panel.first;
+    }
+    settings.setValue( QStringLiteral( "LayoutDesigner/hiddenDocksTitle" ), docksTitle, QgsSettings::App );
+    settings.setValue( QStringLiteral( "LayoutDesigner/hiddenDocksActive" ), docksActive, QgsSettings::App );
+  }
+  else
+  {
+    settings.remove( QStringLiteral( "LayoutDesigner/hiddenDocksTitle" ), QgsSettings::App );
+    settings.remove( QStringLiteral( "LayoutDesigner/hiddenDocksActive" ), QgsSettings::App );
+  }
 }
 
 QgsAppLayoutDesignerInterface *QgsLayoutDesignerDialog::iface()
@@ -1358,7 +1399,6 @@ void QgsLayoutDesignerDialog::setPanelVisibility( bool hidden )
   {
     mPanelStatus.clear();
     //record status of all docks
-
     for ( QDockWidget *dock : docks )
     {
       mPanelStatus.insert( dock->windowTitle(), PanelStatus( dock->isVisible(), false ) );
@@ -1377,12 +1417,10 @@ void QgsLayoutDesignerDialog::setPanelVisibility( bool hidden )
     //restore visibility of all docks
     for ( QDockWidget *dock : docks )
     {
-      if ( ! mPanelStatus.contains( dock->windowTitle() ) )
+      if ( mPanelStatus.contains( dock->windowTitle() ) )
       {
-        dock->setVisible( true );
-        continue;
+        dock->setVisible( mPanelStatus.value( dock->windowTitle() ).isVisible );
       }
-      dock->setVisible( mPanelStatus.value( dock->windowTitle() ).isVisible );
     }
 
     //restore previously active dock tabs
@@ -1392,12 +1430,13 @@ void QgsLayoutDesignerDialog::setPanelVisibility( bool hidden )
       for ( int i = 0; i < tabBar->count(); ++i )
       {
         QString tabTitle = tabBar->tabText( i );
-        if ( mPanelStatus.value( tabTitle ).isActive )
+        if ( mPanelStatus.contains( tabTitle ) && mPanelStatus.value( tabTitle ).isActive )
         {
           tabBar->setCurrentIndex( i );
         }
       }
     }
+    mPanelStatus.clear();
   }
 }
 
@@ -1465,51 +1504,6 @@ void QgsLayoutDesignerDialog::dropEvent( QDropEvent *event )
   for ( i = urls.begin(); i != urls.end(); ++i )
   {
     QString fileName = i->toLocalFile();
-#ifdef Q_OS_MAC
-    // Mac OS X 10.10, under Qt4.8 ,changes dropped URL format
-    // https://bugreports.qt.io/browse/QTBUG-40449
-    // [pzion 20150805] Work around
-    if ( fileName.startsWith( "/.file/id=" ) )
-    {
-      QgsDebugMsg( QStringLiteral( "Mac dropped URL with /.file/id= (converting)" ) );
-      CFStringRef relCFStringRef =
-        CFStringCreateWithCString(
-          kCFAllocatorDefault,
-          fileName.toUtf8().constData(),
-          kCFStringEncodingUTF8
-        );
-      CFURLRef relCFURL =
-        CFURLCreateWithFileSystemPath(
-          kCFAllocatorDefault,
-          relCFStringRef,
-          kCFURLPOSIXPathStyle,
-          false // isDirectory
-        );
-      CFErrorRef error = 0;
-      CFURLRef absCFURL =
-        CFURLCreateFilePathURL(
-          kCFAllocatorDefault,
-          relCFURL,
-          &error
-        );
-      if ( !error )
-      {
-        static const CFIndex maxAbsPathCStrBufLen = 4096;
-        char absPathCStr[maxAbsPathCStrBufLen];
-        if ( CFURLGetFileSystemRepresentation(
-               absCFURL,
-               true, // resolveAgainstBase
-               reinterpret_cast<UInt8 *>( &absPathCStr[0] ),
-               maxAbsPathCStrBufLen ) )
-        {
-          fileName = QString( absPathCStr );
-        }
-      }
-      CFRelease( absCFURL );
-      CFRelease( relCFURL );
-      CFRelease( relCFStringRef );
-    }
-#endif
     // seems that some drag and drop operations include an empty url
     // so we test for length to make sure we have something
     if ( !fileName.isEmpty() )
@@ -2028,7 +2022,7 @@ void QgsLayoutDesignerDialog::print()
       }
       mMessageBar->pushMessage( tr( "Print layout" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 
@@ -2640,7 +2634,7 @@ void QgsLayoutDesignerDialog::printAtlas()
       }
       mMessageBar->pushMessage( tr( "Print atlas" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 
@@ -3735,7 +3729,7 @@ void QgsLayoutDesignerDialog::printReport()
       }
       mMessageBar->pushMessage( tr( "Print report" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 

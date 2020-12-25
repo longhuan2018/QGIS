@@ -308,8 +308,7 @@ static QString pickLegend( const QgsWmsStyleProperty &s )
 
 static const QgsWmsStyleProperty *searchStyle( const QVector<QgsWmsStyleProperty> &styles, const QString &name )
 {
-  const auto constStyles = styles;
-  for ( const QgsWmsStyleProperty &s : constStyles )
+  for ( const QgsWmsStyleProperty &s : styles )
     if ( s.name == name )
       return &s;
   return nullptr;
@@ -1069,6 +1068,11 @@ QUrl QgsWmsProvider::createRequestUrlWMS( const QgsRectangle &viewExtent, int pi
   setQueryItem( query, QStringLiteral( "HEIGHT" ), QString::number( pixelHeight ) );
   setQueryItem( query, QStringLiteral( "LAYERS" ), layers );
   setQueryItem( query, QStringLiteral( "STYLES" ), styles );
+  QStringList opacityList = mSettings.mOpacities;
+  if ( !opacityList.isEmpty() )
+  {
+    setQueryItem( query, QStringLiteral( "OPACITIES" ), mSettings.mOpacities.join( ',' ) );
+  }
 
   // For WMS-T layers
   if ( temporalCapabilities() &&
@@ -4633,25 +4637,47 @@ QList<QgsDataItemProvider *> QgsWmsProviderMetadata::dataItemProviders() const
   return providers;
 }
 
-QVariantMap QgsWmsProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsWmsProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QUrlQuery query { uri };
   const auto constItems { query.queryItems() };
   QVariantMap decoded;
   for ( const auto &item : constItems )
   {
-    decoded[ item.first ] = item.second;
+    if ( item.first == QStringLiteral( "url" ) )
+    {
+      const QUrl url( item.second );
+      if ( url.isLocalFile() )
+      {
+        decoded[ QStringLiteral( "path" ) ] = url.toLocalFile();
+      }
+      else
+      {
+        decoded[ item.first ] = item.second;
+      }
+    }
+    else
+    {
+      decoded[ item.first ] = item.second;
+    }
   }
   return decoded;
 }
 
-QString QgsWmsProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsWmsProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QUrlQuery query;
   QList<QPair<QString, QString> > items;
   for ( auto it = parts.constBegin(); it != parts.constEnd(); ++it )
   {
-    items.push_back( {it.key(), it.value().toString() } );
+    if ( it.key() == QStringLiteral( "path" ) )
+    {
+      items.push_back( { QStringLiteral( "url" ), QUrl::fromLocalFile( it.value().toString() ).toString() } );
+    }
+    else
+    {
+      items.push_back( { it.key(), it.value().toString() } );
+    }
   }
   query.setQueryItems( items );
   return query.toString();

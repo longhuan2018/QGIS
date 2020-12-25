@@ -468,7 +468,7 @@ class CORE_EXPORT QgsMapSettings : public QgsTemporalRangeObject
      * \returns the transformed point
      * \since QGIS 3.16
      */
-    QgsPoint layerToMapCoordinates( const QgsMapLayer *layer, QgsPoint point ) const;
+    QgsPoint layerToMapCoordinates( const QgsMapLayer *layer, const QgsPoint &point ) const;
 
     /**
      * \brief transform rectangle from layer's CRS to output CRS
@@ -488,7 +488,7 @@ class CORE_EXPORT QgsMapSettings : public QgsTemporalRangeObject
      * \returns the transformed point
      * \since QGIS 3.16
      */
-    QgsPoint mapToLayerCoordinates( const QgsMapLayer *layer, QgsPoint point ) const;
+    QgsPoint mapToLayerCoordinates( const QgsMapLayer *layer, const QgsPoint &point ) const;
 
     /**
      * \brief transform rectangle from output CRS to layer's CRS
@@ -676,6 +676,22 @@ class CORE_EXPORT QgsMapSettings : public QgsTemporalRangeObject
      */
     QList< QgsRenderedFeatureHandlerInterface * > renderedFeatureHandlers() const;
 
+    /**
+     * Returns the range of z-values which will be visible in the map.
+     *
+     * \see setZRange()
+     * \since QGIS 3.18
+     */
+    QgsDoubleRange zRange() const;
+
+    /**
+     * Sets the \a range of z-values which will be visible in the map.
+     *
+     * \see zRange()
+     * \since QGIS 3.18
+     */
+    void setZRange( const QgsDoubleRange &range );
+
   protected:
 
     double mDpi;
@@ -743,6 +759,9 @@ class CORE_EXPORT QgsMapSettings : public QgsTemporalRangeObject
     QList< QgsLabelBlockingRegion > mLabelBlockingRegions;
     QList< QgsMapClippingRegion > mClippingRegions;
     QList< QgsRenderedFeatureHandlerInterface * > mRenderedFeatureHandlers;
+
+    QgsDoubleRange mZRange;
+
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS( QgsMapSettings::Flags )

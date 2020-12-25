@@ -3975,7 +3975,7 @@ QSet<QVariant> QgsSpatiaLiteProvider::uniqueValues( int index, int limit ) const
             const QString txt = QString::fromUtf8( ( const char * ) sqlite3_column_text( stmt, 0 ) );
             if ( mAttributeFields.at( index ).type() == QVariant::DateTime )
             {
-              QDateTime dt = QDateTime::fromString( txt, QStringLiteral( "yyyy-MM-ddThh:mm:ss" ) );
+              QDateTime dt = QDateTime::fromString( txt, Qt::ISODate );
               if ( !dt.isValid() )
               {
                 // if that fails, try SQLite's default date format
@@ -4288,7 +4288,7 @@ bool QgsSpatiaLiteProvider::addFeatures( QgsFeatureList &flist, Flags flags )
           else if ( type == QVariant::DateTime )
           {
             QDateTime dt = v.toDateTime();
-            QByteArray ba = dt.toString( QStringLiteral( "yyyy-MM-ddThh:mm:ss" ) ).toUtf8();
+            QByteArray ba = dt.toString( Qt::ISODate ).toUtf8();
             sqlite3_bind_text( stmt, ++ia, ba.constData(), ba.size(), SQLITE_TRANSIENT );
           }
           else if ( type == QVariant::Date )
@@ -4680,7 +4680,7 @@ bool QgsSpatiaLiteProvider::changeAttributeValues( const QgsChangedAttributesMap
         }
         else if ( type == QVariant::DateTime )
         {
-          sql += QStringLiteral( "%1=%2" ).arg( QgsSqliteUtils::quotedIdentifier( fld.name() ), QgsSqliteUtils::quotedString( val.toDateTime().toString( QStringLiteral( "yyyy-MM-ddThh:mm:ss" ) ) ) );
+          sql += QStringLiteral( "%1=%2" ).arg( QgsSqliteUtils::quotedIdentifier( fld.name() ), QgsSqliteUtils::quotedString( val.toDateTime().toString( Qt::ISODate ) ) );
         }
         else if ( type == QVariant::Date )
         {
@@ -5853,13 +5853,19 @@ void QgsSpatiaLiteProvider::invalidateConnections( const QString &connection )
   QgsSpatiaLiteConnPool::instance()->invalidateConnections( connection );
 }
 
-QVariantMap QgsSpatiaLiteProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsSpatiaLiteProviderMetadata::decodeUri( const QString &uri ) const
 {
   QgsDataSourceUri dsUri = QgsDataSourceUri( uri );
 
   QVariantMap components;
   components.insert( QStringLiteral( "path" ), dsUri.database() );
   components.insert( QStringLiteral( "layerName" ), dsUri.table() );
+  if ( !dsUri.sql().isEmpty() )
+    components.insert( QStringLiteral( "subset" ), dsUri.sql() );
+  if ( !dsUri.geometryColumn().isEmpty() )
+    components.insert( QStringLiteral( "geometryColumn" ), dsUri.geometryColumn() );
+  if ( !dsUri.keyColumn().isEmpty() )
+    components.insert( QStringLiteral( "keyColumn" ), dsUri.keyColumn() );
   return components;
 }
 
@@ -5871,11 +5877,14 @@ QgsSpatiaLiteProvider *QgsSpatiaLiteProviderMetadata::createProvider(
   return new QgsSpatiaLiteProvider( uri, options, flags );
 }
 
-QString QgsSpatiaLiteProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsSpatiaLiteProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QgsDataSourceUri dsUri;
   dsUri.setDatabase( parts.value( QStringLiteral( "path" ) ).toString() );
   dsUri.setTable( parts.value( QStringLiteral( "layerName" ) ).toString() );
+  dsUri.setSql( parts.value( QStringLiteral( "subset" ) ).toString() );
+  dsUri.setGeometryColumn( parts.value( QStringLiteral( "geometryColumn" ) ).toString() );
+  dsUri.setKeyColumn( parts.value( QStringLiteral( "keyColumn" ) ).toString() );
   return dsUri.uri();
 }
 

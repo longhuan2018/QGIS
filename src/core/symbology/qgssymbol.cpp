@@ -52,6 +52,8 @@
 #include "qgsrenderedfeaturehandlerinterface.h"
 #include "qgslegendpatchshape.h"
 
+QgsPropertiesDefinition QgsSymbol::sPropertyDefinitions;
+
 inline
 QgsProperty rotateWholeSymbol( double additionalRotation, const QgsProperty &property )
 {
@@ -248,6 +250,12 @@ void QgsSymbol::_getPolygon( QPolygonF &pts, QVector<QPolygonF> &holes, QgsRende
   }
 }
 
+const QgsPropertiesDefinition &QgsSymbol::propertyDefinitions()
+{
+  QgsSymbol::initPropertyDefinitions();
+  return sPropertyDefinitions;
+}
+
 QgsSymbol::~QgsSymbol()
 {
   // delete all symbol layers (we own them, so it's okay)
@@ -273,6 +281,23 @@ QgsUnitTypes::RenderUnit QgsSymbol::outputUnit() const
     }
   }
   return unit;
+}
+
+bool QgsSymbol::usesMapUnits() const
+{
+  if ( mLayers.empty() )
+  {
+    return false;
+  }
+
+  for ( const QgsSymbolLayer *layer : mLayers )
+  {
+    if ( layer->usesMapUnits() )
+    {
+      return true;
+    }
+  }
+  return false;
 }
 
 QgsMapUnitScale QgsSymbol::mapUnitScale() const
@@ -465,6 +490,8 @@ void QgsSymbol::startRender( QgsRenderContext &context, const QgsFields &fields 
   std::unique_ptr< QgsExpressionContextScope > scope( QgsExpressionContextUtils::updateSymbolScope( this, new QgsExpressionContextScope() ) );
   mSymbolRenderContext->setExpressionContextScope( scope.release() );
 
+  mDataDefinedProperties.prepare( context.expressionContext() );
+
   const auto constMLayers = mLayers;
   for ( QgsSymbolLayer *layer : constMLayers )
   {
@@ -535,7 +562,10 @@ void QgsSymbol::drawPreviewIcon( QPainter *painter, QSize size, QgsRenderContext
 
   const bool prevForceVector = context->forceVectorOutput();
   context->setForceVectorOutput( true );
-  QgsSymbolRenderContext symbolContext( *context, QgsUnitTypes::RenderUnknownUnit, mOpacity, false, mRenderHints, nullptr );
+
+  const double opacity = expressionContext ? dataDefinedProperties().valueAsDouble( QgsSymbol::PropertyOpacity, *expressionContext, mOpacity ) : mOpacity;
+
+  QgsSymbolRenderContext symbolContext( *context, QgsUnitTypes::RenderUnknownUnit, opacity, false, mRenderHints, nullptr );
   symbolContext.setSelected( selected );
   symbolContext.setOriginalGeometryType( mType == Fill ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::UnknownGeometry );
   if ( patchShape )
@@ -634,7 +664,7 @@ QImage QgsSymbol::asImage( QSize size, QgsRenderContext *customContext )
 }
 
 
-QImage QgsSymbol::bigSymbolPreviewImage( QgsExpressionContext *expressionContext )
+QImage QgsSymbol::bigSymbolPreviewImage( QgsExpressionContext *expressionContext, QgsSymbol::PreviewFlags flags )
 {
   QImage preview( QSize( 100, 100 ), QImage::Format_ARGB32_Premultiplied );
   preview.fill( 0 );
@@ -643,7 +673,7 @@ QImage QgsSymbol::bigSymbolPreviewImage( QgsExpressionContext *expressionContext
   p.setRenderHint( QPainter::Antialiasing );
   p.translate( 0.5, 0.5 ); // shift by half a pixel to avoid blurring due antialiasing
 
-  if ( mType == QgsSymbol::Marker )
+  if ( mType == QgsSymbol::Marker && flags & PreviewFlag::FlagIncludeCrosshairsForMarkerSymbols )
   {
     p.setPen( QPen( Qt::gray ) );
     p.drawLine( 0, 50, 100, 50 );
@@ -756,7 +786,10 @@ void QgsSymbol::renderUsingLayer( QgsSymbolLayer *layer, QgsSymbolRenderContext 
 
 QSet<QString> QgsSymbol::usedAttributes( const QgsRenderContext &context ) const
 {
-  QSet<QString> attributes;
+  // calling referencedFields() with ignoreContext=true because in our expression context
+  // we do not have valid QgsFields yet - because of that the field names from expressions
+  // wouldn't get reported
+  QSet<QString> attributes = mDataDefinedProperties.referencedFields( context.expressionContext(), true );
   QgsSymbolLayerList::const_iterator sIt = mLayers.constBegin();
   for ( ; sIt != mLayers.constEnd(); ++sIt )
   {
@@ -768,8 +801,16 @@ QSet<QString> QgsSymbol::usedAttributes( const QgsRenderContext &context ) const
   return attributes;
 }
 
+void QgsSymbol::setDataDefinedProperty( QgsSymbol::Property key, const QgsProperty &property )
+{
+  mDataDefinedProperties.setProperty( key, property );
+}
+
 bool QgsSymbol::hasDataDefinedProperties() const
 {
+  if ( mDataDefinedProperties.hasActiveProperties() )
+    return true;
+
   const auto constMLayers = mLayers;
   for ( QgsSymbolLayer *layer : constMLayers )
   {
@@ -1341,6 +1382,19 @@ void QgsSymbol::renderVertexMarker( QPointF pt, QgsRenderContext &context, int c
   QgsSymbolLayerUtils::drawVertexMarker( pt.x(), pt.y(), *context.painter(), static_cast< QgsSymbolLayerUtils::VertexMarkerType >( currentVertexMarkerType ), markerSize );
 }
 
+void QgsSymbol::initPropertyDefinitions()
+{
+  if ( !sPropertyDefinitions.isEmpty() )
+    return;
+
+  QString origin = QStringLiteral( "symbol" );
+
+  sPropertyDefinitions = QgsPropertiesDefinition
+  {
+    { QgsSymbol::PropertyOpacity, QgsPropertyDefinition( "alpha", QObject::tr( "Opacity" ), QgsPropertyDefinition::Opacity, origin )},
+  };
+}
+
 void QgsSymbol::startFeatureRender( const QgsFeature &feature, QgsRenderContext &context, const int layer )
 {
   if ( layer != -1 )
@@ -1875,7 +1929,9 @@ void QgsMarkerSymbol::renderPointUsingLayer( QgsMarkerSymbolLayer *layer, QPoint
 
 void QgsMarkerSymbol::renderPoint( QPointF point, const QgsFeature *f, QgsRenderContext &context, int layerIdx, bool selected )
 {
-  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, mOpacity, selected, mRenderHints, f );
+  const double opacity = dataDefinedProperties().valueAsDouble( QgsSymbol::PropertyOpacity, context.expressionContext(), mOpacity * 100 ) * 0.01;
+
+  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, opacity, selected, mRenderHints, f );
   symbolContext.setGeometryPartCount( symbolRenderContext()->geometryPartCount() );
   symbolContext.setGeometryPartNum( symbolRenderContext()->geometryPartNum() );
 
@@ -1943,6 +1999,7 @@ QgsMarkerSymbol *QgsMarkerSymbol::clone() const
   Q_NOWARN_DEPRECATED_POP
   cloneSymbol->setClipFeaturesToExtent( mClipFeaturesToExtent );
   cloneSymbol->setForceRHR( mForceRHR );
+  cloneSymbol->setDataDefinedProperties( dataDefinedProperties() );
   return cloneSymbol;
 }
 
@@ -2124,9 +2181,11 @@ QgsProperty QgsLineSymbol::dataDefinedWidth() const
 
 void QgsLineSymbol::renderPolyline( const QPolygonF &points, const QgsFeature *f, QgsRenderContext &context, int layerIdx, bool selected )
 {
+  const double opacity = dataDefinedProperties().valueAsDouble( QgsSymbol::PropertyOpacity, context.expressionContext(), mOpacity * 100 ) * 0.01;
+
   //save old painter
   QPainter *renderPainter = context.painter();
-  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, mOpacity, selected, mRenderHints, f );
+  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, opacity, selected, mRenderHints, f );
   symbolContext.setOriginalGeometryType( QgsWkbTypes::LineGeometry );
   symbolContext.setGeometryPartCount( symbolRenderContext()->geometryPartCount() );
   symbolContext.setGeometryPartNum( symbolRenderContext()->geometryPartNum() );
@@ -2199,6 +2258,7 @@ QgsLineSymbol *QgsLineSymbol::clone() const
   Q_NOWARN_DEPRECATED_POP
   cloneSymbol->setClipFeaturesToExtent( mClipFeaturesToExtent );
   cloneSymbol->setForceRHR( mForceRHR );
+  cloneSymbol->setDataDefinedProperties( dataDefinedProperties() );
   return cloneSymbol;
 }
 
@@ -2214,7 +2274,9 @@ QgsFillSymbol::QgsFillSymbol( const QgsSymbolLayerList &layers )
 
 void QgsFillSymbol::renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, const QgsFeature *f, QgsRenderContext &context, int layerIdx, bool selected )
 {
-  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, mOpacity, selected, mRenderHints, f );
+  const double opacity = dataDefinedProperties().valueAsDouble( QgsSymbol::PropertyOpacity, context.expressionContext(), mOpacity * 100 ) * 0.01;
+
+  QgsSymbolRenderContext symbolContext( context, QgsUnitTypes::RenderUnknownUnit, opacity, selected, mRenderHints, f );
   symbolContext.setOriginalGeometryType( QgsWkbTypes::PolygonGeometry );
   symbolContext.setGeometryPartCount( symbolRenderContext()->geometryPartCount() );
   symbolContext.setGeometryPartNum( symbolRenderContext()->geometryPartNum() );
@@ -2323,6 +2385,7 @@ QgsFillSymbol *QgsFillSymbol::clone() const
   Q_NOWARN_DEPRECATED_POP
   cloneSymbol->setClipFeaturesToExtent( mClipFeaturesToExtent );
   cloneSymbol->setForceRHR( mForceRHR );
+  cloneSymbol->setDataDefinedProperties( dataDefinedProperties() );
   return cloneSymbol;
 }
 

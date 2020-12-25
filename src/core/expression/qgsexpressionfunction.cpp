@@ -637,10 +637,30 @@ static QVariant fcnAggregate( const QVariantList &values, const QgsExpressionCon
     QString cacheKey;
     QgsExpression subExp( subExpression );
     QgsExpression filterExp( parameters.filter );
+
+    bool isStatic = true;
     if ( filterExp.referencedVariables().contains( QStringLiteral( "parent" ) )
          || filterExp.referencedVariables().contains( QString() )
          || subExp.referencedVariables().contains( QStringLiteral( "parent" ) )
          || subExp.referencedVariables().contains( QString() ) )
+    {
+      isStatic = false;
+    }
+    else
+    {
+      const QSet<QString> refVars = filterExp.referencedVariables() + subExp.referencedVariables();
+      for ( const QString &varName : refVars )
+      {
+        const QgsExpressionContextScope *scope = context->activeScopeForVariable( varName );
+        if ( scope && !scope->isStatic( varName ) )
+        {
+          isStatic = false;
+          break;
+        }
+      }
+    }
+
+    if ( !isStatic )
     {
       cacheKey = QStringLiteral( "aggfcn:%1:%2:%3:%4:%5%6:%7" ).arg( vl->id(), QString::number( aggregate ), subExpression, parameters.filter,
                  QString::number( context->feature().id() ), QString( qHash( context->feature() ) ), orderBy );
@@ -651,7 +671,9 @@ static QVariant fcnAggregate( const QVariantList &values, const QgsExpressionCon
     }
 
     if ( context && context->hasCachedValue( cacheKey ) )
+    {
       return context->cachedValue( cacheKey );
+    }
 
     QgsExpressionContext subContext( *context );
     QgsExpressionContextScope *subScope = new QgsExpressionContextScope();
@@ -867,11 +889,32 @@ static QVariant fcnAggregateGeneric( QgsAggregateCalculator::Aggregate aggregate
       parameters.filter = groupByClause;
   }
 
-  QString cacheKey = QStringLiteral( "agg:%1:%2:%3:%4:%5" ).arg( vl->id(),
-                     QString::number( static_cast< int >( aggregate ) ),
-                     subExpression,
-                     parameters.filter,
-                     orderBy );
+  QgsExpression subExp( subExpression );
+  QgsExpression filterExp( parameters.filter );
+
+  bool isStatic = true;
+  const QSet<QString> refVars = filterExp.referencedVariables() + subExp.referencedVariables();
+  for ( const QString &varName : refVars )
+  {
+    const QgsExpressionContextScope *scope = context->activeScopeForVariable( varName );
+    if ( scope && !scope->isStatic( varName ) )
+    {
+      isStatic = false;
+      break;
+    }
+  }
+
+  QString cacheKey;
+  if ( !isStatic )
+  {
+    cacheKey = QStringLiteral( "agg:%1:%2:%3:%4:%5%6:%7" ).arg( vl->id(), QString::number( aggregate ), subExpression, parameters.filter,
+               QString::number( context->feature().id() ), QString( qHash( context->feature() ) ), orderBy );
+  }
+  else
+  {
+    cacheKey = QStringLiteral( "agg:%1:%2:%3:%4:%5" ).arg( vl->id(), QString::number( aggregate ), subExpression, parameters.filter, orderBy );
+  }
+
   if ( context->hasCachedValue( cacheKey ) )
     return context->cachedValue( cacheKey );
 
@@ -879,6 +922,9 @@ static QVariant fcnAggregateGeneric( QgsAggregateCalculator::Aggregate aggregate
   bool ok = false;
 
   QgsExpressionContext subContext( *context );
+  QgsExpressionContextScope *subScope = new QgsExpressionContextScope();
+  subScope->setVariable( QStringLiteral( "parent" ), context->feature() );
+  subContext.appendScope( subScope );
   result = vl->aggregate( aggregate, subExpression, parameters, &subContext, &ok );
 
   if ( !ok )
@@ -1465,9 +1511,21 @@ static QVariant fcnRegexpSubstr( const QVariantList &values, const QgsExpression
   }
 }
 
-static QVariant fcnUuid( const QVariantList &, const QgsExpressionContext *, QgsExpression *, const QgsExpressionNodeFunction * )
+static QVariant fcnUuid( const QVariantList &values, const QgsExpressionContext *, QgsExpression *, const QgsExpressionNodeFunction * )
 {
-  return QUuid::createUuid().toString();
+  QString uuid = QUuid::createUuid().toString();
+#if QT_VERSION < QT_VERSION_CHECK(5, 11, 0)
+  if ( values.at( 0 ).toString().compare( QStringLiteral( "WithoutBraces" ), Qt::CaseInsensitive ) == 0 )
+    uuid.remove( QRegExp( "[{}]" ) );
+  else if ( values.at( 0 ).toString().compare( QStringLiteral( "Id128" ), Qt::CaseInsensitive ) == 0 )
+    uuid.remove( QRegExp( "[{}-]" ) );
+#else
+  if ( values.at( 0 ).toString().compare( QStringLiteral( "WithoutBraces" ), Qt::CaseInsensitive ) == 0 )
+    uuid = QUuid::createUuid().toString( QUuid::StringFormat::WithoutBraces );
+  else if ( values.at( 0 ).toString().compare( QStringLiteral( "Id128" ), Qt::CaseInsensitive ) == 0 )
+    uuid = QUuid::createUuid().toString( QUuid::StringFormat::Id128 );
+#endif
+  return uuid;
 }
 
 static QVariant fcnSubstr( const QVariantList &values, const QgsExpressionContext *, QgsExpression *parent, const QgsExpressionNodeFunction * )
@@ -5092,6 +5150,8 @@ static QVariant fcnGetLayerProperty( const QVariantList &values, const QgsExpres
         return QCoreApplication::translate( "expressions", "Plugin" );
       case QgsMapLayerType::AnnotationLayer:
         return QCoreApplication::translate( "expressions", "Annotation" );
+      case QgsMapLayerType::PointCloudLayer:
+        return QCoreApplication::translate( "expressions", "Point Cloud" );
     }
   }
   else
@@ -5264,8 +5324,10 @@ static QVariant fcnArrayGet( const QVariantList &values, const QgsExpressionCont
 {
   const QVariantList list = QgsExpressionUtils::getListValue( values.at( 0 ), parent );
   const int pos = QgsExpressionUtils::getNativeIntValue( values.at( 1 ), parent );
-  if ( pos < 0 || pos >= list.length() ) return QVariant();
-  return list.at( pos );
+  if ( pos < list.length() && pos >= 0 ) return list.at( pos );
+  else if ( pos < 0 && ( list.length() + pos ) >= 0 )
+    return list.at( list.length() + pos );
+  return QVariant();
 }
 
 static QVariant fcnArrayFirst( const QVariantList &values, const QgsExpressionContext *, QgsExpression *parent, const QgsExpressionNodeFunction * )
@@ -5728,13 +5790,6 @@ static QVariant executeGeomOverlay( const QVariantList &values, const QgsExpress
   QVariant limitValue = node->eval( parent, context );
   ENSURE_NO_EVAL_ERROR
   qlonglong limit = QgsExpressionUtils::getIntValue( limitValue, parent );
-  if ( ! isNearestFunc )
-  {
-    // for all functions but nearest_neighbour, the limit parameters limits queryset.
-    // (for nearest_neighbour, it will be used by the spatial index below, which will limit
-    // but taking distance into account)
-    request.setLimit( limit );
-  }
 
   // Fifth parameter (for nearest only) is the max distance
   double max_distance = 0;
@@ -5865,16 +5920,18 @@ static QVariant executeGeomOverlay( const QVariantList &values, const QgsExpress
 
 
   bool found = false;
+  int foundCount = 0;
   QVariantList results;
 
   QListIterator<QgsFeature> i( features );
-  while ( i.hasNext() )
+  while ( i.hasNext() && ( limit == -1 || foundCount < limit ) )
   {
     QgsFeature feat2 = i.next();
 
     if ( ! relationFunction || ( geometry.*relationFunction )( feat2.geometry() ) ) // Calls the method provided as template argument for the function (e.g. QgsGeometry::intersects)
     {
       found = true;
+      foundCount++;
 
       // We just want a single boolean result if there is any intersect: finish and return true
       if ( testOnly )
@@ -6473,7 +6530,7 @@ const QList<QgsExpressionFunction *> &QgsExpression::Functions()
                                             fcnRotate, QStringLiteral( "GeometryGroup" ) )
         << new QgsStaticExpressionFunction( QStringLiteral( "buffer" ), QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "geometry" ) )
                                             << QgsExpressionFunction::Parameter( QStringLiteral( "distance" ) )
-                                            << QgsExpressionFunction::Parameter( QStringLiteral( "segments" ), true, 8.0 ),
+                                            << QgsExpressionFunction::Parameter( QStringLiteral( "segments" ), true, 8 ),
                                             fcnBuffer, QStringLiteral( "GeometryGroup" ) )
         << new QgsStaticExpressionFunction( QStringLiteral( "force_rhr" ), QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "geometry" ) ),
                                             fcnForceRHR, QStringLiteral( "GeometryGroup" ) )
@@ -6671,7 +6728,7 @@ const QList<QgsExpressionFunction *> &QgsExpression::Functions()
     currentFeatureFunc->setIsStatic( false );
     functions << currentFeatureFunc;
 
-    QgsStaticExpressionFunction *uuidFunc = new QgsStaticExpressionFunction( QStringLiteral( "uuid" ), 0, fcnUuid, QStringLiteral( "Record and Attributes" ), QString(), false, QSet<QString>(), false, QStringList() << QStringLiteral( "$uuid" ) );
+    QgsStaticExpressionFunction *uuidFunc = new QgsStaticExpressionFunction( QStringLiteral( "uuid" ), QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "format" ), true, QStringLiteral( "WithBraces" ) ), fcnUuid, QStringLiteral( "Record and Attributes" ), QString(), false, QSet<QString>(), false, QStringList() << QStringLiteral( "$uuid" ) );
     uuidFunc->setIsStatic( false );
     functions << uuidFunc;
 
@@ -7076,7 +7133,8 @@ bool QgsArrayForeachExpressionFunction::prepare( const QgsExpressionNodeFunction
 QgsArrayFilterExpressionFunction::QgsArrayFilterExpressionFunction()
   : QgsExpressionFunction( QStringLiteral( "array_filter" ), QgsExpressionFunction::ParameterList()
                            << QgsExpressionFunction::Parameter( QStringLiteral( "array" ) )
-                           << QgsExpressionFunction::Parameter( QStringLiteral( "expression" ) ),
+                           << QgsExpressionFunction::Parameter( QStringLiteral( "expression" ) )
+                           << QgsExpressionFunction::Parameter( QStringLiteral( "limit" ), true, 0 ),
                            QStringLiteral( "Arrays" ) )
 {
 
@@ -7120,11 +7178,31 @@ QVariant QgsArrayFilterExpressionFunction::run( QgsExpressionNode::NodeList *arg
   QgsExpressionContextScope *subScope = new QgsExpressionContextScope();
   subContext->appendScope( subScope );
 
+  int limit = 0;
+  if ( args->count() >= 3 )
+  {
+    const QVariant limitVar = args->at( 2 )->eval( parent, context );
+
+    if ( QgsExpressionUtils::isIntSafe( limitVar ) )
+    {
+      limit = limitVar.toInt();
+    }
+    else
+    {
+      return result;
+    }
+  }
+
   for ( const QVariant &value : array )
   {
     subScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "element" ), value, true ) );
     if ( args->at( 1 )->eval( parent, subContext ).toBool() )
+    {
       result << value;
+
+      if ( limit > 0 && limit == result.size() )
+        break;
+    }
   }
 
   if ( context )

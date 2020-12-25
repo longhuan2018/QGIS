@@ -294,6 +294,20 @@ This value tells that when the given ground error is reached (e.g. 10 meters), i
 to further split terrain tiles into finer ones because they will not add extra details anymore.
 %End
 
+    void setTerrainElevationOffset( float offset );
+%Docstring
+Sets the terrain elevation offset (used to move the terrain up or down)
+
+.. seealso:: :py:func:`terrainElevationOffset`
+
+.. versionadded:: 3.18
+%End
+
+    float terrainElevationOffset() const;
+%Docstring
+Returns the elevation offset of the terrain (used to move the terrain up or down)
+%End
+
 
     void setTerrainShadingEnabled( bool enabled );
 %Docstring
@@ -415,6 +429,87 @@ Sets whether to display labels on terrain tiles
 Returns whether to display labels on terrain tiles
 %End
 
+    void setEyeDomeLightingEnabled( bool enabled );
+%Docstring
+Sets whether eye dome lighting will be used
+
+.. seealso:: :py:func:`eyeDomeLightingEnabled`
+
+.. versionadded:: 3.18
+%End
+    bool eyeDomeLightingEnabled() const;
+%Docstring
+Returns whether eye dome lighting is used
+%End
+
+    void setEyeDomeLightingStrength( double strength );
+%Docstring
+Sets the eye dome lighting strength value
+
+.. seealso:: :py:func:`eyeDomeLightingStrength`
+
+.. versionadded:: 3.18
+%End
+    double eyeDomeLightingStrength() const;
+%Docstring
+Returns the eye dome lighting strength value
+%End
+
+    void setEyeDomeLightingDistance( int distance );
+%Docstring
+Sets the eye dome lighting distance value (contributes to the contrast of the image
+
+.. seealso:: :py:func:`eyeDomeLightingDistance`
+
+.. versionadded:: 3.18
+%End
+    int eyeDomeLightingDistance() const;
+%Docstring
+Returns the eye dome lighting distance value (contributes to the contrast of the image)
+%End
+
+    void setDebugShadowMapSettings( bool enabled, Qt::Corner corner, double size );
+%Docstring
+Sets the debugging settings of the shadow map
+
+.. seealso:: :py:func:`debugShadowMapEnabled`
+
+.. versionadded:: 3.18
+%End
+    bool debugShadowMapEnabled() const;
+%Docstring
+Returns whether the shadow map debugging is enabled
+%End
+    Qt::Corner debugShadowMapCorner() const;
+%Docstring
+Returns the corner where the shadow map preview is displayed
+%End
+    double debugShadowMapSize() const;
+%Docstring
+Returns the size of the shadow map preview
+%End
+
+    void setDebugDepthMapSettings( bool enabled, Qt::Corner corner, double size );
+%Docstring
+Sets the debugging settings of the depth map
+
+.. seealso:: :py:func:`debugDepthMapEnabled`
+
+.. versionadded:: 3.18
+%End
+    bool debugDepthMapEnabled() const;
+%Docstring
+Returns whether the shadow map debugging is enabled
+%End
+    Qt::Corner debugDepthMapCorner() const;
+%Docstring
+Returns the corner where the shadow map preview is displayed
+%End
+    double debugDepthMapSize() const;
+%Docstring
+Returns the size of the shadow map preview
+%End
+
     QList<QgsPointLightSettings> pointLights() const;
 %Docstring
 Returns list of point lights defined in the scene
@@ -457,6 +552,8 @@ Sets the camera lens' field of view
 .. versionadded:: 3.8
 %End
 
+
+
     void setOutputDpi( const double dpi );
 %Docstring
 Sets DPI used for conversion between real world units (e.g. mm) and pixels
@@ -495,6 +592,24 @@ Sets whether the skybox is enabled.
 .. seealso:: :py:func:`isSkyboxEnabled`
 
 .. versionadded:: 3.16
+%End
+
+    bool isFpsCounterEnabled() const;
+%Docstring
+Returns whether FPS counter label is enabled
+
+.. seealso:: :py:func:`setIsFpsCounterEnabled`
+
+.. versionadded:: 3.18
+%End
+
+    void setIsFpsCounterEnabled( bool fpsCounterEnabled );
+%Docstring
+Sets whether FPS counter label is enabled
+
+.. seealso:: :py:func:`isFpsCounterEnabled`
+
+.. versionadded:: 3.18
 %End
 
   signals:
@@ -552,6 +667,13 @@ Emitted when the maximum terrain screen error has changed
 Emitted when the maximum terrain ground error has changed
 %End
 
+    void terrainElevationOffsetChanged( float newElevation );
+%Docstring
+Emitted when the terrain elevation offset is changed
+
+.. versionadded:: 3.16
+%End
+
     void terrainShadingChanged();
 %Docstring
 Emitted when terrain shading enabled flag or terrain shading material has changed
@@ -601,6 +723,41 @@ Emitted when the flag whether light source origins are shown has changed.
 Emitted when the flag whether labels are displayed on terrain tiles has changed
 %End
 
+    void eyeDomeLightingEnabledChanged();
+%Docstring
+Emitted when the flag whether eye dome lighting is used has changed
+
+.. versionadded:: 3.18
+%End
+
+    void eyeDomeLightingStrengthChanged();
+%Docstring
+Emitted when the eye dome lighting strength has changed
+
+.. versionadded:: 3.18
+%End
+
+    void eyeDomeLightingDistanceChanged();
+%Docstring
+Emitted when the eye dome lighting distance has changed
+
+.. versionadded:: 3.18
+%End
+
+    void debugShadowMapSettingsChanged();
+%Docstring
+Emitted when shadow map debugging has changed
+
+.. versionadded:: 3.18
+%End
+
+    void debugDepthMapSettingsChanged();
+%Docstring
+Emitted when depth map debugging has changed
+
+.. versionadded:: 3.18
+%End
+
     void pointLightsChanged();
 %Docstring
 Emitted when the list of point lights changes
@@ -622,6 +779,13 @@ Emitted when the camera lens field of view changes
 .. versionadded:: 3.8
 %End
 
+    void projectionTypeChanged();
+%Docstring
+Emitted when the camera lens projection type changes
+
+.. versionadded:: 3.18
+%End
+
     void skyboxSettingsChanged();
 %Docstring
 Emitted when skybox settings are changed
@@ -634,6 +798,13 @@ Emitted when skybox settings are changed
 Emitted when shadow rendering settings are changed
 
 .. versionadded:: 3.16
+%End
+
+    void fpsCounterEnabledChanged( bool fpsCounterEnabled );
+%Docstring
+Emitted when the FPS counter is enabled or disabled
+
+.. versionadded:: 3.18
 %End
 
   private:

@@ -46,6 +46,7 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
     bool fromWkb( QgsConstWkbPtr &wkb ) override;
     bool fromWkt( const QString &wkt ) override;
 
+    int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QString asWkt( int precision = 17 ) const override;
     QDomElement asGml2( QDomDocument &doc, int precision = 17, const QString &ns = "gml", QgsAbstractGeometry::AxisOrder axisOrder = QgsAbstractGeometry::AxisOrder::XY ) const override;
@@ -59,6 +60,7 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
     void points( QgsPointSequence &pts SIP_OUT ) const override;
     int numPoints() const override SIP_HOLDGIL;
     bool isEmpty() const override SIP_HOLDGIL;
+    bool isValid( QString &error SIP_OUT, int flags = 0 ) const override;
 
     /**
      * Returns a new line string geometry corresponding to a segmentized approximation
@@ -140,7 +142,7 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsCompoundCurve *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsCompoundCurve *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::CompoundCurve )
         return static_cast<const QgsCompoundCurve *>( geom );

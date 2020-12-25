@@ -780,7 +780,7 @@ def _import(name, globals={}, locals={}, fromlist=[], level=None):
                 global _RemoveDllDirectory
 
                 for p in set(new_path.split(';')) - set(old_path.split(';')):
-                    if p is not None and p not in _import_path:
+                    if p is not None and p not in _import_path and os.path.isdir(p):
                         _import_paths[p] = _AddDllDirectory(p)
 
                 for p in set(old_path.split(';')) - set(new_path.split(';')):
@@ -791,7 +791,7 @@ def _import(name, globals={}, locals={}, fromlist=[], level=None):
 
     mod = _builtin_import(name, globals, locals, fromlist, level)
 
-    if mod and '__file__' in mod.__dict__:
+    if mod and getattr(mod, '__file__', None):
         module_name = mod.__name__ if fromlist else name
         package_name = module_name.split('.')[0]
         # check whether the module belongs to one of our plugins

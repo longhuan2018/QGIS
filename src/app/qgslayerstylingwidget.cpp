@@ -35,6 +35,7 @@
 #include "qgsmaplayer.h"
 #include "qgsstyle.h"
 #include "qgsvectorlayer.h"
+#include "qgspointcloudlayer.h"
 #include "qgsvectortilelayer.h"
 #include "qgsvectortilebasiclabelingwidget.h"
 #include "qgsvectortilebasicrendererwidget.h"
@@ -105,7 +106,8 @@ QgsLayerStylingWidget::QgsLayerStylingWidget( QgsMapCanvas *canvas, QgsMessageBa
                            | QgsMapLayerProxyModel::Filter::RasterLayer
                            | QgsMapLayerProxyModel::Filter::PluginLayer
                            | QgsMapLayerProxyModel::Filter::MeshLayer
-                           | QgsMapLayerProxyModel::Filter::VectorTileLayer );
+                           | QgsMapLayerProxyModel::Filter::VectorTileLayer
+                           | QgsMapLayerProxyModel::Filter::PointCloudLayer );
 
   mStackedWidget->setCurrentIndex( 0 );
 }
@@ -141,6 +143,7 @@ void QgsLayerStylingWidget::setLayer( QgsMapLayer *layer )
 {
   if ( layer == mCurrentLayer )
     return;
+
 
   // when current layer is changed, apply the main panel stack to allow it to gracefully clean up
   mWidgetStack->acceptAllPanels();
@@ -250,6 +253,7 @@ void QgsLayerStylingWidget::setLayer( QgsMapLayer *layer )
       break;
     }
 
+    case QgsMapLayerType::PointCloudLayer:
     case QgsMapLayerType::PluginLayer:
     case QgsMapLayerType::AnnotationLayer:
       break;
@@ -434,6 +438,7 @@ void QgsLayerStylingWidget::updateCurrentWidgetLayer()
     QgsMapLayerConfigWidget *panel = mUserPages[row]->createWidget( mCurrentLayer, mMapCanvas, true, mWidgetStack );
     if ( panel )
     {
+      panel->setDockMode( true );
       connect( panel, &QgsPanelWidget::widgetChanged, this, &QgsLayerStylingWidget::autoApply );
       mWidgetStack->setMainPanel( panel );
     }
@@ -653,6 +658,10 @@ void QgsLayerStylingWidget::updateCurrentWidgetLayer()
         break;
       }
 
+      case QgsMapLayerType::PointCloudLayer:
+      {
+        break;
+      }
       case QgsMapLayerType::PluginLayer:
       case QgsMapLayerType::AnnotationLayer:
       {
@@ -782,8 +791,7 @@ bool QgsLayerStyleManagerWidgetFactory::supportsLayer( QgsMapLayer *layer ) cons
       return true;
 
     case QgsMapLayerType::VectorTileLayer:
-      return false;  // TODO
-
+    case QgsMapLayerType::PointCloudLayer:
     case QgsMapLayerType::PluginLayer:
     case QgsMapLayerType::AnnotationLayer:
       return false;

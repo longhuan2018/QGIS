@@ -194,7 +194,7 @@ Sets active flag values.
 
 If the data provider/datasets does not have active
 flag capability (== all values are valid), just
-set block validity by setValid( true )
+set block validity by setValid( ``True`` )
 
 :param vals: value vector with size :py:func:`~QgsMeshDataBlock.count`
 
@@ -419,6 +419,7 @@ Constructs a valid metadata object
 :param referenceTime: reference time of the dataset group
 :param isTemporal: weither the dataset group is temporal (contains time-related dataset)
 :param extraOptions: dataset's extra options stored by the provider. Usually contains the name, time value, time units, data file vendor, ...
+:param uri: The uri of the dataset
 %End
 
     QString name() const;
@@ -735,7 +736,7 @@ Returns whether all the datasets contain ``count`` values
 
     void calculateStatistic();
 %Docstring
-Calculates the statictics (minimum and maximum)
+Calculates the statistics (minimum and maximum)
 %End
 
     virtual QStringList datasetGroupNamesDependentOn() const;
@@ -882,9 +883,18 @@ Returns the count of children
 
     int totalChildCount() const;
 %Docstring
-Returns the total count of children, that is included deeper children
+Returns the total count of children, that is included deeper children and disabled items
 
-:return:
+:return: the total children's count
+%End
+
+    QList<int> enabledDatasetGroupIndexes() const;
+%Docstring
+Returns a list of enabled dataset group indexes, included deeper children
+
+:return: the list of dataset group indexes
+
+.. versionadded:: 3.16.3
 %End
 
     QgsMeshDatasetGroupTreeItem *parentItem() const;

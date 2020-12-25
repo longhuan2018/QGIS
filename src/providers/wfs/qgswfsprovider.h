@@ -122,6 +122,8 @@ class QgsWFSProvider final: public QgsVectorDataProvider
 
     bool empty() const override;
 
+    std::shared_ptr<QgsWFSSharedData> sharedData() const { return mShared; }
+
   private slots:
 
     void featureReceivedAnalyzeOneFeature( QVector<QgsFeatureUniqueIdPair> );
@@ -139,6 +141,11 @@ class QgsWFSProvider final: public QgsVectorDataProvider
     void reloadProviderData() override;
 
     friend class QgsWFSFeatureSource;
+
+    /**
+     * Create the geometry element
+     */
+    QDomElement geometryElement( const QgsGeometry &geometry, QDomDocument &transactionDoc );
 
   protected:
 

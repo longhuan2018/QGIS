@@ -25,6 +25,7 @@
 #include "qgsrendercontext.h"
 #include "qgsproperty.h"
 #include "qgssymbollayerreference.h"
+#include "qgspropertycollection.h"
 
 class QColor;
 class QImage;
@@ -106,6 +107,21 @@ class CORE_EXPORT QgsSymbol
       DynamicRotation = 2, //!< Rotation of symbol may be changed during rendering and symbol should not be cached
     };
     Q_DECLARE_FLAGS( RenderHints, RenderHint )
+
+    /**
+     * Data definable properties.
+     * \since QGIS 3.18
+     */
+    enum Property
+    {
+      PropertyOpacity, //!< Opacity
+    };
+
+    /**
+     * Returns the symbol property definitions.
+     * \since QGIS 3.18
+     */
+    static const QgsPropertiesDefinition &propertyDefinitions();
 
     virtual ~QgsSymbol();
 
@@ -370,14 +386,27 @@ class CORE_EXPORT QgsSymbol
     QImage asImage( QSize size, QgsRenderContext *customContext = nullptr );
 
     /**
+     * Flags for controlling how symbol preview images are generated.
+     *
+     * \since QGIS 3.16
+     */
+    enum PreviewFlag
+    {
+      FlagIncludeCrosshairsForMarkerSymbols = 1 << 0, //!< Include a crosshairs reference image in the background of marker symbol previews
+    };
+    Q_DECLARE_FLAGS( PreviewFlags, PreviewFlag )
+
+    /**
      * Returns a large (roughly 100x100 pixel) preview image for the symbol.
+     *
      * \param expressionContext optional expression context, for evaluation of
      * data defined symbol properties
+     * \param flags optional flags to control how preview image is generated
      *
      * \see asImage()
      * \see drawPreviewIcon()
      */
-    QImage bigSymbolPreviewImage( QgsExpressionContext *expressionContext = nullptr );
+    QImage bigSymbolPreviewImage( QgsExpressionContext *expressionContext = nullptr, QgsSymbol::PreviewFlags flags = QgsSymbol::FlagIncludeCrosshairsForMarkerSymbols );
 
     /**
      * Returns a string dump of the symbol's properties.
@@ -405,6 +434,13 @@ class CORE_EXPORT QgsSymbol
      * \see setOutputUnit()
      */
     QgsUnitTypes::RenderUnit outputUnit() const;
+
+    /**
+     * Returns TRUE if the symbol has any components which use map unit based sizes.
+     *
+     * \since QGIS 3.18
+     */
+    bool usesMapUnits() const;
 
     /**
      * Sets the units to use for sizes and widths within the symbol. Individual
@@ -468,7 +504,7 @@ class CORE_EXPORT QgsSymbol
      * extent. If this option is enabled then features which are partially outside the extent
      * will be clipped. This speeds up rendering of the feature, but may have undesirable
      * side effects for certain symbol types.
-     * \param clipFeaturesToExtent set to true to enable clipping (defaults to TRUE)
+     * \param clipFeaturesToExtent set to TRUE to enable clipping (defaults to TRUE)
      * \see clipFeaturesToExtent
      * \since QGIS 2.9
      */
@@ -513,6 +549,38 @@ class CORE_EXPORT QgsSymbol
      * the ones required by expressions.
      */
     QSet<QString> usedAttributes( const QgsRenderContext &context ) const;
+
+    /**
+     * Sets a data defined property for the symbol. Any existing property with the same key
+     * will be overwritten.
+     * \see dataDefinedProperties()
+     * \see Property
+     * \since QGIS 3.18
+     */
+    void setDataDefinedProperty( Property key, const QgsProperty &property );
+
+    /**
+     * Returns a reference to the symbol's property collection, used for data defined overrides.
+     * \see setDataDefinedProperties()
+     * \see Property
+     * \since QGIS 3.18
+     */
+    QgsPropertyCollection &dataDefinedProperties() { return mDataDefinedProperties; }
+
+    /**
+     * Returns a reference to the symbol's property collection, used for data defined overrides.
+     * \see setDataDefinedProperties()
+     * \since QGIS 3.18
+     */
+    const QgsPropertyCollection &dataDefinedProperties() const { return mDataDefinedProperties; } SIP_SKIP
+
+    /**
+     * Sets the symbol's property collection, used for data defined overrides.
+     * \param collection property collection. Existing properties will be replaced.
+     * \see dataDefinedProperties()
+     * \since QGIS 3.18
+     */
+    void setDataDefinedProperties( const QgsPropertyCollection &collection ) { mDataDefinedProperties = collection; }
 
     /**
      * Returns whether the symbol utilizes any data defined properties.
@@ -631,6 +699,11 @@ class CORE_EXPORT QgsSymbol
     QgsSymbol( const QgsSymbol & );
 #endif
 
+    static void initPropertyDefinitions();
+
+    //! Property definitions
+    static QgsPropertiesDefinition sPropertyDefinitions;
+
     /**
      * TRUE if render has already been started - guards against multiple calls to
      * startRender() (usually a result of not cloning a shared symbol instance before rendering).
@@ -639,6 +712,8 @@ class CORE_EXPORT QgsSymbol
 
     //! Initialized in startRender, destroyed in stopRender
     std::unique_ptr< QgsSymbolRenderContext > mSymbolRenderContext;
+
+    QgsPropertyCollection mDataDefinedProperties;
 
     /**
      * Called before symbol layers will be rendered for a particular \a feature.
@@ -1081,7 +1156,7 @@ class CORE_EXPORT QgsMarkerSymbol : public QgsSymbol
      * in the \a layer argument. A \a layer of -1 indicates that all symbol layers should be
      * rendered.
      *
-     * If \a selected is true then the symbol will be drawn using the "selected feature"
+     * If \a selected is TRUE then the symbol will be drawn using the "selected feature"
      * style and colors instead of the symbol's normal style.
      */
     void renderPoint( QPointF point, const QgsFeature *f, QgsRenderContext &context, int layer = -1, bool selected = false );
@@ -1197,7 +1272,7 @@ class CORE_EXPORT QgsLineSymbol : public QgsSymbol
      * in the \a layer argument. A \a layer of -1 indicates that all symbol layers should be
      * rendered.
      *
-     * If \a selected is true then the symbol will be drawn using the "selected feature"
+     * If \a selected is TRUE then the symbol will be drawn using the "selected feature"
      * style and colors instead of the symbol's normal style.
      */
     void renderPolyline( const QPolygonF &points, const QgsFeature *f, QgsRenderContext &context, int layer = -1, bool selected = false );
@@ -1247,7 +1322,7 @@ class CORE_EXPORT QgsFillSymbol : public QgsSymbol
      * in the \a layer argument. A \a layer of -1 indicates that all symbol layers should be
      * rendered.
      *
-     * If \a selected is true then the symbol will be drawn using the "selected feature"
+     * If \a selected is TRUE then the symbol will be drawn using the "selected feature"
      * style and colors instead of the symbol's normal style.
      */
     void renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, const QgsFeature *f, QgsRenderContext &context, int layer = -1, bool selected = false );
@@ -1262,6 +1337,8 @@ class CORE_EXPORT QgsFillSymbol : public QgsSymbol
     //! Translates the rings in a polygon by a set distance
     QVector<QPolygonF> *translateRings( const QVector<QPolygonF> *rings, double dx, double dy ) const;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS( QgsSymbol::PreviewFlags )
 
 #endif
 

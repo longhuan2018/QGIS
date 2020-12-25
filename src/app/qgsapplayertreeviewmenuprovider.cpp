@@ -43,6 +43,7 @@
 #include "qgssymbollayerutils.h"
 #include "qgsxmlutils.h"
 #include "qgsmessagebar.h"
+#include "qgspointcloudlayer.h"
 
 
 QgsAppLayerTreeViewMenuProvider::QgsAppLayerTreeViewMenuProvider( QgsLayerTreeView *view, QgsMapCanvas *canvas )
@@ -74,7 +75,7 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
 
     // TODO: update drawing order
   }
-  else if ( QgsLayerTreeNode *node = mView->layerTreeModel()->index2node( idx ) )
+  else if ( QgsLayerTreeNode *node = mView->index2node( idx ) )
   {
     // layer or group selected
     if ( QgsLayerTree::isGroup( node ) )
@@ -145,6 +146,7 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
       QgsMapLayer *layer = QgsLayerTree::toLayer( node )->layer();
       QgsRasterLayer *rlayer = qobject_cast<QgsRasterLayer *>( layer );
       QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( layer );
+      QgsPointCloudLayer *pcLayer = qobject_cast<QgsPointCloudLayer * >( layer );
 
       if ( layer && layer->isSpatial() )
       {
@@ -238,8 +240,7 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
 
         // allow editing
         const QgsVectorDataProvider *provider = vlayer->dataProvider();
-        if ( provider &&
-             ( provider->capabilities() & QgsVectorDataProvider::EditingCapabilities ) )
+        if ( vlayer->supportsEditing() )
         {
           if ( toggleEditingAction )
           {
@@ -270,8 +271,8 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
         menu->addAction( tr( "&Filter…" ), QgisApp::instance(), qgis::overload<>::of( &QgisApp::layerSubsetString ) );
       }
 
-      // change data source is only supported for vectors and rasters
-      if ( vlayer || rlayer )
+      // change data source is only supported for vectors and rasters, point clouds
+      if ( vlayer || rlayer || pcLayer )
       {
 
         QAction *a = new QAction( layer->isValid() ? tr( "Change Data Source…" ) : tr( "Repair Data Source…" ), menu );
@@ -614,23 +615,24 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
         menu->addAction( tr( "&Properties…" ), QgisApp::instance(), &QgisApp::layerProperties );
     }
   }
-  else if ( QgsLayerTreeModelLegendNode *node = mView->layerTreeModel()->index2legendNode( idx ) )
+  else if ( QgsLayerTreeModelLegendNode *node = mView->index2legendNode( idx ) )
   {
+    if ( node->flags() & Qt::ItemIsUserCheckable )
+    {
+      menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleAllLayers.svg" ) ), tr( "&Toggle Items" ),
+                       node, &QgsLayerTreeModelLegendNode::toggleAllItems );
+      menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowAllLayers.svg" ) ), tr( "&Show All Items" ),
+                       node, &QgsLayerTreeModelLegendNode::checkAllItems );
+      menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideAllLayers.svg" ) ), tr( "&Hide All Items" ),
+                       node, &QgsLayerTreeModelLegendNode::uncheckAllItems );
+      menu->addSeparator();
+    }
+
     if ( QgsSymbolLegendNode *symbolNode = qobject_cast< QgsSymbolLegendNode * >( node ) )
     {
       // symbology item
-      if ( symbolNode->flags() & Qt::ItemIsUserCheckable )
-      {
-        menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleAllLayers.svg" ) ), tr( "&Toggle Items" ),
-                         symbolNode, &QgsSymbolLegendNode::toggleAllItems );
-        menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowAllLayers.svg" ) ), tr( "&Show All Items" ),
-                         symbolNode, &QgsSymbolLegendNode::checkAllItems );
-        menu->addAction( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideAllLayers.svg" ) ), tr( "&Hide All Items" ),
-                         symbolNode, &QgsSymbolLegendNode::uncheckAllItems );
-        menu->addSeparator();
-      }
-
-      if ( symbolNode->symbol() )
+      QgsMapLayer *layer = QgsLayerTree::toLayer( node->layerNode() )->layer();
+      if ( layer && layer->type() == QgsMapLayerType::VectorLayer && symbolNode->symbol() )
       {
         QgsColorWheel *colorWheel = new QgsColorWheel( menu );
         colorWheel->setColor( symbolNode->symbol()->color() );
@@ -662,12 +664,15 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
       const QString layerId = symbolNode->layerNode()->layerId();
       const QString ruleKey = symbolNode->data( QgsLayerTreeModelLegendNode::RuleKeyRole ).toString();
 
-      QAction *editSymbolAction = new QAction( tr( "Edit Symbol…" ), menu );
-      connect( editSymbolAction, &QAction::triggered, this, [this, layerId, ruleKey ]
+      if ( layer && layer->type() == QgsMapLayerType::VectorLayer )
       {
-        editSymbolLegendNodeSymbol( layerId, ruleKey );
-      } );
-      menu->addAction( editSymbolAction );
+        QAction *editSymbolAction = new QAction( tr( "Edit Symbol…" ), menu );
+        connect( editSymbolAction, &QAction::triggered, this, [this, layerId, ruleKey ]
+        {
+          editSymbolLegendNodeSymbol( layerId, ruleKey );
+        } );
+        menu->addAction( editSymbolAction );
+      }
 
       QAction *copySymbolAction = new QAction( tr( "Copy Symbol" ), menu );
       connect( copySymbolAction, &QAction::triggered, this, [this, layerId, ruleKey ]
@@ -676,18 +681,21 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
       } );
       menu->addAction( copySymbolAction );
 
-      bool enablePaste = false;
-      std::unique_ptr< QgsSymbol > tempSymbol( QgsSymbolLayerUtils::symbolFromMimeData( QApplication::clipboard()->mimeData() ) );
-      if ( tempSymbol )
-        enablePaste = true;
-
-      QAction *pasteSymbolAction = new QAction( tr( "Paste Symbol" ), menu );
-      connect( pasteSymbolAction, &QAction::triggered, this, [this, layerId, ruleKey]
+      if ( layer && layer->type() == QgsMapLayerType::VectorLayer )
       {
-        pasteSymbolLegendNodeSymbol( layerId, ruleKey );
-      } );
-      pasteSymbolAction->setEnabled( enablePaste );
-      menu->addAction( pasteSymbolAction );
+        bool enablePaste = false;
+        std::unique_ptr< QgsSymbol > tempSymbol( QgsSymbolLayerUtils::symbolFromMimeData( QApplication::clipboard()->mimeData() ) );
+        if ( tempSymbol )
+          enablePaste = true;
+
+        QAction *pasteSymbolAction = new QAction( tr( "Paste Symbol" ), menu );
+        connect( pasteSymbolAction, &QAction::triggered, this, [this, layerId, ruleKey]
+        {
+          pasteSymbolLegendNodeSymbol( layerId, ruleKey );
+        } );
+        pasteSymbolAction->setEnabled( enablePaste );
+        menu->addAction( pasteSymbolAction );
+      }
     }
   }
 

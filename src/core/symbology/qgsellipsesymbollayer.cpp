@@ -171,6 +171,14 @@ void QgsEllipseSymbolLayer::renderPoint( QPointF point, QgsSymbolRenderContext &
   double scaledWidth = mSymbolWidth;
   double scaledHeight = mSymbolHeight;
 
+  QColor brushColor = mColor;
+  brushColor.setAlphaF( brushColor.alphaF() * context.opacity() );
+  mBrush.setColor( brushColor );
+
+  QColor penColor = mStrokeColor;
+  penColor.setAlphaF( penColor.alphaF() * context.opacity() );
+  mPen.setColor( penColor );
+
   if ( mDataDefinedProperties.hasActiveProperties() )
   {
     bool ok;
@@ -204,10 +212,14 @@ void QgsEllipseSymbolLayer::renderPoint( QPointF point, QgsSymbolRenderContext &
     }
 
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mColor ) );
-    mBrush.setColor( mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyFillColor, context.renderContext().expressionContext(), mColor ) );
+    QColor brushColor = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyFillColor, context.renderContext().expressionContext(), mColor );
+    brushColor.setAlphaF( brushColor.alphaF() * context.opacity() );
+    mBrush.setColor( brushColor );
 
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mStrokeColor ) );
-    mPen.setColor( mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mStrokeColor ) );
+    QColor penColor = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mStrokeColor );
+    penColor.setAlphaF( penColor.alphaF() * context.opacity() );
+    mPen.setColor( penColor );
 
     if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyWidth ) || mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyHeight ) || mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyName ) )
     {
@@ -651,6 +663,14 @@ QgsUnitTypes::RenderUnit QgsEllipseSymbolLayer::outputUnit() const
     return QgsUnitTypes::RenderUnknownUnit;
   }
   return unit;
+}
+
+bool QgsEllipseSymbolLayer::usesMapUnits() const
+{
+  return mSymbolWidthUnit == QgsUnitTypes::RenderMapUnits || mSymbolWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mSymbolHeightUnit == QgsUnitTypes::RenderMapUnits || mSymbolHeightUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mStrokeWidthUnit == QgsUnitTypes::RenderMapUnits || mStrokeWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
 }
 
 void QgsEllipseSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )

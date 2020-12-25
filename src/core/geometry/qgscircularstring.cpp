@@ -329,13 +329,17 @@ bool QgsCircularString::fromWkt( const QString &wkt )
   return true;
 }
 
-QByteArray QgsCircularString::asWkb( WkbFlags ) const
+int QgsCircularString::wkbSize( QgsAbstractGeometry::WkbFlags ) const
 {
   int binarySize = sizeof( char ) + sizeof( quint32 ) + sizeof( quint32 );
   binarySize += numPoints() * ( 2 + is3D() + isMeasure() ) * sizeof( double );
+  return binarySize;
+}
 
+QByteArray QgsCircularString::asWkb( WkbFlags flags ) const
+{
   QByteArray wkbArray;
-  wkbArray.resize( binarySize );
+  wkbArray.resize( QgsCircularString::wkbSize( flags ) );
   QgsWkbPtr wkb( wkbArray );
   wkb << static_cast<char>( QgsApplication::endian() );
   wkb << static_cast<quint32>( wkbType() );
@@ -397,6 +401,16 @@ json QgsCircularString::asJsonObject( int precision ) const
 bool QgsCircularString::isEmpty() const
 {
   return mX.isEmpty();
+}
+
+bool QgsCircularString::isValid( QString &error, int flags ) const
+{
+  if ( !isEmpty() && ( numPoints() < 3 ) )
+  {
+    error = QObject::tr( "CircularString has less than 3 points and is not empty." );
+    return false;
+  }
+  return QgsCurve::isValid( error, flags );
 }
 
 //curve interface

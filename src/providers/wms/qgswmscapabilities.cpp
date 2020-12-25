@@ -138,6 +138,26 @@ bool QgsWmsSettings::parseUri( const QString &uriString )
   mActiveSubStyles = uri.params( QStringLiteral( "styles" ) );
   QgsDebugMsgLevel( "Entering: layers:" + mActiveSubLayers.join( ", " ) + ", styles:" + mActiveSubStyles.join( ", " ), 2 );
 
+  //opacities
+  if ( uri.hasParam( QStringLiteral( "opacities" ) ) )
+  {
+    mOpacities.clear();
+    const QStringList opacities = uri.params( QStringLiteral( "opacities" ) );
+    for ( const QString &opacity : opacities )
+    {
+      bool ok = false;
+      opacity.toInt( &ok );
+      if ( ok )
+      {
+        mOpacities.append( opacity );
+      }
+      else
+      {
+        mOpacities.append( QStringLiteral( "255" ) );
+      }
+    }
+  }
+
   mImageMimeType = uri.param( QStringLiteral( "format" ) );
   QgsDebugMsgLevel( "Setting image encoding to " + mImageMimeType + '.', 2 );
 
@@ -431,8 +451,6 @@ QDateTime QgsWmsSettings::parseWmstDateTimes( QString item )
 {
   // Standard item will have YYYY-MM-DDTHH:mm:ss.SSSZ
   //  format a Qt::ISODateWithMs
-
-  QString format = "yyyy-MM-ddTHH:mm:ss.SSSZ";
 
   // Check if it does not have time part
   if ( !item.contains( 'T' ) )

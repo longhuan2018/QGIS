@@ -34,6 +34,12 @@ class QDomElement;
 class _3D_EXPORT QgsShadowSettings
 {
   public:
+    //! Default constructor
+    QgsShadowSettings() = default;
+    //! Copy constructor
+    QgsShadowSettings( const QgsShadowSettings &other );
+    //! delete assignment operator
+    QgsShadowSettings &operator=( QgsShadowSettings const &rhs );
 
     //! Reads settings from a DOM \a element
     void readXml( const QDomElement &element, const QgsReadWriteContext &context );
@@ -95,8 +101,8 @@ class _3D_EXPORT QgsShadowSettings
 
   private:
     bool mRenderShadows = false;
-    int mSelectedDirectionalLight = -1;
-    double mMaximumShadowRenderingDistance = 500.0;
+    int mSelectedDirectionalLight = 0;
+    double mMaximumShadowRenderingDistance = 1500.0;
     double mShadowBias = 0.00001;
     int mShadowMapResolution = 2048;
 };

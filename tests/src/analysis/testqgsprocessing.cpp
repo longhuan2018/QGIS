@@ -51,6 +51,9 @@
 #include "qgsprocessingparameterfieldmap.h"
 #include "qgsprocessingparameteraggregate.h"
 #include "qgsprocessingparametertininputlayers.h"
+#include "qgsprocessingparameterdxflayers.h"
+#include "qgsprocessingparametermeshdataset.h"
+#include "qgsdxfexport.h"
 
 class DummyAlgorithm : public QgsProcessingAlgorithm
 {
@@ -603,6 +606,9 @@ class TestQgsProcessing: public QObject
     void parameterFieldMapping();
     void parameterAggregate();
     void parameterTinInputLayers();
+    void parameterMeshDatasetGroups();
+    void parameterMeshDatasetTime();
+    void parameterDxfLayers();
     void checkParamValues();
     void combineLayerExtent();
     void processingFeatureSource();
@@ -1764,11 +1770,12 @@ void TestQgsProcessing::parseDestinationString()
   QCOMPARE( providerKey, QStringLiteral( "ogr" ) );
   QCOMPARE( uri, QStringLiteral( "d:/test.shp" ) );
   QCOMPARE( options.value( QStringLiteral( "update" ) ).toBool(), true );
+  QCOMPARE( options.value( QStringLiteral( "driverName" ) ).toString(), QStringLiteral( "ESRI Shapefile" ) );
   QVERIFY( !options.contains( QStringLiteral( "layerName" ) ) );
   QVERIFY( !useWriter );
   QCOMPARE( extension, QStringLiteral( "shp" ) );
 
-// full uri geopackage output
+  // full uri geopackage output
   options.clear();
   destination = QStringLiteral( "ogr:d:/test.gpkg" );
   QgsProcessingUtils::parseDestinationString( destination, providerKey, uri, layerName, format, options, useWriter, extension );
@@ -1776,10 +1783,11 @@ void TestQgsProcessing::parseDestinationString()
   QCOMPARE( uri, QStringLiteral( "d:/test.gpkg" ) );
   QCOMPARE( options.value( QStringLiteral( "update" ) ).toBool(), true );
   QVERIFY( !options.contains( QStringLiteral( "layerName" ) ) );
+  QCOMPARE( options.value( QStringLiteral( "driverName" ) ).toString(), QStringLiteral( "GPKG" ) );
   QVERIFY( !useWriter );
   QCOMPARE( extension, QStringLiteral( "gpkg" ) );
 
-// full uri geopackage table output with layer name
+  // full uri geopackage table output with layer name
   options.clear();
   destination = QStringLiteral( "ogr:dbname='d:/package.gpkg' table=\"mylayer\" (geom) sql=" );
   QgsProcessingUtils::parseDestinationString( destination, providerKey, uri, layerName, format, options, useWriter, extension );
@@ -1787,6 +1795,7 @@ void TestQgsProcessing::parseDestinationString()
   QCOMPARE( uri, QStringLiteral( "d:/package.gpkg" ) );
   QCOMPARE( options.value( QStringLiteral( "update" ) ).toBool(), true );
   QCOMPARE( options.value( QStringLiteral( "layerName" ) ).toString(), QStringLiteral( "mylayer" ) );
+  QCOMPARE( options.value( QStringLiteral( "driverName" ) ).toString(), QStringLiteral( "GPKG" ) );
   QVERIFY( !useWriter );
   QCOMPARE( extension, QStringLiteral( "gpkg" ) );
 }
@@ -1808,6 +1817,7 @@ void TestQgsProcessing::createFeatureSink()
   QCOMPARE( static_cast< QgsProxyFeatureSink *>( sink.get() )->destinationSink(), layer->dataProvider() );
   QCOMPARE( layer->dataProvider()->name(), QStringLiteral( "memory" ) );
   QCOMPARE( destination, layer->id() );
+  QVERIFY( !layer->customProperty( QStringLiteral( "OnConvertFormatRegeneratePrimaryKey" ) ).toBool() );
   QCOMPARE( context.temporaryLayerStore()->mapLayer( layer->id() ), layer ); // layer should be in store
   QgsFeature f;
   QCOMPARE( layer->featureCount(), 0L );
@@ -1854,13 +1864,14 @@ void TestQgsProcessing::createFeatureSink()
   destination = QStringLiteral( "memory:mylayer" );
   QgsFields fields;
   fields.append( QgsField( QStringLiteral( "my_field" ), QVariant::String, QString(), 100 ) );
-  sink.reset( QgsProcessingUtils::createFeatureSink( destination, context, fields, QgsWkbTypes::PointZM, QgsCoordinateReferenceSystem::fromEpsgId( 3111 ) ) );
+  sink.reset( QgsProcessingUtils::createFeatureSink( destination, context, fields, QgsWkbTypes::PointZM, QgsCoordinateReferenceSystem::fromEpsgId( 3111 ), QVariantMap(), QStringList(), QStringList(), QgsFeatureSink::RegeneratePrimaryKey ) );
   QVERIFY( sink.get() );
   layer = qobject_cast< QgsVectorLayer *>( QgsProcessingUtils::mapLayerFromString( destination, context, false ) );
   QVERIFY( layer );
   QCOMPARE( static_cast< QgsProxyFeatureSink *>( sink.get() )->destinationSink(), layer->dataProvider() );
   QCOMPARE( layer->dataProvider()->name(), QStringLiteral( "memory" ) );
   QCOMPARE( layer->name(), QStringLiteral( "mylayer" ) );
+  QVERIFY( layer->customProperty( QStringLiteral( "OnConvertFormatRegeneratePrimaryKey" ) ).toBool() );
   QCOMPARE( layer->wkbType(), QgsWkbTypes::PointZM );
   QCOMPARE( layer->crs().authid(), QStringLiteral( "EPSG:3111" ) );
   QCOMPARE( layer->fields().size(), 1 );
@@ -1953,6 +1964,7 @@ void TestQgsProcessing::createFeatureSink()
   destination = QStringLiteral( "ogr:dbname='%1' table=\"polygons\" (geom) sql=" ).arg( geopackagePath );
   sink.reset( QgsProcessingUtils::createFeatureSink( destination, context, fields, QgsWkbTypes::Polygon, QgsCoordinateReferenceSystem::fromEpsgId( 3111 ) ) );
   QVERIFY( sink.get() );
+  QCOMPARE( destination, QStringLiteral( "%1|layername=polygons" ).arg( geopackagePath ) );
   f = QgsFeature( fields );
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon((0 0, 0 1, 1 1, 1 0, 0 0 ))" ) ) );
   f.setAttributes( QgsAttributes() << "val" );
@@ -1968,6 +1980,7 @@ void TestQgsProcessing::createFeatureSink()
   QString destination2 = QStringLiteral( "ogr:dbname='%1' table=\"points\" (geom) sql=" ).arg( geopackagePath );
   sink.reset( QgsProcessingUtils::createFeatureSink( destination2, context, fields, QgsWkbTypes::Point, QgsCoordinateReferenceSystem::fromEpsgId( 3111 ) ) );
   QVERIFY( sink.get() );
+  QCOMPARE( destination2, QStringLiteral( "%1|layername=points" ).arg( geopackagePath ) );
   f = QgsFeature( fields );
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Point(0 0)" ) ) );
   f.setAttributes( QgsAttributes() << "val2" );
@@ -2324,6 +2337,12 @@ void TestQgsProcessing::parameterGeneral()
   QCOMPARE( param.flags(), QgsProcessingParameterDefinition::FlagHidden );
   param.setDefaultValue( true );
   QCOMPARE( param.defaultValue(), QVariant( true ) );
+  QCOMPARE( param.defaultValueForGui(), QVariant( true ) );
+  QVERIFY( !param.guiDefaultValueOverride().isValid() );
+  param.setGuiDefaultValueOverride( false );
+  QCOMPARE( param.guiDefaultValueOverride(), QVariant( false ) );
+  QCOMPARE( param.defaultValueForGui(), QVariant( false ) );
+
   param.setDefaultValue( QVariant() );
   QCOMPARE( param.defaultValue(), QVariant() );
   param.setHelp( QStringLiteral( "my help" ) );
@@ -2341,6 +2360,7 @@ void TestQgsProcessing::parameterGeneral()
   param.setAdditionalExpressionContextVariables( QStringList() << "a" << "b" );
   QCOMPARE( param.additionalExpressionContextVariables(), QStringList() << "a" << "b" );
   std::unique_ptr< QgsProcessingParameterDefinition > param2( param.clone() );
+  QCOMPARE( param2->guiDefaultValueOverride(), param.guiDefaultValueOverride() );
   QCOMPARE( param2->additionalExpressionContextVariables(), QStringList() << "a" << "b" );
 
   QVariantMap map = param.toVariantMap();
@@ -2350,6 +2370,7 @@ void TestQgsProcessing::parameterGeneral()
   QCOMPARE( fromMap.description(), param.description() );
   QCOMPARE( fromMap.flags(), param.flags() );
   QCOMPARE( fromMap.defaultValue(), param.defaultValue() );
+  QCOMPARE( fromMap.guiDefaultValueOverride(), param.guiDefaultValueOverride() );
   QCOMPARE( fromMap.metadata(), param.metadata() );
   QCOMPARE( fromMap.help(), QStringLiteral( "my help" ) );
 }
@@ -4765,6 +4786,8 @@ void TestQgsProcessing::parameterEnum()
   QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
   QVERIFY( !def->checkValueIsAcceptable( "" ) );
   QVERIFY( def->checkValueIsAcceptable( QVariant() ) ); // should be acceptable, because falls back to default value
+  QVERIFY( !def->checkValueIsAcceptable( "B" ) ); // should not be acceptable, because static strings flag is not set
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because static strings flag is not set
 
   // string representing a number
   QVariantMap params;
@@ -4798,7 +4821,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( def->valueAsPythonString( QVariant::fromValue( QgsProperty::fromExpression( "\"a\"=1" ) ), context ), QStringLiteral( "QgsProperty.fromExpression('\"a\"=1')" ) );
 
   QString pythonCode = def->asPythonString();
-  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=False, defaultValue=2)" ) );
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=False, usesStaticStrings=False, defaultValue=2)" ) );
 
   QString code = def->asScriptCode();
   QCOMPARE( code, QStringLiteral( "##non_optional=enum A;B;C 2" ) );
@@ -4810,6 +4833,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
   QCOMPARE( fromCode->options(), def->options() );
   QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
 
   QVariantMap map = def->toVariantMap();
   QgsProcessingParameterEnum fromMap( "x" );
@@ -4820,6 +4844,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( fromMap.defaultValue(), def->defaultValue() );
   QCOMPARE( fromMap.options(), def->options() );
   QCOMPARE( fromMap.allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromMap.usesStaticStrings(), def->usesStaticStrings() );
   def.reset( dynamic_cast< QgsProcessingParameterEnum *>( QgsProcessingParameters::parameterFromVariantMap( map ) ) );
   QVERIFY( dynamic_cast< QgsProcessingParameterEnum *>( def.get() ) );
 
@@ -4839,6 +4864,8 @@ void TestQgsProcessing::parameterEnum()
   QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
   QVERIFY( !def->checkValueIsAcceptable( "" ) );
   QVERIFY( !def->checkValueIsAcceptable( QVariant() ) );
+  QVERIFY( !def->checkValueIsAcceptable( "B" ) ); // should not be acceptable, because static strings flag is not set
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because static strings flag is not set
 
   params.insert( "non_optional", QString( "1,2" ) );
   QList< int > iNumbers = QgsProcessingParameters::parameterAsEnums( def.get(), params, context );
@@ -4857,7 +4884,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( def->valueAsPythonString( QStringLiteral( "1,2" ), context ), QStringLiteral( "[1,2]" ) );
 
   pythonCode = def->asPythonString();
-  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=True, defaultValue=5)" ) );
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=True, usesStaticStrings=False, defaultValue=5)" ) );
 
   code = def->asScriptCode();
   QCOMPARE( code, QStringLiteral( "##non_optional=enum multiple A;B;C 5" ) );
@@ -4869,6 +4896,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
   QCOMPARE( fromCode->options(), def->options() );
   QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
 
   // optional
   def.reset( new QgsProcessingParameterEnum( "optional", QString(), QStringList() << "a" << "b", false, 5, true ) );
@@ -4886,7 +4914,7 @@ void TestQgsProcessing::parameterEnum()
   QVERIFY( !def->checkValueIsAcceptable( QVariant() ) );
 
   pythonCode = def->asPythonString();
-  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('optional', '', optional=True, options=['a','b'], allowMultiple=False, defaultValue=5)" ) );
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('optional', '', optional=True, options=['a','b'], allowMultiple=False, usesStaticStrings=False, defaultValue=5)" ) );
 
   code = def->asScriptCode();
   QCOMPARE( code, QStringLiteral( "##optional=optional enum a;b 5" ) );
@@ -4898,6 +4926,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
   QCOMPARE( fromCode->options(), def->options() );
   QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
 
   params.insert( "optional",  QVariant() );
   iNumber = QgsProcessingParameters::parameterAsEnum( def.get(), params, context );
@@ -4920,6 +4949,8 @@ void TestQgsProcessing::parameterEnum()
   QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
   QVERIFY( !def->checkValueIsAcceptable( "" ) );
   QVERIFY( def->checkValueIsAcceptable( QVariant() ) );
+  QVERIFY( !def->checkValueIsAcceptable( "B" ) ); // should not be acceptable, because static strings flag is not set
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because static strings flag is not set
 
   params.insert( "optional",  QVariant() );
   iNumbers = QgsProcessingParameters::parameterAsEnums( def.get(), params, context );
@@ -4934,7 +4965,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( iNumbers, QList<int>() );
 
   pythonCode = def->asPythonString();
-  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('optional', '', optional=True, options=['A','B','C'], allowMultiple=True, defaultValue=[1,2])" ) );
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('optional', '', optional=True, options=['A','B','C'], allowMultiple=True, usesStaticStrings=False, defaultValue=[1,2])" ) );
 
   code = def->asScriptCode();
   QCOMPARE( code, QStringLiteral( "##optional=optional enum multiple A;B;C 1,2" ) );
@@ -4946,6 +4977,7 @@ void TestQgsProcessing::parameterEnum()
   QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
   QCOMPARE( fromCode->options(), def->options() );
   QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
 
   // non optional, no default
   def.reset( new QgsProcessingParameterEnum( "non_optional", QString(), QStringList() << "A" << "B" << "C", false, QVariant(), false ) );
@@ -4963,6 +4995,119 @@ void TestQgsProcessing::parameterEnum()
   QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
   QVERIFY( !def->checkValueIsAcceptable( "" ) );
   QVERIFY( !def->checkValueIsAcceptable( QVariant() ) ); // should NOT be acceptable, because falls back to invalid default value
+  QVERIFY( !def->checkValueIsAcceptable( "B" ) ); // should not be acceptable, because static strings flag is not set
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because static strings flag is not set
+
+  // not optional with static strings
+  def.reset( new QgsProcessingParameterEnum( "non_optional", QString(), QStringList() << "A" << "B" << "C", false, "B", false, true ) );
+  QVERIFY( !def->checkValueIsAcceptable( false ) );
+  QVERIFY( !def->checkValueIsAcceptable( true ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "1" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "1,2" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 0 ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "a" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 15 ) );
+  QVERIFY( !def->checkValueIsAcceptable( -1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariant() ) ); // should be acceptable, because falls back to default value
+  QVERIFY( def->checkValueIsAcceptable( "B" ) ); // should be acceptable, because this is a valid enum value
+  QVERIFY( !def->checkValueIsAcceptable( "b" ) ); // should not be acceptable, because values are case sensitive
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because value is not in the list of enum values
+
+  // valid enum value
+  params.insert( "non_optional", QString( "A" ) );
+  QString iString = QgsProcessingParameters::parameterAsEnumString( def.get(), params, context );
+  QCOMPARE( iString, QStringLiteral( "A" ) );
+
+  // invalid enum value
+  params.insert( "non_optional", QString( "Z" ) );
+  iString = QgsProcessingParameters::parameterAsEnumString( def.get(), params, context );
+  QCOMPARE( iString, QStringLiteral( "B" ) );
+
+  // lowercase
+  params.insert( "non_optional", QString( "a" ) );
+  iString = QgsProcessingParameters::parameterAsEnumString( def.get(), params, context );
+  QCOMPARE( iString, QStringLiteral( "B" ) );
+
+  // empty string
+  params.insert( "non_optional", QString() );
+  iString = QgsProcessingParameters::parameterAsEnumString( def.get(), params, context );
+  QCOMPARE( iString, QStringLiteral( "B" ) );
+
+  // number
+  params.insert( "non_optional", 1 );
+  iString = QgsProcessingParameters::parameterAsEnumString( def.get(), params, context );
+  QCOMPARE( iString, QStringLiteral( "B" ) );
+
+  pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=False, usesStaticStrings=True, defaultValue='B')" ) );
+
+  code = def->asScriptCode();
+  QCOMPARE( code, QStringLiteral( "##non_optional=enum static A;B;C B" ) );
+  fromCode.reset( dynamic_cast< QgsProcessingParameterEnum * >( QgsProcessingParameters::parameterFromScriptCode( code ) ) );
+  QVERIFY( fromCode.get() );
+  QCOMPARE( fromCode->name(), def->name() );
+  QCOMPARE( fromCode->description(), QStringLiteral( "non optional" ) );
+  QCOMPARE( fromCode->flags(), def->flags() );
+  QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
+  QCOMPARE( fromCode->options(), def->options() );
+  QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
+
+  // multiple with static strings
+  def.reset( new QgsProcessingParameterEnum( "non_optional", QString(), QStringList() << "A" << "B" << "C", true, "B", false, true ) );
+  QVERIFY( !def->checkValueIsAcceptable( false ) );
+  QVERIFY( !def->checkValueIsAcceptable( true ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "1" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "1,2" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 0 ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "a" ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariantList() << "A" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 15 ) );
+  QVERIFY( !def->checkValueIsAcceptable( -1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "layer12312312" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariant() ) ); // should be acceptable, because falls back to default value
+  QVERIFY( def->checkValueIsAcceptable( "B" ) ); // should be acceptable, because this is a valid enum value
+  QVERIFY( !def->checkValueIsAcceptable( "b" ) ); // should not be acceptable, because values are case sensitive
+  QVERIFY( !def->checkValueIsAcceptable( "Z" ) ); // should not be acceptable, because value is not in the list of enum values
+
+  // comma-separated string
+  params.insert( "non_optional", QString( "A,B" ) );
+  QStringList iStrings = QgsProcessingParameters::parameterAsEnumStrings( def.get(), params, context );
+  QCOMPARE( iStrings, QStringList() << "A" << "B" );
+
+  // list
+  params.insert( "non_optional", QVariantList() << "A" << "C" );
+  iStrings = QgsProcessingParameters::parameterAsEnumStrings( def.get(), params, context );
+  QCOMPARE( iStrings, QStringList() << "A" << "C" );
+
+  // empty list
+  params.insert( "non_optional", QVariantList() );
+  iStrings = QgsProcessingParameters::parameterAsEnumStrings( def.get(), params, context );
+  QCOMPARE( iStrings, QStringList() << "B" );
+
+  pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterEnum('non_optional', '', options=['A','B','C'], allowMultiple=True, usesStaticStrings=True, defaultValue='B')" ) );
+
+  code = def->asScriptCode();
+  QCOMPARE( code, QStringLiteral( "##non_optional=enum multiple static A;B;C B" ) );
+  fromCode.reset( dynamic_cast< QgsProcessingParameterEnum * >( QgsProcessingParameters::parameterFromScriptCode( code ) ) );
+  QVERIFY( fromCode.get() );
+  QCOMPARE( fromCode->name(), def->name() );
+  QCOMPARE( fromCode->description(), QStringLiteral( "non optional" ) );
+  QCOMPARE( fromCode->flags(), def->flags() );
+  QCOMPARE( fromCode->defaultValue(), def->defaultValue() );
+  QCOMPARE( fromCode->options(), def->options() );
+  QCOMPARE( fromCode->allowMultiple(), def->allowMultiple() );
+  QCOMPARE( fromCode->usesStaticStrings(), def->usesStaticStrings() );
 }
 
 void TestQgsProcessing::parameterString()
@@ -8004,6 +8149,144 @@ void TestQgsProcessing::parameterTinInputLayers()
   QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterTinInputLayers('tin input layer', '')" ) );
 }
 
+void TestQgsProcessing::parameterMeshDatasetGroups()
+{
+  QgsProcessingContext context;
+  QgsProject project;
+  context.setProject( &project );
+
+  QSet<int> supportedData;
+  supportedData << QgsMeshDatasetGroupMetadata::DataOnVertices;
+  std::unique_ptr< QgsProcessingParameterMeshDatasetGroups> def(
+    new QgsProcessingParameterMeshDatasetGroups( QStringLiteral( "dataset groups" ), QStringLiteral( "groups" ), QString(), supportedData ) );
+
+  QVERIFY( def->type() == QStringLiteral( "meshdatasetgroups" ) );
+  QVERIFY( def->isDataTypeSupported( QgsMeshDatasetGroupMetadata::DataOnVertices ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1.0 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "test" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QStringList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariant() ) );
+  QVariantList groupsList;
+  QVERIFY( !def->checkValueIsAcceptable( groupsList ) );
+  groupsList.append( 0 );
+  QVERIFY( def->checkValueIsAcceptable( groupsList ) );
+  groupsList.append( 5 );
+  QVERIFY( def->checkValueIsAcceptable( groupsList ) );
+
+  QVERIFY( def->dependsOnOtherParameters().isEmpty() );
+
+  QString valueAsPythonString = def->valueAsPythonString( groupsList, context );
+  QCOMPARE( valueAsPythonString, QStringLiteral( "[0,5]" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsList ), QList<int>() << 0 << 5 );
+
+  QString pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterMeshDatasetGroups('dataset groups', 'groups', dataType=[QgsMeshDatasetGroupMetadata.DataOnVertices])" ) );
+
+  // optional, layer parameter and data on faces
+  supportedData << QgsMeshDatasetGroupMetadata::DataOnFaces;
+  def.reset( new QgsProcessingParameterMeshDatasetGroups(
+               QStringLiteral( "dataset groups" ),
+               QStringLiteral( "groups" ),
+               QStringLiteral( "layer parameter" ),
+               supportedData, true ) );
+  QVERIFY( def->isDataTypeSupported( QgsMeshDatasetGroupMetadata::DataOnFaces ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1.0 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "test" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QStringList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariant() ) );
+  groupsList = QVariantList();
+  QVERIFY( def->checkValueIsAcceptable( groupsList ) );
+  groupsList.append( 2 );
+  QVERIFY( def->checkValueIsAcceptable( groupsList ) );
+  groupsList.append( 6 );
+  QVERIFY( def->checkValueIsAcceptable( groupsList ) );
+
+  valueAsPythonString = def->valueAsPythonString( groupsList, context );
+  QCOMPARE( valueAsPythonString, QStringLiteral( "[2,6]" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsList ), QList<int>() << 2 << 6 );
+
+  QVERIFY( !def->dependsOnOtherParameters().isEmpty() );
+  QCOMPARE( def->meshLayerParameterName(), QStringLiteral( "layer parameter" ) );
+
+  pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterMeshDatasetGroups('dataset groups', 'groups', meshLayerParameterName='layer parameter', dataType=[QgsMeshDatasetGroupMetadata.DataOnFaces,QgsMeshDatasetGroupMetadata.DataOnVertices], optional=True)" ) );
+}
+
+void TestQgsProcessing::parameterMeshDatasetTime()
+{
+  QgsProcessingContext context;
+  QgsProject project;
+  context.setProject( &project );
+
+  std::unique_ptr< QgsProcessingParameterMeshDatasetTime> def( new QgsProcessingParameterMeshDatasetTime( QStringLiteral( "dataset groups" ), QStringLiteral( "groups" ) ) );
+  QVERIFY( def->type() == QStringLiteral( "meshdatasettime" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1.0 ) );
+  QVERIFY( !def->checkValueIsAcceptable( "test" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QStringList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "a" << "b" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariant() ) );
+
+  QVariantMap value;
+  value[QStringLiteral( "test" )] = QStringLiteral( "test" );
+  QVERIFY( !def->checkValueIsAcceptable( value ) );
+
+  value.clear();
+  value[QStringLiteral( "type" )] = QStringLiteral( "test" );
+  QVERIFY( !def->checkValueIsAcceptable( value ) );
+
+  value[QStringLiteral( "type" )] = QStringLiteral( "static" );
+  QVERIFY( def->checkValueIsAcceptable( value ) );
+  QCOMPARE( def->valueAsPythonString( value, context ), QStringLiteral( "{'type': 'static'}" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( value ), QStringLiteral( "static" ) );
+
+
+  value[QStringLiteral( "type" )] = QStringLiteral( "current-context-time" );
+  QVERIFY( def->checkValueIsAcceptable( value ) );
+  QCOMPARE( def->valueAsPythonString( value, context ), QStringLiteral( "{'type': 'current-context-time'}" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( value ), QStringLiteral( "current-context-time" ) );
+
+  value[QStringLiteral( "type" )] = QStringLiteral( "defined-date-time" );
+  QVERIFY( !def->checkValueIsAcceptable( value ) );
+  value[QStringLiteral( "value" )] = QDateTime( QDate( 2123, 1, 2 ), QTime( 1, 2, 3 ) );
+  QVERIFY( def->checkValueIsAcceptable( value ) );
+  QCOMPARE( def->valueAsPythonString( value, context ), QStringLiteral( "{'type': 'defined-date-time','value': QDateTime(QDate(2123, 1, 2), QTime(1, 2, 3))}" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( value ), QStringLiteral( "defined-date-time" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::timeValueAsDefinedDateTime( value ), QDateTime( QDate( 2123, 1, 2 ), QTime( 1, 2, 3 ) ) );
+  QVERIFY( !QgsProcessingParameterMeshDatasetTime::timeValueAsDatasetIndex( value ).isValid() );
+
+  value.clear();
+  value[QStringLiteral( "type" )] = QStringLiteral( "dataset-time-step" );
+  QVERIFY( !def->checkValueIsAcceptable( value ) );
+  value[QStringLiteral( "value" )] = QVariantList() << 1 << 5;
+  QVERIFY( def->checkValueIsAcceptable( value ) );
+  QCOMPARE( def->valueAsPythonString( value, context ), QStringLiteral( "{'type': 'dataset-time-step','value': QgsMeshDatasetIndex(1,5)}" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( value ), QStringLiteral( "dataset-time-step" ) );
+  QVERIFY( !QgsProcessingParameterMeshDatasetTime::timeValueAsDefinedDateTime( value ).isValid() );
+  QVERIFY( QgsProcessingParameterMeshDatasetTime::timeValueAsDatasetIndex( value ) == QgsMeshDatasetIndex( 1, 5 ) );
+
+  QString pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterMeshDatasetTime('dataset groups', 'groups')" ) );
+
+  QVERIFY( def->dependsOnOtherParameters().isEmpty() );
+
+  def.reset( new QgsProcessingParameterMeshDatasetTime( QStringLiteral( "dataset groups" ), QStringLiteral( "groups" ), QStringLiteral( "layer parameter" ), QStringLiteral( "dataset group parameter" ) ) );
+  pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterMeshDatasetTime('dataset groups', 'groups', meshLayerParameterName='layer parameter', datasetGroupParameterName='dataset group parameter')" ) );
+
+  QVERIFY( !def->dependsOnOtherParameters().isEmpty() );
+  QCOMPARE( def->meshLayerParameterName(), QStringLiteral( "layer parameter" ) );
+  QCOMPARE( def->datasetGroupParameterName(), QStringLiteral( "dataset group parameter" ) );
+}
+
 void TestQgsProcessing::parameterDateTime()
 {
   QgsProcessingContext context;
@@ -8355,6 +8638,69 @@ void TestQgsProcessing::parameterDateTime()
   QCOMPARE( fromCode->description(), QStringLiteral( "optional" ) );
   QCOMPARE( fromCode->flags(), def->flags() );
   QVERIFY( !fromCode->defaultValue().isValid() );
+}
+
+void TestQgsProcessing::parameterDxfLayers()
+{
+  QgsProcessingContext context;
+  QgsProject project;
+  context.setProject( &project );
+  QgsVectorLayer *vectorLayer = new QgsVectorLayer( QStringLiteral( "Point" ),
+      QStringLiteral( "PointLayer" ),
+      QStringLiteral( "memory" ) );
+  project.addMapLayer( vectorLayer );
+
+  std::unique_ptr< QgsProcessingParameterDxfLayers > def( new QgsProcessingParameterDxfLayers( "dxf input layer" ) );
+  QVERIFY( !def->checkValueIsAcceptable( 1 ) );
+  QVERIFY( def->checkValueIsAcceptable( "test" ) );
+  QVERIFY( !def->checkValueIsAcceptable( "" ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariant() ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariant::fromValue( vectorLayer ) ) );
+
+  // should also be OK
+  QVERIFY( def->checkValueIsAcceptable( "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp" ) );
+  QVERIFY( def->checkValueIsAcceptable( QStringList() << "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp" ) );
+  QVERIFY( def->checkValueIsAcceptable( QVariantList() << "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp" ) );
+  // ... unless we use context, when the check that the layer actually exists is performed
+  QVERIFY( !def->checkValueIsAcceptable( "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp", &context ) );
+  QVERIFY( !def->checkValueIsAcceptable( QStringList() << "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp", &context ) );
+  QVERIFY( !def->checkValueIsAcceptable( QVariantList() << "c:/Users/admin/Desktop/roads_clipped_transformed_v1_reprojected_final_clipped_aAAA.shp", &context ) );
+
+  QVariantList layerList;
+  QVERIFY( !def->checkValueIsAcceptable( layerList ) );
+  QVariantMap layerMap;
+  layerList.append( layerMap );
+  QVERIFY( !def->checkValueIsAcceptable( layerList ) );
+  layerMap["layer"] = "layerName";
+  layerMap["attributeIndex"] = -1;
+  layerList[0] = layerMap;
+  QVERIFY( def->checkValueIsAcceptable( layerList ) );
+  QVERIFY( !def->checkValueIsAcceptable( layerList, &context ) ); //no corresponding layer in the context's project
+  layerMap["layer"] = "PointLayer";
+  layerMap["attributeIndex"] = 1; //change for invalid attribute index
+  layerList[0] = layerMap;
+  QVERIFY( !def->checkValueIsAcceptable( layerList, &context ) );
+
+  layerMap["attributeIndex"] = -1;
+  layerList[0] = layerMap;
+  QVERIFY( def->checkValueIsAcceptable( layerList, &context ) );
+
+  QString valueAsPythonString = def->valueAsPythonString( layerList, context );
+  QCOMPARE( valueAsPythonString, QStringLiteral( "[{'layer': '%1','attributeIndex': -1}]" ).arg( vectorLayer->source() ) );
+
+  QString pythonCode = def->asPythonString();
+  QCOMPARE( pythonCode, QStringLiteral( "QgsProcessingParameterDxfLayers('dxf input layer', '')" ) );
+
+  QgsDxfExport::DxfLayer dxfLayer( vectorLayer );
+  QList<QgsDxfExport::DxfLayer> dxfList = def->parameterAsLayers( QVariant( vectorLayer->source() ), context );
+  QCOMPARE( dxfList.at( 0 ).layer()->source(), dxfLayer.layer()->source() );
+  QCOMPARE( dxfList.at( 0 ).layerOutputAttributeIndex(), dxfLayer.layerOutputAttributeIndex() );
+  dxfList = def->parameterAsLayers( QVariant( QStringList() << vectorLayer->source() ), context );
+  QCOMPARE( dxfList.at( 0 ).layer()->source(), dxfLayer.layer()->source() );
+  QCOMPARE( dxfList.at( 0 ).layerOutputAttributeIndex(), dxfLayer.layerOutputAttributeIndex() );
+  dxfList = def->parameterAsLayers( layerList, context );
+  QCOMPARE( dxfList.at( 0 ).layer()->source(), dxfLayer.layer()->source() );
+  QCOMPARE( dxfList.at( 0 ).layerOutputAttributeIndex(), dxfLayer.layerOutputAttributeIndex() );
 }
 
 void TestQgsProcessing::checkParamValues()
@@ -9463,7 +9809,12 @@ void TestQgsProcessing::modelerAlgorithm()
   alg5.setDesignerParameterValues( lastParams );
 
   QDomDocument doc = QDomDocument( "model" );
-  QDomElement elem = QgsXmlUtils::writeVariant( alg5.toVariant(), doc );
+  alg5.initAlgorithm();
+  const QVariant v = alg5.toVariant();
+  // make sure private parameters weren't included in the definition
+  QVERIFY( !v.toMap().value( QStringLiteral( "parameterDefinitions" ) ).toMap().contains( QStringLiteral( "VERBOSE_LOG" ) ) );
+
+  QDomElement elem = QgsXmlUtils::writeVariant( v, doc );
   doc.appendChild( elem );
 
   QgsProcessingModelAlgorithm alg6;
@@ -11087,6 +11438,7 @@ void TestQgsProcessing::variantToPythonLiteral()
   QCOMPARE( QgsProcessingUtils::variantToPythonLiteral( QStringLiteral( "a 'string'" ) ), QStringLiteral( "'a \\'string\\''" ) );
   QCOMPARE( QgsProcessingUtils::variantToPythonLiteral( QStringLiteral( "a \"string\"" ) ), QStringLiteral( "'a \\\"string\\\"'" ) );
   QCOMPARE( QgsProcessingUtils::variantToPythonLiteral( QStringLiteral( "a \n str\tin\\g" ) ), QStringLiteral( "'a \\n str\\tin\\\\g'" ) );
+  QCOMPARE( QgsProcessingUtils::variantToPythonLiteral( QDateTime( QDate( 2345, 1, 2 ), QTime( 6, 57, 58 ) ) ), QStringLiteral( "QDateTime(QDate(2345, 1, 2), QTime(6, 57, 58))" ) );
   QVariantMap map;
   map.insert( QStringLiteral( "list" ), QVariantList() << 1 << 2 << "a" );
   map.insert( QStringLiteral( "another" ), 4 );
@@ -11102,6 +11454,8 @@ void TestQgsProcessing::stringToPythonLiteral()
   QCOMPARE( QgsProcessingUtils::stringToPythonLiteral( QStringLiteral( "a \"string\"" ) ), QStringLiteral( "'a \\\"string\\\"'" ) );
   QCOMPARE( QgsProcessingUtils::stringToPythonLiteral( QStringLiteral( "a \n str\tin\\g" ) ), QStringLiteral( "'a \\n str\\tin\\\\g'" ) );
 }
+
+
 
 void TestQgsProcessing::defaultExtensionsForProvider()
 {

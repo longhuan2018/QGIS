@@ -1207,7 +1207,7 @@ bool QgsGdalProvider::readBlock( int bandNo, QgsRectangle  const &reqExtent, int
 /**
  * \param bandNumber the number of the band for which you want a color table
  * \param list a pointer the object that will hold the color table
- * \return true of a color table was able to be read, false otherwise
+ * \return TRUE if a color table was able to be read, FALSE otherwise
  */
 QList<QgsColorRampShader::ColorRampItem> QgsGdalProvider::colorTable( int bandNumber )const
 {
@@ -1641,8 +1641,9 @@ QString QgsGdalProvider::description() const
 
 QgsRasterDataProvider::ProviderCapabilities QgsGdalProvider::providerCapabilities() const
 {
-  return QgsRasterDataProvider::ProviderHintBenefitsFromResampling |
-         QgsRasterDataProvider::ProviderHintCanPerformProviderResampling;
+  return ProviderCapability::ProviderHintBenefitsFromResampling |
+         ProviderCapability::ProviderHintCanPerformProviderResampling |
+         ProviderCapability::ReloadData;
 }
 
 // This is used also by global isValidRasterFileName
@@ -2048,8 +2049,8 @@ QString QgsGdalProvider::buildPyramids( const QList<QgsRasterPyramid> &rasterPyr
     }
   }
   /* From : http://www.gdal.org/classGDALDataset.html#a2aa6f88b3bbc840a5696236af11dde15
-   * pszResampling : one of "NEAREST", "GAUSS", "CUBIC", "CUBICSPLINE" (GDAL >= 2.0),
-   * "LANCZOS" ( GDAL >= 2.0), "AVERAGE", "MODE" or "NONE" controlling the downsampling method applied.
+   * pszResampling : one of "NEAREST", "GAUSS", "CUBIC", "CUBICSPLINE" (GDAL >= 2.0), "LANCZOS" ( GDAL >= 2.0),
+   * "BILINEAR" ( GDAL >= 2.0), "AVERAGE", "MODE" or "NONE" controlling the downsampling method applied.
    * nOverviews : number of overviews to build.
    * panOverviewList : the list of overview decimation factors to build.
    * nListBands : number of bands to build overviews for in panBandList. Build for all bands if this is 0.
@@ -2319,7 +2320,7 @@ QStringList QgsGdalProvider::subLayers() const
   return mSubLayers;
 }
 
-QVariantMap QgsGdalProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsGdalProviderMetadata::decodeUri( const QString &uri ) const
 {
   QString path = uri;
   QString layerName;
@@ -2350,11 +2351,29 @@ QVariantMap QgsGdalProviderMetadata::decodeUri( const QString &uri )
   return uriComponents;
 }
 
-QString QgsGdalProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsGdalProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QString path = parts.value( QStringLiteral( "path" ) ).toString();
   QString layerName = parts.value( QStringLiteral( "layerName" ) ).toString();
   return path + ( !layerName.isEmpty() ? QStringLiteral( "|%1" ).arg( layerName ) : QString() );
+}
+
+bool QgsGdalProviderMetadata::uriIsBlocklisted( const QString &uri ) const
+{
+  const QVariantMap parts = decodeUri( uri );
+  if ( !parts.contains( QStringLiteral( "path" ) ) )
+    return false;
+
+  QFileInfo fi( parts.value( QStringLiteral( "path" ) ).toString() );
+  const QString suffix = fi.completeSuffix();
+
+  // internal details only
+  if ( suffix.compare( QLatin1String( "aux.xml" ), Qt::CaseInsensitive ) == 0 || suffix.endsWith( QLatin1String( ".aux.xml" ), Qt::CaseInsensitive ) )
+    return true;
+  if ( suffix.compare( QLatin1String( "tif.xml" ), Qt::CaseInsensitive ) == 0 )
+    return true;
+
+  return false;
 }
 
 
@@ -3341,9 +3360,14 @@ QString QgsGdalProviderMetadata::filters( FilterType type )
       buildSupportedRasterFileFilterAndExtensions( fileFiltersString, exts, wildcards );
       return fileFiltersString;
     }
-    default:
+
+    case QgsProviderMetadata::FilterType::FilterVector:
+    case QgsProviderMetadata::FilterType::FilterMesh:
+    case QgsProviderMetadata::FilterType::FilterMeshDataset:
+    case QgsProviderMetadata::FilterType::FilterPointCloud:
       return QString();
   }
+  return QString();
 }
 
 QString QgsGdalProvider::validateCreationOptions( const QStringList &createOptions, const QString &format )
@@ -3531,6 +3555,7 @@ QList<QPair<QString, QString> > QgsGdalProviderMetadata::pyramidResamplingMethod
     methods.append( QPair<QString, QString>( QStringLiteral( "CUBIC" ), QObject::tr( "Cubic" ) ) );
     methods.append( QPair<QString, QString>( QStringLiteral( "CUBICSPLINE" ), QObject::tr( "Cubic Spline" ) ) );
     methods.append( QPair<QString, QString>( QStringLiteral( "LANCZOS" ), QObject::tr( "Lanczos" ) ) );
+    methods.append( QPair<QString, QString>( QStringLiteral( "BILINEAR" ), QObject::tr( "Bilinear" ) ) );
     methods.append( QPair<QString, QString>( QStringLiteral( "MODE" ), QObject::tr( "Mode" ) ) );
     methods.append( QPair<QString, QString>( QStringLiteral( "NONE" ), QObject::tr( "None" ) ) );
   }

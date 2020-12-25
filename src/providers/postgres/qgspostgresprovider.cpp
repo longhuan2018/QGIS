@@ -143,22 +143,15 @@ QgsPostgresProvider::QgsPostgresProvider( QString const &uri, const ProviderOpti
   if ( mSchemaName.isEmpty() && mTableName.startsWith( '(' ) && mTableName.endsWith( ')' ) )
   {
     mIsQuery = true;
-    mQuery = mTableName;
+    setQuery( mTableName );
     mTableName.clear();
   }
   else
   {
     mIsQuery = false;
 
-    if ( !mSchemaName.isEmpty() )
-    {
-      mQuery += quotedIdentifier( mSchemaName ) + '.';
-    }
-
-    if ( !mTableName.isEmpty() )
-    {
-      mQuery += quotedIdentifier( mTableName );
-    }
+    setQuery( ( !mSchemaName.isEmpty() ? quotedIdentifier( mSchemaName ) + '.' : QString() )
+              + ( !mTableName.isEmpty() ? quotedIdentifier( mTableName ) : QString() ) );
   }
 
   mUseEstimatedMetadata = mUri.useEstimatedMetadata();
@@ -898,7 +891,7 @@ bool QgsPostgresProvider::loadFields()
         notNullMap[attrelid][attnum] = attNotNull;
         uniqueMap[attrelid][attnum] = uniqueConstraint;
         identityMap[attrelid][attnum] = attIdentity.isEmpty() ? " " : attIdentity;
-        generatedMap[attrelid][attnum] = attGenerated.isEmpty() ? "" : defVal;
+        generatedMap[attrelid][attnum] = attGenerated.isEmpty() ? QString() : defVal;
 
         // Also include atttype oid from pg_attribute, because PQnfields only returns basic type for for domains
         attroids.insert( attType );
@@ -1146,6 +1139,12 @@ bool QgsPostgresProvider::loadFields()
           fieldType = QVariant::String;
           fieldSize = -1;
         }
+        else if ( fieldTypeName == QLatin1String( "unknown" ) )
+        {
+          // Assume it is convertible to text
+          fieldType = QVariant::String;
+          fieldSize = -1;
+        }
         else
         {
           QgsMessageLog::logMessage( tr( "Field %1 ignored, because of unsupported type %2" ).arg( fieldName, fieldTType ), tr( "PostGIS" ) );
@@ -1230,9 +1229,13 @@ bool QgsPostgresProvider::loadFields()
     }
 
     mDefaultValues.insert( mAttributeFields.size(), defValMap[tableoid][attnum] );
-    mGeneratedValues.insert( mAttributeFields.size(), generatedMap[tableoid][attnum] );
+
+    const QString generatedValue = generatedMap[tableoid][attnum];
+    if ( !generatedValue.isNull() )
+      mGeneratedValues.insert( mAttributeFields.size(), generatedValue );
 
     QgsField newField = QgsField( fieldName, fieldType, fieldTypeName, fieldSize, fieldPrec, fieldComment, fieldSubType );
+    newField.setReadOnly( !generatedValue.isNull() );
 
     QgsFieldConstraints constraints;
     if ( notNullMap[tableoid][attnum] || ( mPrimaryKeyAttrs.size() == 1 && mPrimaryKeyAttrs[0] == i ) || identityMap[tableoid][attnum] != ' ' )
@@ -1314,6 +1317,8 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
 {
   QgsDebugMsgLevel( QStringLiteral( "Checking for permissions on the relation" ), 2 );
 
+  mEnabledCapabilities = QgsVectorDataProvider::Capability::ReloadData;
+
   QgsPostgresResult testAccess;
   if ( !mIsQuery )
   {
@@ -1345,7 +1350,7 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
     // the latter flag is here just for compatibility
     if ( !mSelectAtIdDisabled )
     {
-      mEnabledCapabilities = QgsVectorDataProvider::SelectAtId;
+      mEnabledCapabilities |= QgsVectorDataProvider::SelectAtId;
     }
 
     if ( !inRecovery )
@@ -1453,9 +1458,9 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
     while ( mQuery.contains( regex ) );
 
     // convert the custom query into a subquery
-    mQuery = QStringLiteral( "%1 AS %2" )
-             .arg( mQuery,
-                   quotedIdentifier( alias ) );
+    setQuery( QStringLiteral( "%1 AS %2" )
+              .arg( mQuery,
+                    quotedIdentifier( alias ) ) );
 
     QString sql = QStringLiteral( "SELECT * FROM %1 LIMIT 1" ).arg( mQuery );
 
@@ -2109,7 +2114,6 @@ bool QgsPostgresProvider::isValid() const
 QString QgsPostgresProvider::defaultValueClause( int fieldId ) const
 {
   QString defVal = mDefaultValues.value( fieldId, QString() );
-  QString genVal = mGeneratedValues.value( fieldId, QString() );
 
   // with generated columns (PostgreSQL 12+), the provider will ALWAYS evaluate the default values.
   // The only acceptable value for such columns on INSERT or UPDATE clauses is the keyword "DEFAULT".
@@ -2118,7 +2122,7 @@ QString QgsPostgresProvider::defaultValueClause( int fieldId ) const
   // On inserting a new feature or updating a generated field, this is
   // omitted from the generated queries.
   // See https://www.postgresql.org/docs/12/ddl-generated-columns.html
-  if ( !genVal.isEmpty() )
+  if ( mGeneratedValues.contains( fieldId ) )
   {
     return defVal;
   }
@@ -2988,7 +2992,7 @@ bool QgsPostgresProvider::changeAttributeValues( const QgsChangedAttributesMap &
 
           pkChanged = pkChanged || mPrimaryKeyAttrs.contains( siter.key() );
 
-          if ( mGeneratedValues.contains( siter.key() ) && !mGeneratedValues.value( siter.key(), QString() ).isEmpty() )
+          if ( mGeneratedValues.contains( siter.key() ) )
           {
             QgsLogger::warning( tr( "Changing the value of GENERATED field %1 is not allowed." ).arg( fld.name() ) );
             continue;
@@ -3352,7 +3356,7 @@ bool QgsPostgresProvider::changeFeatures( const QgsChangedAttributesMap &attr_ma
 
           pkChanged = pkChanged || mPrimaryKeyAttrs.contains( siter.key() );
 
-          if ( mGeneratedValues.contains( siter.key() ) && !mGeneratedValues.value( siter.key(), QString() ).isEmpty() )
+          if ( mGeneratedValues.contains( siter.key() ) )
           {
             QgsLogger::warning( tr( "Changing the value of GENERATED field %1 is not allowed." ).arg( fld.name() ) );
             continue;
@@ -3582,7 +3586,7 @@ long QgsPostgresProvider::featureCount() const
   long num = -1;
   if ( !mIsQuery && mUseEstimatedMetadata )
   {
-    if ( connectionRO()->pgVersion() >= 90000 )
+    if ( relkind() == Relkind::View && connectionRO()->pgVersion() >= 90000 )
     {
       // parse explain output to estimate feature count
       // we don't use pg_class reltuples because it returns 0 for view
@@ -3598,6 +3602,12 @@ long QgsPostgresProvider::featureCount() const
         num = nbRows.toInt();
       else
         QgsLogger::warning( QStringLiteral( "Cannot parse JSON explain result to estimate feature count (%1) : %2" ).arg( sql, json ) );
+    }
+    else
+    {
+      sql = QStringLiteral( "SELECT reltuples::bigint FROM pg_catalog.pg_class WHERE oid=regclass(%1)::oid" ).arg( quotedValue( mQuery ) );
+      QgsPostgresResult result( connectionRO()->PQexec( sql ) );
+      num = result.PQgetvalue( 0, 0 ).toLong();
     }
   }
   else
@@ -5019,55 +5029,69 @@ QgsAttrPalIndexNameHash QgsPostgresProvider::palAttributeIndexNames() const
   return mAttrPalIndexName;
 }
 
+void QgsPostgresProvider::setQuery( const QString &query )
+{
+  mQuery = query;
+
+  mKind = Relkind::NotSet;
+}
+
 QgsPostgresProvider::Relkind QgsPostgresProvider::relkind() const
 {
+  if ( mKind != Relkind::NotSet )
+    return mKind;
+
   if ( mIsQuery || !connectionRO() )
-    return Relkind::Unknown;
+  {
+    mKind = Relkind::Unknown;
+  }
+  else
+  {
+    QString sql = QStringLiteral( "SELECT relkind FROM pg_class WHERE oid=regclass(%1)::oid" ).arg( quotedValue( mQuery ) );
+    QgsPostgresResult res( connectionRO()->PQexec( sql ) );
+    QString type = res.PQgetvalue( 0, 0 );
 
-  QString sql = QStringLiteral( "SELECT relkind FROM pg_class WHERE oid=regclass(%1)::oid" ).arg( quotedValue( mQuery ) );
-  QgsPostgresResult res( connectionRO()->PQexec( sql ) );
-  QString type = res.PQgetvalue( 0, 0 );
+    mKind = Relkind::Unknown;
 
-  QgsPostgresProvider::Relkind kind = Relkind::Unknown;
-
-  if ( type == QLatin1String( "r" ) )
-  {
-    kind = Relkind::OrdinaryTable;
-  }
-  else if ( type == QLatin1String( "i" ) )
-  {
-    kind = Relkind::Index;
-  }
-  else if ( type == QLatin1String( "s" ) )
-  {
-    kind = Relkind::Sequence;
-  }
-  else if ( type == QLatin1String( "v" ) )
-  {
-    kind = Relkind::View;
-  }
-  else if ( type == QLatin1String( "m" ) )
-  {
-    kind = Relkind::MaterializedView;
-  }
-  else if ( type == QLatin1String( "c" ) )
-  {
-    kind = Relkind::CompositeType;
-  }
-  else if ( type == QLatin1String( "t" ) )
-  {
-    kind = Relkind::ToastTable;
-  }
-  else if ( type == QLatin1String( "f" ) )
-  {
-    kind = Relkind::ForeignTable;
-  }
-  else if ( type == QLatin1String( "p" ) )
-  {
-    kind = Relkind::PartitionedTable;
+    if ( type == QLatin1String( "r" ) )
+    {
+      mKind = Relkind::OrdinaryTable;
+    }
+    else if ( type == QLatin1String( "i" ) )
+    {
+      mKind = Relkind::Index;
+    }
+    else if ( type == QLatin1String( "s" ) )
+    {
+      mKind = Relkind::Sequence;
+    }
+    else if ( type == QLatin1String( "v" ) )
+    {
+      mKind = Relkind::View;
+    }
+    else if ( type == QLatin1String( "m" ) )
+    {
+      mKind = Relkind::MaterializedView;
+    }
+    else if ( type == QLatin1String( "c" ) )
+    {
+      mKind = Relkind::CompositeType;
+    }
+    else if ( type == QLatin1String( "t" ) )
+    {
+      mKind = Relkind::ToastTable;
+    }
+    else if ( type == QLatin1String( "f" ) )
+    {
+      mKind = Relkind::ForeignTable;
+    }
+    else if ( type == QLatin1String( "p" ) )
+    {
+      mKind = Relkind::PartitionedTable;
+    }
   }
 
-  return kind;
+  return mKind;
 }
 
 bool QgsPostgresProvider::hasMetadata() const
@@ -5555,19 +5579,19 @@ QgsAbstractProviderConnection *QgsPostgresProviderMetadata::createConnection( co
 }
 
 
-QgsPostgresProjectStorage *gProjectStorage = nullptr;   // when not null it is owned by QgsApplication::projectStorageRegistry()
+QgsPostgresProjectStorage *gPgProjectStorage = nullptr;   // when not null it is owned by QgsApplication::projectStorageRegistry()
 
 void QgsPostgresProviderMetadata::initProvider()
 {
-  Q_ASSERT( !gProjectStorage );
-  gProjectStorage = new QgsPostgresProjectStorage;
-  QgsApplication::projectStorageRegistry()->registerProjectStorage( gProjectStorage );  // takes ownership
+  Q_ASSERT( !gPgProjectStorage );
+  gPgProjectStorage = new QgsPostgresProjectStorage;
+  QgsApplication::projectStorageRegistry()->registerProjectStorage( gPgProjectStorage );  // takes ownership
 }
 
 void QgsPostgresProviderMetadata::cleanupProvider()
 {
-  QgsApplication::projectStorageRegistry()->unregisterProjectStorage( gProjectStorage );  // destroys the object
-  gProjectStorage = nullptr;
+  QgsApplication::projectStorageRegistry()->unregisterProjectStorage( gPgProjectStorage );  // destroys the object
+  gPgProjectStorage = nullptr;
 
   QgsPostgresConnPool::cleanupInstance();
 }
@@ -5704,7 +5728,7 @@ QGISEXTERN QgsProviderMetadata *providerMetadataFactory()
 #endif
 
 
-QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QgsDataSourceUri dsUri { uri };
   QVariantMap uriParts;
@@ -5753,7 +5777,7 @@ QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri )
 }
 
 
-QString QgsPostgresProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsPostgresProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QgsDataSourceUri dsUri;
   if ( parts.contains( QStringLiteral( "dbname" ) ) )

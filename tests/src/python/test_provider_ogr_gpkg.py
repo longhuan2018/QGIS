@@ -1851,6 +1851,117 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         feature.setAttributes([None, 'three'])
         self.assertTrue(vl.addFeature(feature))
 
+    def _testVectorLayerExporterDeferredSpatialIndex(self, layerOptions, expectSpatialIndex):
+        """ Internal method """
+
+        tmpfile = '/vsimem/_testVectorLayerExporterDeferredSpatialIndex.gpkg'
+        options = {}
+        options['driverName'] = 'GPKG'
+        options['layerName'] = 'table1'
+        if layerOptions:
+            options['layerOptions'] = layerOptions
+        exporter = QgsVectorLayerExporter(tmpfile, "ogr", QgsFields(), QgsWkbTypes.Polygon,
+                                          QgsCoordinateReferenceSystem(3111), False, options)
+        self.assertFalse(exporter.errorCode(),
+                         'unexpected export error {}: {}'.format(exporter.errorCode(), exporter.errorMessage()))
+
+        # Check that at that point the rtree is *not* created
+        ds = ogr.Open(tmpfile)
+        sql_lyr = ds.ExecuteSQL("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gpkg_extensions'")
+        assert sql_lyr.GetNextFeature() is None
+        ds.ReleaseResultSet(sql_lyr)
+        del ds
+
+        del exporter
+
+        ds = gdal.OpenEx(tmpfile, gdal.OF_VECTOR)
+        if expectSpatialIndex:
+            # Check that at that point the rtree is created
+            sql_lyr = ds.ExecuteSQL("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gpkg_extensions'")
+            assert sql_lyr.GetNextFeature() is not None
+            ds.ReleaseResultSet(sql_lyr)
+            sql_lyr = ds.ExecuteSQL("SELECT 1 FROM gpkg_extensions WHERE table_name = 'table1' AND extension_name = 'gpkg_rtree_index'")
+            assert sql_lyr.GetNextFeature() is not None
+            ds.ReleaseResultSet(sql_lyr)
+        else:
+            # Check that at that point the rtree is *still not* created
+            sql_lyr = ds.ExecuteSQL("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'gpkg_extensions'")
+            assert sql_lyr.GetNextFeature() is None
+            ds.ReleaseResultSet(sql_lyr)
+        return ds
+
+    def testVectorLayerExporterDeferredSpatialIndexNoLayerOptions(self):
+        """ Check that a deferred spatial index is created when no layer creation options is provided """
+
+        ds = self._testVectorLayerExporterDeferredSpatialIndex(None, True)
+        filename = ds.GetDescription()
+        del ds
+        gdal.Unlink(filename)
+
+    def testVectorLayerExporterDeferredSpatialIndexLayerOptions(self):
+        """ Check that a deferred spatial index is created when other layer creations options is provided """
+
+        ds = self._testVectorLayerExporterDeferredSpatialIndex(['GEOMETRY_NAME=my_geom'], True)
+        lyr = ds.GetLayer(0)
+        self.assertEqual(lyr.GetGeometryColumn(), 'my_geom')
+        filename = ds.GetDescription()
+        del ds
+        gdal.Unlink(filename)
+
+    def testVectorLayerExporterDeferredSpatialIndexExplicitSpatialIndexAsked(self):
+        """ Check that a deferred spatial index is created when explicit asked """
+
+        ds = self._testVectorLayerExporterDeferredSpatialIndex(['SPATIAL_INDEX=YES'], True)
+        filename = ds.GetDescription()
+        del ds
+        gdal.Unlink(filename)
+
+    def testVectorLayerExporterDeferredSpatialIndexSpatialIndexDisallowed(self):
+        """ Check that a deferred spatial index is NOT created when explicit disallowed """
+
+        ds = self._testVectorLayerExporterDeferredSpatialIndex(['SPATIAL_INDEX=NO'], False)
+        filename = ds.GetDescription()
+        del ds
+        gdal.Unlink(filename)
+
+    def testRollback(self):
+        """ Test that a failed operation is properly rolled back """
+        tmpfile = os.path.join(self.basetestpath, 'testRollback.gpkg')
+
+        ds = ogr.GetDriverByName('GPKG').CreateDataSource(tmpfile)
+        lyr = ds.CreateLayer('test', geom_type=ogr.wkbPoint, options=['SPATIAL_INDEX=NO'])
+        # Ugly hack to be able to create a column with unique constraint with GDAL < 3.2
+        ds.ExecuteSQL('CREATE TABLE test2 ("fid" INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, "geom" POINT, v INTEGER, v_unique INTEGER UNIQUE)')
+        ds.ExecuteSQL("UPDATE gpkg_contents SET table_name = 'test2'")
+        ds.ExecuteSQL("UPDATE gpkg_geometry_columns SET table_name = 'test2'")
+        ds.ExecuteSQL('INSERT INTO test2 (fid, geom, v, v_unique) VALUES (1, NULL, -1, 123)')
+        ds = None
+
+        vl = QgsVectorLayer(u'{}'.format(tmpfile), 'test', u'ogr')
+        self.assertTrue(vl.isValid())
+
+        features = [f for f in vl.getFeatures()]
+        self.assertEqual(len(features), 1)
+        self.assertEqual(features[0].attributes(), [1, -1, 123])
+
+        f = QgsFeature()
+        # violates unique constraint
+        f.setAttributes([None, -2, 123])
+        f2 = QgsFeature()
+        f2.setAttributes([None, -3, 124])
+        ret, _ = vl.dataProvider().addFeatures([f, f2])
+        self.assertFalse(ret)
+
+        f = QgsFeature()
+        f.setAttributes([None, -4, 125])
+        ret, _ = vl.dataProvider().addFeatures([f])
+        self.assertTrue(ret)
+
+        features = [f for f in vl.getFeatures()]
+        self.assertEqual(len(features), 2)
+        self.assertEqual(features[0].attributes(), [1, -1, 123])
+        self.assertEqual(features[1].attributes(), [2, -4, 125])
+
 
 if __name__ == '__main__':
     unittest.main()

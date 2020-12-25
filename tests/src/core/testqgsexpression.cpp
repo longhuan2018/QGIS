@@ -1702,6 +1702,11 @@ class TestQgsExpression: public QObject
       QTest::newRow( "to_base64" ) << QStringLiteral( "to_base64('QGIS')" ) << false << QVariant( "UUdJUw==" );
       QTest::newRow( "from_base64 NULL" ) << QStringLiteral( "from_base64(NULL)" ) << false << QVariant();
       QTest::newRow( "from_base64" ) << QStringLiteral( "from_base64('UUdJUw==')" ) << false << QVariant( QByteArray( QString( "QGIS" ).toLocal8Bit() ) );
+      QTest::newRow( "uuid()" ) << QStringLiteral( "regexp_match( uuid(), '({[a-zA-Z\\\\d]{8}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{12}})')" ) << false << QVariant( 1 );
+      QTest::newRow( "uuid('WithBraces')" ) << QStringLiteral( "regexp_match( uuid('WithBraces'), '({[a-zA-Z\\\\d]{8}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{12}})')" ) << false << QVariant( 1 );
+      QTest::newRow( "uuid('WithoutBraces')" ) << QStringLiteral( "regexp_match( uuid('WithoutBraces'), '([a-zA-Z\\\\d]{8}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{12})')" ) << false << QVariant( 1 );
+      QTest::newRow( "uuid('Id128')" ) << QStringLiteral( "regexp_match( uuid('Id128'), '([a-zA-Z\\\\d]{32})')" ) << false << QVariant( 1 );
+      QTest::newRow( "uuid('invalid-format')" ) << QStringLiteral( "regexp_match( uuid('invalid-format'), '({[a-zA-Z\\\\d]{8}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{4}\\\\-[a-zA-Z\\\\d]{12}})')" ) << false << QVariant( 1 );
     }
 
 
@@ -2029,6 +2034,30 @@ class TestQgsExpression: public QObject
       QCOMPARE( res.toInt(), 1 );
     }
 
+    void test_aggregate_with_variable()
+    {
+      // this checks that a variable can be non static in a aggregate, i.e. the result will change across the fetched features
+      // see https://github.com/qgis/QGIS/issues/33382
+      QgsExpressionContext context;
+      context.appendScope( QgsExpressionContextUtils::layerScope( mAggregatesLayer ) );
+      QgsFeature f;
+
+      QgsFeatureIterator it = mAggregatesLayer->getFeatures();
+
+      while ( it.nextFeature( f ) )
+      {
+        context.setFeature( f );
+        QgsExpression exp( QString( "with_variable('my_var',\"col1\", aggregate(layer:='aggregate_layer', aggregate:='concatenate_unique', expression:=\"col2\", filter:=\"col1\"=@my_var))" ) );
+        QString res = exp.evaluate( &context ).toString();
+        QCOMPARE( res, f.attribute( "col2" ).toString() );
+
+        // also test for generic aggregates
+        exp = QString( "with_variable('my_var',\"col1\", sum(expression:=\"col1\", filter:=\"col1\"=@my_var))" );
+        int res2 = exp.evaluate( &context ).toInt();
+        QCOMPARE( res2, f.attribute( "col1" ).toInt() );
+      }
+    }
+
     void aggregate_data()
     {
       QTest::addColumn<QString>( "string" );
@@ -2170,6 +2199,8 @@ class TestQgsExpression: public QObject
       QTest::newRow( "group by and filter named" ) << "sum(expression:=\"col1\", group_by:=\"col3\", filter:=\"col1\">=3)" << false << QVariant( 7 );
       QTest::newRow( "group by expression" ) << "sum(\"col1\", \"col1\" % 2)" << false << QVariant( 14 );
       QTest::newRow( "group by with null value" ) << "sum(\"col1\", \"col4\")" << false << QVariant( 8 );
+
+      QTest::newRow( "filter by @parent attribute in generic aggregate" ) << "maximum(\"col1\", filter:=\"col1\"<attribute(@parent,'col1'))" << false << QVariant( 3 );
     }
 
     void maptip_display_data()
@@ -3302,7 +3333,8 @@ class TestQgsExpression: public QObject
 
       QCOMPARE( QgsExpression( "array_get(\"strings\", 1)" ).evaluate( &context ), QVariant( "two" ) );
       QCOMPARE( QgsExpression( "array_get(\"strings\", 2)" ).evaluate( &context ), QVariant() );
-      QCOMPARE( QgsExpression( "array_get(\"strings\", -1)" ).evaluate( &context ), QVariant() );
+      QCOMPARE( QgsExpression( "array_get(\"strings\", -1)" ).evaluate( &context ), QVariant( "two" ) );
+      QCOMPARE( QgsExpression( "array_get(\"strings\", -4)" ).evaluate( &context ), QVariant() );
 
       QStringList appendExpected = array;
       appendExpected << QStringLiteral( "three" );
@@ -3334,6 +3366,8 @@ class TestQgsExpression: public QObject
 
       QVariantList filterExpected = QVariantList() << QStringLiteral( "A: a" ) << QStringLiteral( "A: d" );
       QCOMPARE( QgsExpression( "array_filter(array:=array('A: a', 'B: b', 'C: c', 'A: d'), expression:=substr(@element, 1, 2) = 'A:')" ).evaluate( &context ), QVariant( filterExpected ) );
+      QVariantList filterExpectedLimit = QVariantList() << QStringLiteral( "A: a" );
+      QCOMPARE( QgsExpression( "array_filter(array:=array('A: a', 'B: b', 'C: c', 'A: d'), expression:=substr(@element, 1, 2) = 'A:', limit:=1)" ).evaluate( &context ), QVariant( filterExpectedLimit ) );
 
       QCOMPARE( QgsExpression( "array_intersect(array('1', '2', '3', '4'), array('4', '0', '2', '5'))" ).evaluate( &context ), QVariant( true ) );
       QCOMPARE( QgsExpression( "array_intersect(array('1', '2', '3', '4'), array('0', '5'))" ).evaluate( &context ), QVariant( false ) );
@@ -3378,7 +3412,9 @@ class TestQgsExpression: public QObject
 
       QCOMPARE( QgsExpression( "array_get(\"ints\", 1)" ).evaluate( &context ), QVariant( -2 ) );
       QCOMPARE( QgsExpression( "array_get(\"ints\", 2)" ).evaluate( &context ), QVariant() );
-      QCOMPARE( QgsExpression( "array_get(\"ints\", -1)" ).evaluate( &context ), QVariant() );
+      QCOMPARE( QgsExpression( "array_get(\"ints\", -1)" ).evaluate( &context ), QVariant( -2 ) );
+      QCOMPARE( QgsExpression( "array_get(\"ints\", -2)" ).evaluate( &context ), QVariant( 1 ) );
+      QCOMPARE( QgsExpression( "array_get(\"ints\", -3)" ).evaluate( &context ), QVariant() );
 
       QVariantList appendExpected = array;
       appendExpected << 3;
@@ -3426,6 +3462,8 @@ class TestQgsExpression: public QObject
 
       QVariantList filterExpected = QVariantList() << 1 << 2;
       QCOMPARE( QgsExpression( "array_filter(array(1, 2, 4), @element < 3)" ).evaluate( &context ), QVariant( filterExpected ) );
+      QVariantList filterExpectedLimit = QVariantList() << 1;
+      QCOMPARE( QgsExpression( "array_filter(array(1, 2, 4), @element < 3, 1)" ).evaluate( &context ), QVariant( filterExpectedLimit ) );
 
       QgsExpression badArray( QStringLiteral( "array_get('not an array', 0)" ) );
       QCOMPARE( badArray.evaluate( &context ), QVariant() );

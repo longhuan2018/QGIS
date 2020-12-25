@@ -201,6 +201,8 @@ QgsVectorLayer::QgsVectorLayer( const QString &vectorLayerPath,
   connect( QgsProject::instance()->relationManager(), &QgsRelationManager::relationsLoaded, this, &QgsVectorLayer::onRelationsLoaded );
 
   connect( this, &QgsVectorLayer::subsetStringChanged, this, &QgsMapLayer::configChanged );
+  connect( this, &QgsVectorLayer::dataSourceChanged, this, &QgsVectorLayer::supportsEditingChanged );
+  connect( this, &QgsVectorLayer::readOnlyChanged, this, &QgsVectorLayer::supportsEditingChanged );
 
   // Default simplify drawing settings
   QgsSettings settings;
@@ -276,7 +278,6 @@ QgsVectorLayer *QgsVectorLayer::clone() const
   layer->selectByIds( selectedFeatureIds() );
   layer->setAttributeTableConfig( attributeTableConfig() );
   layer->setFeatureBlendMode( featureBlendMode() );
-  layer->setOpacity( opacity() );
   layer->setReadExtentFromXml( readExtentFromXml() );
 
   const auto constActions = actions()->actions();
@@ -1433,12 +1434,7 @@ bool QgsVectorLayer::startEditing()
   }
 
   // allow editing if provider supports any of the capabilities
-  if ( !( mDataProvider->capabilities() & QgsVectorDataProvider::EditingCapabilities ) )
-  {
-    return false;
-  }
-
-  if ( mReadOnly )
+  if ( !supportsEditing() )
   {
     return false;
   }
@@ -2363,8 +2359,10 @@ bool QgsVectorLayer::readSymbology( const QDomNode &layerNode, QString &errorMes
         for ( int i = 0; i < attributeNodeList.size(); ++i )
         {
           QString fieldName = attributeNodeList.at( i ).toElement().text();
-          int index = mFields.indexFromName( fieldName );
-          setFieldConfigurationFlag( index, config.second, true );
+          if ( !mFieldConfigurationFlags.contains( fieldName ) )
+            mFieldConfigurationFlags[fieldName] = config.second;
+          else
+            mFieldConfigurationFlags[fieldName].setFlag( config.second, true );
         }
       }
     }
@@ -3149,6 +3147,54 @@ QgsStringMap QgsVectorLayer::attributeAliases() const
   return mAttributeAliasMap;
 }
 
+QSet<QString> QgsVectorLayer::excludeAttributesWms() const
+{
+  QSet<QString> excludeList;
+  QMap< QString, QgsField::ConfigurationFlags >::const_iterator flagsIt = mFieldConfigurationFlags.constBegin();
+  for ( ; flagsIt != mFieldConfigurationFlags.constEnd(); ++flagsIt )
+  {
+    if ( flagsIt->testFlag( QgsField::ConfigurationFlag::HideFromWms ) )
+    {
+      excludeList << flagsIt.key();
+    }
+  }
+  return excludeList;
+}
+
+void QgsVectorLayer::setExcludeAttributesWms( const QSet<QString> &att )
+{
+  QMap< QString, QgsField::ConfigurationFlags >::iterator flagsIt = mFieldConfigurationFlags.begin();
+  for ( ; flagsIt != mFieldConfigurationFlags.end(); ++flagsIt )
+  {
+    flagsIt->setFlag( QgsField::ConfigurationFlag::HideFromWms, att.contains( flagsIt.key() ) );
+  }
+  updateFields();
+}
+
+QSet<QString> QgsVectorLayer::excludeAttributesWfs() const
+{
+  QSet<QString> excludeList;
+  QMap< QString, QgsField::ConfigurationFlags >::const_iterator flagsIt = mFieldConfigurationFlags.constBegin();
+  for ( ; flagsIt != mFieldConfigurationFlags.constEnd(); ++flagsIt )
+  {
+    if ( flagsIt->testFlag( QgsField::ConfigurationFlag::HideFromWfs ) )
+    {
+      excludeList << flagsIt.key();
+    }
+  }
+  return excludeList;
+}
+
+void QgsVectorLayer::setExcludeAttributesWfs( const QSet<QString> &att )
+{
+  QMap< QString, QgsField::ConfigurationFlags >::iterator flagsIt = mFieldConfigurationFlags.begin();
+  for ( ; flagsIt != mFieldConfigurationFlags.end(); ++flagsIt )
+  {
+    flagsIt->setFlag( QgsField::ConfigurationFlag::HideFromWfs, att.contains( flagsIt.key() ) );
+  }
+  updateFields();
+}
+
 bool QgsVectorLayer::deleteAttribute( int index )
 {
   if ( index < 0 || index >= fields().count() )
@@ -3193,46 +3239,48 @@ bool QgsVectorLayer::deleteFeatureCascade( QgsFeatureId fid, QgsVectorLayer::Del
 
   if ( context && context->cascade )
   {
-    if ( context->mHandledFeatures.contains( this ) )
+    const QList<QgsRelation> relations = context->project->relationManager()->referencedRelations( this );
+    const bool hasRelationsOrJoins = !relations.empty() || mJoinBuffer->containsJoins();
+    if ( hasRelationsOrJoins )
     {
-      QgsFeatureIds handledFeatureIds = context->mHandledFeatures.value( this );
-      if ( handledFeatureIds.contains( fid ) )
+      if ( context->mHandledFeatures.contains( this ) )
       {
-        // avoid endless recursion
-        return false;
+        QgsFeatureIds &handledFeatureIds = context->mHandledFeatures[ this  ];
+        if ( handledFeatureIds.contains( fid ) )
+        {
+          // avoid endless recursion
+          return false;
+        }
+        else
+        {
+          // add feature id
+          handledFeatureIds << fid;
+        }
       }
       else
       {
-        // add feature id
-        handledFeatureIds << fid;
-        context->mHandledFeatures.insert( this, handledFeatureIds );
+        // add layer and feature id
+        context->mHandledFeatures.insert( this, QgsFeatureIds() << fid );
       }
-    }
-    else
-    {
-      // add layer and feature id
-      context->mHandledFeatures.insert( this, QgsFeatureIds() << fid );
-    }
 
-    const QList<QgsRelation> relations = context->project->relationManager()->referencedRelations( this );
-
-    for ( const QgsRelation &relation : relations )
-    {
-      //check if composition (and not association)
-      if ( relation.strength() == QgsRelation::Composition )
+      for ( const QgsRelation &relation : relations )
       {
-        //get features connected over this relation
-        QgsFeatureIterator relatedFeaturesIt = relation.getRelatedFeatures( getFeature( fid ) );
-        QgsFeatureIds childFeatureIds;
-        QgsFeature childFeature;
-        while ( relatedFeaturesIt.nextFeature( childFeature ) )
+        //check if composition (and not association)
+        if ( relation.strength() == QgsRelation::Composition )
         {
-          childFeatureIds.insert( childFeature.id() );
-        }
-        if ( childFeatureIds.count() > 0 )
-        {
-          relation.referencingLayer()->startEditing();
-          relation.referencingLayer()->deleteFeatures( childFeatureIds, context );
+          //get features connected over this relation
+          QgsFeatureIterator relatedFeaturesIt = relation.getRelatedFeatures( getFeature( fid ) );
+          QgsFeatureIds childFeatureIds;
+          QgsFeature childFeature;
+          while ( relatedFeaturesIt.nextFeature( childFeature ) )
+          {
+            childFeatureIds.insert( childFeature.id() );
+          }
+          if ( childFeatureIds.count() > 0 )
+          {
+            relation.referencingLayer()->startEditing();
+            relation.referencingLayer()->deleteFeatures( childFeatureIds, context );
+          }
         }
       }
     }
@@ -3614,6 +3662,14 @@ bool QgsVectorLayer::setReadOnly( bool readonly )
   mReadOnly = readonly;
   emit readOnlyChanged();
   return true;
+}
+
+bool QgsVectorLayer::supportsEditing()
+{
+  if ( ! mDataProvider )
+    return false;
+
+  return mDataProvider->capabilities() & QgsVectorDataProvider::EditingCapabilities && ! mReadOnly;
 }
 
 bool QgsVectorLayer::isModified() const
@@ -4337,22 +4393,6 @@ QPainter::CompositionMode QgsVectorLayer::featureBlendMode() const
 {
   return mFeatureBlendMode;
 }
-
-void QgsVectorLayer::setOpacity( double opacity )
-{
-  if ( qgsDoubleNear( mLayerOpacity, opacity ) )
-    return;
-  mLayerOpacity = opacity;
-  emit opacityChanged( opacity );
-  emit styleChanged();
-}
-
-double QgsVectorLayer::opacity() const
-{
-  return mLayerOpacity;
-}
-
-
 
 void QgsVectorLayer::readSldLabeling( const QDomNode &node )
 {
@@ -5614,12 +5654,15 @@ void QgsVectorLayer::onDirtyTransaction( const QString &sql, const QString &name
   }
 }
 
-QList<QgsVectorLayer *> QgsVectorLayer::DeleteContext::handledLayers() const
+QList<QgsVectorLayer *> QgsVectorLayer::DeleteContext::handledLayers( bool includeAuxiliaryLayers ) const
 {
   QList<QgsVectorLayer *> layers;
   QMap<QgsVectorLayer *, QgsFeatureIds>::const_iterator i;
   for ( i = mHandledFeatures.begin(); i != mHandledFeatures.end(); ++i )
-    layers.append( i.key() );
+  {
+    if ( includeAuxiliaryLayers || !qobject_cast< QgsAuxiliaryLayer * >( i.key() ) )
+      layers.append( i.key() );
+  }
   return layers;
 }
 

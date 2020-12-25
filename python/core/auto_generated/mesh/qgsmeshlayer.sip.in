@@ -113,11 +113,17 @@ data.
     ~QgsMeshLayer();
 
 
-    virtual QgsMeshDataProvider *dataProvider();
-
+    SIP_PYOBJECT __repr__();
 %Docstring
 QgsMeshLayer cannot be copied.
 %End
+%MethodCode
+    QString str = QStringLiteral( "<QgsMeshLayer: '%1' (%2)>" ).arg( sipCpp->name(), sipCpp->dataProvider() ? sipCpp->dataProvider()->name() : QStringLiteral( "Invalid" ) );
+    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+%End
+
+    virtual QgsMeshDataProvider *dataProvider();
+
     virtual QgsMeshLayer *clone() const /Factory/;
 
     virtual QgsRectangle extent() const;
@@ -145,6 +151,8 @@ QgsMeshLayer cannot be copied.
     virtual void reload();
 
     virtual QStringList subLayers() const;
+
+    virtual QString htmlMetadata() const;
 
 
     QString providerType() const;
@@ -187,6 +195,8 @@ Saves datasets group on file with the specified ``driver``
 
 .. versionadded:: 3.16
 %End
+
+
 
 
 
@@ -253,7 +263,7 @@ Returns the extra dataset groups count handle by the layer
 
     QList<int> datasetGroupsIndexes() const;
 %Docstring
-Returns the list of indexes of dataset groups count handled by the layer
+Returns the list of indexes of dataset groups handled by the layer
 
 .. note::
 
@@ -261,6 +271,18 @@ Returns the list of indexes of dataset groups count handled by the layer
    In the layer scope, those indexes can be different from the data provider indexes.
 
 .. versionadded:: 3.16
+%End
+
+    QList<int> enabledDatasetGroupsIndexes() const;
+%Docstring
+Returns the list of indexes of enables dataset groups handled by the layer
+
+.. note::
+
+   indexes are used to distinguish all the dataset groups handled by the layer (from dataprovider, extra dataset group,...)
+   In the layer scope, those indexes can be different from the data provider indexes.
+
+.. versionadded:: 3.16.3
 %End
 
     QgsMeshDatasetGroupMetadata datasetGroupMetadata( const QgsMeshDatasetIndex &index ) const;
@@ -359,7 +381,7 @@ See :py:func:`QgsMeshDatasetMetadata.isVector()` to check if the returned value 
 returns invalid block for DataOnFaces and DataOnVertices.
 
 :param index: index of the dataset
-:param valueIndex: index of the value
+:param faceIndex: index of the face
 :param count: number of values to return
 
 .. note::
@@ -385,7 +407,7 @@ returns invalid block for DataOnFaces and DataOnVertices.
 Returns whether the faces are active for particular dataset
 
 :param index: index of the dataset
-:param valueIndex: index of the value
+:param faceIndex: index of the face
 :param count: number of values to return
 
 .. note::
@@ -493,6 +515,7 @@ Returns dataset index from datasets group depending on the time range.
 If the temporal properties is not active, returns invalid dataset index. This method is used for rendering mesh layer.
 
 :param timeRange: the time range
+:param datasetGroupIndex: the index of the dataset group
 
 :return: dataset index
 
@@ -516,6 +539,7 @@ Returns dataset index from datasets group depending on the relative time from th
 Dataset index is valid even the temporal properties is inactive. This method is used for calculation on mesh layer.
 
 :param relativeTime: the relative from the mesh layer reference time
+:param datasetGroupIndex: the index of the dataset group
 
 :return: dataset index
 

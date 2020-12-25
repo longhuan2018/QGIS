@@ -39,8 +39,8 @@ struct QgsLandingPageUtils
   /**
    * Returns a list of available projects from various sources:
    *
-   * - QGIS_SERVER_PROJECTS_DIRECTORIES directories
-   * - QGIS_SERVER_PROJECTS_PG_CONNECTIONS postgres connections
+   * - QGIS_SERVER_LANDING_PAGE_PROJECTS_DIRECTORIES directories
+   * - QGIS_SERVER_LANDING_PAGE_PROJECTS_PG_CONNECTIONS postgres connections
    *
    * Multiple paths and connections may be separated by two pipe chars: '||'
    *
@@ -49,9 +49,9 @@ struct QgsLandingPageUtils
   static QMap<QString, QString> projects( const QgsServerSettings &settings );
 
   /**
-   * Returns project information for a given \a projectPath
+   * Returns project information for a given \a projectPath and optional \a serverSettings
    */
-  static json projectInfo( const QString &projectPath );
+  static json projectInfo( const QString &projectPath, const QgsServerSettings *serverSettings = nullptr );
 
   /**
    * Returns the layer tree information for the given \a project

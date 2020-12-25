@@ -53,6 +53,7 @@ class CORE_EXPORT QgsPolygon: public QgsCurvePolygon
     QgsPolygon *clone() const override SIP_FACTORY;
     void clear() override;
     bool fromWkb( QgsConstWkbPtr &wkb ) override;
+    int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QgsPolygon *surfaceToPolygon() const override SIP_FACTORY;
 
@@ -85,7 +86,7 @@ class CORE_EXPORT QgsPolygon: public QgsCurvePolygon
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsPolygon *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsPolygon *cast( const QgsAbstractGeometry *geom )
     {
       if ( !geom )
         return nullptr;

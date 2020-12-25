@@ -55,6 +55,18 @@ Abstract base class for all rendered symbols.
     typedef QFlags<QgsSymbol::RenderHint> RenderHints;
 
 
+    enum Property
+    {
+      PropertyOpacity,
+    };
+
+    static const QgsPropertiesDefinition &propertyDefinitions();
+%Docstring
+Returns the symbol property definitions.
+
+.. versionadded:: 3.18
+%End
+
     virtual ~QgsSymbol();
 
     static QgsSymbol *defaultSymbol( QgsWkbTypes::GeometryType geomType ) /Factory/;
@@ -322,12 +334,20 @@ matches the settings from that context.
 .. seealso:: :py:func:`drawPreviewIcon`
 %End
 
-    QImage bigSymbolPreviewImage( QgsExpressionContext *expressionContext = 0 );
+    enum PreviewFlag
+    {
+      FlagIncludeCrosshairsForMarkerSymbols,
+    };
+    typedef QFlags<QgsSymbol::PreviewFlag> PreviewFlags;
+
+
+    QImage bigSymbolPreviewImage( QgsExpressionContext *expressionContext = 0, QgsSymbol::PreviewFlags flags = QgsSymbol::FlagIncludeCrosshairsForMarkerSymbols );
 %Docstring
 Returns a large (roughly 100x100 pixel) preview image for the symbol.
 
 :param expressionContext: optional expression context, for evaluation of
                           data defined symbol properties
+:param flags: optional flags to control how preview image is generated
 
 .. seealso:: :py:func:`asImage`
 
@@ -361,6 +381,13 @@ may use it to specify the units for the line width.
 :return: output unit, or QgsUnitTypes.RenderUnknownUnit if the symbol contains mixed units
 
 .. seealso:: :py:func:`setOutputUnit`
+%End
+
+    bool usesMapUnits() const;
+%Docstring
+Returns ``True`` if the symbol has any components which use map unit based sizes.
+
+.. versionadded:: 3.18
 %End
 
     void setOutputUnit( QgsUnitTypes::RenderUnit unit );
@@ -435,7 +462,7 @@ extent. If this option is enabled then features which are partially outside the 
 will be clipped. This speeds up rendering of the feature, but may have undesirable
 side effects for certain symbol types.
 
-:param clipFeaturesToExtent: set to true to enable clipping (defaults to ``True``)
+:param clipFeaturesToExtent: set to ``True`` to enable clipping (defaults to ``True``)
 
 .. seealso:: :py:func:`clipFeaturesToExtent`
 
@@ -487,6 +514,41 @@ direction.
 Returns a list of attributes required to render this feature.
 This should include any attributes required by the symbology including
 the ones required by expressions.
+%End
+
+    void setDataDefinedProperty( Property key, const QgsProperty &property );
+%Docstring
+Sets a data defined property for the symbol. Any existing property with the same key
+will be overwritten.
+
+.. seealso:: :py:func:`dataDefinedProperties`
+
+.. seealso:: Property
+
+.. versionadded:: 3.18
+%End
+
+    QgsPropertyCollection &dataDefinedProperties();
+%Docstring
+Returns a reference to the symbol's property collection, used for data defined overrides.
+
+.. seealso:: :py:func:`setDataDefinedProperties`
+
+.. seealso:: Property
+
+.. versionadded:: 3.18
+%End
+
+
+    void setDataDefinedProperties( const QgsPropertyCollection &collection );
+%Docstring
+Sets the symbol's property collection, used for data defined overrides.
+
+:param collection: property collection. Existing properties will be replaced.
+
+.. seealso:: :py:func:`dataDefinedProperties`
+
+.. versionadded:: 3.18
 %End
 
     bool hasDataDefinedProperties() const;
@@ -1053,7 +1115,7 @@ If only a single symbol layer from the symbol should be rendered, it should be s
 in the ``layer`` argument. A ``layer`` of -1 indicates that all symbol layers should be
 rendered.
 
-If ``selected`` is true then the symbol will be drawn using the "selected feature"
+If ``selected`` is ``True`` then the symbol will be drawn using the "selected feature"
 style and colors instead of the symbol's normal style.
 %End
 
@@ -1180,7 +1242,7 @@ If only a single symbol layer from the symbol should be rendered, it should be s
 in the ``layer`` argument. A ``layer`` of -1 indicates that all symbol layers should be
 rendered.
 
-If ``selected`` is true then the symbol will be drawn using the "selected feature"
+If ``selected`` is ``True`` then the symbol will be drawn using the "selected feature"
 style and colors instead of the symbol's normal style.
 %End
 
@@ -1229,7 +1291,7 @@ If only a single symbol layer from the symbol should be rendered, it should be s
 in the ``layer`` argument. A ``layer`` of -1 indicates that all symbol layers should be
 rendered.
 
-If ``selected`` is true then the symbol will be drawn using the "selected feature"
+If ``selected`` is ``True`` then the symbol will be drawn using the "selected feature"
 style and colors instead of the symbol's normal style.
 %End
 
@@ -1237,6 +1299,9 @@ style and colors instead of the symbol's normal style.
 
 
 };
+
+QFlags<QgsSymbol::PreviewFlag> operator|(QgsSymbol::PreviewFlag f1, QFlags<QgsSymbol::PreviewFlag> f2);
+
 
 
 /************************************************************************

@@ -75,12 +75,14 @@ class CORE_EXPORT QgsCircularString: public QgsCurve
     bool fromWkb( QgsConstWkbPtr &wkb ) override;
     bool fromWkt( const QString &wkt ) override;
 
+    int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QString asWkt( int precision = 17 ) const override;
     QDomElement asGml2( QDomDocument &doc, int precision = 17, const QString &ns = "gml", QgsAbstractGeometry::AxisOrder axisOrder = QgsAbstractGeometry::AxisOrder::XY ) const override;
     QDomElement asGml3( QDomDocument &doc, int precision = 17, const QString &ns = "gml", QgsAbstractGeometry::AxisOrder axisOrder = QgsAbstractGeometry::AxisOrder::XY ) const override;
     json asJsonObject( int precision = 17 ) const override SIP_SKIP;
     bool isEmpty() const override SIP_HOLDGIL;
+    bool isValid( QString &error SIP_OUT, int flags = 0 ) const override;
     int numPoints() const override SIP_HOLDGIL;
 
     /**
@@ -138,7 +140,7 @@ class CORE_EXPORT QgsCircularString: public QgsCurve
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsCircularString *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsCircularString *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::CircularString )
         return static_cast<const QgsCircularString *>( geom );

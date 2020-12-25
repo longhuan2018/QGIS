@@ -105,9 +105,23 @@ nodata values will be used.
     void setAlphaBand( int band );
     int alphaBand() const;
 
-    virtual void legendSymbologyItems( QList< QPair< QString, QColor > > &symbolItems /Out/ ) const;
+    virtual QList< QPair< QString, QColor > > legendSymbologyItems() const;
 %Docstring
-Gets symbology items if provided by renderer
+Returns symbology items if provided by renderer.
+
+.. seealso:: :py:func:`createLegendNodes`
+%End
+
+    virtual QList<QgsLayerTreeModelLegendNode *> createLegendNodes( QgsLayerTreeLayer *nodeLayer ) /Factory/;
+%Docstring
+Creates a set of legend nodes representing the renderer.
+
+The default implementation calls :py:func:`~QgsRasterRenderer.legendSymbologyItems` and creates corresponding legend nodes for each returned
+symbology item.
+
+Subclasses can override this to return more legend nodes which better represent the renderer.
+
+.. versionadded:: 3.18
 %End
 
     virtual void readXml( const QDomElement &rendererElem );

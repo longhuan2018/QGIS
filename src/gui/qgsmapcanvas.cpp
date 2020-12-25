@@ -84,6 +84,7 @@ email                : sherman at mrcc.com
 #include "qgsruntimeprofiler.h"
 #include "qgsprojectionselectiondialog.h"
 #include "qgsannotationlayer.h"
+#include "qgsmaplayerelevationproperties.h"
 
 /**
  * \ingroup gui
@@ -118,7 +119,6 @@ class QgsMapCanvas::CanvasProperties
 QgsMapCanvas::QgsMapCanvas( QWidget *parent )
   : QGraphicsView( parent )
   , mCanvasProperties( new CanvasProperties )
-  , mMenu( new QMenu( this ) )
   , mExpressionContextScope( tr( "Map Canvas" ) )
 {
   mScene = new QGraphicsScene();
@@ -731,6 +731,7 @@ void QgsMapCanvas::rendererJobFinished()
   {
     mRefreshAfterJob = false;
     clearTemporalCache();
+    clearElevationCache();
     refresh();
   }
 }
@@ -806,16 +807,34 @@ void QgsMapCanvas::clearTemporalCache()
   }
 }
 
+void QgsMapCanvas::clearElevationCache()
+{
+  if ( mCache )
+  {
+    const QList<QgsMapLayer *> layerList = mapSettings().layers();
+    for ( QgsMapLayer *layer : layerList )
+    {
+      if ( layer->elevationProperties() && layer->elevationProperties()->hasElevation() )
+      {
+        if ( layer->elevationProperties()->flags() & QgsMapLayerElevationProperties::FlagDontInvalidateCachedRendersWhenRangeChanges )
+          continue;
+
+        mCache->invalidateCacheForLayer( layer );
+      }
+    }
+  }
+}
+
 void QgsMapCanvas::showContextMenu( QgsMapMouseEvent *event )
 {
   const QgsPointXY mapPoint = event->originalMapPoint();
 
-  mMenu->clear();
+  QMenu menu;
 
-  QMenu *copyCoordinateMenu = new QMenu( tr( "Copy Coordinate" ), mMenu );
+  QMenu *copyCoordinateMenu = new QMenu( tr( "Copy Coordinate" ), &menu );
   copyCoordinateMenu->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditCopy.svg" ) ) );
 
-  auto addCoordinateFormat = [ = ]( const QString identifier, const QgsCoordinateReferenceSystem & crs )
+  auto addCoordinateFormat = [ &, this]( const QString identifier, const QgsCoordinateReferenceSystem & crs )
   {
     QgsCoordinateTransform ct( mSettings.destinationCrs(), crs, mSettings.transformContext() );
     try
@@ -857,7 +876,7 @@ void QgsMapCanvas::showContextMenu( QgsMapMouseEvent *event )
       QAction *copyCoordinateAction = new QAction( QStringLiteral( "%3 (%1, %2)" ).arg(
             QString::number( transformedPoint.x(), 'f', displayPrecision ),
             QString::number( transformedPoint.y(), 'f', displayPrecision ),
-            identifier ), mMenu );
+            identifier ), &menu );
 
       connect( copyCoordinateAction, &QAction::triggered, this, [displayPrecision, transformedPoint]
       {
@@ -896,7 +915,7 @@ void QgsMapCanvas::showContextMenu( QgsMapMouseEvent *event )
     }
   }
   copyCoordinateMenu->addSeparator();
-  QAction *setCustomCrsAction = new QAction( tr( "Set Custom CRS…" ), mMenu );
+  QAction *setCustomCrsAction = new QAction( tr( "Set Custom CRS…" ), &menu );
   connect( setCustomCrsAction, &QAction::triggered, this, [ = ]
   {
     QgsProjectionSelectionDialog selector( this );
@@ -908,14 +927,15 @@ void QgsMapCanvas::showContextMenu( QgsMapMouseEvent *event )
   } );
   copyCoordinateMenu->addAction( setCustomCrsAction );
 
-  mMenu->addMenu( copyCoordinateMenu );
+  menu.addMenu( copyCoordinateMenu );
 
   if ( mMapTool )
-    mMapTool->populateContextMenu( mMenu );
+    if ( !mapTool()->populateContextMenuWithEvent( &menu, event ) )
+      mMapTool->populateContextMenu( &menu );
 
-  emit contextMenuAboutToShow( mMenu, event );
+  emit contextMenuAboutToShow( &menu, event );
 
-  mMenu->exec( event->globalPos() );
+  menu.exec( event->globalPos() );
 }
 
 void QgsMapCanvas::setTemporalRange( const QgsDateTimeRange &dateTimeRange )
@@ -1049,20 +1069,30 @@ void QgsMapCanvas::saveAsImage( const QString &fileName, QPixmap *theQPixmap, co
   }
   QTextStream myStream( &myWorldFile );
   myStream << QgsMapSettingsUtils::worldFileContent( mapSettings() );
-} // saveAsImage
-
-
+}
 
 QgsRectangle QgsMapCanvas::extent() const
 {
   return mapSettings().visibleExtent();
-} // extent
+}
 
 QgsRectangle QgsMapCanvas::fullExtent() const
 {
-  return mapSettings().fullExtent();
-} // extent
+  const QgsReferencedRectangle extent = QgsProject::instance()->viewSettings()->fullExtent();
+  QgsCoordinateTransform ct( extent.crs(), mapSettings().destinationCrs(), QgsProject::instance()->transformContext() );
+  ct.setBallparkTransformsAreAppropriate( true );
+  QgsRectangle rect;
+  try
+  {
+    rect = ct.transformBoundingBox( extent );
+  }
+  catch ( QgsCsException & )
+  {
+    rect = mapSettings().fullExtent();
+  }
 
+  return rect;
+}
 
 void QgsMapCanvas::setExtent( const QgsRectangle &r, bool magnified )
 {
@@ -1314,6 +1344,28 @@ void QgsMapCanvas::zoomToSelected( QgsVectorLayer *layer )
     rect = optimalExtentForPointLayer( layer, rect.center() );
   }
   zoomToFeatureExtent( rect );
+}
+
+QgsDoubleRange QgsMapCanvas::zRange() const
+{
+  return mSettings.zRange();
+}
+
+void QgsMapCanvas::setZRange( const QgsDoubleRange &range )
+{
+  if ( zRange() == range )
+    return;
+
+  mSettings.setZRange( range );
+
+  emit zRangeChanged();
+
+  // we need to discard any previously cached images which are elevation aware, so that these will be updated when
+  // the canvas is redrawn
+  if ( !mJob )
+    clearElevationCache();
+
+  autoRefreshTriggered();
 }
 
 void QgsMapCanvas::zoomToFeatureExtent( QgsRectangle &rect )

@@ -37,7 +37,8 @@ from qgis.core import (
     QgsTriangle,
     QgsRenderChecker,
     QgsCoordinateReferenceSystem,
-    QgsProject
+    QgsProject,
+    QgsVertexId
 )
 from qgis.PyQt.QtCore import QDir, QPointF, QRectF
 from qgis.PyQt.QtGui import QImage, QPainter, QPen, QColor, QBrush, QPainterPath, QPolygonF, QTransform
@@ -2567,6 +2568,14 @@ class TestQgsGeometry(unittest.TestCase):
 
     def testReshape(self):
         """ Test geometry reshaping """
+
+        # no overlap
+        g = QgsGeometry.fromWkt('LineString (0 0, 5 0, 5 1, 6 1, 6 0, 7 0)')
+        self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(4, 2), QgsPoint(7, 2)])), 0)
+        expWkt = 'LineString (0 0, 5 0, 5 1, 6 1, 6 0, 7 0)'
+        wkt = g.asWkt()
+        self.assertTrue(compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
+
         g = QgsGeometry.fromWkt('Polygon ((0 0, 1 0, 1 1, 0 1, 0 0))')
         g.reshapeGeometry(QgsLineString([QgsPoint(0, 1.5), QgsPoint(1.5, 0)]))
         expWkt = 'Polygon ((0.5 1, 0 1, 0 0, 1 0, 1 0.5, 0.5 1))'
@@ -2619,6 +2628,37 @@ class TestQgsGeometry(unittest.TestCase):
         expWkt = 'LineString (-1 0, 0 0, 5 0, 5 1, 10 1, 10 2)'
         wkt = g.asWkt()
         assert compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt)
+
+        # reshape where reshape line exactly overlaps some portions of geometry
+        g = QgsGeometry.fromWkt('LineString (0 0, 5 0, 5 1, 6 1, 6 0, 7 0)')
+        self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(2, 0), QgsPoint(6, 0)])), 0)
+        expWkt = 'LineString (0 0, 2 0, 5 0, 6 0, 7 0)'
+        wkt = g.asWkt()
+        self.assertTrue(compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
+
+        g = QgsGeometry.fromWkt('LineString (0 0, 5 0, 5 1, 6 1, 6 0, 7 0)')
+        self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(5, 0), QgsPoint(7, 0)])), 0)
+        expWkt = 'LineString (0 0, 5 0, 6 0, 7 0)'
+        wkt = g.asWkt()
+        self.assertTrue(compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
+
+        # reshape line overlaps at both start and end
+        g = QgsGeometry.fromWkt('LineString (0 0, 5 0, 5 1, 6 1, 6 0, 7 0)')
+        self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(4, 0), QgsPoint(7, 0)])), 0)
+        expWkt = 'LineString (0 0, 4 0, 5 0, 6 0, 7 0)'
+        wkt = g.asWkt()
+        self.assertTrue(compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
+
+        # test that tolerance is correctly handled
+        g = QgsGeometry.fromWkt(
+            'LineString(152.96370660521466789 -25.60915858374441356, 152.96370887800003402 -25.60912889999996978, 152.9640088780000724 -25.60858889999996535, 152.96423077601289719 -25.60858080133134962, 152.96423675797717578 -25.60854355430449658, 152.96427575123991005 -25.60857916087011432, 152.96537884400004259 -25.60853889999992106, 152.96576355343805176 -25.60880035169972047)')
+        self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(152.9634281, -25.6079985),
+                                                          QgsPoint(152.9640088780000724, -25.60858889999996535),
+                                                          QgsPoint(152.96537884400004259, -25.60853889999992106),
+                                                          QgsPoint(152.9655739, -25.6083169)])), 0)
+        expWkt = 'LineString (152.96371 -25.60916, 152.96371 -25.60913, 152.96401 -25.60859, 152.96423 -25.60858, 152.96423 -25.60858, 152.96428 -25.60858, 152.96538 -25.60854, 152.96576 -25.6088)'
+        wkt = g.asWkt(5)
+        self.assertTrue(compareWkt(expWkt, wkt), "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
 
     def testConvertToMultiType(self):
         """ Test converting geometries to multi type """
@@ -3865,13 +3905,13 @@ class TestQgsGeometry(unittest.TestCase):
         self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiSurfaceM), QgsWkbTypes.MultiSurfaceM)
         self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiSurfaceZM), QgsWkbTypes.MultiSurfaceZM)
         self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.NoGeometry), QgsWkbTypes.NoGeometry)
-        # can't be added to these types
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.Point25D), QgsWkbTypes.Point25D)
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.LineString25D), QgsWkbTypes.LineString25D)
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.Polygon25D), QgsWkbTypes.Polygon25D)
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiPoint25D), QgsWkbTypes.MultiPoint25D)
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiLineString25D), QgsWkbTypes.MultiLineString25D)
-        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiPolygon25D), QgsWkbTypes.MultiPolygon25D)
+        # we force upgrade 25D types to "Z" before adding the M value
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.Point25D), QgsWkbTypes.PointZM)
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.LineString25D), QgsWkbTypes.LineStringZM)
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.Polygon25D), QgsWkbTypes.PolygonZM)
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiPoint25D), QgsWkbTypes.MultiPointZM)
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiLineString25D), QgsWkbTypes.MultiLineStringZM)
+        self.assertEqual(QgsWkbTypes.addM(QgsWkbTypes.MultiPolygon25D), QgsWkbTypes.MultiPolygonZM)
 
         # test dropping z dimension from types
         self.assertEqual(QgsWkbTypes.dropZ(QgsWkbTypes.Unknown), QgsWkbTypes.Unknown)
@@ -5697,6 +5737,30 @@ class TestQgsGeometry(unittest.TestCase):
             self.assertEqual(res, t[3],
                              "mismatch for {}, expected:\n{}\nGot:\n{}\n".format(t[0], t[3],
                                                                                  res[0].where() if res else ''))
+
+    def testCollectDuplicateNodes(self):
+        g = QgsGeometry.fromWkt("LineString (1 1, 1 1, 1 1, 1 2, 1 3, 1 3, 1 3, 1 4, 1 5, 1 6, 1 6)")
+        res = g.constGet().collectDuplicateNodes()
+        self.assertCountEqual(res, [QgsVertexId(-1, -1, 1), QgsVertexId(-1, -1, 2), QgsVertexId(-1, -1, 5), QgsVertexId(-1, -1, 6), QgsVertexId(-1, -1, 10)])
+
+        g = QgsGeometry.fromWkt("LineString (1 1, 1 2, 1 3, 1 4, 1 5, 1 6)")
+        res = g.constGet().collectDuplicateNodes()
+        self.assertFalse(res)
+
+        g = QgsGeometry.fromWkt("LineStringZ (1 1 1, 1 1 2, 1 1 3, 1 2 1, 1 3 1, 1 3 1, 1 3 2, 1 4 1, 1 5 1, 1 6 1, 1 6 2)")
+        res = g.constGet().collectDuplicateNodes()
+        self.assertCountEqual(res, [QgsVertexId(-1, -1, 1), QgsVertexId(-1, -1, 2), QgsVertexId(-1, -1, 5), QgsVertexId(-1, -1, 6), QgsVertexId(-1, -1, 10)])
+
+        # consider z values
+        res = g.constGet().collectDuplicateNodes(useZValues=True)
+        self.assertEqual(res, [QgsVertexId(-1, -1, 5)])
+
+        # tolerance
+        g = QgsGeometry.fromWkt("LineString (1 1, 1 1.1, 1 2, 1 3, 1 3, 1 4, 1 5)")
+        res = g.constGet().collectDuplicateNodes()
+        self.assertCountEqual(res, [QgsVertexId(-1, -1, 4)])
+        res = g.constGet().collectDuplicateNodes(epsilon=0.5)
+        self.assertCountEqual(res, [QgsVertexId(-1, -1, 1), QgsVertexId(-1, -1, 4)])
 
     def testRandomPoints(self):
         """

@@ -1006,6 +1006,15 @@ class CORE_EXPORT QgsLayoutItemMapGrid : public QgsLayoutItemMapItem
     bool accept( QgsStyleEntityVisitorInterface *visitor ) const override;
     void refresh() override;
 
+  signals:
+
+    /**
+     * Emitted whenever the grid's CRS is changed.
+     *
+     * \since QGIS 3.18
+     */
+    void crsChanged();
+
   private:
 
     QgsLayoutItemMapGrid() = delete;
@@ -1054,10 +1063,10 @@ class CORE_EXPORT QgsLayoutItemMapGrid : public QgsLayoutItemMapItem
 
     struct GridLineAnnotation
     {
-      BorderSide border; // border on which the annotation is
+      BorderSide border = Left; // border on which the annotation is
       QVector2D position; // position on the frame
       QVector2D vector; // vector towards map center
-      double angle; // the (acute) angle formed between the vector and the border
+      double angle = 0; // the (acute) angle formed between the vector and the border
     };
 
     /**

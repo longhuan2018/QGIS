@@ -554,6 +554,7 @@ bool QgsOracleProvider::loadFields()
 {
   mAttributeFields.clear();
   mDefaultValues.clear();
+  mAlwaysGenerated.clear();
 
   QgsOracleConn *conn = connectionRO();
   QSqlQuery qry( *conn );
@@ -773,6 +774,7 @@ bool QgsOracleProvider::loadFields()
 
     QVariant::Type type = field.type();
     QgsField newField( field.name(), type, types.value( field.name() ), field.length(), field.precision(), comments.value( field.name() ) );
+    newField.setReadOnly( alwaysGenerated.value( field.name(), false ) );
 
     QgsFieldConstraints constraints;
     if ( mPrimaryKeyAttrs.contains( i ) )
@@ -1212,6 +1214,12 @@ QVariant QgsOracleProvider::defaultValue( int fieldId ) const
 QString QgsOracleProvider::defaultValueClause( int fieldId ) const
 {
   QString defVal = mDefaultValues.value( fieldId, QString() ).toString();
+  const bool isGenerated = mAlwaysGenerated.value( fieldId, false );
+
+  if ( isGenerated )
+  {
+    return defVal;
+  }
 
   if ( !providerProperty( EvaluateDefaultValues, false ).toBool() && !defVal.isEmpty() )
   {
@@ -1220,7 +1228,6 @@ QString QgsOracleProvider::defaultValueClause( int fieldId ) const
 
   return QString();
 }
-
 
 bool QgsOracleProvider::skipConstraintCheck( int fieldIndex, QgsFieldConstraints::Constraint constraint, const QVariant &value ) const
 {
@@ -1320,7 +1327,7 @@ bool QgsOracleProvider::addFeatures( QgsFeatureList &flist, QgsFeatureSink::Flag
         delim = ',';
         kdelim = ',';
         fieldId << idx;
-        defaultValues << defaultValue( idx ).toString();
+        defaultValues << defaultValueClause( idx );
       }
 
       if ( !getfid.prepare( QStringLiteral( "SELECT %1 FROM %2 WHERE ROWID=?" ).arg( keys ).arg( mQuery ) ) )
@@ -1353,7 +1360,7 @@ bool QgsOracleProvider::addFeatures( QgsFeatureList &flist, QgsFeatureSink::Flag
 
       insert += delim + quotedIdentifier( fld.name() );
 
-      QString defVal = defaultValue( idx ).toString();
+      const QString defVal = defaultValueClause( idx );
 
       values += delim + '?';
       defaultValues.append( defVal );
@@ -1667,6 +1674,7 @@ bool QgsOracleProvider::deleteAttributes( const QgsAttributeIds &ids )
       //delete the attribute from mAttributeFields
       mAttributeFields.remove( id );
       mDefaultValues.removeAt( id );
+      mAlwaysGenerated.removeAt( id );
     }
 
     if ( !conn->commit( db ) )
@@ -3093,8 +3101,8 @@ QgsVectorLayerExporter::ExportError QgsOracleProvider::createEmptyLayer(
       }
     }
 
-    if ( !exec( qry, QString( "INSERT INTO mdsys.user_sdo_geom_metadata(table_name,column_name,srid,diminfo) VALUES (?,?,?,?)" ),
-                QVariantList() << tableName.toUpper() << geometryColumn.toUpper() << srid << diminfo ) )
+    if ( !exec( qry, QStringLiteral( "INSERT INTO mdsys.user_sdo_geom_metadata(table_name,column_name,srid,diminfo) VALUES (?,?,?,%1)" ).arg( diminfo ),
+                QVariantList() << tableName.toUpper() << geometryColumn.toUpper() << srid ) )
     {
       throw OracleException( tr( "Could not insert metadata." ), qry );
     }
@@ -3472,7 +3480,7 @@ bool QgsOracleProviderMetadata::saveStyle( const QString &uri,
          qry.addBindValue( dsUri.table() ),
          qry.addBindValue( dsUri.geometryColumn() ),
          qry.addBindValue( styleName.isEmpty() ? dsUri.table() : styleName ),
-         qry.exec( sql )
+         qry.exec()
        ) )
   {
     errCause = QObject::tr( "Unable to check style existence [%1]" ).arg( qry.lastError().text() );
@@ -3806,5 +3814,91 @@ QGISEXTERN QgsProviderGuiMetadata *providerGuiMetadataFactory()
   return QSqlDatabase::isDriverAvailable( "QOCISPATIAL" ) ? new QgsOracleProviderGuiMetadata() : nullptr;
 }
 #endif
+
+QVariantMap QgsOracleProviderMetadata::decodeUri( const QString &uri ) const
+{
+  const QgsDataSourceUri dsUri { uri };
+  QVariantMap uriParts;
+
+  if ( ! dsUri.database().isEmpty() )
+    uriParts[ QStringLiteral( "dbname" ) ] = dsUri.database();
+  if ( ! dsUri.host().isEmpty() )
+    uriParts[ QStringLiteral( "host" ) ] = dsUri.host();
+  if ( ! dsUri.port().isEmpty() )
+    uriParts[ QStringLiteral( "port" ) ] = dsUri.port();
+  if ( ! dsUri.service().isEmpty() )
+    uriParts[ QStringLiteral( "service" ) ] = dsUri.service();
+  if ( ! dsUri.param( "dbworkspace" ).isEmpty() )
+    uriParts[ QStringLiteral( "dbworkspace" ) ] = dsUri.param( "dbworkspace" );
+  if ( ! dsUri.username().isEmpty() )
+    uriParts[ QStringLiteral( "username" ) ] = dsUri.username();
+  if ( ! dsUri.password().isEmpty() )
+    uriParts[ QStringLiteral( "password" ) ] = dsUri.password();
+  if ( ! dsUri.authConfigId().isEmpty() )
+    uriParts[ QStringLiteral( "authcfg" ) ] = dsUri.authConfigId();
+  if ( dsUri.wkbType() != QgsWkbTypes::Type::Unknown )
+    uriParts[ QStringLiteral( "type" ) ] = dsUri.wkbType();
+  if ( ! dsUri.table().isEmpty() )
+    uriParts[ QStringLiteral( "table" ) ] = dsUri.table();
+  if ( ! dsUri.schema().isEmpty() )
+    uriParts[ QStringLiteral( "schema" ) ] = dsUri.schema();
+  if ( ! dsUri.keyColumn().isEmpty() )
+    uriParts[ QStringLiteral( "key" ) ] = dsUri.keyColumn();
+  if ( ! dsUri.srid().isEmpty() )
+    uriParts[ QStringLiteral( "srid" ) ] = dsUri.srid();
+  if ( uri.contains( QStringLiteral( "estimatedmetadata=" ), Qt::CaseSensitivity::CaseInsensitive ) )
+    uriParts[ QStringLiteral( "estimatedmetadata" ) ] = dsUri.useEstimatedMetadata();
+  if ( ! dsUri.param( "includegeoattributes" ).isEmpty() )
+    uriParts[ QStringLiteral( "includegeoattributes" ) ] = dsUri.param( "includegeoattributes" );
+  if ( ! dsUri.sql().isEmpty() )
+    uriParts[ QStringLiteral( "sql" ) ] = dsUri.sql();
+  if ( ! dsUri.param( "checkPrimaryKeyUnicity" ).isEmpty() )
+    uriParts[ QStringLiteral( "checkPrimaryKeyUnicity" ) ] = dsUri.param( "checkPrimaryKeyUnicity" );
+  if ( ! dsUri.geometryColumn().isEmpty() )
+    uriParts[ QStringLiteral( "geometrycolumn" ) ] = dsUri.geometryColumn();
+  return uriParts;
+}
+
+QString QgsOracleProviderMetadata::encodeUri( const QVariantMap &parts ) const
+{
+  QgsDataSourceUri dsUri;
+  if ( parts.contains( QStringLiteral( "dbname" ) ) )
+    dsUri.setDatabase( parts.value( QStringLiteral( "dbname" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "host" ) ) )
+    dsUri.setParam( QStringLiteral( "host" ), parts.value( QStringLiteral( "host" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "port" ) ) )
+    dsUri.setParam( QStringLiteral( "port" ), parts.value( QStringLiteral( "port" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "service" ) ) )
+    dsUri.setParam( QStringLiteral( "service" ), parts.value( QStringLiteral( "service" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "dbworkspace" ) ) )
+    dsUri.setParam( QStringLiteral( "dbworkspace" ), parts.value( QStringLiteral( "dbworkspace" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "username" ) ) )
+    dsUri.setUsername( parts.value( QStringLiteral( "username" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "password" ) ) )
+    dsUri.setPassword( parts.value( QStringLiteral( "password" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "authcfg" ) ) )
+    dsUri.setAuthConfigId( parts.value( QStringLiteral( "authcfg" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "type" ) ) )
+    dsUri.setParam( QStringLiteral( "type" ), QgsWkbTypes::displayString( static_cast<QgsWkbTypes::Type>( parts.value( QStringLiteral( "type" ) ).toInt() ) ) );
+  if ( parts.contains( QStringLiteral( "table" ) ) )
+    dsUri.setTable( parts.value( QStringLiteral( "table" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "schema" ) ) )
+    dsUri.setSchema( parts.value( QStringLiteral( "schema" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "key" ) ) )
+    dsUri.setParam( QStringLiteral( "key" ), parts.value( QStringLiteral( "key" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "srid" ) ) )
+    dsUri.setSrid( parts.value( QStringLiteral( "srid" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "estimatedmetadata" ) ) )
+    dsUri.setParam( QStringLiteral( "estimatedmetadata" ), parts.value( QStringLiteral( "estimatedmetadata" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "includegeoattributes" ) ) )
+    dsUri.setParam( QStringLiteral( "includegeoattributes" ), parts.value( QStringLiteral( "includegeoattributes" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "sql" ) ) )
+    dsUri.setSql( parts.value( QStringLiteral( "sql" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "checkPrimaryKeyUnicity" ) ) )
+    dsUri.setParam( QStringLiteral( "checkPrimaryKeyUnicity" ), parts.value( QStringLiteral( "checkPrimaryKeyUnicity" ) ).toString() );
+  if ( parts.contains( QStringLiteral( "geometrycolumn" ) ) )
+    dsUri.setGeometryColumn( parts.value( QStringLiteral( "geometrycolumn" ) ).toString() );
+  return dsUri.uri( false );
+}
 
 // vim: set sw=2

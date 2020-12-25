@@ -51,6 +51,26 @@
 #include "cpl_string.h"
 
 // shared icons
+
+QIcon QgsLayerItem::iconForWkbType( QgsWkbTypes::Type type )
+{
+  QgsWkbTypes::GeometryType geomType = QgsWkbTypes::geometryType( QgsWkbTypes::Type( type ) );
+  switch ( geomType )
+  {
+    case QgsWkbTypes::NullGeometry:
+      return iconTable();
+    case QgsWkbTypes::PointGeometry:
+      return iconPoint();
+    case QgsWkbTypes::LineGeometry:
+      return iconLine();
+    case QgsWkbTypes::PolygonGeometry:
+      return iconPolygon();
+    default:
+      break;
+  }
+  return iconDefault();
+}
+
 QIcon QgsLayerItem::iconPoint()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconPointLayer.svg" ) );
@@ -84,6 +104,11 @@ QIcon QgsLayerItem::iconMesh()
 QIcon QgsLayerItem::iconVectorTile()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconVectorTileLayer.svg" ) );
+}
+
+QIcon QgsLayerItem::iconPointCloudLayer()
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "/mIconPointCloudLayer.svg" ) );
 }
 
 QIcon QgsLayerItem::iconDefault()
@@ -823,6 +848,9 @@ QgsMapLayerType QgsLayerItem::mapLayerType() const
     case QgsLayerItem::Plugin:
       return QgsMapLayerType::PluginLayer;
 
+    case QgsLayerItem::PointCloud:
+      return QgsMapLayerType::PointCloudLayer;
+
     case QgsLayerItem::NoType:
     case QgsLayerItem::Vector:
     case QgsLayerItem::Point:
@@ -870,6 +898,8 @@ QgsLayerItem::LayerType QgsLayerItem::typeFromMapLayer( QgsMapLayer *layer )
       return Plugin;
     case QgsMapLayerType::MeshLayer:
       return Mesh;
+    case QgsMapLayerType::PointCloudLayer:
+      return PointCloud;
     case QgsMapLayerType::VectorTileLayer:
       return VectorTile;
     case QgsMapLayerType::AnnotationLayer:
@@ -904,6 +934,8 @@ QString QgsLayerItem::iconName( QgsLayerItem::LayerType layerType )
       return QStringLiteral( "/mIconRaster.svg" );
     case Mesh:
       return QStringLiteral( "/mIconMeshLayer.svg" );
+    case PointCloud:
+      return QStringLiteral( "/mIconPointCloudLayer.svg" );
     default:
       return QStringLiteral( "/mIconLayer.png" );
   }
@@ -959,6 +991,7 @@ QgsMimeDataUtils::Uri QgsLayerItem::mimeUri() const
         case Raster:
         case Plugin:
         case Mesh:
+        case PointCloud:
         case VectorTile:
           break;
       }
@@ -971,6 +1004,9 @@ QgsMimeDataUtils::Uri QgsLayerItem::mimeUri() const
       break;
     case QgsMapLayerType::VectorTileLayer:
       u.layerType = QStringLiteral( "vector-tile" );
+      break;
+    case QgsMapLayerType::PointCloudLayer:
+      u.layerType = QStringLiteral( "pointcloud" );
       break;
     case QgsMapLayerType::PluginLayer:
       u.layerType = QStringLiteral( "plugin" );

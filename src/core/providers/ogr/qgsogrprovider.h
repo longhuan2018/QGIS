@@ -163,6 +163,8 @@ class QgsOgrProvider final: public QgsVectorDataProvider
 
     QString filePath() const { return mFilePath; }
 
+    QString authCfg() const { return mAuthCfg; }
+
     int layerIndex() const { return mLayerIndex; }
 
     QByteArray quotedIdentifier( const QByteArray &field ) const;
@@ -172,10 +174,10 @@ class QgsOgrProvider final: public QgsVectorDataProvider
     void loadFields();
 
     //! Find out the number of features of the whole layer
-    void recalculateFeatureCount();
+    void recalculateFeatureCount() const;
 
     //! Tell OGR, which fields to fetch in nextFeature/featureAtId (ie. which not to ignore)
-    void setRelevantFields( bool fetchGeometry, const QgsAttributeList &fetchAttributes );
+    void setRelevantFields( bool fetchGeometry, const QgsAttributeList &fetchAttributes ) const;
 
     //! Convert a QgsField to work with OGR
     static bool convertField( QgsField &field, const QTextCodec &encoding );
@@ -210,6 +212,9 @@ class QgsOgrProvider final: public QgsVectorDataProvider
 
     //! Commits a transaction
     bool commitTransaction();
+
+    //! Rolls back a transaction
+    bool rollbackTransaction();
 
     //! Does the real job of settings the subset string and adds an argument to disable update capabilities
     bool _setSubsetString( const QString &theSQL, bool updateFeatureCount = true, bool updateCapabilities = true, bool hasExistingRef = true );
@@ -252,6 +257,9 @@ class QgsOgrProvider final: public QgsVectorDataProvider
     //! path to filename
     QString mFilePath;
 
+    //! Authentication configuration
+    QString mAuthCfg;
+
     //! layer name
     QString mLayerName;
 
@@ -286,7 +294,11 @@ class QgsOgrProvider final: public QgsVectorDataProvider
     bool mValid = false;
 
     OGRwkbGeometryType mOGRGeomType = wkbUnknown;
-    long mFeaturesCounted = QgsVectorDataProvider::Uncounted;
+
+    //! Whether the next call to featureCount() should refresh the feature count
+    mutable bool mRefreshFeatureCount = true;
+
+    mutable long mFeaturesCounted = QgsVectorDataProvider::Uncounted;
 
     mutable QStringList mSubLayerList;
 
@@ -417,7 +429,7 @@ class CORE_EXPORT QgsOgrProviderUtils
      * \param format data format (e.g. "ESRI Shapefile")
      * \param vectortype point/line/polygon or multitypes
      * \param attributes a list of name/type pairs for the initial attributes
-     * \return true in case of success
+     * \return TRUE in case of success
      */
     static bool createEmptyDataSource( const QString &uri,
                                        const QString &format,
@@ -427,10 +439,6 @@ class CORE_EXPORT QgsOgrProviderUtils
                                        const QgsCoordinateReferenceSystem &srs,
                                        QString &errorMessage );
 
-    /**
-     * TODO
-     * \since QGIS 3.10
-     */
     static bool deleteLayer( const QString &uri, QString &errCause );
 
     //! Inject credentials into the dsName (if any)
@@ -747,9 +755,10 @@ class QgsOgrProviderMetadata final: public QgsProviderMetadata
     void cleanupProvider() override;
     QList< QgsDataItemProvider * > dataItemProviders() const override;
     QgsOgrProvider *createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags = QgsDataProvider::ReadFlags() ) override;
-    QVariantMap decodeUri( const QString &uri ) override;
-    QString encodeUri( const QVariantMap &parts ) override;
+    QVariantMap decodeUri( const QString &uri ) const override;
+    QString encodeUri( const QVariantMap &parts ) const override;
     QString filters( FilterType type ) override;
+    bool uriIsBlocklisted( const QString &uri ) const override;
     QgsVectorLayerExporter::ExportError createEmptyLayer(
       const QString &uri,
       const QgsFields &fields,

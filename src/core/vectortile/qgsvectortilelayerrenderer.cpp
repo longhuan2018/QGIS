@@ -39,6 +39,7 @@ QgsVectorTileLayerRenderer::QgsVectorTileLayerRenderer( QgsVectorTileLayer *laye
   , mRenderer( layer->renderer()->clone() )
   , mDrawTileBoundaries( layer->isTileBorderRenderingEnabled() )
   , mFeedback( new QgsFeedback )
+  , mLayerOpacity( layer->opacity() )
 {
 
   QgsDataSourceUri dsUri;
@@ -193,6 +194,11 @@ bool QgsVectorTileLayerRenderer::render()
   return !ctx.renderingStopped();
 }
 
+bool QgsVectorTileLayerRenderer::forceRasterRender() const
+{
+  return renderContext()->testFlag( QgsRenderContext::UseAdvancedEffects ) && ( !qgsDoubleNear( mLayerOpacity, 1.0 ) );
+}
+
 void QgsVectorTileLayerRenderer::decodeAndDrawTile( const QgsVectorTileRawData &rawTile )
 {
   QgsRenderContext &ctx = *renderContext();
@@ -218,7 +224,16 @@ void QgsVectorTileLayerRenderer::decodeAndDrawTile( const QgsVectorTileRawData &
   QgsVectorTileRendererData tile( rawTile.id );
   tile.setFields( mPerLayerFields );
   tile.setFeatures( decoder.layerFeatures( mPerLayerFields, ct, &mRequiredLayers ) );
-  tile.setTilePolygon( QgsVectorTileUtils::tilePolygon( rawTile.id, ct, mTileMatrix, ctx.mapToPixel() ) );
+
+  try
+  {
+    tile.setTilePolygon( QgsVectorTileUtils::tilePolygon( rawTile.id, ct, mTileMatrix, ctx.mapToPixel() ) );
+  }
+  catch ( QgsCsException & )
+  {
+    QgsDebugMsgLevel( QStringLiteral( "Failed to generate tile polygon " ) + rawTile.id.toString(), 2 );
+    return;
+  }
 
   mTotalDecodeTime += tLoad.elapsed();
 

@@ -40,6 +40,7 @@
 #include "qgsstyle.h"
 #include "qgsmeshdataprovidertemporalcapabilities.h"
 #include "qgsmapclippingutils.h"
+#include "qgscolorrampshader.h"
 
 QgsMeshLayerRenderer::QgsMeshLayerRenderer(
   QgsMeshLayer *layer,
@@ -47,6 +48,7 @@ QgsMeshLayerRenderer::QgsMeshLayerRenderer(
   : QgsMapLayerRenderer( layer->id(), &context )
   , mFeedback( new QgsMeshLayerRendererFeedback )
   , mRendererSettings( layer->rendererSettings() )
+  , mLayerOpacity( layer->opacity() )
 {
   // make copies for mesh data
   // cppcheck-suppress assertWithSideEffect
@@ -299,6 +301,11 @@ bool QgsMeshLayerRenderer::render()
   renderVectorDataset();
 
   return true;
+}
+
+bool QgsMeshLayerRenderer::forceRasterRender() const
+{
+  return renderContext()->testFlag( QgsRenderContext::UseAdvancedEffects ) && ( !qgsDoubleNear( mLayerOpacity, 1.0 ) );
 }
 
 void QgsMeshLayerRenderer::renderMesh()

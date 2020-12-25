@@ -416,9 +416,21 @@ segment in the line.
 
     virtual bool isEmpty() const /HoldGIL/;
 
+    virtual bool isValid( QString &error /Out/, int flags = 0 ) const;
+
     virtual QgsLineString *snappedToGrid( double hSpacing, double vSpacing, double dSpacing = 0, double mSpacing = 0 ) const /Factory/;
 
     virtual bool removeDuplicateNodes( double epsilon = 4 * DBL_EPSILON, bool useZValues = false );
+
+
+    QVector< QgsVertexId > collectDuplicateNodes( double epsilon = 4 * DBL_EPSILON, bool useZValues = false ) const;
+%Docstring
+Returns a list of any duplicate nodes contained in the geometry, within the specified tolerance.
+
+If ``useZValues`` is ``True`` then z values will also be considered when testing for duplicates.
+
+.. versionadded:: 3.16
+%End
 
     virtual QPolygonF asQPolygonF() const;
 
@@ -427,6 +439,8 @@ segment in the line.
 
     virtual bool fromWkt( const QString &wkt );
 
+
+    virtual int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const;
 
     virtual QByteArray asWkb( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const;
 

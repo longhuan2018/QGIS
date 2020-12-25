@@ -42,6 +42,7 @@
 #include "qgsprojectstorageregistry.h"
 #include "qgsrasterrendererregistry.h"
 #include "qgsrendererregistry.h"
+#include "qgspointcloudrendererregistry.h"
 #include "qgssymbollayerregistry.h"
 #include "qgssymbollayerutils.h"
 #include "qgscalloutsregistry.h"
@@ -67,6 +68,9 @@
 #include "qgsconnectionregistry.h"
 #include "qgsremappingproxyfeaturesink.h"
 #include "qgsmeshlayer.h"
+#include "qgsfeaturestore.h"
+#include "qgslocator.h"
+#include "qgsreadwritelocker.h"
 
 #include "gps/qgsgpsconnectionregistry.h"
 #include "processing/qgsprocessingregistry.h"
@@ -75,6 +79,7 @@
 
 #include "layout/qgspagesizeregistry.h"
 
+#include <QDesktopWidget>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -223,6 +228,7 @@ void QgsApplication::init( QString profileFolder )
   qRegisterMetaType<QgsFeatureId>( "QgsFeatureId" );
   qRegisterMetaType<QgsFeatureIds>( "QgsFeatureIds" );
   qRegisterMetaType<QgsProperty>( "QgsProperty" );
+  qRegisterMetaType<QgsFeatureStoreList>( "QgsFeatureStoreList" );
   qRegisterMetaType<Qgis::MessageLevel>( "Qgis::MessageLevel" );
   qRegisterMetaType<QgsReferencedRectangle>( "QgsReferencedRectangle" );
   qRegisterMetaType<QgsReferencedPointXY>( "QgsReferencedPointXY" );
@@ -238,6 +244,7 @@ void QgsApplication::init( QString profileFolder )
   qRegisterMetaType<QgsDatumTransform::TransformDetails>( "QgsDatumTransform::TransformDetails" );
   qRegisterMetaType<QgsNewsFeedParser::Entry>( "QgsNewsFeedParser::Entry" );
   qRegisterMetaType<QgsRectangle>( "QgsRectangle" );
+  qRegisterMetaType<QgsLocatorResult>( "QgsLocatorResult" );
   qRegisterMetaType<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
   qRegisterMetaTypeStreamOperators<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
   qRegisterMetaType<QgsRemappingSinkDefinition>( "QgsRemappingSinkDefinition" );
@@ -246,6 +253,7 @@ void QgsApplication::init( QString profileFolder )
   QMetaType::registerComparators<QgsProcessingModelChildDependency>();
   QMetaType::registerEqualsComparator<QgsProcessingFeatureSourceDefinition>();
   QMetaType::registerEqualsComparator<QgsProperty>();
+  qRegisterMetaType<QPainter::CompositionMode>( "QPainter::CompositionMode" );
 
   ( void ) resolvePkgPath();
 
@@ -1043,27 +1051,46 @@ QString QgsApplication::srsDatabaseFilePath()
   }
 }
 
+void QgsApplication::setSvgPaths( const QStringList &svgPaths )
+{
+  QgsSettings().setValue( QStringLiteral( "svg/searchPathsForSVG" ), svgPaths );
+  members()->mSvgPathCacheValid = false;
+}
+
 QStringList QgsApplication::svgPaths()
 {
-  //local directories to search when looking for an SVG with a given basename
-  //defined by user in options dialog
-  QgsSettings settings;
-  const QStringList pathList = settings.value( QStringLiteral( "svg/searchPathsForSVG" ) ).toStringList();
+  static QReadWriteLock lock;
 
-  // maintain user set order while stripping duplicates
-  QStringList paths;
-  for ( const QString &path : pathList )
-  {
-    if ( !paths.contains( path ) )
-      paths.append( path );
-  }
-  for ( const QString &path : qgis::as_const( *sDefaultSvgPaths() ) )
-  {
-    if ( !paths.contains( path ) )
-      paths.append( path );
-  }
+  QgsReadWriteLocker locker( lock, QgsReadWriteLocker::Read );
 
-  return paths;
+  if ( members()->mSvgPathCacheValid )
+  {
+    return members()->mSvgPathCache;
+  }
+  else
+  {
+    locker.changeMode( QgsReadWriteLocker::Write );
+    //local directories to search when looking for an SVG with a given basename
+    //defined by user in options dialog
+    QgsSettings settings;
+    const QStringList pathList = settings.value( QStringLiteral( "svg/searchPathsForSVG" ) ).toStringList();
+
+    // maintain user set order while stripping duplicates
+    QStringList paths;
+    for ( const QString &path : pathList )
+    {
+      if ( !paths.contains( path ) )
+        paths.append( path );
+    }
+    for ( const QString &path : qgis::as_const( *sDefaultSvgPaths() ) )
+    {
+      if ( !paths.contains( path ) )
+        paths.append( path );
+    }
+    members()->mSvgPathCache = paths;
+
+    return paths;
+  }
 }
 
 QStringList QgsApplication::layoutTemplatePaths()
@@ -1275,7 +1302,6 @@ void QgsApplication::initQgis()
   QgsNetworkAccessManager::instance();
 
 }
-
 
 QgsAuthManager *QgsApplication::authManager()
 {
@@ -1500,7 +1526,7 @@ QString QgsApplication::reportStyleSheet( QgsApplication::StyleSheetType styleSh
                    "}"
                    // Give some visual appearance to those ugly nested tables
                    ".tabular-view th, .tabular-view td { "
-                   "   border: solid 1px #eee;"
+                   "   border: 1px solid #eee;"
                    "}"
                  );
       break;
@@ -1819,6 +1845,16 @@ void QgsApplication::setCustomVariable( const QString &name, const QVariant &val
   settings.setValue( QStringLiteral( "variables/" ) + name, value );
 
   emit instance()->customVariablesChanged();
+}
+
+int QgsApplication::scaleIconSize( int standardSize, bool applyDevicePixelRatio )
+{
+  QFontMetrics fm( ( QFont() ) );
+  const double scale = 1.1 * standardSize / 24;
+  int scaledIconSize = static_cast< int >( std::floor( std::max( Qgis::UI_SCALE_FACTOR * fm.height() * scale, static_cast< double >( standardSize ) ) ) );
+  if ( applyDevicePixelRatio && QApplication::desktop() )
+    scaledIconSize *= QApplication::desktop()->devicePixelRatio();
+  return scaledIconSize;
 }
 
 int QgsApplication::maxConcurrentConnectionsPerPool() const
@@ -2143,6 +2179,11 @@ QgsRasterRendererRegistry *QgsApplication::rasterRendererRegistry()
   return members()->mRasterRendererRegistry;
 }
 
+QgsPointCloudRendererRegistry *QgsApplication::pointCloudRendererRegistry()
+{
+  return members()->mPointCloudRendererRegistry;
+}
+
 QgsDataItemProviderRegistry *QgsApplication::dataItemProviderRegistry()
 {
   if ( auto *lInstance = instance() )
@@ -2372,6 +2413,11 @@ QgsApplication::ApplicationMembers::ApplicationMembers()
     profiler->end();
   }
   {
+    profiler->start( tr( "Setup point cloud renderer registry" ) );
+    mPointCloudRendererRegistry = new QgsPointCloudRendererRegistry();
+    profiler->end();
+  }
+  {
     profiler->start( tr( "Setup GPS registry" ) );
     mGpsConnectionRegistry = new QgsGpsConnectionRegistry();
     profiler->end();
@@ -2466,6 +2512,7 @@ QgsApplication::ApplicationMembers::~ApplicationMembers()
   delete mPageSizeRegistry;
   delete mAnnotationItemRegistry;
   delete mLayoutItemRegistry;
+  delete mPointCloudRendererRegistry;
   delete mRasterRendererRegistry;
   delete mRendererRegistry;
   delete mSvgCache;

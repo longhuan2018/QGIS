@@ -496,7 +496,7 @@ QgsPointXY QgsMapSettings::layerToMapCoordinates( const QgsMapLayer *layer, QgsP
   return point;
 }
 
-QgsPoint QgsMapSettings::layerToMapCoordinates( const QgsMapLayer *layer, QgsPoint point ) const
+QgsPoint QgsMapSettings::layerToMapCoordinates( const QgsMapLayer *layer, const QgsPoint &point ) const
 {
   double x = point.x();
   double y = point.y();
@@ -550,7 +550,7 @@ QgsPointXY QgsMapSettings::mapToLayerCoordinates( const QgsMapLayer *layer, QgsP
   return point;
 }
 
-QgsPoint QgsMapSettings::mapToLayerCoordinates( const QgsMapLayer *layer, QgsPoint point ) const
+QgsPoint QgsMapSettings::mapToLayerCoordinates( const QgsMapLayer *layer, const QgsPoint &point ) const
 {
   double x = point.x();
   double y = point.y();
@@ -746,4 +746,14 @@ void QgsMapSettings::addRenderedFeatureHandler( QgsRenderedFeatureHandlerInterfa
 QList<QgsRenderedFeatureHandlerInterface *> QgsMapSettings::renderedFeatureHandlers() const
 {
   return mRenderedFeatureHandlers;
+}
+
+QgsDoubleRange QgsMapSettings::zRange() const
+{
+  return mZRange;
+}
+
+void QgsMapSettings::setZRange( const QgsDoubleRange &zRange )
+{
+  mZRange = zRange;
 }

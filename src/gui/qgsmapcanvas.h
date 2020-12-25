@@ -303,7 +303,7 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * Centers canvas extent to feature ids
      * \param layer the vector layer
      * \param ids the feature ids
-     * \param alwaysRecenter if false, the canvas is recentered only if the bounding box is not contained within the current extent
+     * \param alwaysRecenter if FALSE, the canvas is recentered only if the bounding box is not contained within the current extent
      */
     void panToFeatureIds( QgsVectorLayer *layer, const QgsFeatureIds &ids, bool alwaysRecenter = true );
 
@@ -873,11 +873,41 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     void setZoomResolutions( const QList<double> &resolutions ) { mZoomResolutions = resolutions; }
 
     /**
+     * Returns the zoom in factor.
+     */
+    double zoomInFactor() const;
+
+    /**
+     * Returns the zoom in factor.
+     */
+    double zoomOutFactor() const;
+
+    /**
      * \returns List of resolutions to which to "snap to" when zooming the map
      * \see setZoomResolutions()
      * \since QGIS 3.12
      */
     const QList<double> &zoomResolutions() const { return mZoomResolutions; }
+
+    /**
+     * Returns the range of z-values which will be visible in the map.
+     *
+     * \see setZRange()
+     * \see zRangeChanged()
+     *
+     * \since QGIS 3.18
+     */
+    QgsDoubleRange zRange() const;
+
+    /**
+     * Sets the \a range of z-values which will be visible in the map.
+     *
+     * \see zRange()
+     * \see zRangeChanged()
+     *
+     * \since QGIS 3.18
+     */
+    void setZRange( const QgsDoubleRange &range );
 
   private slots:
     //! called when current maptool is destroyed
@@ -929,6 +959,8 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      */
     void canvasColorChanged();
 
+    // TODO: deprecate when decorations are reimplemented as map canvas items
+
     /**
      * Emitted when the canvas has rendered.
      * Passes a pointer to the painter on which the map was drawn. This is
@@ -936,11 +968,6 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * rendered.  Passing the painter allows plugins to work when the map is
      * being rendered onto a pixmap other than the mapCanvas own pixmap member.
      *
-     */
-
-    // TODO: deprecate when decorations are reimplemented as map canvas items
-
-    /**
      * - anything related to rendering progress is not visible outside of map canvas
      * - additional drawing shall be done directly within the renderer job or independently as a map canvas item
      */
@@ -1047,6 +1074,15 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      */
     void temporalRangeChanged();
 
+    /**
+     * Emitted when the map canvas z (elevation) range changes.
+     *
+     * \see zRange()
+     * \see setZRange()
+     *
+     * \since QGIS 3.18
+     */
+    void zRangeChanged();
 
     /**
      * Emitted before the map canvas context menu will be shown.
@@ -1055,7 +1091,6 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * \since QGIS 3.16
      */
     void contextMenuAboutToShow( QMenu *menu, QgsMapMouseEvent *event );
-
 
   protected:
 
@@ -1171,9 +1206,6 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     //! Pointer to project linked to this canvas
     QgsProject *mProject = nullptr;
 
-    //! Context menu
-    QMenu *mMenu = nullptr;
-
     //! recently used extent
     QList <QgsRectangle> mLastExtent;
     int mLastExtentIndex = -1;
@@ -1283,7 +1315,7 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * \param layer the layer
      * \param bbox out: bounding box
      * \param errorMsg error message in case of error
-     * \returns true in case of success
+     * \returns TRUE in case of success
     */
     bool boundingBoxOfFeatureIds( const QgsFeatureIds &ids, QgsVectorLayer *layer, QgsRectangle &bbox, QString &errorMsg ) const;
 
@@ -1307,14 +1339,17 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     bool panOperationInProgress();
 
     int nextZoomLevel( const QList<double> &resolutions, bool zoomIn = true ) const;
-    double zoomInFactor() const;
-    double zoomOutFactor() const;
 
     /**
      * Make sure to remove any rendered images of temporal-enabled layers from cache (does nothing if cache is not enabled)
      * \since QGIS 3.14
      */
     void clearTemporalCache();
+
+    /**
+     * Removes any rendered images of elevation aware layers from cache
+     */
+    void clearElevationCache();
 
     void showContextMenu( QgsMapMouseEvent *event );
 

@@ -20,7 +20,6 @@
 #include "qgsmapcanvas.h"
 #include "qgsmeshlayer.h"
 #include "qgsrasterlayer.h"
-#include "raster/qgscolorrampshaderwidget.h"
 #include "raster/qgsrasterminmaxwidget.h"
 #include "qgsrasterminmaxorigin.h"
 #include "qgsmessagelog.h"
@@ -73,10 +72,10 @@ void QgsMeshRendererMeshSettingsWidget::syncToLayer( )
   switch ( mMeshType )
   {
     case Native:
-      settings = rendererSettings.triangularMeshSettings();
+      settings = rendererSettings.nativeMeshSettings();
       break;
     case Triangular:
-      settings = rendererSettings.nativeMeshSettings();
+      settings = rendererSettings.triangularMeshSettings();
       break;
     case Edge:
       settings = rendererSettings.edgeMeshSettings();

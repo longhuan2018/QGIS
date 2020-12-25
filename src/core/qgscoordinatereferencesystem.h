@@ -45,9 +45,13 @@ class QgsCoordinateReferenceSystemPrivate;
 struct PJconsts;
 typedef struct PJconsts PJ;
 
+#if PROJ_VERSION_MAJOR>=8
+struct pj_ctx;
+typedef struct pj_ctx PJ_CONTEXT;
+#else
 struct projCtx_t;
 typedef struct projCtx_t PJ_CONTEXT;
-
+#endif
 #endif
 #endif
 
@@ -480,6 +484,8 @@ class CORE_EXPORT QgsCoordinateReferenceSystem
      */
     bool createFromString( const QString &definition );
 
+    // TODO QGIS 4: rename to createFromStringOGR so it is clear it's similar to createFromString, just different backend
+
     /**
      * Set up this CRS from various text formats.
      *
@@ -494,7 +500,7 @@ class CORE_EXPORT QgsCoordinateReferenceSystem
      * \returns TRUE on success else FALSE
      * \note this function generates a WKT string using OSRSetFromUserInput() and
      * passes it to createFromWkt() function.
-     */    // TODO QGIS3: rename to createFromStringOGR so it is clear it's similar to createFromString, just different backend
+     */
     bool createFromUserInput( const QString &definition );
 
     /**

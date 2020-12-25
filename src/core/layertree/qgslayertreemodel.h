@@ -314,6 +314,12 @@ class CORE_EXPORT QgsLayerTreeModel : public QAbstractItemModel
     void nodeLayerWillBeUnloaded();
     void layerLegendChanged();
 
+    /**
+     * Emitted when layer flags have changed.
+     * \since QGIS 3.18
+     */
+    void layerFlagsChanged();
+
     void layerNeedsUpdate();
 
     void legendNodeDataChanged();
@@ -465,6 +471,7 @@ class CORE_EXPORT QgsLayerTreeModel : public QAbstractItemModel
 
     //! Returns a temporary render context
     QgsRenderContext *createTemporaryRenderContext() const;
+
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS( QgsLayerTreeModel::Flags )
@@ -494,6 +501,8 @@ class EmbeddedWidgetLegendNode : public QgsLayerTreeModelLegendNode
     {
       if ( role == RuleKeyRole )
         return mRuleKey;
+      else if ( role == QgsLayerTreeModelLegendNode::NodeTypeRole )
+        return QgsLayerTreeModelLegendNode::EmbeddedWidget;
       return QVariant();
     }
 

@@ -77,7 +77,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
 
       if ( pname == QLatin1String( "table" ) )
       {
-        if ( uri[i] == '.' )
+        if ( i < uri.length() && uri[i] == '.' )
         {
           i++;
 
@@ -89,7 +89,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
           mTable = pval;
         }
 
-        if ( uri[i] == '(' )
+        if ( i < uri.length() && uri[i] == '(' )
         {
           i++;
 
@@ -638,7 +638,7 @@ void QgsDataSourceUri::setEncodedUri( const QByteArray &uri )
   url.setQuery( QString::fromLatin1( uri ) );
   const QUrlQuery query( url );
 
-  const auto constQueryItems = query.queryItems();
+  const auto constQueryItems = query.queryItems( QUrl::ComponentFormattingOption::FullyDecoded );
   for ( const QPair<QString, QString> &item : constQueryItems )
   {
     if ( item.first == QLatin1String( "username" ) )

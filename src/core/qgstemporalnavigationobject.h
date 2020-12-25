@@ -129,7 +129,7 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
     /**
      * Sets the frame \a duration, which dictates the temporal length of each frame in the animation.
      *
-     * \note Calling this will reset the currentFrameNumber() to the first frame.
+     * \note Calling this will reset the currentFrameNumber() to the closest temporal match for the previous temporal range.
      *
      * \see frameDuration()
      */
@@ -187,7 +187,7 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
     /**
      * Returns the total number of frames for the navigation.
      */
-    long long totalFrameCount();
+    long long totalFrameCount() const;
 
     /**
      * Returns TRUE if the animation should loop after hitting the end or start frame.
@@ -202,6 +202,11 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
      * \see isLooping()
      */
     void setLooping( bool loop );
+
+    /**
+     * Returns the best suited frame number for the specified datetime, based on the start of the corresponding temporal range.
+     */
+    long findBestFrameNumberForFrameStart( const QDateTime &frameStart ) const;
 
     QgsExpressionContextScope *createExpressionContextScope() const override SIP_FACTORY;
 
@@ -221,6 +226,12 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
      * Emitted whenever the temporalExtent \a extent changes.
      */
     void temporalExtentsChanged( const QgsDateTimeRange &extent );
+
+    /**
+     * Emitted whenever the frameDuration \a interval of the controller changes.
+     */
+    void temporalFrameDurationChanged( const QgsInterval &interval );
+
 
   public slots:
 
@@ -307,6 +318,8 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
     bool mLoopAnimation = false;
 
     bool mCumulativeTemporalRange = false;
+
+    int mBlockUpdateTemporalRangeSignal = 0;
 
     QgsTemporalNavigationObject( const QgsTemporalNavigationObject & ) = delete;
     QgsTemporalNavigationObject &operator= ( const QgsTemporalNavigationObject & ) = delete;

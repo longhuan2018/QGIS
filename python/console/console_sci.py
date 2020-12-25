@@ -573,6 +573,13 @@ class HistoryDialog(QDialog, Ui_HistoryDialogPythonConsole):
         self.listView.doubleClicked.connect(self._runHistory)
         self.reloadHistory.clicked.connect(self._reloadHistory)
         self.saveHistory.clicked.connect(self._saveHistory)
+        self.runHistoryButton.clicked.connect(self._executeSelectedHistory)
+
+    def _executeSelectedHistory(self):
+        items = self.listView.selectionModel().selectedIndexes()
+        items.sort()
+        for item in items:
+            self.parent.runCommand(item.data(Qt.DisplayRole))
 
     def _runHistory(self, item):
         cmd = item.data(Qt.DisplayRole)
@@ -583,6 +590,7 @@ class HistoryDialog(QDialog, Ui_HistoryDialogPythonConsole):
 
     def _reloadHistory(self):
         self.model.clear()
+        item = None
         for i in self.parent.history:
             item = QStandardItem(i)
             if sys.platform.startswith('win'):
@@ -591,6 +599,8 @@ class HistoryDialog(QDialog, Ui_HistoryDialogPythonConsole):
 
         self.listView.setModel(self.model)
         self.listView.scrollToBottom()
+        if item:
+            self.listView.setCurrentIndex(self.model.indexFromItem(item))
 
     def _deleteItem(self):
         itemsSelected = self.listView.selectionModel().selectedIndexes()
@@ -598,6 +608,10 @@ class HistoryDialog(QDialog, Ui_HistoryDialogPythonConsole):
             item = itemsSelected[0].row()
             # Remove item from the command history (just for the current session)
             self.parent.history.pop(item)
-            self.parent.historyIndex -= 1
+            self.parent.softHistory.pop(item)
+            if item < self.parent.softHistoryIndex:
+                self.parent.softHistoryIndex -= 1
+            self.parent.setText(self.parent.softHistory[self.parent.softHistoryIndex])
+            self.parent.move_cursor_to_end()
             # Remove row from the command history dialog
             self.model.removeRow(item)

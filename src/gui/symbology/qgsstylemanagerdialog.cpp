@@ -16,6 +16,7 @@
 #include "qgsstylemanagerdialog.h"
 #include "qgsstylesavedialog.h"
 
+#include "qgsdataitem.h"
 #include "qgssymbol.h"
 #include "qgssymbollayerutils.h"
 #include "qgscolorramp.h"
@@ -325,33 +326,30 @@ QgsStyleManagerDialog::QgsStyleManagerDialog( QgsStyle *style, QWidget *parent, 
 
   if ( !mReadOnly )
   {
-    // Menu for the "Add item" toolbutton when in colorramp mode
-    QStringList rampTypes;
-    rampTypes << tr( "Gradient…" ) << tr( "Color presets…" ) << tr( "Random…" ) << tr( "Catalog: cpt-city…" );
-    rampTypes << tr( "Catalog: ColorBrewer…" );
-
     mMenuBtnAddItemAll = new QMenu( this );
     mMenuBtnAddItemColorRamp = new QMenu( this );
     mMenuBtnAddItemLabelSettings = new QMenu( this );
     mMenuBtnAddItemLegendPatchShape = new QMenu( this );
     mMenuBtnAddItemSymbol3D = new QMenu( this );
 
-    QAction *item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "mIconPointLayer.svg" ) ), tr( "Marker…" ), this );
+    QAction *item = new QAction( QgsLayerItem::iconPoint(), tr( "Marker…" ), this );
     connect( item, &QAction::triggered, this, [ = ]( bool ) { addSymbol( QgsSymbol::Marker ); } );
     mMenuBtnAddItemAll->addAction( item );
-    item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "mIconLineLayer.svg" ) ), tr( "Line…" ), this );
+    item = new QAction( QgsLayerItem::iconLine(), tr( "Line…" ), this );
     connect( item, &QAction::triggered, this, [ = ]( bool ) { addSymbol( QgsSymbol::Line ); } );
     mMenuBtnAddItemAll->addAction( item );
-    item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "mIconPolygonLayer.svg" ) ), tr( "Fill…" ), this );
+    item = new QAction( QgsLayerItem::iconPolygon(), tr( "Fill…" ), this );
     connect( item, &QAction::triggered, this, [ = ]( bool ) { addSymbol( QgsSymbol::Fill ); } );
     mMenuBtnAddItemAll->addAction( item );
     mMenuBtnAddItemAll->addSeparator();
-    for ( const QString &rampType : qgis::as_const( rampTypes ) )
+
+    const QList< QPair< QString, QString > > rampTypes = QgsColorRamp::rampTypes();
+    for ( const QPair< QString, QString > &rampType : rampTypes )
     {
-      item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "styleicons/color.svg" ) ), rampType, this );
-      connect( item, &QAction::triggered, this, [ = ]( bool ) { addColorRamp( item ); } );
+      item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "styleicons/color.svg" ) ), tr( "%1…" ).arg( rampType.second ), this );
+      connect( item, &QAction::triggered, this, [ = ]( bool ) { addColorRamp( rampType.first ); } );
       mMenuBtnAddItemAll->addAction( item );
-      mMenuBtnAddItemColorRamp->addAction( new QAction( rampType, this ) );
+      mMenuBtnAddItemColorRamp->addAction( item );
     }
     mMenuBtnAddItemAll->addSeparator();
     item = new QAction( QgsApplication::getThemeIcon( QStringLiteral( "mIconFieldText.svg" ) ), tr( "Text Format…" ), this );
@@ -398,9 +396,6 @@ QgsStyleManagerDialog::QgsStyleManagerDialog( QgsStyle *style, QWidget *parent, 
     connect( item, &QAction::triggered, this, [ = ]( bool ) {  addSymbol3D( QStringLiteral( "polygon" ) ); } );
     mMenuBtnAddItemAll->addAction( item );
     mMenuBtnAddItemSymbol3D->addAction( item );
-
-    connect( mMenuBtnAddItemColorRamp, &QMenu::triggered,
-             this, static_cast<bool ( QgsStyleManagerDialog::* )( QAction * )>( &QgsStyleManagerDialog::addColorRamp ) );
   }
 
   // Context menu for symbols/colorramps. The menu entries for every group are created when displaying the menu.
@@ -534,7 +529,7 @@ void QgsStyleManagerDialog::tabItemType_currentChanged( int )
   {
     btnAddItem->setMenu( mMenuBtnAddItemColorRamp );
   }
-  if ( !mReadOnly && isLegendPatchShape ) // legend patch shape tab
+  else if ( !mReadOnly && isLegendPatchShape ) // legend patch shape tab
   {
     btnAddItem->setMenu( mMenuBtnAddItemLegendPatchShape );
   }
@@ -1354,25 +1349,31 @@ bool QgsStyleManagerDialog::addSymbol( int symbolType )
 }
 
 
-QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *style, QString rampType )
+QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *style, const QString &type )
 {
-  // let the user choose the color ramp type if rampType is not given
-  bool ok = true;
+  QString rampType = type;
+
   if ( rampType.isEmpty() )
   {
-    QStringList rampTypes;
-    rampTypes << tr( "Gradient" ) << tr( "Color presets" ) << tr( "Random" ) << tr( "Catalog: cpt-city" );
-    rampTypes << tr( "Catalog: ColorBrewer" );
-    rampType = QInputDialog::getItem( parent, tr( "Color Ramp Type" ),
-                                      tr( "Please select color ramp type:" ), rampTypes, 0, false, &ok );
+    // let the user choose the color ramp type if rampType is not given
+    bool ok = true;
+    const QList< QPair< QString, QString > > rampTypes = QgsColorRamp::rampTypes();
+    QStringList rampTypeNames;
+    rampTypeNames.reserve( rampTypes.size() );
+    for ( const QPair< QString, QString > &type : rampTypes )
+      rampTypeNames << type.second;
+    const QString selectedRampTypeName = QInputDialog::getItem( parent, tr( "Color Ramp Type" ),
+                                         tr( "Please select color ramp type:" ), rampTypeNames, 0, false, &ok );
+    if ( !ok || selectedRampTypeName.isEmpty() )
+      return QString();
+
+    rampType = rampTypes.value( rampTypeNames.indexOf( selectedRampTypeName ) ).first;
   }
-  if ( !ok || rampType.isEmpty() )
-    return QString();
 
   QString name = tr( "new ramp" );
 
   std::unique_ptr< QgsColorRamp  > ramp;
-  if ( rampType == tr( "Gradient" ) )
+  if ( rampType == QgsGradientColorRamp::typeString() )
   {
     QgsGradientColorRampDialog dlg( QgsGradientColorRamp(), parent );
     if ( !dlg.exec() )
@@ -1382,7 +1383,7 @@ QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *st
     ramp.reset( dlg.ramp().clone() );
     name = tr( "new gradient ramp" );
   }
-  else if ( rampType == tr( "Random" ) )
+  else if ( rampType == QgsLimitedRandomColorRamp::typeString() )
   {
     QgsLimitedRandomColorRampDialog dlg( QgsLimitedRandomColorRamp(), parent );
     if ( !dlg.exec() )
@@ -1392,7 +1393,7 @@ QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *st
     ramp.reset( dlg.ramp().clone() );
     name = tr( "new random ramp" );
   }
-  else if ( rampType == tr( "Catalog: ColorBrewer" ) )
+  else if ( rampType == QgsColorBrewerColorRamp::typeString() )
   {
     QgsColorBrewerColorRampDialog dlg( QgsColorBrewerColorRamp(), parent );
     if ( !dlg.exec() )
@@ -1402,7 +1403,7 @@ QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *st
     ramp.reset( dlg.ramp().clone() );
     name = dlg.ramp().schemeName() + QString::number( dlg.ramp().colors() );
   }
-  else if ( rampType == tr( "Color presets" ) )
+  else if ( rampType == QgsPresetSchemeColorRamp::typeString() )
   {
     QgsPresetColorRampDialog dlg( QgsPresetSchemeColorRamp(), parent );
     if ( !dlg.exec() )
@@ -1412,7 +1413,7 @@ QString QgsStyleManagerDialog::addColorRampStatic( QWidget *parent, QgsStyle *st
     ramp.reset( dlg.ramp().clone() );
     name = tr( "new preset ramp" );
   }
-  else if ( rampType == tr( "Catalog: cpt-city" ) )
+  else if ( rampType == QgsCptCityColorRamp::typeString() )
   {
     QgsCptCityColorRampDialog dlg( QgsCptCityColorRamp( QString(), QString() ), parent );
     if ( !dlg.exec() )
@@ -1519,16 +1520,10 @@ void QgsStyleManagerDialog::activate()
   activateWindow();
 }
 
-bool QgsStyleManagerDialog::addColorRamp()
-{
-  return addColorRamp( nullptr );
-}
-
-bool QgsStyleManagerDialog::addColorRamp( QAction *action )
+bool QgsStyleManagerDialog::addColorRamp( const QString &type )
 {
   // pass the action text, which is the color ramp type
-  QString rampName = addColorRampStatic( this, mStyle,
-                                         action ? action->text() : QString() );
+  QString rampName = addColorRampStatic( this, mStyle, type );
   if ( !rampName.isEmpty() )
   {
     mModified = true;
@@ -1601,7 +1596,7 @@ bool QgsStyleManagerDialog::editColorRamp()
 
   std::unique_ptr< QgsColorRamp > ramp( mStyle->colorRamp( name ) );
 
-  if ( ramp->type() == QLatin1String( "gradient" ) )
+  if ( ramp->type() == QgsGradientColorRamp::typeString() )
   {
     QgsGradientColorRamp *gradRamp = static_cast<QgsGradientColorRamp *>( ramp.get() );
     QgsGradientColorRampDialog dlg( *gradRamp, this );
@@ -1614,7 +1609,7 @@ bool QgsStyleManagerDialog::editColorRamp()
     }
     ramp.reset( dlg.ramp().clone() );
   }
-  else if ( ramp->type() == QLatin1String( "random" ) )
+  else if ( ramp->type() == QgsLimitedRandomColorRamp::typeString() )
   {
     QgsLimitedRandomColorRamp *randRamp = static_cast<QgsLimitedRandomColorRamp *>( ramp.get() );
     QgsLimitedRandomColorRampDialog dlg( *randRamp, this );
@@ -1627,7 +1622,7 @@ bool QgsStyleManagerDialog::editColorRamp()
     }
     ramp.reset( dlg.ramp().clone() );
   }
-  else if ( ramp->type() == QLatin1String( "colorbrewer" ) )
+  else if ( ramp->type() == QgsColorBrewerColorRamp::typeString() )
   {
     QgsColorBrewerColorRamp *brewerRamp = static_cast<QgsColorBrewerColorRamp *>( ramp.get() );
     QgsColorBrewerColorRampDialog dlg( *brewerRamp, this );
@@ -1640,7 +1635,7 @@ bool QgsStyleManagerDialog::editColorRamp()
     }
     ramp.reset( dlg.ramp().clone() );
   }
-  else if ( ramp->type() == QLatin1String( "preset" ) )
+  else if ( ramp->type() == QgsPresetSchemeColorRamp::typeString() )
   {
     QgsPresetSchemeColorRamp *presetRamp = static_cast<QgsPresetSchemeColorRamp *>( ramp.get() );
     QgsPresetColorRampDialog dlg( *presetRamp, this );
@@ -1653,7 +1648,7 @@ bool QgsStyleManagerDialog::editColorRamp()
     }
     ramp.reset( dlg.ramp().clone() );
   }
-  else if ( ramp->type() == QLatin1String( "cpt-city" ) )
+  else if ( ramp->type() == QgsCptCityColorRamp::typeString() )
   {
     QgsCptCityColorRamp *cptCityRamp = static_cast<QgsCptCityColorRamp *>( ramp.get() );
     QgsCptCityColorRampDialog dlg( *cptCityRamp, this );

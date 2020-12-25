@@ -418,7 +418,7 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
     double inclination( const QgsPoint &other ) const SIP_HOLDGIL;
 
     /**
-     * Returns a new point which correspond to this point projected by a specified distance
+     * Returns a new point which corresponds to this point projected by a specified distance
      * with specified angles (azimuth and inclination), using Cartesian mathematics.
      * M value is preserved.
      * \param distance distance to project
@@ -490,6 +490,7 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
     void clear() override;
     bool fromWkb( QgsConstWkbPtr &wkb ) override;
     bool fromWkt( const QString &wkt ) override;
+    int wkbSize( QgsAbstractGeometry::WkbFlags flags = QgsAbstractGeometry::WkbFlags() ) const override;
     QByteArray asWkb( QgsAbstractGeometry::WkbFlags = QgsAbstractGeometry::WkbFlags() ) const override;
     QString asWkt( int precision = 17 ) const override;
     QDomElement asGml2( QDomDocument &doc, int precision = 17, const QString &ns = "gml", QgsAbstractGeometry::AxisOrder axisOrder = QgsAbstractGeometry::AxisOrder::XY ) const override;
@@ -548,7 +549,7 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsPoint *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsPoint *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::Point )
         return static_cast<const QgsPoint *>( geom );

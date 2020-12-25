@@ -175,7 +175,7 @@ class CORE_EXPORT QgsMeshDataBlock
      *
      * If the data provider/datasets does not have active
      * flag capability (== all values are valid), just
-     * set block validity by setValid( true )
+     * set block validity by setValid( TRUE )
      *
      * \param vals value vector with size count()
      *
@@ -374,6 +374,7 @@ class CORE_EXPORT QgsMeshDatasetGroupMetadata
      * \param referenceTime reference time of the dataset group
      * \param isTemporal weither the dataset group is temporal (contains time-related dataset)
      * \param extraOptions dataset's extra options stored by the provider. Usually contains the name, time value, time units, data file vendor, ...
+     * \param uri The uri of the dataset
      */
     QgsMeshDatasetGroupMetadata( const QString &name,
                                  const QString uri,
@@ -652,7 +653,7 @@ class CORE_EXPORT QgsMeshDatasetGroup
     //! Returns whether all the datasets contain \a count values
     bool checkValueCountPerDataset( int count ) const;
 
-    //! Calculates the statictics (minimum and maximum)
+    //! Calculates the statistics (minimum and maximum)
     void calculateStatistic();
 
     //! Returns the dataset group variable name which this dataset group depends on
@@ -865,10 +866,18 @@ class CORE_EXPORT QgsMeshDatasetGroupTreeItem
     int childCount() const;
 
     /**
-     * Returns the total count of children, that is included deeper children
-     * \return
-     */
+    * Returns the total count of children, that is included deeper children and disabled items
+    * \return the total children's count
+    */
     int totalChildCount() const;
+
+    /**
+     * Returns a list of enabled dataset group indexes, included deeper children
+     * \return the list of dataset group indexes
+     *
+     * \since QGIS 3.16.3
+     */
+    QList<int> enabledDatasetGroupIndexes() const;
 
     /**
      * Returns the parent item, nullptr if it is root item

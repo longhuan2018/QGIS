@@ -766,10 +766,10 @@ bool QgsAttributeTableModel::setData( const QModelIndex &index, const QVariant &
   if ( !index.isValid() || index.column() >= mFieldCount || role != Qt::EditRole || !layer()->isEditable() )
     return false;
 
+  mRowStylesMap.remove( mFeat.id() );
+
   if ( !layer()->isModified() )
     return false;
-
-  mRowStylesMap.remove( mFeat.id() );
 
   return true;
 }
@@ -864,7 +864,7 @@ void QgsAttributeTableModel::executeMapLayerAction( QgsMapLayerAction *action, c
 
 QgsFeature QgsAttributeTableModel::feature( const QModelIndex &idx ) const
 {
-  QgsFeature f;
+  QgsFeature f( mLayerCache->layer()->fields() );
   f.initAttributes( mAttributes.size() );
   f.setId( rowToId( idx.row() ) );
   for ( int i = 0; i < mAttributes.size(); i++ )

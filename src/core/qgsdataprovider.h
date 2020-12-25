@@ -55,6 +55,10 @@ class CORE_EXPORT QgsDataProvider : public QObject
     {
       sipType = sipType_QgsMeshDataProvider;
     }
+    else if ( qobject_cast<QgsPointCloudDataProvider *>( sipCpp ) )
+    {
+      sipType = sipType_QgsPointCloudDataProvider;
+    }
     else
     {
       sipType = 0;
@@ -118,6 +122,7 @@ class CORE_EXPORT QgsDataProvider : public QObject
     enum ReadFlag
     {
       FlagTrustDataSource = 1 << 0, //!< Trust datasource config (primary key unicity, geometry type and srid, etc). Improves provider load time by skipping expensive checks like primary key unicity, geometry type and srid and by using estimated metadata on data load. Since QGIS 3.16
+      SkipFeatureCount = 1 << 1, //!< Make featureCount() return -1 to indicate unknown, and subLayers() to return a unknown feature count as well. Since QGIS 3.18. Only implemented by OGR provider at time of writing.
     };
     Q_DECLARE_FLAGS( ReadFlags, ReadFlag )
 
@@ -401,11 +406,14 @@ class CORE_EXPORT QgsDataProvider : public QObject
       return QString();
     }
 
+    // TODO QGIS 4 -> Make `reloadData()` non virtual. This should be implemented in `reloadProviderData()`.
+
     /**
-     * Reloads the data from the source by calling reloadProviderData() implemented
-     * by providers with data caches to synchronize, changes in the data source, feature
-     * counts and other specific actions.
+     * Reloads the data from the source for providers with data caches to synchronize,
+     * changes in the data source, feature counts and other specific actions.
      * Emits the `dataChanged` signal
+     *
+     * \note only available for providers which implement the reloadProviderData() method.
      */
     virtual void reloadData();
 

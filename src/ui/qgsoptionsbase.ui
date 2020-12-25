@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1029</width>
-    <height>730</height>
+    <height>744</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -332,7 +332,7 @@
        <item>
         <widget class="QStackedWidget" name="mOptionsStackedWidget">
          <property name="currentIndex">
-          <number>0</number>
+          <number>9</number>
          </property>
          <widget class="QWidget" name="mOptionsPageGeneral">
           <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -361,7 +361,7 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>675</width>
                 <height>1019</height>
                </rect>
               </property>
@@ -1133,7 +1133,7 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>586</width>
                 <height>1084</height>
                </rect>
               </property>
@@ -1672,8 +1672,8 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>340</width>
+                <height>442</height>
                </rect>
               </property>
               <layout class="QGridLayout" name="gridLayout_15">
@@ -1864,8 +1864,8 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>599</width>
+                <height>111</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_47">
@@ -1947,7 +1947,7 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>628</width>
                 <height>804</height>
                </rect>
               </property>
@@ -1973,7 +1973,7 @@
                   <item row="0" column="0" colspan="2">
                    <widget class="QCheckBox" name="cbxAttributeTableDocked">
                     <property name="text">
-                     <string>Open new attribute tables as docked windows</string>
+                     <string>Open attribute table as docked window</string>
                     </property>
                    </widget>
                   </item>
@@ -2087,7 +2087,7 @@
                   <item row="0" column="2">
                    <widget class="QComboBox" name="cmbScanItemsInBrowser"/>
                   </item>
-                  <item row="6" column="0" colspan="4">
+                  <item row="5" column="0" colspan="4">
                    <widget class="QCheckBox" name="cbxEvaluateDefaultValues">
                     <property name="toolTip">
                      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;When digitizing a new feature, default values are retrieved from the database. With this option turned on, the default values will be evaluated at the time of digitizing. With this option turned off, the default values will be evaluated at the time of saving.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
@@ -2139,13 +2139,6 @@
                    <widget class="QLabel" name="label_30">
                     <property name="text">
                      <string>Scan for valid items in the browser dock</string>
-                    </property>
-                   </widget>
-                  </item>
-                  <item row="5" column="0" colspan="4">
-                   <widget class="QCheckBox" name="cbxCompileExpressions">
-                    <property name="text">
-                     <string>Execute expressions on server-side if possible</string>
                     </property>
                    </widget>
                   </item>
@@ -2356,7 +2349,7 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>713</width>
                 <height>1198</height>
                </rect>
               </property>
@@ -3161,8 +3154,8 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>509</width>
+                <height>375</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_25">
@@ -3343,12 +3336,12 @@
                     <item>
                      <widget class="QLabel" name="label_58">
                       <property name="text">
-                       <string>WMS getLegendGraphic Resolution</string>
+                       <string>WMS getLegendGraphic resolution</string>
                       </property>
                      </widget>
                     </item>
                     <item>
-                     <spacer name="horizontalSpacer_391">
+                     <spacer name="horizontalSpacer_48">
                       <property name="orientation">
                        <enum>Qt::Horizontal</enum>
                       </property>
@@ -3371,11 +3364,130 @@
                       <property name="whatsThis">
                        <string extracomment="MAP_RESOLUTION or DPI value overloading getMap default value (set 0 to use default)"/>
                       </property>
+                      <property name="suffix">
+                       <string> dpi</string>
+                      </property>
                       <property name="minimum">
                        <number>0</number>
                       </property>
                       <property name="maximum">
                        <number>1000000</number>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_41">
+                    <item>
+                     <widget class="QLabel" name="labelLegendSymbolMinimumSize">
+                      <property name="text">
+                       <string>Minimum legend symbol size</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_49">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Preferred</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>30</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QgsDoubleSpinBox" name="mLegendSymbolMinimumSizeSpinBox">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
+                      <property name="toolTip">
+                       <string extracomment="(set value to 0 to skip minimum size)"/>
+                      </property>
+                      <property name="suffix">
+                       <string> mm</string>
+                      </property>
+                      <property name="decimals">
+                       <number>2</number>
+                      </property>
+                      <property name="maximum">
+                       <double>999.000000000000000</double>
+                      </property>
+                      <property name="singleStep">
+                       <double>0.200000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>0.100000000000000</double>
+                      </property>
+                      <property name="showClearButton" stdset="0">
+                       <bool>true</bool>
+                      </property>
+                     </widget>
+                    </item>
+                   </layout>
+                  </item>
+                  <item>
+                   <layout class="QHBoxLayout" name="horizontalLayout_43">
+                    <item>
+                     <widget class="QLabel" name="labelLegendSymbolMaximumSize">
+                      <property name="text">
+                       <string>Maximum legend symbol size</string>
+                      </property>
+                     </widget>
+                    </item>
+                    <item>
+                     <spacer name="horizontalSpacer_50">
+                      <property name="orientation">
+                       <enum>Qt::Horizontal</enum>
+                      </property>
+                      <property name="sizeType">
+                       <enum>QSizePolicy::Preferred</enum>
+                      </property>
+                      <property name="sizeHint" stdset="0">
+                       <size>
+                        <width>30</width>
+                        <height>20</height>
+                       </size>
+                      </property>
+                     </spacer>
+                    </item>
+                    <item>
+                     <widget class="QgsDoubleSpinBox" name="mLegendSymbolMaximumSizeSpinBox">
+                      <property name="sizePolicy">
+                       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                        <horstretch>0</horstretch>
+                        <verstretch>0</verstretch>
+                       </sizepolicy>
+                      </property>
+                      <property name="toolTip">
+                       <string extracomment="(set value to 0 to skip maximum size)"/>
+                      </property>
+                      <property name="suffix">
+                       <string> mm</string>
+                      </property>
+                      <property name="decimals">
+                       <number>2</number>
+                      </property>
+                      <property name="maximum">
+                       <double>999.000000000000000</double>
+                      </property>
+                      <property name="singleStep">
+                       <double>0.200000000000000</double>
+                      </property>
+                      <property name="value">
+                       <double>20.000000000000000</double>
+                      </property>
+                      <property name="showClearButton" stdset="0">
+                       <bool>true</bool>
                       </property>
                      </widget>
                     </item>
@@ -3389,7 +3501,7 @@
                  <property name="title">
                   <string>Map Tips</string>
                  </property>
-                 <layout class="QHBoxLayout" name="horizontalLayout_221">
+                 <layout class="QHBoxLayout" name="horizontalLayout_42">
                   <item>
                    <widget class="QLabel" name="textLabel1_16">
                     <property name="sizePolicy">
@@ -3399,7 +3511,7 @@
                      </sizepolicy>
                     </property>
                     <property name="text">
-                     <string>Delay (ms)</string>
+                     <string>Delay (in milliseconds)</string>
                     </property>
                    </widget>
                   </item>
@@ -3426,6 +3538,9 @@
                     </property>
                     <property name="whatsThis">
                      <string extracomment="MAP_RESOLUTION or DPI value overloading getMap default value (set 0 to use default)"/>
+                    </property>
+                    <property name="suffix">
+                     <string> ms</string>
                     </property>
                     <property name="minimum">
                      <number>0</number>
@@ -3484,7 +3599,7 @@
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>614</width>
                 <height>709</height>
                </rect>
               </property>
@@ -4001,8 +4116,8 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>139</width>
+                <height>255</height>
                </rect>
               </property>
               <layout class="QHBoxLayout" name="horizontalLayout_46">
@@ -4182,7 +4297,7 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                 <x>0</x>
                 <y>0</y>
                 <width>843</width>
-                <height>956</height>
+                <height>1024</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_31">
@@ -4766,6 +4881,46 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                     </property>
                    </widget>
                   </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="label_44">
+                    <property name="text">
+                     <string>Angle tolerance when tracing curves</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="label_70">
+                    <property name="text">
+                     <string>Distance tolerance when tracing curves</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="1" column="2">
+                   <widget class="QgsDoubleSpinBox" name="mTracingCustomAngleToleranceSpinBox">
+                    <property name="toolTip">
+                     <string>This specifies the maximum angular deviation (in radians) allowed for a series of points to be converted to a curve.</string>
+                    </property>
+                    <property name="decimals">
+                     <number>10</number>
+                    </property>
+                    <property name="maximum">
+                     <double>9999.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="2">
+                   <widget class="QgsDoubleSpinBox" name="mTracingCustomDistanceToleranceSpinBox">
+                    <property name="toolTip">
+                     <string>This specifies the maximum deviation allowed between the original location of vertices and where they would fall on the candidate curved geometry for a series of points to be converted to a curve.</string>
+                    </property>
+                    <property name="decimals">
+                     <number>10</number>
+                    </property>
+                    <property name="maximum">
+                     <double>9999.000000000000000</double>
+                    </property>
+                   </widget>
+                  </item>
                  </layout>
                 </widget>
                </item>
@@ -4815,8 +4970,8 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>474</width>
+                <height>556</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_39">
@@ -5096,8 +5251,8 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>857</width>
-                <height>679</height>
+                <width>447</width>
+                <height>431</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_6">
@@ -5368,7 +5523,7 @@ The bigger the number, the faster zooming with the mouse wheel will be.</string>
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>843</width>
+                <width>660</width>
                 <height>699</height>
                </rect>
               </property>
@@ -5961,23 +6116,6 @@ p, li { white-space: pre-wrap; }
  <layoutdefault spacing="6" margin="11"/>
  <customwidgets>
   <customwidget>
-   <class>QgsCollapsibleGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>qgscollapsiblegroupbox.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>QgsSpinBox</class>
-   <extends>QSpinBox</extends>
-   <header>qgsspinbox.h</header>
-  </customwidget>
-  <customwidget>
-   <class>QgsProjectionSelectionWidget</class>
-   <extends>QWidget</extends>
-   <header>qgsprojectionselectionwidget.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
    <class>QgsColorButton</class>
    <extends>QToolButton</extends>
    <header>qgscolorbutton.h</header>
@@ -5995,6 +6133,12 @@ p, li { white-space: pre-wrap; }
    <header>qgsfilterlineedit.h</header>
   </customwidget>
   <customwidget>
+   <class>QgsCollapsibleGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>qgscollapsiblegroupbox.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
    <class>QgsColorSchemeList</class>
    <extends>QWidget</extends>
    <header location="global">qgscolorschemelist.h</header>
@@ -6004,6 +6148,23 @@ p, li { white-space: pre-wrap; }
    <class>QgsVariableEditorWidget</class>
    <extends>QWidget</extends>
    <header location="global">qgsvariableeditorwidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QgsDatumTransformTableWidget</class>
+   <extends>QWidget</extends>
+   <header>qgsdatumtransformtablewidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QgsSpinBox</class>
+   <extends>QSpinBox</extends>
+   <header>qgsspinbox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QgsProjectionSelectionWidget</class>
+   <extends>QWidget</extends>
+   <header>qgsprojectionselectionwidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
@@ -6021,12 +6182,6 @@ p, li { white-space: pre-wrap; }
    <class>QgsAuthSettingsWidget</class>
    <extends>QWidget</extends>
    <header>auth/qgsauthsettingswidget.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>QgsDatumTransformTableWidget</class>
-   <extends>QWidget</extends>
-   <header>qgsdatumtransformtablewidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
@@ -6215,6 +6370,8 @@ p, li { white-space: pre-wrap; }
   <tabstop>mOffsetQuadSegSpinBox</tabstop>
   <tabstop>mCurveOffsetMiterLimitComboBox</tabstop>
   <tabstop>mTracingConvertToCurveCheckBox</tabstop>
+  <tabstop>mTracingCustomAngleToleranceSpinBox</tabstop>
+  <tabstop>mTracingCustomDistanceToleranceSpinBox</tabstop>
   <tabstop>mOptionsScrollArea_12</tabstop>
   <tabstop>mComposerFontComboBox</tabstop>
   <tabstop>mGridStyleComboBox</tabstop>

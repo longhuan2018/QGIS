@@ -181,7 +181,10 @@ void QgsCameraController::resetView( float distance )
 void QgsCameraController::setViewFromTop( float worldX, float worldY, float distance, float yaw )
 {
   QgsCameraPose camPose;
-  camPose.setCenterPoint( QgsVector3D( worldX, 0, worldY ) );
+  if ( mTerrainEntity )
+    camPose.setCenterPoint( QgsVector3D( worldX, mTerrainEntity->terrainElevationOffset(), worldY ) );
+  else
+    camPose.setCenterPoint( QgsVector3D( worldX, 0.0f, worldY ) );
   camPose.setDistanceFromCenterPoint( distance );
   camPose.setHeadingAngle( yaw );
 
@@ -248,7 +251,7 @@ void QgsCameraController::updateCameraFromPose( bool centerPointChanged )
   if ( std::isnan( mCameraPose.centerPoint().x() ) || std::isnan( mCameraPose.centerPoint().y() ) || std::isnan( mCameraPose.centerPoint().z() ) )
   {
     // something went horribly wrong but we need to at least try to fix it somehow
-    qDebug() << "camera position got NaN!";
+    qWarning() << "camera position got NaN!";
     mCameraPose.setCenterPoint( QgsVector3D( 0, 0, 0 ) );
   }
 
@@ -275,6 +278,12 @@ void QgsCameraController::updateCameraFromPose( bool centerPointChanged )
       mCameraPose.setCenterPoint( QgsVector3D( intersectionPoint ) );
       mCameraPose.updateCamera( mCamera );
     }
+    else
+    {
+      QgsVector3D centerPoint = mCameraPose.centerPoint();
+      centerPoint.set( centerPoint.x(), mTerrainEntity->terrainElevationOffset(), centerPoint.z() );
+      mCameraPose.setCenterPoint( centerPoint );
+    }
   }
 
   emit cameraChanged();
@@ -296,8 +305,8 @@ void QgsCameraController::onPositionChanged( Qt3DInput::QMouseEvent *mouse )
     // rotate/tilt using mouse (camera moves as it rotates around its view center)
     float pitch = mCameraPose.pitchAngle();
     float yaw = mCameraPose.headingAngle();
-    pitch += dy;
-    yaw -= dx / 2;
+    pitch += 0.2f * dy;
+    yaw -= 0.2f * dx;
     mCameraPose.setPitchAngle( pitch );
     mCameraPose.setHeadingAngle( yaw );
     updateCameraFromPose();
@@ -306,7 +315,7 @@ void QgsCameraController::onPositionChanged( Qt3DInput::QMouseEvent *mouse )
   {
     // rotate/tilt using mouse (camera stays at one position as it rotates)
     float diffPitch = 0.2f * dy;
-    float diffYaw = 0.2f * -dx / 2;
+    float diffYaw = - 0.2f * dx;
     rotateCamera( diffPitch, diffYaw );
     updateCameraFromPose( true );
   }

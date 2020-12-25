@@ -39,16 +39,21 @@ QgsConfigCache::QgsConfigCache()
 }
 
 
-const QgsProject *QgsConfigCache::project( const QString &path, QgsServerSettings *settings )
+const QgsProject *QgsConfigCache::project( const QString &path, const QgsServerSettings *settings )
 {
   if ( ! mProjectCache[ path ] )
   {
+
     std::unique_ptr<QgsProject> prj( new QgsProject() );
+
+    // This is required by virtual layers that call QgsProject::instance() inside the constructor :(
+    QgsProject::setInstance( prj.get() );
 
     QgsStoreBadLayerInfo *badLayerHandler = new QgsStoreBadLayerInfo();
     prj->setBadLayerHandler( badLayerHandler );
 
-    QgsProject::ReadFlags readFlags = QgsProject::ReadFlag();
+    // Always skip original styles storage
+    QgsProject::ReadFlags readFlags = QgsProject::ReadFlag() | QgsProject::ReadFlag::FlagDontStoreOriginalStyles ;
     if ( settings )
     {
       // Activate trust layer metadata flag
@@ -113,7 +118,6 @@ const QgsProject *QgsConfigCache::project( const QString &path, QgsServerSetting
     }
   }
   return mProjectCache[ path ];
-
 }
 
 QDomDocument *QgsConfigCache::xmlDocument( const QString &filePath )

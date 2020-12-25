@@ -300,7 +300,11 @@ QgsCoordinateReferenceSystem QgsLayoutItemMap::crs() const
 
 void QgsLayoutItemMap::setCrs( const QgsCoordinateReferenceSystem &crs )
 {
+  if ( mCrs == crs )
+    return;
+
   mCrs = crs;
+  emit crsChanged();
 }
 
 QList<QgsMapLayer *> QgsLayoutItemMap::layers() const
@@ -457,8 +461,6 @@ bool QgsLayoutItemMap::requiresRasterization() const
   // it also needs to interact with items below it
   if ( !containsAdvancedEffects() )
     return false;
-
-  // TODO layer transparency is probably ok to allow without forcing rasterization
 
   if ( hasBackground() && qgsDoubleNear( backgroundColor().alphaF(), 1.0 ) )
     return false;
@@ -709,15 +711,13 @@ bool QgsLayoutItemMap::readPropertiesFromElement( const QDomElement &itemElem, c
   }
 
   QDomNodeList crsNodeList = itemElem.elementsByTagName( QStringLiteral( "crs" ) );
+  QgsCoordinateReferenceSystem crs;
   if ( !crsNodeList.isEmpty() )
   {
     QDomElement crsElem = crsNodeList.at( 0 ).toElement();
-    mCrs.readXml( crsElem );
+    crs.readXml( crsElem );
   }
-  else
-  {
-    mCrs = QgsCoordinateReferenceSystem();
-  }
+  setCrs( crs );
 
   //map rotation
   mMapRotation = itemElem.attribute( QStringLiteral( "mapRotation" ), QStringLiteral( "0" ) ).toDouble();
@@ -1858,9 +1858,15 @@ void QgsLayoutItemMap::refreshDataDefinedProperty( const QgsLayoutObject::DataDe
   if ( property == QgsLayoutObject::MapCrs || property == QgsLayoutObject::AllProperties )
   {
     bool ok;
-    QString crsVar = mDataDefinedProperties.valueAsString( QgsLayoutObject::MapCrs, context, QString(), &ok );
+    const QString crsVar = mDataDefinedProperties.valueAsString( QgsLayoutObject::MapCrs, context, QString(), &ok );
     if ( ok && QgsCoordinateReferenceSystem( crsVar ).isValid() )
-      mCrs = QgsCoordinateReferenceSystem( crsVar );
+    {
+      const QgsCoordinateReferenceSystem newCrs( crsVar );
+      if ( newCrs.isValid() )
+      {
+        setCrs( newCrs );
+      }
+    }
   }
   //updates data defined properties and redraws item to match
   if ( property == QgsLayoutObject::MapRotation || property == QgsLayoutObject::MapScale ||
@@ -1994,6 +2000,7 @@ void QgsLayoutItemMap::connectUpdateSlot()
       {
         //using project CRS, which just changed....
         invalidateCache();
+        emit crsChanged();
       }
     } );
 

@@ -38,6 +38,7 @@
 #include "qgsexpressioncontextutils.h"
 #include "qgslocaldefaultsettings.h"
 #include "qgsnumericformatwidget.h"
+#include "qgslayertreemodellegendnode.h"
 
 #include "qgsattributetablefiltermodel.h"
 #include "qgslocalizeddatapathregistry.h"
@@ -174,14 +175,17 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   if ( identifyValue <= 0.0 )
     identifyValue = Qgis::DEFAULT_SEARCH_RADIUS_MM;
   spinBoxIdentifyValue->setMinimum( 0.0 );
+  spinBoxIdentifyValue->setClearValue( Qgis::DEFAULT_SEARCH_RADIUS_MM );
   spinBoxIdentifyValue->setValue( identifyValue );
   QColor highlightColor = QColor( mSettings->value( QStringLiteral( "/Map/highlight/color" ), Qgis::DEFAULT_HIGHLIGHT_COLOR.name() ).toString() );
   int highlightAlpha = mSettings->value( QStringLiteral( "/Map/highlight/colorAlpha" ), Qgis::DEFAULT_HIGHLIGHT_COLOR.alpha() ).toInt();
   highlightColor.setAlpha( highlightAlpha );
   mIdentifyHighlightColorButton->setColor( highlightColor );
   double highlightBuffer = mSettings->value( QStringLiteral( "/Map/highlight/buffer" ), Qgis::DEFAULT_HIGHLIGHT_BUFFER_MM ).toDouble();
+  mIdentifyHighlightBufferSpinBox->setClearValue( Qgis::DEFAULT_HIGHLIGHT_BUFFER_MM );
   mIdentifyHighlightBufferSpinBox->setValue( highlightBuffer );
   double highlightMinWidth = mSettings->value( QStringLiteral( "/Map/highlight/minWidth" ), Qgis::DEFAULT_HIGHLIGHT_MIN_WIDTH_MM ).toDouble();
+  mIdentifyHighlightMinWidthSpinBox->setClearValue( Qgis::DEFAULT_HIGHLIGHT_MIN_WIDTH_MM );
   mIdentifyHighlightMinWidthSpinBox->setValue( highlightMinWidth );
 
   // custom environment variables
@@ -351,16 +355,20 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
 
   //Network timeout
   mNetworkTimeoutSpinBox->setValue( QgsNetworkAccessManager::timeout() );
+  mNetworkTimeoutSpinBox->setClearValue( 60000 );
   leUserAgent->setText( mSettings->value( QStringLiteral( "/qgis/networkAndProxy/userAgent" ), "Mozilla/5.0" ).toString() );
 
   // WMS capabilities expiry time
   mDefaultCapabilitiesExpirySpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/defaultCapabilitiesExpiry" ), 24 ).toInt() );
+  mDefaultCapabilitiesExpirySpinBox->setClearValue( 24 );
 
   // WMS/WMS-C tile expiry time
   mDefaultTileExpirySpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/defaultTileExpiry" ), 24 ).toInt() );
+  mDefaultTileExpirySpinBox->setClearValue( 24 );
 
   // WMS/WMS-C default max retry in case of tile request errors
   mDefaultTileMaxRetrySpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/defaultTileMaxRetry" ), 3 ).toInt() );
+  mDefaultTileMaxRetrySpinBox->setClearValue( 3 );
 
   // Proxy stored authentication configurations
   mAuthSettings->setDataprovider( QStringLiteral( "proxy" ) );
@@ -408,6 +416,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   mCacheSize->setSingleStep( 1024 );
   qint64 cacheSize = mSettings->value( QStringLiteral( "cache/size" ), 50 * 1024 * 1024 ).toLongLong();
   mCacheSize->setValue( static_cast<int>( cacheSize / 1024 ) );
+  mCacheSize->setClearValue( 50 * 1024 );
   connect( mBrowseCacheDirectory, &QAbstractButton::clicked, this, &QgsOptions::browseCacheDirectory );
   connect( mClearCache, &QAbstractButton::clicked, this, &QgsOptions::clearCache );
 
@@ -434,6 +443,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   mAttrTableViewComboBox->setCurrentIndex( mAttrTableViewComboBox->findData( mSettings->value( QStringLiteral( "/qgis/attributeTableView" ), -1 ).toInt() ) );
 
   spinBoxAttrTableRowCache->setValue( mSettings->value( QStringLiteral( "/qgis/attributeTableRowCache" ), 10000 ).toInt() );
+  spinBoxAttrTableRowCache->setClearValue( 10000 );
   spinBoxAttrTableRowCache->setSpecialValueText( tr( "All" ) );
 
   cmbPromptSublayers->clear();
@@ -566,6 +576,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
 
   // set decimal places of the measure tool
   int decimalPlaces = mSettings->value( QStringLiteral( "/qgis/measure/decimalplaces" ), "3" ).toInt();
+  mDecimalPlacesSpinBox->setClearValue( 3 );
   mDecimalPlacesSpinBox->setRange( 0, 12 );
   mDecimalPlacesSpinBox->setValue( decimalPlaces );
 
@@ -612,6 +623,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   mFontFamilyComboBox->blockSignals( false );
 
   mMessageTimeoutSpnBx->setValue( mSettings->value( QStringLiteral( "/qgis/messageTimeout" ), 5 ).toInt() );
+  mMessageTimeoutSpnBx->setClearValue( 5 );
 
   QString name = mSettings->value( QStringLiteral( "/qgis/style" ) ).toString();
   whileBlocking( cmbStyle )->setCurrentIndex( cmbStyle->findText( name, Qt::MatchFixedString ) );
@@ -631,6 +643,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   chkUseRenderCaching->setChecked( mSettings->value( QStringLiteral( "/qgis/enable_render_caching" ), true ).toBool() );
   chkParallelRendering->setChecked( mSettings->value( QStringLiteral( "/qgis/parallel_rendering" ), true ).toBool() );
   spinMapUpdateInterval->setValue( mSettings->value( QStringLiteral( "/qgis/map_update_interval" ), 250 ).toInt() );
+  spinMapUpdateInterval->setClearValue( 250 );
   chkMaxThreads->setChecked( QgsApplication::maxThreads() != -1 );
   spinMaxThreads->setEnabled( chkMaxThreads->isChecked() );
   spinMaxThreads->setRange( 1, QThread::idealThreadCount() );
@@ -657,6 +670,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
     tolerance = tolerance * 180.0 / M_PI; //value shown to the user is degree, not rad
   }
   mSegmentationToleranceSpinBox->setValue( tolerance );
+  mSegmentationToleranceSpinBox->setClearValue( 1.0 );
 
   QStringList myScalesList = Qgis::defaultProjectScales().split( ',' );
   myScalesList.append( QStringLiteral( "1:1" ) );
@@ -672,6 +686,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   doubleSpinBoxMagnifierDefault->setDecimals( 0 );
   doubleSpinBoxMagnifierDefault->setSuffix( QStringLiteral( "%" ) );
   doubleSpinBoxMagnifierDefault->setValue( magnifierVal );
+  doubleSpinBoxMagnifierDefault->setClearValue( 100 );
 
   // Default local simplification algorithm
   mSimplifyAlgorithmComboBox->addItem( tr( "Distance" ), static_cast<int>( QgsVectorSimplifyMethod::Distance ) );
@@ -689,7 +704,6 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   cbxCheckVersion->setChecked( mSettings->value( QStringLiteral( "/qgis/checkVersion" ), true ).toBool() );
   cbxCheckVersion->setVisible( mSettings->value( QStringLiteral( "/qgis/allowVersionCheck" ), true ).toBool() );
   cbxAttributeTableDocked->setChecked( mSettings->value( QStringLiteral( "/qgis/dockAttributeTable" ), false ).toBool() );
-  cbxCompileExpressions->setChecked( mSettings->value( QStringLiteral( "/qgis/compileExpressions" ), true ).toBool() );
 
   mComboCopyFeatureFormat->addItem( tr( "Plain Text, No Geometry" ), QgsClipboard::AttributesOnly );
   mComboCopyFeatureFormat->addItem( tr( "Plain Text, WKT Geometry" ), QgsClipboard::AttributesWithWKT );
@@ -699,18 +713,28 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
 
   cmbLegendDoubleClickAction->setCurrentIndex( mSettings->value( QStringLiteral( "/qgis/legendDoubleClickAction" ), 0 ).toInt() );
 
+  // Legend symbol minimum / maximum values
+  mLegendSymbolMinimumSizeSpinBox->setClearValue( 0.0, tr( "none" ) );
+  mLegendSymbolMaximumSizeSpinBox->setClearValue( 0.0, tr( "none" ) );
+  mLegendSymbolMinimumSizeSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/legendsymbolMinimumSize" ), 0.1 ).toDouble() );
+  mLegendSymbolMaximumSizeSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/legendsymbolMaximumSize" ), 20.0 ).toDouble() );
+
   // WMS getLegendGraphic setting
   mLegendGraphicResolutionSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/defaultLegendGraphicResolution" ), 0 ).toInt() );
 
   // Map Tips delay
   mMapTipsDelaySpinBox->setValue( mSettings->value( QStringLiteral( "qgis/mapTipsDelay" ), 850 ).toInt() );
+  mMapTipsDelaySpinBox->setClearValue( 850 );
 
   //
   // Raster properties
   //
   spnRed->setValue( mSettings->value( QStringLiteral( "/Raster/defaultRedBand" ), 1 ).toInt() );
+  spnRed->setClearValue( 1 );
   spnGreen->setValue( mSettings->value( QStringLiteral( "/Raster/defaultGreenBand" ), 2 ).toInt() );
+  spnGreen->setClearValue( 2 );
   spnBlue->setValue( mSettings->value( QStringLiteral( "/Raster/defaultBlueBand" ), 3 ).toInt() );
+  spnBlue->setClearValue( 3 );
 
   mZoomedInResamplingComboBox->insertItem( 0, tr( "Nearest neighbour" ), QStringLiteral( "nearest neighbour" ) );
   mZoomedInResamplingComboBox->insertItem( 1, tr( "Bilinear" ), QStringLiteral( "bilinear" ) );
@@ -723,6 +747,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   QString zoomedOutResampling = mSettings->value( QStringLiteral( "/Raster/defaultZoomedOutResampling" ), QStringLiteral( "nearest neighbour" ) ).toString();
   mZoomedOutResamplingComboBox->setCurrentIndex( mZoomedOutResamplingComboBox->findData( zoomedOutResampling ) );
   spnOversampling->setValue( mSettings->value( QStringLiteral( "/Raster/defaultOversampling" ), 2.0 ).toDouble() );
+  spnOversampling->setClearValue( 2.0 );
   mCbEarlyResampling->setChecked( mSettings->value( QStringLiteral( "/Raster/defaultEarlyResampling" ), false ).toBool() );
 
   initContrastEnhancement( cboxContrastEnhancementAlgorithmSingleBand, QStringLiteral( "singleBand" ),
@@ -740,6 +765,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
                     QgsRasterMinMaxOrigin::limitsString( QgsRasterLayer::MULTIPLE_BAND_MULTI_BYTE_MIN_MAX_LIMITS ) );
 
   spnThreeBandStdDev->setValue( mSettings->value( QStringLiteral( "/Raster/defaultStandardDeviation" ), QgsRasterMinMaxOrigin::DEFAULT_STDDEV_FACTOR ).toDouble() );
+  spnThreeBandStdDev->setClearValue( QgsRasterMinMaxOrigin::DEFAULT_STDDEV_FACTOR );
 
   mRasterCumulativeCutLowerDoubleSpinBox->setValue( 100.0 * mSettings->value( QStringLiteral( "/Raster/cumulativeCutLower" ), QString::number( QgsRasterMinMaxOrigin::CUMULATIVE_CUT_LOWER ) ).toDouble() );
   mRasterCumulativeCutUpperDoubleSpinBox->setValue( 100.0 * mSettings->value( QStringLiteral( "/Raster/cumulativeCutUpper" ), QString::number( QgsRasterMinMaxOrigin::CUMULATIVE_CUT_UPPER ) ).toDouble() );
@@ -807,6 +833,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   connect( pbnTemplateFolderReset, &QAbstractButton::pressed, this, &QgsOptions::resetTemplateFolder );
 
   setZoomFactorValue();
+  spinZoomFactor->setClearValue( 200 );
 
   // predefined scales for scale combobox
   QString scalePaths = mSettings->value( QStringLiteral( "Map/scales" ), Qgis::defaultProjectScales() ).toString();
@@ -974,7 +1001,9 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
 
   //grid and guide defaults
   mGridResolutionSpinBox->setValue( mSettings->value( QStringLiteral( "LayoutDesigner/defaultSnapGridResolution" ), 10.0, QgsSettings::Gui ).toDouble() );
+  mGridResolutionSpinBox->setClearValue( 10.0 );
   mSnapToleranceSpinBox->setValue( mSettings->value( QStringLiteral( "LayoutDesigner/defaultSnapTolerancePixels" ), 5, QgsSettings::Gui ).toInt() );
+  mSnapToleranceSpinBox->setClearValue( 5 );
   mOffsetXSpinBox->setValue( mSettings->value( QStringLiteral( "LayoutDesigner/defaultSnapGridOffsetX" ), 0, QgsSettings::Gui ).toDouble() );
   mOffsetYSpinBox->setValue( mSettings->value( QStringLiteral( "LayoutDesigner/defaultSnapGridOffsetY" ), 0, QgsSettings::Gui ).toDouble() );
 
@@ -990,7 +1019,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   for ( const auto &l : language18nList )
   {
     // QTBUG-57802: eo locale is improperly handled
-    QString displayName = l.startsWith( QLatin1String( "eo" ) ) ? QLocale::languageToString( QLocale::Esperanto ) : QLocale( l ).nativeLanguageName();
+    QString displayName = l.startsWith( QLatin1String( "eo" ) ) ? QLocale::languageToString( QLocale::Esperanto ) : l.startsWith( QLatin1String( "sc" ) ) ? QStringLiteral( "sardu" ) : QLocale( l ).nativeLanguageName();
     cboTranslation->addItem( QIcon( QString( ":/images/flags/%1.svg" ).arg( l ) ), displayName, l );
   }
 
@@ -1042,6 +1071,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   mDefaultZValueSpinBox->setValue(
     mSettings->value( QStringLiteral( "/qgis/digitizing/default_z_value" ), Qgis::DEFAULT_Z_COORDINATE ).toDouble()
   );
+  mDefaultZValueSpinBox->setClearValue( Qgis::DEFAULT_Z_COORDINATE );
 
   //default snap mode
   mSnappingEnabledDefault->setChecked( mSettings->value( QStringLiteral( "/qgis/digitizing/default_snap_enabled" ),  false ).toBool() );
@@ -1054,7 +1084,9 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   QgsSnappingConfig::SnappingTypeFlag defaultSnapMode = mSettings->flagValue( QStringLiteral( "/qgis/digitizing/default_snap_type" ),  QgsSnappingConfig::VertexFlag );
   mDefaultSnapModeComboBox->setCurrentIndex( mDefaultSnapModeComboBox->findData( static_cast<int>( defaultSnapMode ) ) );
   mDefaultSnappingToleranceSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/default_snapping_tolerance" ), Qgis::DEFAULT_SNAP_TOLERANCE ).toDouble() );
+  mDefaultSnappingToleranceSpinBox->setClearValue( Qgis::DEFAULT_SNAP_TOLERANCE );
   mSearchRadiusVertexEditSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/search_radius_vertex_edit" ), 10 ).toDouble() );
+  mSearchRadiusVertexEditSpinBox->setClearValue( 10 );
   QgsTolerance::UnitType defSnapUnits = mSettings->enumValue( QStringLiteral( "/qgis/digitizing/default_snapping_tolerance_unit" ), Qgis::DEFAULT_SNAP_UNITS );
   if ( defSnapUnits == QgsTolerance::ProjectUnits || defSnapUnits == QgsTolerance::LayerUnits )
   {
@@ -1106,6 +1138,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
     mMarkerStyleComboBox->setCurrentIndex( mMarkerStyleComboBox->findText( tr( "None" ) ) );
   }
   mMarkerSizeSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/marker_size_mm" ), 2.0 ).toDouble() );
+  mMarkerSizeSpinBox->setClearValue( 2.0 );
 
   chkReuseLastValues->setChecked( mSettings->value( QStringLiteral( "/qgis/digitizing/reuseLastValues" ), false ).toBool() );
   chkDisableAttributeValuesDlg->setChecked( mSettings->value( QStringLiteral( "/qgis/digitizing/disable_enter_attribute_values_dialog" ), false ).toBool() );
@@ -1122,9 +1155,15 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   QgsGeometry::JoinStyle joinStyleSetting = mSettings->enumValue( QStringLiteral( "/qgis/digitizing/offset_join_style" ), QgsGeometry::JoinStyleRound );
   mOffsetJoinStyleComboBox->setCurrentIndex( mOffsetJoinStyleComboBox->findData( joinStyleSetting ) );
   mOffsetQuadSegSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/offset_quad_seg" ), 8 ).toInt() );
+  mOffsetQuadSegSpinBox->setClearValue( 8 );
   mCurveOffsetMiterLimitComboBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/offset_miter_limit" ), 5.0 ).toDouble() );
+  mCurveOffsetMiterLimitComboBox->setClearValue( 5.0 );
 
   mTracingConvertToCurveCheckBox->setChecked( mSettings->value( QStringLiteral( "/qgis/digitizing/convert_to_curve" ), false ).toBool() );
+  mTracingCustomAngleToleranceSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/convert_to_curve_angle_tolerance" ), 1e-6 ).toDouble() );
+  mTracingCustomAngleToleranceSpinBox->setClearValue( 1e-6 );
+  mTracingCustomDistanceToleranceSpinBox->setValue( mSettings->value( QStringLiteral( "/qgis/digitizing/convert_to_curve_distance_tolerance" ), 1e-6 ).toDouble() );
+  mTracingCustomDistanceToleranceSpinBox->setClearValue( 1e-6 );
 
   // load gdal driver list only when gdal tab is first opened
   mLoadedGdalDriverList = false;
@@ -1425,7 +1464,7 @@ void QgsOptions::saveOptions()
   {
     pathsList << mListSVGPaths->item( i )->text();
   }
-  mSettings->setValue( QStringLiteral( "svg/searchPathsForSVG" ), pathsList );
+  QgsApplication::setSvgPaths( pathsList );
 
   pathsList.clear();
   for ( int i = 0; i < mListComposerTemplatePaths->count(); ++i )
@@ -1527,7 +1566,11 @@ void QgsOptions::saveOptions()
                        cmbScanZipInBrowser->currentData().toString() );
   mSettings->setValue( QStringLiteral( "/qgis/mainSnappingWidgetMode" ), mSnappingMainDialogComboBox->currentData() );
 
-  mSettings->setValue( QStringLiteral( "/qgis/compileExpressions" ), cbxCompileExpressions->isChecked() );
+  mSettings->setValue( QStringLiteral( "/qgis/legendsymbolMinimumSize" ), mLegendSymbolMinimumSizeSpinBox->value() );
+  mSettings->setValue( QStringLiteral( "/qgis/legendsymbolMaximumSize" ), mLegendSymbolMaximumSizeSpinBox->value() );
+  QgsSymbolLegendNode::MINIMUM_SIZE = mLegendSymbolMinimumSizeSpinBox->value();
+  QgsSymbolLegendNode::MAXIMUM_SIZE = mLegendSymbolMaximumSizeSpinBox->value();
+
   mSettings->setValue( QStringLiteral( "/qgis/defaultLegendGraphicResolution" ), mLegendGraphicResolutionSpinBox->value() );
   mSettings->setValue( QStringLiteral( "/qgis/mapTipsDelay" ), mMapTipsDelaySpinBox->value() );
   mSettings->setEnumValue( QStringLiteral( "/qgis/copyFeatureFormat" ), ( QgsClipboard::CopyFormat )mComboCopyFeatureFormat->currentData().toInt() );
@@ -1743,6 +1786,8 @@ void QgsOptions::saveOptions()
   mSettings->setValue( QStringLiteral( "/qgis/digitizing/offset_miter_limit" ), mCurveOffsetMiterLimitComboBox->value() );
 
   mSettings->setValue( QStringLiteral( "/qgis/digitizing/convert_to_curve" ), mTracingConvertToCurveCheckBox->isChecked() );
+  mSettings->setValue( QStringLiteral( "/qgis/digitizing/convert_to_curve_angle_tolerance" ), mTracingCustomAngleToleranceSpinBox->value() );
+  mSettings->setValue( QStringLiteral( "/qgis/digitizing/convert_to_curve_distance_tolerance" ), mTracingCustomDistanceToleranceSpinBox->value() );
 
   // default scale list
   QString myPaths;
@@ -2772,7 +2817,7 @@ double QgsOptions::zoomFactorValue()
 void QgsOptions::setZoomFactorValue()
 {
   // Set the percent value for zoom factor spin box. This function is for converting the decimal zoom factor value in the qgis setting to the percent zoom factor value.
-  if ( mSettings->value( QStringLiteral( "/qgis/zoom_factor" ), 2 ) <= 1.01 )
+  if ( mSettings->value( QStringLiteral( "/qgis/zoom_factor" ), 2 ).toDouble() <= 1.01 )
   {
     spinZoomFactor->setValue( spinZoomFactor->minimum() );
   }

@@ -29,6 +29,7 @@
 #include "qgssettings.h"
 #include "qgsjsonutils.h"
 #include "qgspostgresstringutils.h"
+#include "qgspostgresconnpool.h"
 
 #include <QApplication>
 #include <QStringList>
@@ -140,6 +141,17 @@ Oid QgsPostgresResult::PQoidValue()
 {
   Q_ASSERT( mRes );
   return ::PQoidValue( mRes );
+}
+
+QgsPoolPostgresConn::QgsPoolPostgresConn( const QString &connInfo )
+  : mPgConn( QgsPostgresConnPool::instance()->acquireConnection( connInfo ) )
+{
+}
+
+QgsPoolPostgresConn::~QgsPoolPostgresConn()
+{
+  if ( mPgConn )
+    QgsPostgresConnPool::instance()->releaseConnection( mPgConn );
 }
 
 
@@ -489,7 +501,9 @@ bool QgsPostgresConn::getTableInfo( bool searchGeometryColumnsOnly, bool searchP
       gtableName = QStringLiteral( "geometry_columns" );
     }
     // Geography since postgis 1.5
-    else if ( i == SctGeography && mPostgisVersionMajor >= 1 && mPostgisVersionMinor >= 5 )
+    else if ( i == SctGeography
+              && ( mPostgisVersionMajor >= 2
+                   || ( mPostgisVersionMajor == 1 && mPostgisVersionMinor >= 5 ) ) )
     {
       tableName  = QStringLiteral( "l.f_table_name" );
       schemaName = QStringLiteral( "l.f_table_schema" );
@@ -1911,6 +1925,11 @@ void QgsPostgresConn::retrieveLayerTypes( QVector<QgsPostgresLayerProperty *> &l
       QgsWkbTypes::Type type = layerProperty.types.value( 0, QgsWkbTypes::Unknown );
       if ( type == QgsWkbTypes::Unknown )
       {
+        // Note that we would like to apply a "LIMIT GEOM_TYPE_SELECT_LIMIT"
+        // here, so that the previous "array_agg(DISTINCT" does not scan the
+        // full table. However SQL does not allow that.
+        // So we have to do a subselect on the table to add the LIMIT,
+        // see comment in the following code.
         sql += QStringLiteral( "UPPER(geometrytype(%1%2))" )
                .arg( quotedIdentifier( layerProperty.geometryColName ),
                      castToGeometry ?  "::geometry" : "" );
@@ -1924,7 +1943,18 @@ void QgsPostgresConn::retrieveLayerTypes( QVector<QgsPostgresLayerProperty *> &l
 
       sql += QLatin1String( ") " );
 
-      sql += " FROM " + table;
+      if ( type == QgsWkbTypes::Unknown )
+      {
+        // Subselect to limit the "array_agg(DISTINCT", see previous comment.
+        sql += QStringLiteral( " FROM (SELECT %1 from %2 LIMIT %3) as _unused" )
+               .arg( quotedIdentifier( layerProperty.geometryColName ) )
+               .arg( table )
+               .arg( GEOM_TYPE_SELECT_LIMIT );
+      }
+      else
+      {
+        sql += " FROM " + table;
+      }
 
       QgsDebugMsgLevel( "Geometry types,srids and dims query: " + sql, 2 );
 

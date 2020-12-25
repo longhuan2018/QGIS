@@ -92,7 +92,14 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   , mMapCanvas( mapCanvas )
   , mEllipsoidIndex( 0 )
 {
+  // set wait cursor since construction of the project properties
+  // dialog can be slow
+  QgsTemporaryCursorOverride cursorOverride( Qt::WaitCursor );
+
   setupUi( this );
+
+  mExtentGroupBox->setTitleBase( tr( "Set Project Full Extent" ) );
+  mExtentGroupBox->setMapCanvas( mapCanvas, false );
 
   mMetadataWidget = new QgsMetadataWidget();
   mMetadataPage->layout()->addWidget( mMetadataWidget );
@@ -396,6 +403,14 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
 
   grpProjectScales->setChecked( QgsProject::instance()->viewSettings()->useProjectScales() );
 
+  const QgsReferencedRectangle presetExtent = QgsProject::instance()->viewSettings()->presetFullExtent();
+  mExtentGroupBox->setOutputCrs( QgsProject::instance()->crs() );
+  if ( presetExtent.isNull() )
+    mExtentGroupBox->setOutputExtentFromUser( QgsProject::instance()->viewSettings()->fullExtent(), QgsProject::instance()->crs() );
+  else
+    mExtentGroupBox->setOutputExtentFromUser( presetExtent, presetExtent.crs() );
+  mExtentGroupBox->setChecked( !presetExtent.isNull() );
+
   mLayerCapabilitiesModel = new QgsLayerCapabilitiesModel( QgsProject::instance(), this );
   mLayerCapabilitiesModel->setLayerTreeModel( new QgsLayerTreeModel( QgsProject::instance()->layerTreeRoot(), mLayerCapabilitiesModel ) );
   mLayerCapabilitiesTree->setModel( mLayerCapabilitiesModel );
@@ -589,6 +604,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   {
     mWMSPrecisionSpinBox->setValue( WMSprecision );
   }
+  mWMSPrecisionSpinBox->setClearValue( 8 );
 
   bool ok = false;
   QStringList values;
@@ -678,11 +694,13 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   {
     mWMSImageQualitySpinBox->setValue( imageQuality );
   }
+  mWMSImageQualitySpinBox->setClearValue( 90 );
 
   // WMS tileBuffer
   mWMSTileBufferSpinBox->setValue( QgsProject::instance()->readNumEntry( QStringLiteral( "WMSTileBuffer" ), QStringLiteral( "/" ), 0 ) );
 
   mWMSMaxAtlasFeaturesSpinBox->setValue( QgsProject::instance()->readNumEntry( QStringLiteral( "WMSMaxAtlasFeatures" ), QStringLiteral( "/" ), 1 ) );
+  mWMSMaxAtlasFeaturesSpinBox->setClearValue( 1 );
 
   QString defaultValueToolTip = tr( "In case of no other information to evaluate the map unit sized symbols, it uses default scale (on projected CRS) or default map units per mm (on geographic CRS)." );
   if ( QgsProject::instance()->crs().isGeographic() )
@@ -704,7 +722,8 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   }
 
   mWMTSUrlLineEdit->setText( QgsProject::instance()->readEntry( QStringLiteral( "WMTSUrl" ), QStringLiteral( "/" ), QString() ) );
-  mWMTSMinScaleLineEdit->setValue( QgsProject::instance()->readNumEntry( QStringLiteral( "WMTSMinScale" ), QStringLiteral( "/" ), 5000 ) );
+  mWMTSMinScaleSpinBox->setValue( QgsProject::instance()->readNumEntry( QStringLiteral( "WMTSMinScale" ), QStringLiteral( "/" ), 5000 ) );
+  mWMTSMinScaleSpinBox->setClearValue( 5000 );
 
   bool wmtsProject = QgsProject::instance()->readBoolEntry( QStringLiteral( "WMTSLayers" ), QStringLiteral( "Project" ) );
   bool wmtsPngProject = QgsProject::instance()->readBoolEntry( QStringLiteral( "WMTSPngLayers" ), QStringLiteral( "Project" ) );
@@ -1163,10 +1182,21 @@ void QgsProjectProperties::apply()
     QgsProject::instance()->viewSettings()->setUseProjectScales( false );
   }
 
+  if ( mExtentGroupBox->isChecked() )
+  {
+    QgsProject::instance()->viewSettings()->setPresetFullExtent( QgsReferencedRectangle( mExtentGroupBox->outputExtent(), mExtentGroupBox->outputCrs() ) );
+  }
+  else
+  {
+    QgsProject::instance()->viewSettings()->setPresetFullExtent( QgsReferencedRectangle() );
+  }
+
+  bool isDirty = false;
   const QMap<QString, QgsMapLayer *> &mapLayers = QgsProject::instance()->mapLayers();
   for ( QMap<QString, QgsMapLayer *>::const_iterator it = mapLayers.constBegin(); it != mapLayers.constEnd(); ++it )
   {
     QgsMapLayer *layer = it.value();
+    QgsMapLayer::LayerFlags oldFlags = layer->flags();
     QgsMapLayer::LayerFlags flags = layer->flags();
 
     if ( mLayerCapabilitiesModel->identifiable( layer ) )
@@ -1184,6 +1214,11 @@ void QgsProjectProperties::apply()
     else
       flags &= ~QgsMapLayer::Searchable;
 
+    if ( mLayerCapabilitiesModel->privateLayer( layer ) )
+      flags |= QgsMapLayer::Private;
+    else
+      flags &= ~QgsMapLayer::Private;
+
     layer->setFlags( flags );
 
     QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
@@ -1192,6 +1227,16 @@ void QgsProjectProperties::apply()
       // read only is for vector layers only for now
       vl->setReadOnly( mLayerCapabilitiesModel->readOnly( vl ) );
     }
+
+    if ( oldFlags != flags )
+    {
+      isDirty = true;
+    }
+  }
+
+  if ( isDirty )
+  {
+    QgsProject::instance()->setDirty( true );
   }
 
   QgsProject::instance()->writeEntry( QStringLiteral( "WMSServiceCapabilities" ), QStringLiteral( "/" ), grpOWSServiceCapabilities->isChecked() );
@@ -1399,7 +1444,7 @@ void QgsProjectProperties::apply()
   }
 
   QgsProject::instance()->writeEntry( QStringLiteral( "WMTSUrl" ), QStringLiteral( "/" ), mWMTSUrlLineEdit->text() );
-  QgsProject::instance()->writeEntry( QStringLiteral( "WMTSMinScale" ), QStringLiteral( "/" ), mWMTSMinScaleLineEdit->value() );
+  QgsProject::instance()->writeEntry( QStringLiteral( "WMTSMinScale" ), QStringLiteral( "/" ), mWMTSMinScaleSpinBox->value() );
   bool wmtsProject = false;
   bool wmtsPngProject = false;
   bool wmtsJpegProject = false;
@@ -1553,11 +1598,6 @@ void QgsProjectProperties::apply()
   {
     canvas->refresh();
   }
-}
-
-void QgsProjectProperties::showProjectionsTab()
-{
-  mOptionsListWidget->setCurrentRow( 2 );
 }
 
 void QgsProjectProperties::lwWmsRowsInserted( const QModelIndex &parent, int first, int last )
@@ -1762,6 +1802,8 @@ void QgsProjectProperties::crsChanged( const QgsCoordinateReferenceSystem &crs )
     cmbEllipsoid->setCurrentIndex( 0 );
     cmbEllipsoid->setEnabled( false );
   }
+
+  mExtentGroupBox->setOutputCrs( crs );
 }
 
 void QgsProjectProperties::pbnWMSExtCanvas_clicked()

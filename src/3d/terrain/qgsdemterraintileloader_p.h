@@ -35,6 +35,7 @@
 #include <QMutex>
 
 #include "qgschunknode_p.h"
+#include "qgscoordinatetransformcontext.h"
 #include "qgsrectangle.h"
 #include "qgsterraintileloader_p.h"
 #include "qgstilingscheme.h"
@@ -90,7 +91,7 @@ class QgsDemHeightMapGenerator : public QObject
     ~QgsDemHeightMapGenerator() override;
 
     //! asynchronous terrain read for a tile (array of floats)
-    int render( int x, int y, int z );
+    int render( const QgsChunkNodeId &nodeId );
 
     //! Waits for the tile to finish rendering
     void waitForFinished();
@@ -138,6 +139,8 @@ class QgsDemHeightMapGenerator : public QObject
     mutable QMutex mLazyLoadDtmCoarseDataMutex;
     //! used for height queries
     QByteArray mDtmCoarseData;
+
+    QgsCoordinateTransformContext mTransformContext;
 };
 
 /// @endcond

@@ -279,7 +279,7 @@ Centers canvas extent to feature ids
 
 :param layer: the vector layer
 :param ids: the feature ids
-:param alwaysRecenter: if false, the canvas is recentered only if the bounding box is not contained within the current extent
+:param alwaysRecenter: if ``False``, the canvas is recentered only if the bounding box is not contained within the current extent
 %End
 
     void panToSelected( QgsVectorLayer *layer = 0 );
@@ -963,6 +963,16 @@ Set a list of resolutions (map units per pixel) to which to "snap to" when zoomi
 .. versionadded:: 3.12
 %End
 
+    double zoomInFactor() const;
+%Docstring
+Returns the zoom in factor.
+%End
+
+    double zoomOutFactor() const;
+%Docstring
+Returns the zoom in factor.
+%End
+
     const QList<double> &zoomResolutions() const;
 %Docstring
 
@@ -971,6 +981,28 @@ Set a list of resolutions (map units per pixel) to which to "snap to" when zoomi
 .. seealso:: :py:func:`setZoomResolutions`
 
 .. versionadded:: 3.12
+%End
+
+    QgsDoubleRange zRange() const;
+%Docstring
+Returns the range of z-values which will be visible in the map.
+
+.. seealso:: :py:func:`setZRange`
+
+.. seealso:: :py:func:`zRangeChanged`
+
+.. versionadded:: 3.18
+%End
+
+    void setZRange( const QgsDoubleRange &range );
+%Docstring
+Sets the ``range`` of z-values which will be visible in the map.
+
+.. seealso:: :py:func:`zRange`
+
+.. seealso:: :py:func:`zRangeChanged`
+
+.. versionadded:: 3.18
 %End
 
   signals:
@@ -1016,9 +1048,14 @@ Emitted when canvas background color changes
 %End
 
 
-
     void renderComplete( QPainter * );
 %Docstring
+Emitted when the canvas has rendered.
+Passes a pointer to the painter on which the map was drawn. This is
+useful for plugins that wish to draw on the map after it has been
+rendered.  Passing the painter allows plugins to work when the map is
+being rendered onto a pixmap other than the mapCanvas own pixmap member.
+
 - anything related to rendering progress is not visible outside of map canvas
 - additional drawing shall be done directly within the renderer job or independently as a map canvas item
 %End
@@ -1148,6 +1185,16 @@ Emitted when the map canvas temporal range changes.
 .. versionadded:: 3.14
 %End
 
+    void zRangeChanged();
+%Docstring
+Emitted when the map canvas z (elevation) range changes.
+
+.. seealso:: :py:func:`zRange`
+
+.. seealso:: :py:func:`setZRange`
+
+.. versionadded:: 3.18
+%End
 
     void contextMenuAboutToShow( QMenu *menu, QgsMapMouseEvent *event );
 %Docstring
@@ -1156,7 +1203,6 @@ Can be used to extend the context menu.
 
 .. versionadded:: 3.16
 %End
-
 
   protected:
 

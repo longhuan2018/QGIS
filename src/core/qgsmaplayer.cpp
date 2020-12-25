@@ -54,6 +54,7 @@
 #include "qgsxmlutils.h"
 #include "qgsstringutils.h"
 #include "qgsmaplayertemporalproperties.h"
+#include "qgsmaplayerelevationproperties.h"
 
 QString QgsMapLayer::extensionPropertyType( QgsMapLayer::PropertyType type )
 {
@@ -124,6 +125,7 @@ void QgsMapLayer::clone( QgsMapLayer *layer ) const
   layer->mShouldValidateCrs = mShouldValidateCrs;
   layer->setCrs( crs() );
   layer->setCustomProperties( mCustomProperties );
+  layer->setOpacity( mLayerOpacity );
 }
 
 QgsMapLayerType QgsMapLayer::type() const
@@ -214,6 +216,19 @@ QPainter::CompositionMode QgsMapLayer::blendMode() const
   return mBlendMode;
 }
 
+void QgsMapLayer::setOpacity( double opacity )
+{
+  if ( qgsDoubleNear( mLayerOpacity, opacity ) )
+    return;
+  mLayerOpacity = opacity;
+  emit opacityChanged( opacity );
+  emit styleChanged();
+}
+
+double QgsMapLayer::opacity() const
+{
+  return mLayerOpacity;
+}
 
 bool QgsMapLayer::readLayerXml( const QDomElement &layerElement, QgsReadWriteContext &context, QgsMapLayer::ReadFlags flags )
 {
@@ -582,10 +597,16 @@ void QgsMapLayer::writeCommonStyle( QDomElement &layerElement, QDomDocument &doc
 
   if ( categories.testFlag( Temporal ) )
   {
-    QgsMapLayerTemporalProperties *lTemporalProperties = const_cast< QgsMapLayer * >( this )->temporalProperties();
-    if ( lTemporalProperties )
-      lTemporalProperties->writeXml( layerElement, document, context );
+    if ( QgsMapLayerTemporalProperties *properties = const_cast< QgsMapLayer * >( this )->temporalProperties() )
+      properties->writeXml( layerElement, document, context );
   }
+
+  if ( categories.testFlag( Elevation ) )
+  {
+    if ( QgsMapLayerElevationProperties *properties = const_cast< QgsMapLayer * >( this )->elevationProperties() )
+      properties->writeXml( layerElement, document, context );
+  }
+
 
   // custom properties
   if ( categories.testFlag( CustomProperties ) )
@@ -1684,9 +1705,14 @@ void QgsMapLayer::readCommonStyle( const QDomElement &layerElement, const QgsRea
 
   if ( categories.testFlag( Temporal ) )
   {
-    QgsMapLayerTemporalProperties *lTemporalProperties = temporalProperties();
-    if ( lTemporalProperties )
-      lTemporalProperties->readXml( layerElement.toElement(), context );
+    if ( QgsMapLayerTemporalProperties *properties = temporalProperties() )
+      properties->readXml( layerElement.toElement(), context );
+  }
+
+  if ( categories.testFlag( Elevation ) )
+  {
+    if ( QgsMapLayerElevationProperties *properties = elevationProperties() )
+      properties->readXml( layerElement.toElement(), context );
   }
 }
 
@@ -1707,7 +1733,11 @@ QStringList QgsMapLayer::customPropertyKeys() const
 
 void QgsMapLayer::setCustomProperty( const QString &key, const QVariant &value )
 {
-  mCustomProperties.setValue( key, value );
+  if ( !mCustomProperties.contains( key ) || mCustomProperties.value( key ) != value )
+  {
+    mCustomProperties.setValue( key, value );
+    emit customPropertyChanged( key );
+  }
 }
 
 void QgsMapLayer::setCustomProperties( const QgsObjectCustomProperties &properties )
@@ -1727,7 +1757,12 @@ QVariant QgsMapLayer::customProperty( const QString &value, const QVariant &defa
 
 void QgsMapLayer::removeCustomProperty( const QString &key )
 {
-  mCustomProperties.remove( key );
+
+  if ( mCustomProperties.contains( key ) )
+  {
+    mCustomProperties.remove( key );
+    emit customPropertyChanged( key );
+  }
 }
 
 QgsError QgsMapLayer::error() const
@@ -1816,6 +1851,7 @@ void QgsMapLayer::setRenderer3D( QgsAbstract3DRenderer *renderer )
   delete m3DRenderer;
   m3DRenderer = renderer;
   emit renderer3DChanged();
+  trigger3DUpdate();
 }
 
 QgsAbstract3DRenderer *QgsMapLayer::renderer3D() const
@@ -1831,6 +1867,11 @@ void QgsMapLayer::triggerRepaint( bool deferredUpdate )
   mRepaintRequestedFired = true;
   emit repaintRequested( deferredUpdate );
   mRepaintRequestedFired = false;
+}
+
+void QgsMapLayer::trigger3DUpdate()
+{
+  emit request3DUpdate();
 }
 
 void QgsMapLayer::setMetadata( const QgsLayerMetadata &metadata )

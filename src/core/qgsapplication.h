@@ -63,6 +63,7 @@ class QgsNumericFormatRegistry;
 class QgsConnectionRegistry;
 class QgsScaleBarRendererRegistry;
 class Qgs3DSymbolRegistry;
+class QgsPointCloudRendererRegistry;
 
 /**
  * \ingroup core
@@ -314,6 +315,13 @@ class CORE_EXPORT QgsApplication : public QApplication
 
     //! Returns the path to the srs.db file.
     static QString srsDatabaseFilePath();
+
+    /**
+     * Sets the paths to svg directories and invalidates the svg path list cache.
+     *
+     * \since QGIS 3.18
+     */
+    static void setSvgPaths( const QStringList &svgPaths );
 
     //! Returns the paths to svg directories.
     static QStringList svgPaths();
@@ -633,6 +641,12 @@ class CORE_EXPORT QgsApplication : public QApplication
     static QgsRasterRendererRegistry *rasterRendererRegistry() SIP_SKIP;
 
     /**
+     * Returns the application's point cloud renderer registry, used for managing point cloud layer 2D renderers.
+     * \since QGIS 3.18
+     */
+    static QgsPointCloudRendererRegistry *pointCloudRendererRegistry() SIP_KEEPREFERENCE;
+
+    /**
      * Returns the application's data item provider registry, which keeps a list of data item
      * providers that may add items to the browser tree.
      * \since QGIS 3.0
@@ -872,6 +886,17 @@ class CORE_EXPORT QgsApplication : public QApplication
     static void setCustomVariable( const QString &name, const QVariant &value );
 
     /**
+     * Scales an icon size to compensate for display pixel density, making the icon
+     * size hi-dpi friendly, whilst still resulting in pixel-perfect sizes for low-dpi
+     * displays.
+     *
+     * \a standardSize should be set to a standard icon size, e.g. 16, 24, 48, etc.
+     *
+     * \since QGIS 3.16
+     */
+    static int scaleIconSize( int standardSize, bool applyDevicePixelRatio = false );
+
+    /**
      * The maximum number of concurrent connections per connections pool.
      *
      * \note QGIS may in some situations allocate more than this amount
@@ -974,6 +999,7 @@ class CORE_EXPORT QgsApplication : public QApplication
       QgsPageSizeRegistry *mPageSizeRegistry = nullptr;
       QgsRasterRendererRegistry *mRasterRendererRegistry = nullptr;
       QgsRendererRegistry *mRendererRegistry = nullptr;
+      QgsPointCloudRendererRegistry *mPointCloudRendererRegistry = nullptr;
       QgsSvgCache *mSvgCache = nullptr;
       QgsImageCache *mImageCache = nullptr;
       QgsSourceCache *mSourceCache = nullptr;
@@ -986,6 +1012,8 @@ class CORE_EXPORT QgsApplication : public QApplication
       QgsBookmarkManager *mBookmarkManager = nullptr;
       QgsStyleModel *mStyleModel = nullptr;
       QString mNullRepresentation;
+      QStringList mSvgPathCache;
+      bool mSvgPathCacheValid = false;
 
       ApplicationMembers();
       ~ApplicationMembers();

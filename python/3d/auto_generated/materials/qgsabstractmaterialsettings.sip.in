@@ -18,6 +18,8 @@ enum class QgsMaterialSettingsRenderingTechnique
   InstancedPoints,
   Points,
   TrianglesWithFixedTexture,
+  TrianglesFromModel,
+  TrianglesDataDefined,
 };
 
 
@@ -103,6 +105,10 @@ Abstract base class for material settings.
     {
       sipType = sipType_QgsSimpleLineMaterialSettings;
     }
+    else if ( sipCpp->type() == "null" )
+    {
+      sipType = sipType_QgsNullMaterialSettings;
+    }
     else
     {
       sipType = 0;
@@ -124,12 +130,12 @@ Clones the material settings.
 Caller takes ownership of the returned object.
 %End
 
-    virtual void readXml( const QDomElement &element, const QgsReadWriteContext &context ) = 0;
+    virtual void readXml( const QDomElement &element, const QgsReadWriteContext & );
 %Docstring
 Reads settings from a DOM ``element``
 %End
 
-    virtual void writeXml( QDomElement &element, const QgsReadWriteContext &context ) const = 0;
+    virtual void writeXml( QDomElement &element, const QgsReadWriteContext & ) const;
 %Docstring
 Writes settings to a DOM ``element``
 %End

@@ -40,6 +40,7 @@ class QgsProjectStorageGuiRegistry;
 class QgsNumericFormatGuiRegistry;
 class QgsCodeEditorColorSchemeRegistry;
 class QgsMessageBar;
+class QgsSubsetStringEditorProviderRegistry;
 
 /**
  * \ingroup gui
@@ -155,6 +156,12 @@ class GUI_EXPORT QgsGui : public QObject
     static QgsProviderGuiRegistry *providerGuiRegistry() SIP_KEEPREFERENCE;
 
     /**
+     * Returns the registry of subset string editors of data providers
+     * \since QGIS 3.18
+     */
+    static QgsSubsetStringEditorProviderRegistry *subsetStringEditorProviderRegistry() SIP_KEEPREFERENCE;
+
+    /**
      * Register the widget to allow its position to be automatically saved and restored when open and closed.
      * Use this to avoid needing to call saveGeometry() and restoreGeometry() on your widget.
      */
@@ -208,7 +215,7 @@ class GUI_EXPORT QgsGui : public QObject
     static QScreen *findScreenAt( QPoint point );
 
     /**
-     * Returns true if python macros are currently allowed to be run
+     * Returns TRUE if python macros are currently allowed to be run
      * If the global option is to ask user, a modal dialog will be shown
      * \param lambda a pointer to a lambda method. If specified, the dialog is not modal,
      * a message is shown with a button to enable macro.
@@ -255,6 +262,7 @@ class GUI_EXPORT QgsGui : public QObject
     QgsDataItemGuiProviderRegistry *mDataItemGuiProviderRegistry = nullptr;
     QgsCodeEditorColorSchemeRegistry *mCodeEditorColorSchemeRegistry = nullptr;
     QgsProjectStorageGuiRegistry *mProjectStorageGuiRegistry = nullptr;
+    QgsSubsetStringEditorProviderRegistry *mSubsetStringEditorProviderRegistry = nullptr;
     std::unique_ptr< QgsWindowManagerInterface > mWindowManager;
 
 #ifdef SIP_RUN

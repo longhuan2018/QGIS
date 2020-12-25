@@ -38,15 +38,18 @@
 #include "qgsproviderregistry.h"
 #include "qgsdatumtransformdialog.h"
 #include "qgsmaplayerconfigwidgetfactory.h"
+#include "qgsgui.h"
+#include "qgsnative.h"
+#include "qgsmetadatawidget.h"
 
-
+#include <QDesktopServices>
 #include <QFileDialog>
 #include <QMessageBox>
 
 QgsMeshLayerProperties::QgsMeshLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *canvas, QWidget *parent, Qt::WindowFlags fl )
   : QgsOptionsDialogBase( QStringLiteral( "MeshLayerProperties" ), parent, fl )
-  , mMeshLayer( qobject_cast<QgsMeshLayer *>( lyr ) ),
-    mCanvas( canvas )
+  , mMeshLayer( qobject_cast<QgsMeshLayer *>( lyr ) )
+  , mCanvas( canvas )
 {
   Q_ASSERT( mMeshLayer );
 
@@ -54,6 +57,9 @@ QgsMeshLayerProperties::QgsMeshLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *
   mRendererMeshPropertiesWidget = new QgsRendererMeshPropertiesWidget( mMeshLayer, canvas, this );
   mConfigWidgets << mRendererMeshPropertiesWidget;
   mOptsPage_StyleContent->layout()->addWidget( mRendererMeshPropertiesWidget );
+
+  mSimplifyReductionFactorSpinBox->setClearValue( 10.0 );
+  mSimplifyMeshResolutionSpinBox->setClearValue( 5 );
 
   mStaticDatasetWidget->setLayer( mMeshLayer );
   mIsMapSettingsTemporal = mMeshLayer && canvas && canvas->mapSettings().isTemporal();
@@ -91,6 +97,16 @@ QgsMeshLayerProperties::QgsMeshLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *
   mComboBoxTemporalDatasetMatchingMethod->addItem( tr( "Find Closest Dataset From Requested Time (After or Before)" ),
       QgsMeshDataProviderTemporalCapabilities::FindClosestDatasetFromStartRangeTime );
 
+  QVBoxLayout *layout = new QVBoxLayout( metadataFrame );
+  layout->setContentsMargins( 0, 0, 0, 0 );
+  metadataFrame->setContentsMargins( 0, 0, 0, 0 );
+  mMetadataWidget = new QgsMetadataWidget( this, mMeshLayer );
+  mMetadataWidget->layout()->setContentsMargins( 0, 0, 0, 0 );
+  mMetadataWidget->setMapCanvas( mCanvas );
+  layout->addWidget( mMetadataWidget );
+  metadataFrame->setLayout( layout );
+  mOptsPage_Metadata->setContentsMargins( 0, 0, 0, 0 );
+
   // update based on lyr's current state
   syncToLayer();
 
@@ -103,30 +119,36 @@ QgsMeshLayerProperties::QgsMeshLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *
                        mOptStackedWidget->indexOf( mOptsPage_Style ) );
   }
 
-  QString title = tr( "Layer Properties — %1" ).arg( lyr->name() );
-
-  if ( !mMeshLayer->styleManager()->isDefault( mMeshLayer->styleManager()->currentStyle() ) )
-    title += QStringLiteral( " (%1)" ).arg( mMeshLayer->styleManager()->currentStyle() );
-  restoreOptionsBaseUi( title );
-
   //Add help page references
   mOptsPage_Information->setProperty( "helpPage", QStringLiteral( "working_with_mesh/mesh_properties.html#information-properties" ) );
   mOptsPage_Source->setProperty( "helpPage", QStringLiteral( "working_with_mesh/mesh_properties.html#source-properties" ) );
   mOptsPage_Style->setProperty( "helpPage", QStringLiteral( "working_with_mesh/mesh_properties.html#symbology-properties" ) );
   mOptsPage_Rendering->setProperty( "helpPage", QStringLiteral( "working_with_mesh/mesh_properties.html#rendering-properties" ) );
 
-
-  QPushButton *btnStyle = new QPushButton( tr( "Style" ) );
+  mBtnStyle = new QPushButton( tr( "Style" ) );
   QMenu *menuStyle = new QMenu( this );
   menuStyle->addAction( tr( "Load Style…" ), this, &QgsMeshLayerProperties::loadStyle );
   menuStyle->addAction( tr( "Save Style…" ), this, &QgsMeshLayerProperties::saveStyleAs );
   menuStyle->addSeparator();
   menuStyle->addAction( tr( "Save as Default" ), this, &QgsMeshLayerProperties::saveDefaultStyle );
   menuStyle->addAction( tr( "Restore Default" ), this, &QgsMeshLayerProperties::loadDefaultStyle );
-  btnStyle->setMenu( menuStyle );
+  mBtnStyle->setMenu( menuStyle );
   connect( menuStyle, &QMenu::aboutToShow, this, &QgsMeshLayerProperties::aboutToShowStyleMenu );
 
-  buttonBox->addButton( btnStyle, QDialogButtonBox::ResetRole );
+  buttonBox->addButton( mBtnStyle, QDialogButtonBox::ResetRole );
+
+  mBtnMetadata = new QPushButton( tr( "Metadata" ), this );
+  QMenu *menuMetadata = new QMenu( this );
+  mActionLoadMetadata = menuMetadata->addAction( tr( "Load Metadata…" ), this, &QgsMeshLayerProperties::loadMetadata );
+  mActionSaveMetadataAs = menuMetadata->addAction( tr( "Save Metadata…" ), this, &QgsMeshLayerProperties::saveMetadataAs );
+  mBtnMetadata->setMenu( menuMetadata );
+  buttonBox->addButton( mBtnMetadata, QDialogButtonBox::ResetRole );
+
+  QString title = tr( "Layer Properties — %1" ).arg( lyr->name() );
+
+  if ( !mMeshLayer->styleManager()->isDefault( mMeshLayer->styleManager()->currentStyle() ) )
+    title += QStringLiteral( " (%1)" ).arg( mMeshLayer->styleManager()->currentStyle() );
+  restoreOptionsBaseUi( title );
 }
 
 void QgsMeshLayerProperties::addPropertiesPageFactory( QgsMapLayerConfigWidgetFactory *factory )
@@ -151,6 +173,15 @@ void QgsMeshLayerProperties::addPropertiesPageFactory( QgsMapLayerConfigWidgetFa
 
 }
 
+void QgsMeshLayerProperties::optionsStackedWidget_CurrentChanged( int index )
+{
+  QgsOptionsDialogBase::optionsStackedWidget_CurrentChanged( index );
+
+  bool isMetadataPanel = ( index == mOptStackedWidget->indexOf( mOptsPage_Metadata ) );
+  mBtnStyle->setVisible( ! isMetadataPanel );
+  mBtnMetadata->setVisible( isMetadataPanel );
+}
+
 void QgsMeshLayerProperties::syncToLayer()
 {
   Q_ASSERT( mRendererMeshPropertiesWidget );
@@ -159,22 +190,13 @@ void QgsMeshLayerProperties::syncToLayer()
   /*
   * Information Tab
   */
-  QString info;
-  if ( mMeshLayer->dataProvider() )
-  {
-    info += QLatin1String( "<table>" );
-    info += QStringLiteral( "<tr><td>%1: </td><td>%2</td><tr>" ).arg( tr( "Uri" ) ).arg( mMeshLayer->dataProvider()->dataSourceUri() );
-    info += QStringLiteral( "<tr><td>%1: </td><td>%2</td><tr>" ).arg( tr( "Vertex count" ) ).arg( mMeshLayer->dataProvider()->vertexCount() );
-    info += QStringLiteral( "<tr><td>%1: </td><td>%2</td><tr>" ).arg( tr( "Face count" ) ).arg( mMeshLayer->dataProvider()->faceCount() );
-    info += QStringLiteral( "<tr><td>%1: </td><td>%2</td><tr>" ).arg( tr( "Edge count" ) ).arg( mMeshLayer->dataProvider()->edgeCount() );
-    info += QStringLiteral( "<tr><td>%1: </td><td>%2</td><tr>" ).arg( tr( "Dataset groups count" ) ).arg( mMeshLayer->dataProvider()->datasetGroupCount() );
-    info += QLatin1String( "</table>" );
-  }
-  else
-  {
-    info += tr( "Invalid data provider" );
-  }
-  mInformationTextBrowser->setText( info );
+  QString myStyle = QgsApplication::reportStyleSheet();
+  myStyle.append( QStringLiteral( "body { margin: 10px; }\n " ) );
+  mInformationTextBrowser->clear();
+  mInformationTextBrowser->document()->setDefaultStyleSheet( myStyle );
+  mInformationTextBrowser->setHtml( mMeshLayer->htmlMetadata() );
+  mInformationTextBrowser->setOpenLinks( false );
+  connect( mInformationTextBrowser, &QTextBrowser::anchorClicked, this, &QgsMeshLayerProperties::urlClicked );
 
   QgsDebugMsgLevel( QStringLiteral( "populate source tab" ), 4 );
   /*
@@ -183,15 +205,6 @@ void QgsMeshLayerProperties::syncToLayer()
   mLayerOrigNameLineEd->setText( mMeshLayer->name() );
   leDisplayName->setText( mMeshLayer->name() );
   whileBlocking( mCrsSelector )->setCrs( mMeshLayer->crs() );
-
-  if ( mMeshLayer && mMeshLayer->dataProvider() )
-  {
-    mUriLabel->setText( mMeshLayer->dataProvider()->dataSourceUri() );
-  }
-  else
-  {
-    mUriLabel->setText( tr( "Not assigned" ) );
-  }
 
   if ( mMeshLayer )
     mDatasetGroupTreeWidget->syncToLayer( mMeshLayer );
@@ -377,6 +390,8 @@ void QgsMeshLayerProperties::apply()
   mMeshLayer->setTemporalMatchingMethod( static_cast<QgsMeshDataProviderTemporalCapabilities::MatchingTemporalDatasetMethod>(
       mComboBoxTemporalDatasetMatchingMethod->currentData().toInt() ) );
 
+  mMetadataWidget->acceptMetadata();
+
   if ( needMeshUpdating )
     mMeshLayer->reload();
 
@@ -467,4 +482,75 @@ void QgsMeshLayerProperties::onTimeReferenceChange()
 void QgsMeshLayerProperties::onStaticDatasetCheckBoxChanged()
 {
   mStaticDatasetGroupBox->setCollapsed( !mTemporalStaticDatasetCheckBox->isChecked() && mIsMapSettingsTemporal );
+}
+
+void QgsMeshLayerProperties::urlClicked( const QUrl &url )
+{
+  QFileInfo file( url.toLocalFile() );
+  if ( file.exists() && !file.isDir() )
+    QgsGui::instance()->nativePlatformInterface()->openFileExplorerAndSelectFile( url.toLocalFile() );
+  else
+    QDesktopServices::openUrl( url );
+}
+
+void QgsMeshLayerProperties::loadMetadata()
+{
+  QgsSettings myQSettings;  // where we keep last used filter in persistent state
+  QString myLastUsedDir = myQSettings.value( QStringLiteral( "style/lastStyleDir" ), QDir::homePath() ).toString();
+
+  QString myFileName = QFileDialog::getOpenFileName( this, tr( "Load layer metadata from metadata file" ), myLastUsedDir,
+                       tr( "QGIS Layer Metadata File" ) + " (*.qmd)" );
+  if ( myFileName.isNull() )
+  {
+    return;
+  }
+
+  QString myMessage;
+  bool defaultLoadedFlag = false;
+  myMessage = mMeshLayer->loadNamedMetadata( myFileName, defaultLoadedFlag );
+
+  //reset if the default style was loaded OK only
+  if ( defaultLoadedFlag )
+  {
+    mMetadataWidget->setMetadata( &mMeshLayer->metadata() );
+  }
+  else
+  {
+    //let the user know what went wrong
+    QMessageBox::warning( this, tr( "Load Metadata" ), myMessage );
+  }
+
+  QFileInfo myFI( myFileName );
+  QString myPath = myFI.path();
+  myQSettings.setValue( QStringLiteral( "style/lastStyleDir" ), myPath );
+
+  activateWindow(); // set focus back to properties dialog
+}
+
+void QgsMeshLayerProperties::saveMetadataAs()
+{
+  QgsSettings myQSettings;  // where we keep last used filter in persistent state
+  QString myLastUsedDir = myQSettings.value( QStringLiteral( "style/lastStyleDir" ), QDir::homePath() ).toString();
+
+  QString myOutputFileName = QFileDialog::getSaveFileName( this, tr( "Save Layer Metadata as QMD" ),
+                             myLastUsedDir, tr( "QMD File" ) + " (*.qmd)" );
+  if ( myOutputFileName.isNull() ) //dialog canceled
+  {
+    return;
+  }
+
+  mMetadataWidget->acceptMetadata();
+
+  //ensure the user never omitted the extension from the file name
+  if ( !myOutputFileName.endsWith( QgsMapLayer::extensionPropertyType( QgsMapLayer::Metadata ), Qt::CaseInsensitive ) )
+  {
+    myOutputFileName += QgsMapLayer::extensionPropertyType( QgsMapLayer::Metadata );
+  }
+
+  bool defaultLoadedFlag = false;
+  QString message = mMeshLayer->saveNamedMetadata( myOutputFileName, defaultLoadedFlag );
+  if ( defaultLoadedFlag )
+    myQSettings.setValue( QStringLiteral( "style/lastStyleDir" ), QFileInfo( myOutputFileName ).absolutePath() );
+  else
+    QMessageBox::information( this, tr( "Save Metadata" ), message );
 }

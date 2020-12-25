@@ -29,9 +29,6 @@
 #include "qgsmaprenderercache.h"
 #include "qgsmessagelog.h"
 #include "qgspallabeling.h"
-#include "qgsvectorlayerrenderer.h"
-#include "qgsvectorlayer.h"
-#include "qgsvectortilelayer.h"
 #include "qgsexception.h"
 #include "qgslabelingengine.h"
 #include "qgsmaplayerlistutils.h"
@@ -44,7 +41,8 @@
 #include "qgsvectorlayerutils.h"
 #include "qgssymbollayerutils.h"
 #include "qgsmaplayertemporalproperties.h"
-#include "qgsannotationlayer.h"
+#include "qgsmaplayerelevationproperties.h"
+#include "qgsvectorlayerrenderer.h"
 
 ///@cond PRIVATE
 
@@ -123,6 +121,7 @@ bool QgsMapRendererJob::prepareLabelCache() const
       case QgsMapLayerType::AnnotationLayer:
       case QgsMapLayerType::PluginLayer:
       case QgsMapLayerType::MeshLayer:
+      case QgsMapLayerType::PointCloudLayer:
         break;
     }
 
@@ -339,6 +338,12 @@ LayerRenderJobs QgsMapRendererJob::prepareJobs( QPainter *painter, QgsLabelingEn
       continue;
     }
 
+    if ( !mSettings.zRange().isInfinite() && ml->elevationProperties() && !ml->elevationProperties()->isVisibleInZRange( mSettings.zRange() ) )
+    {
+      QgsDebugMsgLevel( QStringLiteral( "Layer not rendered because it is not visible within the map's z range" ), 3 );
+      continue;
+    }
+
     QgsRectangle r1 = mSettings.visibleExtent(), r2;
     r1.grow( mSettings.extentBuffer() );
     QgsCoordinateTransform ct;
@@ -394,15 +399,10 @@ LayerRenderJobs QgsMapRendererJob::prepareJobs( QPainter *painter, QgsLabelingEn
       styleOverride.setOverrideStyle( mSettings.layerStyleOverrides().value( ml->id() ) );
 
     job.blendMode = ml->blendMode();
-    job.opacity = 1.0;
-    if ( vl )
-    {
-      job.opacity = vl->opacity();
-    }
-    else if ( QgsAnnotationLayer *al = qobject_cast<QgsAnnotationLayer *>( ml ) )
-    {
-      job.opacity = al->opacity();
-    }
+
+    // raster layer opacity is handled directly within the raster layer renderer, so don't
+    // apply default opacity handling here!
+    job.opacity = ml->type() != QgsMapLayerType::RasterLayer ? ml->opacity() : 1.0;
 
     // if we can use the cache, let's do it and avoid rendering!
     if ( mCache && mCache->hasCacheImage( ml->id() ) )
@@ -416,25 +416,28 @@ LayerRenderJobs QgsMapRendererJob::prepareJobs( QPainter *painter, QgsLabelingEn
       continue;
     }
 
+    QElapsedTimer layerTime;
+    layerTime.start();
+    job.renderer = ml->createMapRenderer( job.context );
+
     // If we are drawing with an alternative blending mode then we need to render to a separate image
     // before compositing this on the map. This effectively flattens the layer and prevents
     // blending occurring between objects on the layer
-    if ( mCache || ( !painter && !deferredPainterSet ) || needTemporaryImage( ml ) )
+    if ( mCache || ( !painter && !deferredPainterSet ) || ( job.renderer && job.renderer->forceRasterRender() ) )
     {
       // Flattened image for drawing when a blending mode is set
       job.context.setPainter( allocateImageAndPainter( ml->id(), job.img ) );
       if ( ! job.img )
       {
+        delete job.renderer;
+        job.renderer = nullptr;
         layerJobs.removeLast();
         continue;
       }
     }
 
-    QElapsedTimer layerTime;
-    layerTime.start();
-    job.renderer = ml->createMapRenderer( job.context );
     job.renderingTime = layerTime.elapsed(); // include job preparation time in layer rendering time
-  } // while (li.hasPrevious())
+  }
 
   return layerJobs;
 }
@@ -927,58 +930,6 @@ void QgsMapRendererJob::logRenderingTime( const LayerRenderJobs &jobs, const Lay
     QgsMessageLog::logMessage( tr( "%1 ms: %2" ).arg( t ).arg( QStringList( elapsed.values( t ) ).join( QLatin1String( ", " ) ) ), tr( "Rendering" ) );
   }
   QgsMessageLog::logMessage( QStringLiteral( "---" ), tr( "Rendering" ) );
-}
-
-bool QgsMapRendererJob::needTemporaryImage( QgsMapLayer *ml )
-{
-  switch ( ml->type() )
-  {
-    case QgsMapLayerType::VectorLayer:
-    {
-      QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( ml );
-      if ( vl->renderer() && vl->renderer()->forceRasterRender() )
-      {
-        //raster rendering is forced for this layer
-        return true;
-      }
-      if ( mSettings.testFlag( QgsMapSettings::UseAdvancedEffects ) &&
-           ( ( vl->blendMode() != QPainter::CompositionMode_SourceOver )
-             || ( vl->featureBlendMode() != QPainter::CompositionMode_SourceOver )
-             || ( !qgsDoubleNear( vl->opacity(), 1.0 ) ) ) )
-      {
-        //layer properties require rasterization
-        return true;
-      }
-      break;
-    }
-    case QgsMapLayerType::RasterLayer:
-    {
-      // preview of intermediate raster rendering results requires a temporary output image
-      if ( mSettings.testFlag( QgsMapSettings::RenderPartialOutput ) )
-        return true;
-      break;
-    }
-
-    case QgsMapLayerType::MeshLayer:
-    case QgsMapLayerType::VectorTileLayer:
-    case QgsMapLayerType::PluginLayer:
-      break;
-
-    case QgsMapLayerType::AnnotationLayer:
-    {
-      QgsAnnotationLayer *al = qobject_cast<QgsAnnotationLayer *>( ml );
-      if ( mSettings.testFlag( QgsMapSettings::UseAdvancedEffects ) &&
-           ( !qgsDoubleNear( al->opacity(), 1.0 ) ) )
-      {
-        //layer properties require rasterization
-        return true;
-      }
-      break;
-    }
-
-  }
-
-  return false;
 }
 
 void QgsMapRendererJob::drawLabeling( QgsRenderContext &renderContext, QgsLabelingEngine *labelingEngine2, QPainter *painter )

@@ -2,6 +2,7 @@
 %Include auto_generated/qgisinterface.sip
 %Include auto_generated/qgs3dsymbolwidget.sip
 %Include auto_generated/qgsabstractdatasourcewidget.sip
+%Include auto_generated/qgsabstractmaptoolhandler.sip
 %Include auto_generated/qgsactionmenu.sip
 %Include auto_generated/qgsadvanceddigitizingdockwidget.sip
 %Include auto_generated/qgsadvanceddigitizingfloater.sip
@@ -28,6 +29,7 @@
 %Include auto_generated/qgscolorbutton.sip
 %Include auto_generated/qgscolordialog.sip
 %Include auto_generated/qgscolorrampbutton.sip
+%Include auto_generated/qgscolorramplegendnodewidget.sip
 %Include auto_generated/qgscolorschemelist.sip
 %Include auto_generated/qgscolorswatchgrid.sip
 %Include auto_generated/qgscolorwidgets.sip
@@ -83,6 +85,7 @@
 %Include auto_generated/qgsfocuswatcher.sip
 %Include auto_generated/qgsfontbutton.sip
 %Include auto_generated/qgsformannotation.sip
+%Include auto_generated/qgsgeocoderlocatorfilter.sip
 %Include auto_generated/qgsgeometryrubberband.sip
 %Include auto_generated/qgsgradientcolorrampdialog.sip
 %Include auto_generated/qgsgradientstopeditor.sip
@@ -154,6 +157,7 @@
 %Include auto_generated/qgspasswordlineedit.sip
 %Include auto_generated/qgspixmaplabel.sip
 %Include auto_generated/qgspluginmanagerinterface.sip
+%Include auto_generated/qgspointcloudattributecombobox.sip
 %Include auto_generated/qgspresetcolorrampdialog.sip
 %Include auto_generated/qgsprevieweffect.sip
 %Include auto_generated/qgsprojectionselectiondialog.sip
@@ -168,6 +172,7 @@
 %Include auto_generated/qgsproviderguiregistry.sip
 %Include auto_generated/qgsproxystyle.sip
 %Include auto_generated/qgsquerybuilder.sip
+%Include auto_generated/qgsrangeslider.sip
 %Include auto_generated/qgsrasterformatsaveoptionswidget.sip
 %Include auto_generated/qgsrasterlayersaveasdialog.sip
 %Include auto_generated/qgsrasterpyramidsoptionswidget.sip
@@ -180,6 +185,9 @@
 %Include auto_generated/qgsscalewidget.sip
 %Include auto_generated/qgsscrollarea.sip
 %Include auto_generated/qgssearchquerybuilder.sip
+%Include auto_generated/qgssubsetstringeditorinterface.sip
+%Include auto_generated/qgssubsetstringeditorprovider.sip
+%Include auto_generated/qgssubsetstringeditorproviderregistry.sip
 %Include auto_generated/qgsshortcutsmanager.sip
 %Include auto_generated/qgsslider.sip
 %Include auto_generated/qgssnapindicator.sip
@@ -328,6 +336,9 @@
 %Include auto_generated/numericformats/qgsnumericformatselectorwidget.sip
 %Include auto_generated/numericformats/qgsnumericformatwidget.sip
 %Include auto_generated/numericformats/qgsnumericformatguiregistry.sip
+%Include auto_generated/pointcloud/qgspointcloudclassifiedrendererwidget.sip
+%Include auto_generated/pointcloud/qgspointcloudrendererwidget.sip
+%Include auto_generated/pointcloud/qgspointcloudrendererpropertieswidget.sip
 %Include auto_generated/processing/qgsprocessingaggregatewidgets.sip
 %Include auto_generated/processing/qgsprocessingalgorithmconfigurationwidget.sip
 %Include auto_generated/processing/qgsprocessingalgorithmdialogbase.sip

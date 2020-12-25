@@ -60,6 +60,12 @@ QgsUnitTypes::RenderUnit  QgsSimpleLineSymbolLayer::outputUnit() const
   return unit;
 }
 
+bool QgsSimpleLineSymbolLayer::usesMapUnits() const
+{
+  return mWidthUnit == QgsUnitTypes::RenderMapUnits || mWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits;
+}
+
 void QgsSimpleLineSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
 {
   QgsLineSymbolLayer::setMapUnitScale( scale );
@@ -331,6 +337,10 @@ void QgsSimpleLineSymbolLayer::renderPolyline( const QPolygonF &points, QgsSymbo
     return;
   }
 
+  QColor penColor = mColor;
+  penColor.setAlphaF( mColor.alphaF() * context.opacity() );
+  mPen.setColor( penColor );
+
   double offset = mOffset;
   applyDataDefinedSymbology( context, mPen, mSelPen, offset );
 
@@ -563,7 +573,10 @@ void QgsSimpleLineSymbolLayer::applyDataDefinedSymbology( QgsSymbolRenderContext
   if ( mDataDefinedProperties.isActive( QgsSymbolLayer::PropertyStrokeColor ) )
   {
     context.setOriginalValueVariable( QgsSymbolLayerUtils::encodeColor( mColor ) );
-    pen.setColor( mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mColor ) );
+
+    QColor penColor = mDataDefinedProperties.valueAsColor( QgsSymbolLayer::PropertyStrokeColor, context.renderContext().expressionContext(), mColor );
+    penColor.setAlphaF( context.opacity() * penColor.alphaF() );
+    pen.setColor( penColor );
   }
 
   //offset
@@ -2142,8 +2155,6 @@ QColor QgsMarkerLineSymbolLayer::color() const
 
 void QgsMarkerLineSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
-  mMarker->setOpacity( context.opacity() );
-
   // if being rotated, it gets initialized with every line segment
   QgsSymbol::RenderHints hints = QgsSymbol::RenderHints();
   if ( rotateSymbols() )
@@ -2339,6 +2350,14 @@ void QgsMarkerLineSymbolLayer::setDataDefinedProperty( QgsSymbolLayer::Property 
   QgsLineSymbolLayer::setDataDefinedProperty( key, property );
 }
 
+void QgsMarkerLineSymbolLayer::renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context )
+{
+  const double prevOpacity = mMarker->opacity();
+  mMarker->setOpacity( mMarker->opacity() * context.opacity() );
+  QgsTemplatedLineSymbolLayerBase::renderPolyline( points, context );
+  mMarker->setOpacity( prevOpacity );
+}
+
 void QgsMarkerLineSymbolLayer::setSymbolLineAngle( double angle )
 {
   mMarker->setLineAngle( angle );
@@ -2378,6 +2397,15 @@ void QgsMarkerLineSymbolLayer::setOutputUnit( QgsUnitTypes::RenderUnit unit )
   setOffsetAlongLineUnit( unit );
 }
 
+bool QgsMarkerLineSymbolLayer::usesMapUnits() const
+{
+  return  intervalUnit() == QgsUnitTypes::RenderMapUnits || intervalUnit() == QgsUnitTypes::RenderMetersInMapUnits
+          || offsetAlongLineUnit() == QgsUnitTypes::RenderMapUnits || offsetAlongLineUnit() == QgsUnitTypes::RenderMetersInMapUnits
+          || averageAngleUnit() == QgsUnitTypes::RenderMapUnits || averageAngleUnit() == QgsUnitTypes::RenderMetersInMapUnits
+          || mWidthUnit == QgsUnitTypes::RenderMapUnits || mWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+          || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits
+          || ( mMarker && mMarker->usesMapUnits() );
+}
 
 QSet<QString> QgsMarkerLineSymbolLayer::usedAttributes( const QgsRenderContext &context ) const
 {
@@ -2449,8 +2477,6 @@ QString QgsHashedLineSymbolLayer::layerType() const
 
 void QgsHashedLineSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
-  mHashSymbol->setOpacity( context.opacity() );
-
   // if being rotated, it gets initialized with every line segment
   QgsSymbol::RenderHints hints = QgsSymbol::RenderHints();
   if ( rotateSymbols() )
@@ -2574,6 +2600,17 @@ void QgsHashedLineSymbolLayer::setDataDefinedProperty( QgsSymbolLayer::Property 
   QgsLineSymbolLayer::setDataDefinedProperty( key, property );
 }
 
+bool QgsHashedLineSymbolLayer::usesMapUnits() const
+{
+  return mHashLengthUnit == QgsUnitTypes::RenderMapUnits || mHashLengthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || intervalUnit() == QgsUnitTypes::RenderMapUnits || intervalUnit() == QgsUnitTypes::RenderMetersInMapUnits
+         || offsetAlongLineUnit() == QgsUnitTypes::RenderMapUnits || offsetAlongLineUnit() == QgsUnitTypes::RenderMetersInMapUnits
+         || averageAngleUnit() == QgsUnitTypes::RenderMapUnits || averageAngleUnit() == QgsUnitTypes::RenderMetersInMapUnits
+         || mWidthUnit == QgsUnitTypes::RenderMapUnits || mWidthUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits
+         || ( mHashSymbol && mHashSymbol->usesMapUnits() );
+}
+
 void QgsHashedLineSymbolLayer::setSymbolLineAngle( double angle )
 {
   mSymbolLineAngle = angle;
@@ -2613,6 +2650,7 @@ void QgsHashedLineSymbolLayer::renderSymbol( const QPointF &point, const QgsFeat
   QPolygonF points;
   points <<  QPointF( start.x(), start.y() ) << QPointF( end.x(), end.y() );
 
+
   mHashSymbol->renderPolyline( points, feature, context, layer, selected );
 }
 
@@ -2626,4 +2664,10 @@ void QgsHashedLineSymbolLayer::setHashAngle( double angle )
   mHashAngle = angle;
 }
 
-
+void QgsHashedLineSymbolLayer::renderPolyline( const QPolygonF &points, QgsSymbolRenderContext &context )
+{
+  const double prevOpacity = mHashSymbol->opacity();
+  mHashSymbol->setOpacity( mHashSymbol->opacity() * context.opacity() );
+  QgsTemplatedLineSymbolLayerBase::renderPolyline( points, context );
+  mHashSymbol->setOpacity( prevOpacity );
+}

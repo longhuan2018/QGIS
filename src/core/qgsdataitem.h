@@ -119,7 +119,31 @@ class CORE_EXPORT QgsDataItem : public QObject
      * Create children. Children are not expected to have parent set.
      * \warning This method MUST BE THREAD SAFE.
     */
-    virtual QVector<QgsDataItem *> createChildren() SIP_FACTORY;
+    virtual QVector<QgsDataItem *> createChildren() SIP_TRANSFERBACK;
+#ifdef SIP_RUN
+    SIP_VIRTUAL_CATCHER_CODE
+    PyObject *sipResObj = sipCallMethod( 0, sipMethod, "" );
+    // H = Convert a Python object to a mapped type instance.
+    // 5 = 1 (disallows the conversion of Py_None to NULL) + 4 (returns a copy of the C/C++ instance)
+    sipIsErr = !sipResObj || sipParseResult( 0, sipMethod, sipResObj, "H5", sipType_QVector_0101QgsDataItem, &sipRes ) < 0;
+    if ( !sipIsErr )
+    {
+      for ( QgsDataItem *item : sipRes )
+      {
+        PyObject *pyItem = sipGetPyObject( item, sipType_QgsDataItem );
+        if ( pyItem != NULL )
+        {
+          // pyItem is given an extra reference which is removed when the C++ instance’s destructor is called.
+          sipTransferTo( pyItem, Py_None );
+        }
+      }
+    }
+    if ( sipResObj != NULL )
+    {
+      Py_DECREF( sipResObj );
+    }
+    SIP_END
+#endif
 
     enum State
     {
@@ -521,7 +545,8 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
       Table,
       Plugin,    //!< Added in 2.10
       Mesh,      //!< Added in 3.2
-      VectorTile //!< Added in 3.14
+      VectorTile, //!< Added in 3.14
+      PointCloud //!< Added in 3.18
     };
 
     Q_ENUM( LayerType )
@@ -602,6 +627,13 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
     QStringList mSupportFormats;
 
   public:
+
+    /**
+     * Returns the icon for a vector layer whose geometry type is provided.
+     * \since QGIS 3.18
+     */
+    static QIcon iconForWkbType( QgsWkbTypes::Type type );
+
     static QIcon iconPoint();
     static QIcon iconLine();
     static QIcon iconPolygon();
@@ -612,7 +644,8 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
     static QIcon iconMesh();
     //! Returns icon for vector tile layer
     static QIcon iconVectorTile();
-
+    //! Returns icon for point cloud layer
+    static QIcon iconPointCloudLayer();
     //! \returns the layer name
     virtual QString layerName() const { return name(); }
 };
@@ -984,7 +1017,7 @@ class CORE_EXPORT QgsFieldsItem : public QgsDataItem
      *
      * The \a path argument gives the item path in the browser tree. The \a path string can take any form,
      * but QgsDataItem items pointing to different logical locations should always use a different item \a path.
-     * The \connectionUri argument is the connection part of the layer URI that it is used internally to create
+     * The \a connectionUri argument is the connection part of the layer URI that it is used internally to create
      * a connection and retrieve fields information.
      * The \a providerKey string can be used to specify the key for the QgsDataItemProvider that created this item.
      * The \a schema and \a tableName are used to retrieve the layer and field information from the \a connectionUri.

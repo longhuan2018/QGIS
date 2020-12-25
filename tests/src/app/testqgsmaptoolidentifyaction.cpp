@@ -531,7 +531,11 @@ QList<QgsMapToolIdentify::IdentifyResult> TestQgsMapToolIdentifyAction::testIden
 {
   std::unique_ptr< QgsMapToolIdentifyAction > action( new QgsMapToolIdentifyAction( canvas ) );
   QgsPointXY mapPoint = canvas->getCoordinateTransform()->transform( xGeoref, yGeoref );
-  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer );
+  //check that closest point attributes are present
+  QgsIdentifyContext identifyContext;
+  if ( canvas->mapSettings().isTemporal() )
+    identifyContext.setTemporalRange( canvas->temporalRange() );
+  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer, QgsMapToolIdentify::DefaultQgsSetting, identifyContext );
   return result;
 }
 
@@ -541,7 +545,10 @@ TestQgsMapToolIdentifyAction::testIdentifyVector( QgsVectorLayer *layer, double 
 {
   std::unique_ptr< QgsMapToolIdentifyAction > action( new QgsMapToolIdentifyAction( canvas ) );
   QgsPointXY mapPoint = canvas->getCoordinateTransform()->transform( xGeoref, yGeoref );
-  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer );
+  QgsIdentifyContext identifyContext;
+  if ( canvas->mapSettings().isTemporal() )
+    identifyContext.setTemporalRange( canvas->temporalRange() );
+  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer, QgsMapToolIdentify::DefaultQgsSetting, identifyContext );
   return result;
 }
 
@@ -551,7 +558,10 @@ TestQgsMapToolIdentifyAction::testIdentifyVectorTile( QgsVectorTileLayer *layer,
 {
   std::unique_ptr< QgsMapToolIdentifyAction > action( new QgsMapToolIdentifyAction( canvas ) );
   QgsPointXY mapPoint = canvas->getCoordinateTransform()->transform( xGeoref, yGeoref );
-  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer );
+  QgsIdentifyContext identifyContext;
+  if ( canvas->mapSettings().isTemporal() )
+    identifyContext.setTemporalRange( canvas->temporalRange() );
+  QList<QgsMapToolIdentify::IdentifyResult> result = action->identify( mapPoint.x(), mapPoint.y(), QList<QgsMapLayer *>() << layer, QgsMapToolIdentify::DefaultQgsSetting, identifyContext );
   return result;
 }
 
@@ -624,7 +634,7 @@ void TestQgsMapToolIdentifyAction::identifyMesh()
   tempLayer->dataProvider()->addDataset( vectorDs );
   static_cast<QgsMeshLayerTemporalProperties *>(
     tempLayer->temporalProperties() )->setReferenceTime(
-      QDateTime( QDate( 1950, 01, 01 ), QTime( 0, 0, 0, Qt::UTC ), Qt::UTC ), tempLayer->dataProvider()->temporalCapabilities() );
+      QDateTime( QDate( 1950, 01, 01 ), QTime( 0, 0, 0 ), Qt::UTC ), tempLayer->dataProvider()->temporalCapabilities() );
 
   // we need to setup renderer otherwise triangular mesh
   // will not be populated and identify will not work
@@ -658,8 +668,8 @@ void TestQgsMapToolIdentifyAction::identifyMesh()
   QCOMPARE( results[1].mDerivedAttributes[QStringLiteral( "Snapped Vertex Position X" )], QStringLiteral( "2000" ) );
   QCOMPARE( results[1].mDerivedAttributes[QStringLiteral( "Snapped Vertex Position Y" )], QStringLiteral( "3000" ) );
 
-  canvas->setTemporalRange( QgsDateTimeRange( QDateTime( QDate( 1950, 01, 01 ), QTime( 0, 0, 0, Qt::UTC ), Qt::UTC ),
-                            QDateTime( QDate( 1950, 01, 01 ), QTime( 1, 0, 0, Qt::UTC ), Qt::UTC ) ) );
+  canvas->setTemporalRange( QgsDateTimeRange( QDateTime( QDate( 1950, 01, 01 ), QTime( 0, 0, 0 ), Qt::UTC ),
+                            QDateTime( QDate( 1950, 01, 01 ), QTime( 1, 0, 0 ), Qt::UTC ) ) );
 
   tempLayer->temporalProperties()->setIsActive( true );
   results = testIdentifyMesh( tempLayer, 2400, 2400 );
@@ -668,7 +678,7 @@ void TestQgsMapToolIdentifyAction::identifyMesh()
   QCOMPARE( results[0].mAttributes[ QStringLiteral( "Scalar Value" )], QStringLiteral( "42" ) );
   QCOMPARE( results[0].mDerivedAttributes[QStringLiteral( "Source" )], mesh );
 
-  QCOMPARE( results[1].mDerivedAttributes[ QStringLiteral( "Time Step" )], QStringLiteral( "01.01.1950 00:00:00" ) );
+  QCOMPARE( results[1].mDerivedAttributes[ QStringLiteral( "Time Step" )], QStringLiteral( "1950-01-01 00:00:00" ) );
 
   QCOMPARE( results[1].mLabel, QStringLiteral( "VertexVectorDataset" ) );
   QCOMPARE( results[1].mDerivedAttributes[QStringLiteral( "Source" )], vectorDs );

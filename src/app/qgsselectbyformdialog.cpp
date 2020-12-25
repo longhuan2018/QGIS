@@ -47,6 +47,8 @@ QgsSelectByFormDialog::QgsSelectByFormDialog( QgsVectorLayer *layer, const QgsAt
   QgsGui::enableAutoGeometryRestore( this );
 
   setWindowTitle( tr( "%1 — Select Features" ).arg( layer->name() ) );
+
+  connect( mLayer, &QgsVectorLayer::willBeDeleted, this, &QgsSelectByFormDialog::close );
 }
 
 void QgsSelectByFormDialog::setMessageBar( QgsMessageBar *messageBar )
@@ -65,37 +67,30 @@ void QgsSelectByFormDialog::setMapCanvas( QgsMapCanvas *canvas )
 void QgsSelectByFormDialog::zoomToFeatures( const QString &filter )
 {
   const long featureCount = QgsMapCanvasUtils::zoomToMatchingFeatures( mMapCanvas, mLayer, filter );
-  QgsSettings settings;
-  int timeout = settings.value( QStringLiteral( "qgis/messageTimeout" ), 5 ).toInt();
   if ( featureCount > 0 )
   {
     if ( mMessageBar )
     {
       mMessageBar->pushMessage( QString(),
                                 tr( "Zoomed to %n matching feature(s)", "number of matching features", featureCount ),
-                                Qgis::Info,
-                                timeout );
+                                Qgis::Info );
     }
   }
   else if ( mMessageBar )
   {
     mMessageBar->pushMessage( QString(),
                               tr( "No matching features found" ),
-                              Qgis::Info,
-                              timeout );
+                              Qgis::Info );
   }
 }
 
 void QgsSelectByFormDialog::flashFeatures( const QString &filter )
 {
   const long featureCount = QgsMapCanvasUtils::flashMatchingFeatures( mMapCanvas, mLayer, filter );
-  QgsSettings settings;
-  int timeout = settings.value( QStringLiteral( "qgis/messageTimeout" ), 5 ).toInt();
   if ( featureCount == 0 && mMessageBar )
   {
     mMessageBar->pushMessage( QString(),
                               tr( "No matching features found" ),
-                              Qgis::Info,
-                              timeout );
+                              Qgis::Info );
   }
 }

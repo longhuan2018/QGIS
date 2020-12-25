@@ -95,7 +95,7 @@ class ANALYSIS_EXPORT QgsDualEdgeTriangulation: public QgsTriangulation
 
     bool saveTriangulation( QgsFeatureSink *sink, QgsFeedback *feedback = nullptr ) const override;
 
-    virtual QgsMesh triangulationToMesh( QgsFeedback *feedBack = nullptr ) const override;
+    virtual QgsMesh triangulationToMesh( QgsFeedback *feedback = nullptr ) const override;
 
   private:
     //! X-coordinate of the upper right corner of the bounding box
@@ -138,7 +138,7 @@ class ANALYSIS_EXPORT QgsDualEdgeTriangulation: public QgsTriangulation
     //! Checks, if 'edge' has to be swapped because of the empty circle criterion. If so, doSwap(...) is called.
     bool checkSwapRecursively( unsigned int edge, unsigned int recursiveDeep );
     //! Return true if edge need to be swapped after Delaunay criteria control
-    bool isEdgeNeedSwap( unsigned int edge );
+    bool isEdgeNeedSwap( unsigned int edge ) const;
     //! Swaps 'edge' and test recursively for other swaps (delaunay criterion)
     void doSwapRecursively( unsigned int edge, unsigned int recursiveDeep );
     //! Swaps 'edge' and does no recursiv testing
@@ -154,7 +154,7 @@ class ANALYSIS_EXPORT QgsDualEdgeTriangulation: public QgsTriangulation
     //! If a point has been inserted twice, its number is stored in this member
     int mTwiceInsPoint = 0;
     //! Returns TRUE, if it is possible to swap an edge, otherwise FALSE(concave quad or edge on (or outside) the convex hull)
-    bool swapPossible( unsigned int edge );
+    bool swapPossible( unsigned int edge ) const;
     //! Divides a polygon in a triangle and two polygons and calls itself recursively for these two polygons. 'poly' is a pointer to a list with the numbers of the edges of the polygon, 'free' is a pointer to a list of free halfedges, and 'mainedge' is the number of the edge, towards which the new triangle is inserted. Mainedge has to be the same as poly->begin(), otherwise the recursion does not work
     void triangulatePolygon( QList<int> *poly, QList<int> *free, int mainedge );
     //! Tests, if the bounding box of the halfedge with index i intersects the specified bounding box. The main purpose for this method is the drawing of the triangulation
