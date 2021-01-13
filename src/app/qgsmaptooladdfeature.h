@@ -24,6 +24,9 @@ class APP_EXPORT QgsMapToolAddFeature : public QgsMapToolDigitizeFeature
     //! \since QGIS 2.12
     QgsMapToolAddFeature( QgsMapCanvas *canvas, CaptureMode mode );
 
+signals:
+  void beforeAddFeature(QgsVectorLayer *vlayer, QgsFeature* f);
+
   private:
 
     bool addFeature( QgsVectorLayer *vlayer, const QgsFeature &f, bool showModal = true );

@@ -4550,10 +4550,42 @@ bool QgsSpatiaLiteProvider::addAttributes( const QList<QgsField> &attributes )
 
   for ( QList<QgsField>::const_iterator iter = attributes.begin(); iter != attributes.end(); ++iter )
   {
-    sql = QStringLiteral( "ALTER TABLE \"%1\" ADD COLUMN \"%2\" %3" )
+    QString defaultValue;
+    if (iter->defaultValueDefinition().isValid())
+    {      
+      switch (iter->type())
+      {
+      case QVariant::Date:
+      case QVariant::Time:
+      case QVariant::DateTime:
+      case QVariant::String:
+      case QVariant::Map:        
+        if (!defaultValue.startsWith('\''))
+        {
+          defaultValue = iter->defaultValueDefinition().expression();
+          defaultValue.replace(QLatin1String("'"), QLatin1String("''"));
+          defaultValue = QString(" DEFAULT '%1'").arg(defaultValue);
+        }
+        else
+          defaultValue = " DEFAULT " + iter->defaultValueDefinition().expression();
+        break;
+
+      default:
+        defaultValue = " DEFAULT " + iter->defaultValueDefinition().expression();
+        break;
+      }
+
+      if (defaultValue.isEmpty() && iter->constraints().constraints() & QgsFieldConstraints::ConstraintNotNull)
+        defaultValue = " DEFAULT '' ";
+    }
+
+    if (iter->constraints().constraints() & QgsFieldConstraints::ConstraintNotNull)
+      defaultValue += " NOT NULL ";
+
+    sql = QStringLiteral( "ALTER TABLE \"%1\" ADD COLUMN \"%2\" %3 %4" )
           .arg( mTableName,
                 iter->name(),
-                iter->typeName() );
+                iter->typeName(), defaultValue);
     ret = exec_sql( sql, errMsg );
     if ( ret != SQLITE_OK )
     {

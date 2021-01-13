@@ -490,7 +490,7 @@ bool QgsVectorLayerEditBuffer::commitChanges( QStringList &commitErrors )
     {
       QgsField oldField = oldFields.at( i );
       QgsField newField = newFields.at( i );
-      if ( attributeChangesOk && oldField != newField )
+      if ( attributeChangesOk && oldField != newField && (oldField.name().compare(newField.name(), Qt::CaseInsensitive) != 0 || oldField.type() != newField.type()) )
       {
         commitErrors
             << tr( "ERROR: field with index %1 is not the same!" ).arg( i )

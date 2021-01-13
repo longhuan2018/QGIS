@@ -1659,7 +1659,9 @@ void QgsDwgImporter::addLWPolyline( const DRW_LWPolyline &data )
 
       QgsPointXY ps( p0.x(), p0.y() );
       QgsPointXY pe( p1.x(), p1.y() );
-      QgsVector v( ( pe - ps ).perpVector().normalized() );
+      QgsVector v( ( pe - ps ).perpVector() );
+      if (v.length() != 0)
+        v = v.normalized();
       QgsVector vs( v * 0.5 * staWidth );
       QgsVector ve( v * 0.5 * endWidth );
 
@@ -1862,7 +1864,9 @@ void QgsDwgImporter::addPolyline( const DRW_Polyline &data )
 
       QgsPointXY ps( p0.x(), p0.y() );
       QgsPointXY pe( p1.x(), p1.y() );
-      QgsVector v( ( pe - ps ).perpVector().normalized() );
+      QgsVector v( ( pe - ps ).perpVector() );
+      if (v.length() != 0)
+        v = v.normalized();
       QgsVector vs( v * 0.5 * staWidth );
       QgsVector ve( v * 0.5 * endWidth );
 

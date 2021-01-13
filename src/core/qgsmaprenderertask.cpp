@@ -312,7 +312,7 @@ bool QgsMapRendererTask::run()
       if ( mSaveWorldFile || mExportMetadata )
       {
         CPLSetThreadLocalConfigOption( "GDAL_PDF_DPI", QString::number( mMapSettings.outputDpi() ).toLocal8Bit().constData() );
-        gdal::dataset_unique_ptr outputDS( GDALOpen( mFileName.toLocal8Bit().constData(), GA_Update ) );
+        gdal::dataset_unique_ptr outputDS( GDALOpen( mFileName.toUtf8().constData(), GA_Update ) );
         if ( outputDS )
         {
           if ( mSaveWorldFile )
@@ -389,7 +389,7 @@ bool QgsMapRendererTask::run()
         bool skipWorldFile = false;
         if ( outputSuffix == QLatin1String( "tif" ) || outputSuffix == QLatin1String( "tiff" ) )
         {
-          gdal::dataset_unique_ptr outputDS( GDALOpen( mFileName.toLocal8Bit().constData(), GA_Update ) );
+          gdal::dataset_unique_ptr outputDS( GDALOpen( mFileName.toUtf8().constData(), GA_Update ) );
           if ( outputDS )
           {
             skipWorldFile = true;

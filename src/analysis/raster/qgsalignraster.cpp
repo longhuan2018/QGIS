@@ -428,7 +428,7 @@ bool QgsAlignRaster::createAndWarp( const Item &raster )
   }
 
   // Open the source file.
-  gdal::dataset_unique_ptr hSrcDS( GDALOpen( raster.inputFilename.toLocal8Bit().constData(), GA_ReadOnly ) );
+  gdal::dataset_unique_ptr hSrcDS( GDALOpen( raster.inputFilename.toUtf8().constData(), GA_ReadOnly ) );
   if ( !hSrcDS )
   {
     mErrorMessage = QObject::tr( "Unable to open input file: %1" ).arg( raster.inputFilename );

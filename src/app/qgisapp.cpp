@@ -287,7 +287,7 @@ Q_GUI_EXPORT extern int qt_defaultDpiX();
 #include "qgsnativealgorithms.h"
 #include "qgsnewvectorlayerdialog.h"
 #include "qgsnewmemorylayerdialog.h"
-#include "options/qgsoptions.h"
+#include "qgsoptions.h"
 #include "qgspluginlayer.h"
 #include "qgspluginlayerregistry.h"
 #include "qgspluginmanager.h"
@@ -556,7 +556,7 @@ static void setTitleBarText_( QWidget &qgisApp )
   if ( QgsProject::instance()->isDirty() )
     caption.prepend( '*' );
 
-  caption += QgisApp::tr( "QGIS" );
+  caption += QgisApp::tr( "VGIS" );
 
   if ( Qgis::version().endsWith( QLatin1String( "Master" ) ) )
   {
@@ -1351,8 +1351,8 @@ QgisApp::QgisApp( QSplashScreen *splash, bool restorePlugins, bool skipVersionCh
   // set graphical credential requester
   new QgsCredentialDialog( this );
 
-  mLocatorWidget->setMapCanvas( mMapCanvas );
-  connect( mLocatorWidget, &QgsLocatorWidget::configTriggered, this, [ = ] { showOptionsDialog( this, QStringLiteral( "mOptionsLocatorSettings" ) ); } );
+  if (mLocatorWidget) mLocatorWidget->setMapCanvas( mMapCanvas );
+  if (mLocatorWidget) connect( mLocatorWidget, &QgsLocatorWidget::configTriggered, this, [ = ] { showOptionsDialog( this, QStringLiteral( "mOptionsLocatorSettings" ) ); } );
 
   qApp->processEvents();
 
@@ -1707,13 +1707,14 @@ QgisApp::QgisApp( QSplashScreen *splash, bool restorePlugins, bool skipVersionCh
   mCodeEditorWidgetFactory.reset( qgis::make_unique< QgsCodeEditorOptionsFactory >() );
 } // QgisApp ctor
 
-QgisApp::QgisApp()
-  : QMainWindow( nullptr, Qt::WindowFlags() )
+QgisApp::QgisApp(QWidget *parent, Qt::WindowFlags fl)
+  : QMainWindow( parent, fl)
 #ifdef Q_OS_MAC
   , mWindowMenu( nullptr )
 #endif
 {
   sInstance = this;
+  /*
   setupUi( this );
   mInternalClipboard = new QgsClipboard;
   mMapCanvas = new QgsMapCanvas();
@@ -1732,6 +1733,7 @@ QgisApp::QgisApp()
   mStatusBar = new QgsStatusBar( this );
 
   mBearingNumericFormat.reset( QgsLocalDefaultSettings::bearingFormat() );
+  */
   // More tests may need more members to be initialized
 }
 
@@ -1750,81 +1752,81 @@ QgisApp::~QgisApp()
 
   mNetworkLoggerWidgetFactory.reset();
 
-  delete mInternalClipboard;
-  delete mQgisInterface;
-  delete mStyleSheetBuilder;
+  if (mInternalClipboard) delete mInternalClipboard;
+  if (mQgisInterface) delete mQgisInterface;
+  if (mStyleSheetBuilder) delete mStyleSheetBuilder;
 
-  delete mMapTools.mZoomIn;
-  delete mMapTools.mZoomOut;
-  delete mMapTools.mPan;
-  delete mMapTools.mAddPart;
-  delete mMapTools.mAddRing;
-  delete mMapTools.mFillRing;
-  delete mMapTools.mAnnotation;
-  delete mMapTools.mChangeLabelProperties;
-  delete mMapTools.mDeletePart;
-  delete mMapTools.mDeleteRing;
-  delete mMapTools.mTrimExtendFeature;
-  delete mMapTools.mFeatureAction;
-  delete mMapTools.mFormAnnotation;
-  delete mMapTools.mHtmlAnnotation;
-  delete mMapTools.mIdentify;
-  delete mMapTools.mMeasureAngle;
-  delete mMapTools.mMeasureArea;
-  delete mMapTools.mMeasureDist;
-  delete mMapTools.mMoveFeature;
-  delete mMapTools.mMoveFeatureCopy;
-  delete mMapTools.mMoveLabel;
-  delete mMapTools.mVertexTool;
-  delete mMapTools.mVertexToolActiveLayer;
-  delete mMapTools.mOffsetCurve;
-  delete mMapTools.mPinLabels;
-  delete mMapTools.mReshapeFeatures;
-  delete mMapTools.mReverseLine;
-  delete mMapTools.mRotateFeature;
-  delete mMapTools.mRotateLabel;
-  delete mMapTools.mRotatePointSymbolsTool;
-  delete mMapTools.mOffsetPointSymbolTool;
-  delete mMapTools.mSelectFreehand;
-  delete mMapTools.mSelectPolygon;
-  delete mMapTools.mSelectRadius;
-  delete mMapTools.mSelectFeatures;
-  delete mMapTools.mShowHideLabels;
-  delete mMapTools.mSimplifyFeature;
-  delete mMapTools.mSplitFeatures;
-  delete mMapTools.mSplitParts;
-  delete mMapTools.mSvgAnnotation;
-  delete mMapTools.mTextAnnotation;
-  delete mMapTools.mCircularStringCurvePoint;
-  delete mMapTools.mCircularStringRadius;
-  delete mMapTools.mCircle2Points;
-  delete mMapTools.mCircle3Points;
-  delete mMapTools.mCircle3Tangents;
-  delete mMapTools.mCircle2TangentsPoint;
-  delete mMapTools.mCircleCenterPoint;
-  delete mMapTools.mEllipseCenter2Points;
-  delete mMapTools.mEllipseCenterPoint;
-  delete mMapTools.mEllipseExtent;
-  delete mMapTools.mEllipseFoci;
-  delete mMapTools.mRectangleCenterPoint;
-  delete mMapTools.mRectangleExtent;
-  delete mMapTools.mRectangle3PointsDistance;
-  delete mMapTools.mRectangle3PointsProjected;
-  delete mMapTools.mRegularPolygon2Points;
-  delete mMapTools.mRegularPolygonCenterPoint;
-  delete mMapTools.mRegularPolygonCenterCorner;
-  delete mMapTools.mAddFeature;
-  delete mpMaptip;
+  if (mMapTools.mZoomIn) delete mMapTools.mZoomIn;
+  if (mMapTools.mZoomOut) delete mMapTools.mZoomOut;
+  if (mMapTools.mPan) delete mMapTools.mPan;
+  if (mMapTools.mAddPart) delete mMapTools.mAddPart;
+  if (mMapTools.mAddRing) delete mMapTools.mAddRing;
+  if (mMapTools.mFillRing) delete mMapTools.mFillRing;
+  if (mMapTools.mAnnotation) delete mMapTools.mAnnotation;
+  if (mMapTools.mChangeLabelProperties) delete mMapTools.mChangeLabelProperties;
+  if (mMapTools.mDeletePart) delete mMapTools.mDeletePart;
+  if (mMapTools.mDeleteRing) delete mMapTools.mDeleteRing;
+  if (mMapTools.mTrimExtendFeature) delete mMapTools.mTrimExtendFeature;
+  if (mMapTools.mFeatureAction) delete mMapTools.mFeatureAction;
+  if (mMapTools.mFormAnnotation) delete mMapTools.mFormAnnotation;
+  if (mMapTools.mHtmlAnnotation) delete mMapTools.mHtmlAnnotation;
+  if (mMapTools.mIdentify) delete mMapTools.mIdentify;
+  if (mMapTools.mMeasureAngle) delete mMapTools.mMeasureAngle;
+  if (mMapTools.mMeasureArea) delete mMapTools.mMeasureArea;
+  if (mMapTools.mMeasureDist) delete mMapTools.mMeasureDist;
+  if (mMapTools.mMoveFeature) delete mMapTools.mMoveFeature;
+  if (mMapTools.mMoveFeatureCopy) delete mMapTools.mMoveFeatureCopy;
+  if (mMapTools.mMoveLabel) delete mMapTools.mMoveLabel;
+  if (mMapTools.mVertexTool) delete mMapTools.mVertexTool;
+  if (mMapTools.mVertexToolActiveLayer) delete mMapTools.mVertexToolActiveLayer;
+  if (mMapTools.mOffsetCurve) delete mMapTools.mOffsetCurve;
+  if (mMapTools.mPinLabels) delete mMapTools.mPinLabels;
+  if (mMapTools.mReshapeFeatures) delete mMapTools.mReshapeFeatures;
+  if (mMapTools.mReverseLine) delete mMapTools.mReverseLine;
+  if (mMapTools.mRotateFeature) delete mMapTools.mRotateFeature;
+  if (mMapTools.mRotateLabel) delete mMapTools.mRotateLabel;
+  if (mMapTools.mRotatePointSymbolsTool) delete mMapTools.mRotatePointSymbolsTool;
+  if (mMapTools.mOffsetPointSymbolTool) delete mMapTools.mOffsetPointSymbolTool;
+  if (mMapTools.mSelectFreehand) delete mMapTools.mSelectFreehand;
+  if (mMapTools.mSelectPolygon) delete mMapTools.mSelectPolygon;
+  if (mMapTools.mSelectRadius) delete mMapTools.mSelectRadius;
+  if (mMapTools.mSelectFeatures) delete mMapTools.mSelectFeatures;
+  if (mMapTools.mShowHideLabels) delete mMapTools.mShowHideLabels;
+  if (mMapTools.mSimplifyFeature) delete mMapTools.mSimplifyFeature;
+  if (mMapTools.mSplitFeatures) delete mMapTools.mSplitFeatures;
+  if (mMapTools.mSplitParts) delete mMapTools.mSplitParts;
+  if (mMapTools.mSvgAnnotation) delete mMapTools.mSvgAnnotation;
+  if (mMapTools.mTextAnnotation) delete mMapTools.mTextAnnotation;
+  if (mMapTools.mCircularStringCurvePoint) delete mMapTools.mCircularStringCurvePoint;
+  if (mMapTools.mCircularStringRadius) delete mMapTools.mCircularStringRadius;
+  if (mMapTools.mCircle2Points) delete mMapTools.mCircle2Points;
+  if (mMapTools.mCircle3Points) delete mMapTools.mCircle3Points;
+  if (mMapTools.mCircle3Tangents) delete mMapTools.mCircle3Tangents;
+  if (mMapTools.mCircle2TangentsPoint) delete mMapTools.mCircle2TangentsPoint;
+  if (mMapTools.mCircleCenterPoint) delete mMapTools.mCircleCenterPoint;
+  if (mMapTools.mEllipseCenter2Points) delete mMapTools.mEllipseCenter2Points;
+  if (mMapTools.mEllipseCenterPoint) delete mMapTools.mEllipseCenterPoint;
+  if (mMapTools.mEllipseExtent) delete mMapTools.mEllipseExtent;
+  if (mMapTools.mEllipseFoci) delete mMapTools.mEllipseFoci;
+  if (mMapTools.mRectangleCenterPoint) delete mMapTools.mRectangleCenterPoint;
+  if (mMapTools.mRectangleExtent) delete mMapTools.mRectangleExtent;
+  if (mMapTools.mRectangle3PointsDistance) delete mMapTools.mRectangle3PointsDistance;
+  if (mMapTools.mRectangle3PointsProjected) delete mMapTools.mRectangle3PointsProjected;
+  if (mMapTools.mRegularPolygon2Points) delete mMapTools.mRegularPolygon2Points;
+  if (mMapTools.mRegularPolygonCenterPoint) delete mMapTools.mRegularPolygonCenterPoint;
+  if (mMapTools.mRegularPolygonCenterCorner) delete mMapTools.mRegularPolygonCenterCorner;
+  if (mMapTools.mAddFeature) delete mMapTools.mAddFeature;
+  if (mpMaptip) delete mpMaptip;
 
-  delete mpGpsWidget;
+  if (mpGpsWidget) delete mpGpsWidget;
 
-  delete mOverviewMapCursor;
+  if (mOverviewMapCursor) delete mOverviewMapCursor;
 
-  delete mTracer;
+  if (mTracer) delete mTracer;
 
-  delete mVectorLayerTools;
-  delete mWelcomePage;
-  delete mBookMarksDockWidget;
+  if (mVectorLayerTools) delete mVectorLayerTools;
+  if (mWelcomePage) delete mWelcomePage;
+  if (mBookMarksDockWidget) delete mBookMarksDockWidget;
 
   // Gracefully delete window manager now
   QgsGui::setWindowManager( nullptr );
@@ -1835,14 +1837,14 @@ QgisApp::~QgisApp()
   // cancel request for FileOpen events
   QgsApplication::setFileOpenEventReceiver( nullptr );
 
-  unregisterCustomLayoutDropHandler( mLayoutQptDropHandler );
-  unregisterCustomLayoutDropHandler( mLayoutImageDropHandler );
+  if (mLayoutQptDropHandler) unregisterCustomLayoutDropHandler( mLayoutQptDropHandler );
+  if (mLayoutImageDropHandler) unregisterCustomLayoutDropHandler( mLayoutImageDropHandler );
 
 #ifdef WITH_BINDINGS
-  delete mPythonUtils;
+  if (mPythonUtils) delete mPythonUtils;
 #endif
 
-  delete mDataSourceManagerDialog;
+  if (mDataSourceManagerDialog) delete mDataSourceManagerDialog;
   qDeleteAll( mCustomDropHandlers );
   qDeleteAll( mCustomLayoutDropHandlers );
 
@@ -1853,18 +1855,18 @@ QgisApp::~QgisApp()
   }
 
   // these may have references to map layers which need to be cleaned up
-  mBrowserWidget->close(); // close first, to trigger save of state
-  delete mBrowserWidget;
+  if (mBrowserWidget) mBrowserWidget->close(); // close first, to trigger save of state
+  if (mBrowserWidget) delete mBrowserWidget;
   mBrowserWidget = nullptr;
-  delete mBrowserWidget2;
+  if (mBrowserWidget2) delete mBrowserWidget2;
   mBrowserWidget2 = nullptr;
-  delete mBrowserModel;
+  if (mBrowserModel) delete mBrowserModel;
   mBrowserModel = nullptr;
-  delete mGeometryValidationDock;
+  if (mGeometryValidationDock) delete mGeometryValidationDock;
   mGeometryValidationDock = nullptr;
-  delete mSnappingUtils;
+  if (mSnappingUtils) delete mSnappingUtils;
   mSnappingUtils = nullptr;
-  delete mUserInputDockWidget;
+  if (mUserInputDockWidget) delete mUserInputDockWidget;
   mUserInputDockWidget = nullptr;
 
   QgsGui::instance()->nativePlatformInterface()->cleanup();
@@ -2603,96 +2605,95 @@ void QgisApp::createActions()
 
   // Project Menu Items
 
-  connect( mActionNewProject, &QAction::triggered, this, [ = ] { fileNew(); } );
-  connect( mActionNewBlankProject, &QAction::triggered, this, &QgisApp::fileNewBlank );
-  connect( mActionOpenProject, &QAction::triggered, this, &QgisApp::fileOpen );
-  connect( mActionRevertProject, &QAction::triggered, this, &QgisApp::fileRevert );
-  connect( mActionSaveProject, &QAction::triggered, this, &QgisApp::fileSave );
-  connect( mActionCloseProject, &QAction::triggered, this, &QgisApp::fileClose );
-  connect( mActionSaveProjectAs, &QAction::triggered, this, &QgisApp::fileSaveAs );
-  connect( mActionSaveMapAsImage, &QAction::triggered, this, [ = ] { saveMapAsImage(); } );
-  connect( mActionSaveMapAsPdf, &QAction::triggered, this, [ = ] { saveMapAsPdf(); } );
-  connect( mActionNewMapCanvas, &QAction::triggered, this, &QgisApp::newMapCanvas );
-  connect( mActionNew3DMapCanvas, &QAction::triggered, this, &QgisApp::new3DMapCanvas );
-  connect( mActionNewPrintLayout, &QAction::triggered, this, &QgisApp::newPrintLayout );
-  connect( mActionNewReport, &QAction::triggered, this, &QgisApp::newReport );
-  connect( mActionShowLayoutManager, &QAction::triggered, this, &QgisApp::showLayoutManager );
-  connect( mActionExit, &QAction::triggered, this, &QgisApp::fileExit );
-  connect( mActionDxfExport, &QAction::triggered, this, &QgisApp::dxfExport );
-  connect( mActionDwgImport, &QAction::triggered, this, &QgisApp::dwgImport );
+  if(mActionNewProject) connect( mActionNewProject, &QAction::triggered, this, [ = ] { fileNew(); } );
+  if(mActionNewBlankProject) connect( mActionNewBlankProject, &QAction::triggered, this, &QgisApp::fileNewBlank );
+  if(mActionOpenProject) connect( mActionOpenProject, &QAction::triggered, this, &QgisApp::fileOpen );
+  if(mActionRevertProject) connect( mActionRevertProject, &QAction::triggered, this, &QgisApp::fileRevert );
+  if(mActionSaveProject) connect( mActionSaveProject, &QAction::triggered, this, &QgisApp::fileSave );
+  if(mActionCloseProject) connect( mActionCloseProject, &QAction::triggered, this, &QgisApp::fileClose );
+  if(mActionSaveProjectAs) connect( mActionSaveProjectAs, &QAction::triggered, this, &QgisApp::fileSaveAs );
+  if(mActionSaveMapAsImage) connect( mActionSaveMapAsImage, &QAction::triggered, this, [ = ] { saveMapAsImage(); } );
+  if(mActionSaveMapAsPdf) connect( mActionSaveMapAsPdf, &QAction::triggered, this, [ = ] { saveMapAsPdf(); } );
+  if(mActionNewMapCanvas) connect( mActionNewMapCanvas, &QAction::triggered, this, &QgisApp::newMapCanvas );
+  if(mActionNew3DMapCanvas) connect( mActionNew3DMapCanvas, &QAction::triggered, this, &QgisApp::new3DMapCanvas );
+  if(mActionNewPrintLayout) connect( mActionNewPrintLayout, &QAction::triggered, this, &QgisApp::newPrintLayout );
+  if(mActionNewReport) connect( mActionNewReport, &QAction::triggered, this, &QgisApp::newReport );
+  if(mActionShowLayoutManager) connect( mActionShowLayoutManager, &QAction::triggered, this, &QgisApp::showLayoutManager );
+  if(mActionExit) connect( mActionExit, &QAction::triggered, this, &QgisApp::fileExit );
+  if(mActionDxfExport) connect( mActionDxfExport, &QAction::triggered, this, &QgisApp::dxfExport );
+  if(mActionDwgImport) connect( mActionDwgImport, &QAction::triggered, this, &QgisApp::dwgImport );
 
   // Edit Menu Items
 
-  connect( mActionUndo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::undo );
-  connect( mActionRedo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::redo );
-  connect( mActionCutFeatures, &QAction::triggered, this, [ = ] { cutSelectionToClipboard(); } );
-  connect( mActionCopyFeatures, &QAction::triggered, this, [ = ] { copySelectionToClipboard(); } );
-  connect( mActionPasteFeatures, &QAction::triggered, this, [ = ] { pasteFromClipboard(); } );
-  connect( mActionPasteAsNewVector, &QAction::triggered, this, &QgisApp::pasteAsNewVector );
-  connect( mActionPasteAsNewMemoryVector, &QAction::triggered, this, [ = ] { pasteAsNewMemoryVector(); } );
-  connect( mActionCopyStyle, &QAction::triggered, this, [ = ] { copyStyle(); } );
-  connect( mActionPasteStyle, &QAction::triggered, this, [ = ] { pasteStyle(); } );
-  connect( mActionCopyLayer, &QAction::triggered, this, &QgisApp::copyLayer );
-  connect( mActionPasteLayer, &QAction::triggered, this, &QgisApp::pasteLayer );
-  connect( mActionAddFeature, &QAction::triggered, this, &QgisApp::addFeature );
-  connect( mActionCircularStringCurvePoint, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircularStringCurvePoint ); } );
-  connect( mActionCircularStringRadius, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircularStringRadius ); } );
-  connect( mActionCircle2Points, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle2Points, true ); } );
-  connect( mActionCircle3Points, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle3Points, true ); } );
-  connect( mActionCircle3Tangents, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle3Tangents, true ); } );
-  connect( mActionCircle2TangentsPoint, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle2TangentsPoint, true ); } );
-  connect( mActionCircleCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mCircleCenterPoint, true ); } );
-  connect( mActionEllipseCenter2Points, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseCenter2Points, true ); } );
-  connect( mActionEllipseCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseCenterPoint, true ); } );
-  connect( mActionEllipseExtent, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseExtent, true ); } );
-  connect( mActionEllipseFoci, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseFoci, true ); } );
-  connect( mActionRectangleCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangleCenterPoint, true ); } );
-  connect( mActionRectangleExtent, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangleExtent, true ); } );
-  connect( mActionRectangle3PointsDistance, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangle3PointsDistance, true ); } );
-  connect( mActionRectangle3PointsProjected, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangle3PointsProjected, true ); } );
-  connect( mActionRegularPolygon2Points, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygon2Points, true ); } );
-  connect( mActionRegularPolygonCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygonCenterPoint, true ); } );
-  connect( mActionRegularPolygonCenterCorner, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygonCenterCorner, true ); } );
-  connect( mActionDigitizeWithCurve, &QAction::triggered, this, &QgisApp::enableDigitizeWithCurve );
-  connect( mActionMoveFeature, &QAction::triggered, this, &QgisApp::moveFeature );
-  connect( mActionMoveFeatureCopy, &QAction::triggered, this, &QgisApp::moveFeatureCopy );
-  connect( mActionRotateFeature, &QAction::triggered, this, &QgisApp::rotateFeature );
+  if(mActionUndo) connect( mActionUndo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::undo );
+  if(mActionRedo) connect( mActionRedo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::redo );
+  if(mActionCutFeatures) connect( mActionCutFeatures, &QAction::triggered, this, [ = ] { cutSelectionToClipboard(); } );
+  if(mActionCopyFeatures) connect( mActionCopyFeatures, &QAction::triggered, this, [ = ] { copySelectionToClipboard(); } );
+  if(mActionPasteFeatures) connect( mActionPasteFeatures, &QAction::triggered, this, [ = ] { pasteFromClipboard(); } );
+  if(mActionPasteAsNewVector) connect( mActionPasteAsNewVector, &QAction::triggered, this, &QgisApp::pasteAsNewVector );
+  if(mActionPasteAsNewMemoryVector) connect( mActionPasteAsNewMemoryVector, &QAction::triggered, this, [ = ] { pasteAsNewMemoryVector(); } );
+  if(mActionCopyStyle) connect( mActionCopyStyle, &QAction::triggered, this, [ = ] { copyStyle(); } );
+  if(mActionPasteStyle) connect( mActionPasteStyle, &QAction::triggered, this, [ = ] { pasteStyle(); } );
+  if(mActionCopyLayer) connect( mActionCopyLayer, &QAction::triggered, this, &QgisApp::copyLayer );
+  if(mActionPasteLayer) connect( mActionPasteLayer, &QAction::triggered, this, &QgisApp::pasteLayer );
+  if(mActionAddFeature) connect( mActionAddFeature, &QAction::triggered, this, &QgisApp::addFeature );
+  if(mActionCircularStringCurvePoint) connect( mActionCircularStringCurvePoint, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircularStringCurvePoint ); } );
+  if(mActionCircularStringRadius) connect( mActionCircularStringRadius, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircularStringRadius ); } );
+  if(mActionCircle2Points) connect( mActionCircle2Points, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle2Points, true ); } );
+  if(mActionCircle3Points) connect( mActionCircle3Points, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle3Points, true ); } );
+  if(mActionCircle3Tangents) connect( mActionCircle3Tangents, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle3Tangents, true ); } );
+  if(mActionCircle2TangentsPoint) connect( mActionCircle2TangentsPoint, &QAction::triggered, this, [ = ] { setMapTool( mMapTools.mCircle2TangentsPoint, true ); } );
+  if(mActionCircleCenterPoint) connect( mActionCircleCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mCircleCenterPoint, true ); } );
+  if(mActionEllipseCenter2Points) connect( mActionEllipseCenter2Points, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseCenter2Points, true ); } );
+  if(mActionEllipseCenterPoint) connect( mActionEllipseCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseCenterPoint, true ); } );
+  if(mActionEllipseExtent) connect( mActionEllipseExtent, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseExtent, true ); } );
+  if(mActionEllipseFoci) connect( mActionEllipseFoci, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mEllipseFoci, true ); } );
+  if(mActionRectangleCenterPoint) connect( mActionRectangleCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangleCenterPoint, true ); } );
+  if(mActionRectangleExtent) connect( mActionRectangleExtent, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangleExtent, true ); } );
+  if(mActionRectangle3PointsDistance) connect( mActionRectangle3PointsDistance, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangle3PointsDistance, true ); } );
+  if(mActionRectangle3PointsProjected) connect( mActionRectangle3PointsProjected, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRectangle3PointsProjected, true ); } );
+  if(mActionRegularPolygon2Points) connect( mActionRegularPolygon2Points, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygon2Points, true ); } );
+  if(mActionRegularPolygonCenterPoint) connect( mActionRegularPolygonCenterPoint, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygonCenterPoint, true ); } );
+  if(mActionRegularPolygonCenterCorner) connect( mActionRegularPolygonCenterCorner, &QAction::triggered, this,  [ = ] { setMapTool( mMapTools.mRegularPolygonCenterCorner, true ); } );
+  if(mActionMoveFeature) connect( mActionMoveFeature, &QAction::triggered, this, &QgisApp::moveFeature );
+  if(mActionMoveFeatureCopy) connect( mActionMoveFeatureCopy, &QAction::triggered, this, &QgisApp::moveFeatureCopy );
+  if(mActionRotateFeature) connect( mActionRotateFeature, &QAction::triggered, this, &QgisApp::rotateFeature );
 
-  connect( mActionReshapeFeatures, &QAction::triggered, this, &QgisApp::reshapeFeatures );
-  connect( mActionSplitFeatures, &QAction::triggered, this, &QgisApp::splitFeatures );
-  connect( mActionSplitParts, &QAction::triggered, this, &QgisApp::splitParts );
-  connect( mActionDeleteSelected, &QAction::triggered, this, [ = ] { deleteSelected( nullptr, nullptr, true ); } );
-  connect( mActionAddRing, &QAction::triggered, this, &QgisApp::addRing );
-  connect( mActionFillRing, &QAction::triggered, this, &QgisApp::fillRing );
-  connect( mActionAddPart, &QAction::triggered, this, &QgisApp::addPart );
-  connect( mActionSimplifyFeature, &QAction::triggered, this, &QgisApp::simplifyFeature );
-  connect( mActionDeleteRing, &QAction::triggered, this, &QgisApp::deleteRing );
-  connect( mActionDeletePart, &QAction::triggered, this, &QgisApp::deletePart );
-  connect( mActionMergeFeatures, &QAction::triggered, this, &QgisApp::mergeSelectedFeatures );
-  connect( mActionMergeFeatureAttributes, &QAction::triggered, this, &QgisApp::mergeAttributesOfSelectedFeatures );
-  connect( mActionMultiEditAttributes, &QAction::triggered, this, &QgisApp::modifyAttributesOfSelectedFeatures );
-  connect( mActionVertexTool, &QAction::triggered, this, &QgisApp::vertexTool );
-  connect( mActionVertexToolActiveLayer, &QAction::triggered, this, &QgisApp::vertexToolActiveLayer );
-  connect( mActionRotatePointSymbols, &QAction::triggered, this, &QgisApp::rotatePointSymbols );
-  connect( mActionOffsetPointSymbol, &QAction::triggered, this, &QgisApp::offsetPointSymbol );
-  connect( mActionSnappingOptions, &QAction::triggered, this, &QgisApp::snappingOptions );
-  connect( mActionOffsetCurve, &QAction::triggered, this, &QgisApp::offsetCurve );
-  connect( mActionReverseLine, &QAction::triggered, this, &QgisApp::reverseLine );
-  connect( mActionTrimExtendFeature, &QAction::triggered, this, [ = ] { mMapCanvas->setMapTool( mMapTools.mTrimExtendFeature ); } );
+  if(mActionReshapeFeatures) connect( mActionReshapeFeatures, &QAction::triggered, this, &QgisApp::reshapeFeatures );
+  if(mActionSplitFeatures) connect( mActionSplitFeatures, &QAction::triggered, this, &QgisApp::splitFeatures );
+  if(mActionSplitParts) connect( mActionSplitParts, &QAction::triggered, this, &QgisApp::splitParts );
+  if(mActionDeleteSelected) connect( mActionDeleteSelected, &QAction::triggered, this, [ = ] { deleteSelected( nullptr, nullptr, true ); } );
+  if(mActionAddRing) connect( mActionAddRing, &QAction::triggered, this, &QgisApp::addRing );
+  if(mActionFillRing) connect( mActionFillRing, &QAction::triggered, this, &QgisApp::fillRing );
+  if(mActionAddPart) connect( mActionAddPart, &QAction::triggered, this, &QgisApp::addPart );
+  if(mActionSimplifyFeature) connect( mActionSimplifyFeature, &QAction::triggered, this, &QgisApp::simplifyFeature );
+  if(mActionDeleteRing) connect( mActionDeleteRing, &QAction::triggered, this, &QgisApp::deleteRing );
+  if(mActionDeletePart) connect( mActionDeletePart, &QAction::triggered, this, &QgisApp::deletePart );
+  if(mActionMergeFeatures) connect( mActionMergeFeatures, &QAction::triggered, this, &QgisApp::mergeSelectedFeatures );
+  if(mActionMergeFeatureAttributes) connect( mActionMergeFeatureAttributes, &QAction::triggered, this, &QgisApp::mergeAttributesOfSelectedFeatures );
+  if(mActionMultiEditAttributes) connect( mActionMultiEditAttributes, &QAction::triggered, this, &QgisApp::modifyAttributesOfSelectedFeatures );
+  if(mActionVertexTool) connect( mActionVertexTool, &QAction::triggered, this, &QgisApp::vertexTool );
+  if(mActionVertexToolActiveLayer) connect( mActionVertexToolActiveLayer, &QAction::triggered, this, &QgisApp::vertexToolActiveLayer );
+  if(mActionRotatePointSymbols) connect( mActionRotatePointSymbols, &QAction::triggered, this, &QgisApp::rotatePointSymbols );
+  if(mActionOffsetPointSymbol) connect( mActionOffsetPointSymbol, &QAction::triggered, this, &QgisApp::offsetPointSymbol );
+  if(mActionSnappingOptions) connect( mActionSnappingOptions, &QAction::triggered, this, &QgisApp::snappingOptions );
+  if(mActionOffsetCurve) connect( mActionOffsetCurve, &QAction::triggered, this, &QgisApp::offsetCurve );
+  if(mActionReverseLine) connect( mActionReverseLine, &QAction::triggered, this, &QgisApp::reverseLine );
+  if(mActionTrimExtendFeature) connect( mActionTrimExtendFeature, &QAction::triggered, this, [ = ] { mMapCanvas->setMapTool( mMapTools.mTrimExtendFeature ); } );
 
   // View Menu Items
-  connect( mActionPan, &QAction::triggered, this, &QgisApp::pan );
-  connect( mActionPanToSelected, &QAction::triggered, this, &QgisApp::panToSelected );
-  connect( mActionZoomIn, &QAction::triggered, this, &QgisApp::zoomIn );
-  connect( mActionZoomOut, &QAction::triggered, this, &QgisApp::zoomOut );
-  connect( mActionSelectFeatures, &QAction::triggered, this, &QgisApp::selectFeatures );
-  connect( mActionSelectPolygon, &QAction::triggered, this, &QgisApp::selectByPolygon );
-  connect( mActionSelectFreehand, &QAction::triggered, this, &QgisApp::selectByFreehand );
-  connect( mActionSelectRadius, &QAction::triggered, this, &QgisApp::selectByRadius );
-  connect( mActionDeselectAll, &QAction::triggered, this, &QgisApp::deselectAll );
-  connect( mActionDeselectActiveLayer, &QAction::triggered, this, &QgisApp::deselectActiveLayer );
-  connect( mActionSelectAll, &QAction::triggered, this, &QgisApp::selectAll );
-  connect( mActionReselect, &QAction::triggered, this, [ = ]
+  if(mActionPan) connect( mActionPan, &QAction::triggered, this, &QgisApp::pan );
+  if(mActionPanToSelected) connect( mActionPanToSelected, &QAction::triggered, this, &QgisApp::panToSelected );
+  if(mActionZoomIn) connect( mActionZoomIn, &QAction::triggered, this, &QgisApp::zoomIn );
+  if(mActionZoomOut) connect( mActionZoomOut, &QAction::triggered, this, &QgisApp::zoomOut );
+  if(mActionSelectFeatures) connect( mActionSelectFeatures, &QAction::triggered, this, &QgisApp::selectFeatures );
+  if(mActionSelectPolygon) connect( mActionSelectPolygon, &QAction::triggered, this, &QgisApp::selectByPolygon );
+  if(mActionSelectFreehand) connect( mActionSelectFreehand, &QAction::triggered, this, &QgisApp::selectByFreehand );
+  if(mActionSelectRadius) connect( mActionSelectRadius, &QAction::triggered, this, &QgisApp::selectByRadius );
+  if(mActionDeselectAll) connect( mActionDeselectAll, &QAction::triggered, this, &QgisApp::deselectAll );
+  if(mActionDeselectActiveLayer) connect( mActionDeselectActiveLayer, &QAction::triggered, this, &QgisApp::deselectActiveLayer );
+  if(mActionSelectAll) connect( mActionSelectAll, &QAction::triggered, this, &QgisApp::selectAll );
+  if(mActionReselect) connect( mActionReselect, &QAction::triggered, this, [ = ]
   {
     QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( mMapCanvas->currentLayer() );
     if ( !vlayer )
@@ -2707,112 +2708,112 @@ void QgisApp::createActions()
 
     vlayer->reselect();
   } );
-  connect( mActionInvertSelection, &QAction::triggered, this, &QgisApp::invertSelection );
-  connect( mActionSelectByExpression, &QAction::triggered, this, &QgisApp::selectByExpression );
-  connect( mActionSelectByForm, &QAction::triggered, this, &QgisApp::selectByForm );
-  connect( mActionIdentify, &QAction::triggered, this, &QgisApp::identify );
-  connect( mActionFeatureAction, &QAction::triggered, this, &QgisApp::doFeatureAction );
-  connect( mActionMeasure, &QAction::triggered, this, &QgisApp::measure );
-  connect( mActionMeasureArea, &QAction::triggered, this, &QgisApp::measureArea );
-  connect( mActionMeasureAngle, &QAction::triggered, this, &QgisApp::measureAngle );
-  connect( mActionZoomFullExtent, &QAction::triggered, this, &QgisApp::zoomFull );
-  connect( mActionZoomToLayer, &QAction::triggered, this, &QgisApp::zoomToLayerExtent );
-  connect( mActionZoomToSelected, &QAction::triggered, this, &QgisApp::zoomToSelected );
-  connect( mActionZoomLast, &QAction::triggered, this, &QgisApp::zoomToPrevious );
-  connect( mActionZoomNext, &QAction::triggered, this, &QgisApp::zoomToNext );
-  connect( mActionZoomActualSize, &QAction::triggered, this, &QgisApp::zoomActualSize );
-  connect( mActionMapTips, &QAction::toggled, this, &QgisApp::toggleMapTips );
-  connect( mActionNewBookmark, &QAction::triggered, this, &QgisApp::newBookmark );
-  connect( mActionDraw, &QAction::triggered, this, [this] { refreshMapCanvas( true ); } );
-  connect( mActionTextAnnotation, &QAction::triggered, this, &QgisApp::addTextAnnotation );
-  connect( mActionFormAnnotation, &QAction::triggered, this, &QgisApp::addFormAnnotation );
-  connect( mActionHtmlAnnotation, &QAction::triggered, this, &QgisApp::addHtmlAnnotation );
-  connect( mActionSvgAnnotation, &QAction::triggered, this, &QgisApp::addSvgAnnotation );
-  connect( mActionAnnotation, &QAction::triggered, this, &QgisApp::modifyAnnotation );
-  connect( mActionLabeling, &QAction::triggered, this, &QgisApp::labeling );
-  mStatisticalSummaryDockWidget->setToggleVisibilityAction( mActionStatisticalSummary );
+  if(mActionInvertSelection) connect( mActionInvertSelection, &QAction::triggered, this, &QgisApp::invertSelection );
+  if(mActionSelectByExpression) connect( mActionSelectByExpression, &QAction::triggered, this, &QgisApp::selectByExpression );
+  if(mActionSelectByForm) connect( mActionSelectByForm, &QAction::triggered, this, &QgisApp::selectByForm );
+  if(mActionIdentify) connect( mActionIdentify, &QAction::triggered, this, &QgisApp::identify );
+  if(mActionFeatureAction) connect( mActionFeatureAction, &QAction::triggered, this, &QgisApp::doFeatureAction );
+  if(mActionMeasure) connect( mActionMeasure, &QAction::triggered, this, &QgisApp::measure );
+  if(mActionMeasureArea) connect( mActionMeasureArea, &QAction::triggered, this, &QgisApp::measureArea );
+  if(mActionMeasureAngle) connect( mActionMeasureAngle, &QAction::triggered, this, &QgisApp::measureAngle );
+  if(mActionZoomFullExtent) connect( mActionZoomFullExtent, &QAction::triggered, this, &QgisApp::zoomFull );
+  if(mActionZoomToLayer) connect( mActionZoomToLayer, &QAction::triggered, this, &QgisApp::zoomToLayerExtent );
+  if(mActionZoomToSelected) connect( mActionZoomToSelected, &QAction::triggered, this, &QgisApp::zoomToSelected );
+  if(mActionZoomLast) connect( mActionZoomLast, &QAction::triggered, this, &QgisApp::zoomToPrevious );
+  if(mActionZoomNext) connect( mActionZoomNext, &QAction::triggered, this, &QgisApp::zoomToNext );
+  if(mActionZoomActualSize) connect( mActionZoomActualSize, &QAction::triggered, this, &QgisApp::zoomActualSize );
+  if(mActionMapTips) connect( mActionMapTips, &QAction::toggled, this, &QgisApp::toggleMapTips );
+  if(mActionNewBookmark) connect( mActionNewBookmark, &QAction::triggered, this, &QgisApp::newBookmark );
+  if(mActionDraw) connect( mActionDraw, &QAction::triggered, this, [this] { refreshMapCanvas( true ); } );
+  if(mActionTextAnnotation) connect( mActionTextAnnotation, &QAction::triggered, this, &QgisApp::addTextAnnotation );
+  if(mActionFormAnnotation) connect( mActionFormAnnotation, &QAction::triggered, this, &QgisApp::addFormAnnotation );
+  if(mActionHtmlAnnotation) connect( mActionHtmlAnnotation, &QAction::triggered, this, &QgisApp::addHtmlAnnotation );
+  if(mActionSvgAnnotation) connect( mActionSvgAnnotation, &QAction::triggered, this, &QgisApp::addSvgAnnotation );
+  if(mActionAnnotation) connect( mActionAnnotation, &QAction::triggered, this, &QgisApp::modifyAnnotation );
+  if(mActionLabeling) connect( mActionLabeling, &QAction::triggered, this, &QgisApp::labeling );
+  if(mStatisticalSummaryDockWidget) mStatisticalSummaryDockWidget->setToggleVisibilityAction( mActionStatisticalSummary );
 
   // Layer Menu Items
 
-  connect( mActionDataSourceManager, &QAction::triggered, this, [ = ]() { dataSourceManager(); } );
-  connect( mActionNewVectorLayer, &QAction::triggered, this, &QgisApp::newVectorLayer );
-  connect( mActionNewSpatiaLiteLayer, &QAction::triggered, this, &QgisApp::newSpatialiteLayer );
-  connect( mActionNewGeoPackageLayer, &QAction::triggered, this, &QgisApp::newGeoPackageLayer );
-  connect( mActionNewMemoryLayer, &QAction::triggered, this, &QgisApp::newMemoryLayer );
-  connect( mActionNewVirtualLayer, &QAction::triggered, this, &QgisApp::addVirtualLayer );
-  connect( mActionShowRasterCalculator, &QAction::triggered, this, &QgisApp::showRasterCalculator );
-  connect( mActionShowMeshCalculator, &QAction::triggered, this, &QgisApp::showMeshCalculator );
-  connect( mActionShowAlignRasterTool, &QAction::triggered, this, &QgisApp::showAlignRasterTool );
-  connect( mActionEmbedLayers, &QAction::triggered, this, &QgisApp::embedLayers );
-  connect( mActionAddLayerDefinition, &QAction::triggered, this, &QgisApp::addLayerDefinition );
-  connect( mActionAddOgrLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "ogr" ) ); } );
-  connect( mActionAddRasterLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "gdal" ) ); } );
-  connect( mActionAddMeshLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "mdal" ) ); } );
-  connect( mActionAddPgLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "postgres" ) ); } );
-  connect( mActionAddSpatiaLiteLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "spatialite" ) ); } );
-  connect( mActionAddMssqlLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "mssql" ) ); } );
-  connect( mActionAddDb2Layer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "DB2" ) ); } );
-  connect( mActionAddOracleLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "oracle" ) ); } );
-  connect( mActionAddWmsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "wms" ) ); } );
-  connect( mActionAddXyzLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "xyz" ) ); } );
-  connect( mActionAddVectorTileLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "vectortile" ) ); } );
-  connect( mActionAddWcsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "wcs" ) ); } );
-  connect( mActionAddWfsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "WFS" ) ); } );
-  connect( mActionAddAfsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "arcgisfeatureserver" ) ); } );
-  connect( mActionAddAmsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "arcgismapserver" ) ); } );
-  connect( mActionAddDelimitedText, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "delimitedtext" ) ); } );
-  connect( mActionAddVirtualLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "virtual" ) ); } );
-  connect( mActionOpenTable, &QAction::triggered, this, [ = ]
+  if(mActionDataSourceManager) connect( mActionDataSourceManager, &QAction::triggered, this, [ = ]() { dataSourceManager(); } );
+  if(mActionNewVectorLayer) connect( mActionNewVectorLayer, &QAction::triggered, this, &QgisApp::newVectorLayer );
+  if(mActionNewSpatiaLiteLayer) connect( mActionNewSpatiaLiteLayer, &QAction::triggered, this, &QgisApp::newSpatialiteLayer );
+  if(mActionNewGeoPackageLayer) connect( mActionNewGeoPackageLayer, &QAction::triggered, this, &QgisApp::newGeoPackageLayer );
+  if(mActionNewMemoryLayer) connect( mActionNewMemoryLayer, &QAction::triggered, this, &QgisApp::newMemoryLayer );
+  if(mActionNewVirtualLayer) connect( mActionNewVirtualLayer, &QAction::triggered, this, &QgisApp::addVirtualLayer );
+  if(mActionShowRasterCalculator) connect( mActionShowRasterCalculator, &QAction::triggered, this, &QgisApp::showRasterCalculator );
+  if(mActionShowMeshCalculator) connect( mActionShowMeshCalculator, &QAction::triggered, this, &QgisApp::showMeshCalculator );
+  if(mActionShowAlignRasterTool) connect( mActionShowAlignRasterTool, &QAction::triggered, this, &QgisApp::showAlignRasterTool );
+  if(mActionEmbedLayers) connect( mActionEmbedLayers, &QAction::triggered, this, &QgisApp::embedLayers );
+  if(mActionAddLayerDefinition) connect( mActionAddLayerDefinition, &QAction::triggered, this, &QgisApp::addLayerDefinition );
+  if(mActionAddOgrLayer) connect( mActionAddOgrLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "ogr" ) ); } );
+  if(mActionAddRasterLayer) connect( mActionAddRasterLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "gdal" ) ); } );
+  if(mActionAddMeshLayer) connect( mActionAddMeshLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "mdal" ) ); } );
+  if(mActionAddPgLayer) connect( mActionAddPgLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "postgres" ) ); } );
+  if(mActionAddSpatiaLiteLayer) connect( mActionAddSpatiaLiteLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "spatialite" ) ); } );
+  if(mActionAddMssqlLayer) connect( mActionAddMssqlLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "mssql" ) ); } );
+  if(mActionAddDb2Layer) connect( mActionAddDb2Layer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "DB2" ) ); } );
+  if(mActionAddOracleLayer) connect( mActionAddOracleLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "oracle" ) ); } );
+  if(mActionAddWmsLayer) connect( mActionAddWmsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "wms" ) ); } );
+  if(mActionAddXyzLayer) connect( mActionAddXyzLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "xyz" ) ); } );
+  if(mActionAddVectorTileLayer) connect( mActionAddVectorTileLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "vectortile" ) ); } );
+  if(mActionAddWcsLayer) connect( mActionAddWcsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "wcs" ) ); } );
+  if(mActionAddWfsLayer) connect( mActionAddWfsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "WFS" ) ); } );
+  if(mActionAddAfsLayer) connect( mActionAddAfsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "arcgisfeatureserver" ) ); } );
+  if(mActionAddAmsLayer) connect( mActionAddAmsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "arcgismapserver" ) ); } );
+  if(mActionAddDelimitedText) connect( mActionAddDelimitedText, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "delimitedtext" ) ); } );
+  if(mActionAddVirtualLayer) connect( mActionAddVirtualLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "virtual" ) ); } );
+  if(mActionOpenTable) connect( mActionOpenTable, &QAction::triggered, this, [ = ]
   {
     QgsSettings settings;
     QgsAttributeTableFilterModel::FilterMode initialMode = settings.enumValue( QStringLiteral( "qgis/attributeTableBehavior" ),  QgsAttributeTableFilterModel::ShowAll );
     attributeTable( initialMode );
   } );
-  connect( mActionOpenFieldCalc, &QAction::triggered, this, &QgisApp::fieldCalculator );
-  connect( mActionToggleEditing, &QAction::triggered, this, [ = ] { toggleEditing(); } );
-  connect( mActionSaveLayerEdits, &QAction::triggered, this, &QgisApp::saveActiveLayerEdits );
-  connect( mActionSaveEdits, &QAction::triggered, this, [ = ] { saveEdits(); } );
-  connect( mActionSaveAllEdits, &QAction::triggered, this, [ = ] { saveAllEdits(); } );
-  connect( mActionRollbackEdits, &QAction::triggered, this, &QgisApp::rollbackEdits );
-  connect( mActionRollbackAllEdits, &QAction::triggered, this, [ = ] { rollbackAllEdits(); } );
-  connect( mActionCancelEdits, &QAction::triggered, this, [ = ] { cancelEdits(); } );
-  connect( mActionCancelAllEdits, &QAction::triggered, this, [ = ] { cancelAllEdits(); } );
-  connect( mActionLayerSaveAs, &QAction::triggered, this, [ = ] { saveAsFile(); } );
-  connect( mActionSaveLayerDefinition, &QAction::triggered, this, &QgisApp::saveAsLayerDefinition );
-  connect( mActionRemoveLayer, &QAction::triggered, this, &QgisApp::removeLayer );
-  connect( mActionDuplicateLayer, &QAction::triggered, this, [ = ] { duplicateLayers(); } );
-  connect( mActionSetLayerScaleVisibility, &QAction::triggered, this, &QgisApp::setLayerScaleVisibility );
-  connect( mActionSetLayerCRS, &QAction::triggered, this, &QgisApp::setLayerCrs );
-  connect( mActionSetProjectCRSFromLayer, &QAction::triggered, this, &QgisApp::setProjectCrsFromLayer );
-  connect( mActionLayerProperties, &QAction::triggered, this, &QgisApp::layerProperties );
-  connect( mActionLayerSubsetString, &QAction::triggered, this, qgis::overload<>::of( &QgisApp::layerSubsetString ) );
-  connect( mActionAddToOverview, &QAction::triggered, this, &QgisApp::isInOverview );
-  connect( mActionAddAllToOverview, &QAction::triggered, this, &QgisApp::addAllToOverview );
-  connect( mActionRemoveAllFromOverview, &QAction::triggered, this, &QgisApp::removeAllFromOverview );
-  connect( mActionShowAllLayers, &QAction::triggered, this, &QgisApp::showAllLayers );
-  connect( mActionHideAllLayers, &QAction::triggered, this, &QgisApp::hideAllLayers );
-  connect( mActionShowSelectedLayers, &QAction::triggered, this, &QgisApp::showSelectedLayers );
-  connect( mActionHideSelectedLayers, &QAction::triggered, this, &QgisApp::hideSelectedLayers );
-  connect( mActionToggleSelectedLayers, &QAction::triggered, this, &QgisApp::toggleSelectedLayers );
-  connect( mActionToggleSelectedLayersIndependently, &QAction::triggered, this, &QgisApp::toggleSelectedLayersIndependently );
-  connect( mActionHideDeselectedLayers, &QAction::triggered, this, &QgisApp::hideDeselectedLayers );
+  if(mActionOpenFieldCalc) connect( mActionOpenFieldCalc, &QAction::triggered, this, &QgisApp::fieldCalculator );
+  if(mActionToggleEditing) connect( mActionToggleEditing, &QAction::triggered, this, [ = ] { toggleEditing(); } );
+  if(mActionSaveLayerEdits) connect( mActionSaveLayerEdits, &QAction::triggered, this, &QgisApp::saveActiveLayerEdits );
+  if(mActionSaveEdits) connect( mActionSaveEdits, &QAction::triggered, this, [ = ] { saveEdits(); } );
+  if(mActionSaveAllEdits) connect( mActionSaveAllEdits, &QAction::triggered, this, [ = ] { saveAllEdits(); } );
+  if(mActionRollbackEdits) connect( mActionRollbackEdits, &QAction::triggered, this, &QgisApp::rollbackEdits );
+  if(mActionRollbackAllEdits) connect( mActionRollbackAllEdits, &QAction::triggered, this, [ = ] { rollbackAllEdits(); } );
+  if(mActionCancelEdits) connect( mActionCancelEdits, &QAction::triggered, this, [ = ] { cancelEdits(); } );
+  if(mActionCancelAllEdits) connect( mActionCancelAllEdits, &QAction::triggered, this, [ = ] { cancelAllEdits(); } );
+  if(mActionLayerSaveAs) connect( mActionLayerSaveAs, &QAction::triggered, this, [ = ] { saveAsFile(); } );
+  if(mActionSaveLayerDefinition) connect( mActionSaveLayerDefinition, &QAction::triggered, this, &QgisApp::saveAsLayerDefinition );
+  if(mActionRemoveLayer) connect( mActionRemoveLayer, &QAction::triggered, this, &QgisApp::removeLayer );
+  if(mActionDuplicateLayer) connect( mActionDuplicateLayer, &QAction::triggered, this, [ = ] { duplicateLayers(); } );
+  if(mActionSetLayerScaleVisibility) connect( mActionSetLayerScaleVisibility, &QAction::triggered, this, &QgisApp::setLayerScaleVisibility );
+  if(mActionSetLayerCRS) connect( mActionSetLayerCRS, &QAction::triggered, this, &QgisApp::setLayerCrs );
+  if(mActionSetProjectCRSFromLayer) connect( mActionSetProjectCRSFromLayer, &QAction::triggered, this, &QgisApp::setProjectCrsFromLayer );
+  if(mActionLayerProperties) connect( mActionLayerProperties, &QAction::triggered, this, &QgisApp::layerProperties );
+  if(mActionLayerSubsetString) connect( mActionLayerSubsetString, &QAction::triggered, this, qgis::overload<>::of( &QgisApp::layerSubsetString ) );
+  if(mActionAddToOverview) connect( mActionAddToOverview, &QAction::triggered, this, &QgisApp::isInOverview );
+  if(mActionAddAllToOverview) connect( mActionAddAllToOverview, &QAction::triggered, this, &QgisApp::addAllToOverview );
+  if(mActionRemoveAllFromOverview) connect( mActionRemoveAllFromOverview, &QAction::triggered, this, &QgisApp::removeAllFromOverview );
+  if(mActionShowAllLayers) connect( mActionShowAllLayers, &QAction::triggered, this, &QgisApp::showAllLayers );
+  if(mActionHideAllLayers) connect( mActionHideAllLayers, &QAction::triggered, this, &QgisApp::hideAllLayers );
+  if(mActionShowSelectedLayers) connect( mActionShowSelectedLayers, &QAction::triggered, this, &QgisApp::showSelectedLayers );
+  if(mActionHideSelectedLayers) connect( mActionHideSelectedLayers, &QAction::triggered, this, &QgisApp::hideSelectedLayers );
+  if(mActionToggleSelectedLayers) connect( mActionToggleSelectedLayers, &QAction::triggered, this, &QgisApp::toggleSelectedLayers );
+  if(mActionToggleSelectedLayersIndependently) connect( mActionToggleSelectedLayersIndependently, &QAction::triggered, this, &QgisApp::toggleSelectedLayersIndependently );
+  if(mActionHideDeselectedLayers) connect( mActionHideDeselectedLayers, &QAction::triggered, this, &QgisApp::hideDeselectedLayers );
 
   // Plugin Menu Items
 
-  connect( mActionManagePlugins, &QAction::triggered, this, &QgisApp::showPluginManager );
-  connect( mActionShowPythonDialog, &QAction::triggered, this, &QgisApp::showPythonDialog );
+  if(mActionManagePlugins) connect( mActionManagePlugins, &QAction::triggered, this, &QgisApp::showPluginManager );
+  if(mActionShowPythonDialog) connect( mActionShowPythonDialog, &QAction::triggered, this, &QgisApp::showPythonDialog );
 
   // Settings Menu Items
 
-  connect( mActionToggleFullScreen, &QAction::triggered, this, &QgisApp::toggleFullScreen );
-  connect( mActionTogglePanelsVisibility, &QAction::triggered, this, &QgisApp::togglePanelsVisibility );
-  connect( mActionToggleMapOnly, &QAction::triggered, this, &QgisApp::toggleMapOnly );
-  connect( mActionProjectProperties, &QAction::triggered, this, [ = ] {projectProperties( QString() );} );
-  connect( mActionOptions, &QAction::triggered, this, &QgisApp::options );
-  connect( mActionCustomProjection, &QAction::triggered, this, &QgisApp::customProjection );
-  connect( mActionConfigureShortcuts, &QAction::triggered, this, &QgisApp::configureShortcuts );
-  connect( mActionStyleManager, &QAction::triggered, this, &QgisApp::showStyleManager );
-  connect( mActionCustomization, &QAction::triggered, this, &QgisApp::customize );
+  if(mActionToggleFullScreen) connect( mActionToggleFullScreen, &QAction::triggered, this, &QgisApp::toggleFullScreen );
+  if(mActionTogglePanelsVisibility) connect( mActionTogglePanelsVisibility, &QAction::triggered, this, &QgisApp::togglePanelsVisibility );
+  if(mActionToggleMapOnly) connect( mActionToggleMapOnly, &QAction::triggered, this, &QgisApp::toggleMapOnly );
+  if(mActionProjectProperties) connect( mActionProjectProperties, &QAction::triggered, this, [ = ] {projectProperties( QString() );} );
+  if(mActionOptions) connect( mActionOptions, &QAction::triggered, this, &QgisApp::options );
+  if(mActionCustomProjection) connect( mActionCustomProjection, &QAction::triggered, this, &QgisApp::customProjection );
+  if(mActionConfigureShortcuts) connect( mActionConfigureShortcuts, &QAction::triggered, this, &QgisApp::configureShortcuts );
+  if(mActionStyleManager) connect( mActionStyleManager, &QAction::triggered, this, &QgisApp::showStyleManager );
+  if(mActionCustomization) connect( mActionCustomization, &QAction::triggered, this, &QgisApp::customize );
 
 #ifdef Q_OS_MAC
   // Window Menu Items
@@ -2844,19 +2845,19 @@ void QgisApp::createActions()
   menuAllEdits->addAction( mActionRollbackAllEdits );
   menuAllEdits->addAction( mActionCancelAllEdits );
   menuAllEdits->setObjectName( "AllEditsMenu" );
-  mActionAllEdits->setMenu( menuAllEdits );
+  if(mActionAllEdits) mActionAllEdits->setMenu( menuAllEdits );
 
   // Raster toolbar items
-  connect( mActionLocalHistogramStretch, &QAction::triggered, this, &QgisApp::localHistogramStretch );
-  connect( mActionFullHistogramStretch, &QAction::triggered, this, &QgisApp::fullHistogramStretch );
-  connect( mActionLocalCumulativeCutStretch, &QAction::triggered, this, &QgisApp::localCumulativeCutStretch );
-  connect( mActionFullCumulativeCutStretch, &QAction::triggered, this, &QgisApp::fullCumulativeCutStretch );
-  connect( mActionIncreaseBrightness, &QAction::triggered, this, &QgisApp::increaseBrightness );
-  connect( mActionDecreaseBrightness, &QAction::triggered, this, &QgisApp::decreaseBrightness );
-  connect( mActionIncreaseContrast, &QAction::triggered, this, &QgisApp::increaseContrast );
-  connect( mActionDecreaseContrast, &QAction::triggered, this, &QgisApp::decreaseContrast );
-  connect( mActionIncreaseGamma, &QAction::triggered, this, &QgisApp::increaseGamma );
-  connect( mActionDecreaseGamma, &QAction::triggered, this, &QgisApp::decreaseGamma );
+  if(mActionLocalHistogramStretch) connect( mActionLocalHistogramStretch, &QAction::triggered, this, &QgisApp::localHistogramStretch );
+  if(mActionFullHistogramStretch) connect( mActionFullHistogramStretch, &QAction::triggered, this, &QgisApp::fullHistogramStretch );
+  if(mActionLocalCumulativeCutStretch) connect( mActionLocalCumulativeCutStretch, &QAction::triggered, this, &QgisApp::localCumulativeCutStretch );
+  if(mActionFullCumulativeCutStretch) connect( mActionFullCumulativeCutStretch, &QAction::triggered, this, &QgisApp::fullCumulativeCutStretch );
+  if(mActionIncreaseBrightness) connect( mActionIncreaseBrightness, &QAction::triggered, this, &QgisApp::increaseBrightness );
+  if(mActionDecreaseBrightness) connect( mActionDecreaseBrightness, &QAction::triggered, this, &QgisApp::decreaseBrightness );
+  if(mActionIncreaseContrast) connect( mActionIncreaseContrast, &QAction::triggered, this, &QgisApp::increaseContrast );
+  if(mActionDecreaseContrast) connect( mActionDecreaseContrast, &QAction::triggered, this, &QgisApp::decreaseContrast );
+  if(mActionIncreaseGamma) connect( mActionIncreaseGamma, &QAction::triggered, this, &QgisApp::increaseGamma );
+  if(mActionDecreaseGamma) connect( mActionDecreaseGamma, &QAction::triggered, this, &QgisApp::decreaseGamma );
 
 #ifdef HAVE_GEOREFERENCER
   connect( mActionShowGeoreferencer, &QAction::triggered, this, &QgisApp::showGeoreferencer );
@@ -2868,24 +2869,24 @@ void QgisApp::createActions()
   // Help Menu Items
 
 #ifdef Q_OS_MAC
-  mActionHelpContents->setShortcut( QString( "Ctrl+?" ) );
-  mActionQgisHomePage->setShortcut( QString() );
-  mActionReportaBug->setShortcut( QString() );
+  if(mActionHelpContents) mActionHelpContents->setShortcut( QString( "Ctrl+?" ) );
+  if(mActionQgisHomePage) mActionQgisHomePage->setShortcut( QString() );
+  if(mActionReportaBug) mActionReportaBug->setShortcut( QString() );
 #endif
 
-  mActionHelpContents->setEnabled( QFileInfo::exists( QgsApplication::pkgDataPath() + "/doc/index.html" ) );
+  if(mActionHelpContents) mActionHelpContents->setEnabled( QFileInfo::exists( QgsApplication::pkgDataPath() + "/doc/index.html" ) );
 
-  connect( mActionHelpContents, &QAction::triggered, this, &QgisApp::helpContents );
-  connect( mActionHelpAPI, &QAction::triggered, this, &QgisApp::apiDocumentation );
-  connect( mActionReportaBug, &QAction::triggered, this, &QgisApp::reportaBug );
-  connect( mActionNeedSupport, &QAction::triggered, this, &QgisApp::supportProviders );
-  connect( mActionQgisHomePage, &QAction::triggered, this, &QgisApp::helpQgisHomePage );
-  connect( mActionCheckQgisVersion, &QAction::triggered, this, &QgisApp::checkQgisVersion );
-  connect( mActionAbout, &QAction::triggered, this, &QgisApp::about );
-  connect( mActionSponsors, &QAction::triggered, this, &QgisApp::sponsors );
+  if(mActionHelpContents) connect( mActionHelpContents, &QAction::triggered, this, &QgisApp::helpContents );
+  if(mActionHelpAPI) connect( mActionHelpAPI, &QAction::triggered, this, &QgisApp::apiDocumentation );
+  if(mActionReportaBug) connect( mActionReportaBug, &QAction::triggered, this, &QgisApp::reportaBug );
+  if(mActionNeedSupport) connect( mActionNeedSupport, &QAction::triggered, this, &QgisApp::supportProviders );
+  if(mActionQgisHomePage) connect( mActionQgisHomePage, &QAction::triggered, this, &QgisApp::helpQgisHomePage );
+  if(mActionCheckQgisVersion) connect( mActionCheckQgisVersion, &QAction::triggered, this, &QgisApp::checkQgisVersion );
+  if(mActionAbout) connect( mActionAbout, &QAction::triggered, this, &QgisApp::about );
+  if(mActionSponsors) connect( mActionSponsors, &QAction::triggered, this, &QgisApp::sponsors );
 
-  connect( mActionShowPinnedLabels, &QAction::toggled, this, &QgisApp::showPinnedLabels );
-  connect( mActionShowUnplacedLabels, &QAction::toggled, this, [ = ]( bool active )
+  if(mActionShowPinnedLabels) connect( mActionShowPinnedLabels, &QAction::toggled, this, &QgisApp::showPinnedLabels );
+  if(mActionShowUnplacedLabels) connect( mActionShowUnplacedLabels, &QAction::toggled, this, [ = ]( bool active )
   {
     QgsLabelingEngineSettings engineSettings = QgsProject::instance()->labelingEngineSettings();
     engineSettings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, active );
@@ -2894,18 +2895,18 @@ void QgisApp::createActions()
   } );
   connect( QgsProject::instance(), &QgsProject::labelingEngineSettingsChanged, this, [ = ]
   {
-    whileBlocking( mActionShowUnplacedLabels )->setChecked( QgsProject::instance()->labelingEngineSettings().testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
+    if(mActionShowUnplacedLabels) whileBlocking( mActionShowUnplacedLabels )->setChecked( QgsProject::instance()->labelingEngineSettings().testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
   } );
-  connect( mActionPinLabels, &QAction::triggered, this, &QgisApp::pinLabels );
-  connect( mActionShowHideLabels, &QAction::triggered, this, &QgisApp::showHideLabels );
-  connect( mActionMoveLabel, &QAction::triggered, this, &QgisApp::moveLabel );
-  connect( mActionRotateLabel, &QAction::triggered, this, &QgisApp::rotateLabel );
-  connect( mActionChangeLabelProperties, &QAction::triggered, this, &QgisApp::changeLabelProperties );
+  if(mActionPinLabels) connect( mActionPinLabels, &QAction::triggered, this, &QgisApp::pinLabels );
+  if(mActionShowHideLabels) connect( mActionShowHideLabels, &QAction::triggered, this, &QgisApp::showHideLabels );
+  if(mActionMoveLabel) connect( mActionMoveLabel, &QAction::triggered, this, &QgisApp::moveLabel );
+  if(mActionRotateLabel) connect( mActionRotateLabel, &QAction::triggered, this, &QgisApp::rotateLabel );
+  if(mActionChangeLabelProperties) connect( mActionChangeLabelProperties, &QAction::triggered, this, &QgisApp::changeLabelProperties );
 
-  connect( mActionDiagramProperties, &QAction::triggered, this, &QgisApp::diagramProperties );
+  if(mActionDiagramProperties) connect( mActionDiagramProperties, &QAction::triggered, this, &QgisApp::diagramProperties );
 
-  connect( mActionAddFeature, &QAction::toggled, this, &QgisApp::enableDigitizeWithCurveAction );
-  connect( mActionSplitFeatures, &QAction::toggled, this, &QgisApp::enableDigitizeWithCurveAction );
+  if(mActionAddFeature) connect( mActionAddFeature, &QAction::toggled, this, &QgisApp::enableDigitizeWithCurveAction );
+  if(mActionSplitFeatures) connect( mActionSplitFeatures, &QAction::toggled, this, &QgisApp::enableDigitizeWithCurveAction );
 
   // we can't set the shortcut these actions, because we need to restrict their context to the canvas and it's children..
   for ( QWidget *widget :
@@ -2932,12 +2933,12 @@ void QgisApp::createActions()
   }
 
 #ifndef HAVE_POSTGRESQL
-  delete mActionAddPgLayer;
+  if(mActionAddPgLayer) delete mActionAddPgLayer;
   mActionAddPgLayer = 0;
 #endif
 
 #ifndef HAVE_ORACLE
-  delete mActionAddOracleLayer;
+  if(mActionAddOracleLayer) delete mActionAddOracleLayer;
   mActionAddOracleLayer = nullptr;
 #endif
 
@@ -2973,7 +2974,7 @@ void QgisApp::showPythonDialog()
 #ifdef Q_OS_MAC
   else
   {
-    addWindow( mActionShowPythonDialog );
+    if(mActionShowPythonDialog) addWindow( mActionShowPythonDialog );
   }
 #endif
 #endif
@@ -2984,79 +2985,79 @@ void QgisApp::createActionGroups()
   //
   // Map Tool Group
   mMapToolGroup = new QActionGroup( this );
-  mMapToolGroup->addAction( mActionPan );
-  mMapToolGroup->addAction( mActionZoomIn );
-  mMapToolGroup->addAction( mActionZoomOut );
-  mMapToolGroup->addAction( mActionIdentify );
-  mMapToolGroup->addAction( mActionFeatureAction );
-  mMapToolGroup->addAction( mActionSelectFeatures );
-  mMapToolGroup->addAction( mActionSelectPolygon );
-  mMapToolGroup->addAction( mActionSelectFreehand );
-  mMapToolGroup->addAction( mActionSelectRadius );
-  mMapToolGroup->addAction( mActionDeselectAll );
-  mMapToolGroup->addAction( mActionDeselectActiveLayer );
-  mMapToolGroup->addAction( mActionSelectAll );
-  mMapToolGroup->addAction( mActionReselect );
-  mMapToolGroup->addAction( mActionInvertSelection );
-  mMapToolGroup->addAction( mActionMeasure );
-  mMapToolGroup->addAction( mActionMeasureArea );
-  mMapToolGroup->addAction( mActionMeasureAngle );
-  mMapToolGroup->addAction( mActionAddFeature );
-  mMapToolGroup->addAction( mActionCircularStringCurvePoint );
-  mMapToolGroup->addAction( mActionCircularStringRadius );
-  mMapToolGroup->addAction( mActionCircle2Points );
-  mMapToolGroup->addAction( mActionCircle3Points );
-  mMapToolGroup->addAction( mActionCircle3Tangents );
-  mMapToolGroup->addAction( mActionCircle2TangentsPoint );
-  mMapToolGroup->addAction( mActionCircleCenterPoint );
-  mMapToolGroup->addAction( mActionEllipseCenter2Points );
-  mMapToolGroup->addAction( mActionEllipseCenterPoint );
-  mMapToolGroup->addAction( mActionEllipseExtent );
-  mMapToolGroup->addAction( mActionEllipseFoci );
-  mMapToolGroup->addAction( mActionRectangleCenterPoint );
-  mMapToolGroup->addAction( mActionRectangleExtent );
-  mMapToolGroup->addAction( mActionRectangle3PointsDistance );
-  mMapToolGroup->addAction( mActionRectangle3PointsProjected );
-  mMapToolGroup->addAction( mActionRegularPolygon2Points );
-  mMapToolGroup->addAction( mActionRegularPolygonCenterPoint );
-  mMapToolGroup->addAction( mActionRegularPolygonCenterCorner );
-  mMapToolGroup->addAction( mActionMoveFeature );
-  mMapToolGroup->addAction( mActionMoveFeatureCopy );
-  mMapToolGroup->addAction( mActionRotateFeature );
-  mMapToolGroup->addAction( mActionOffsetCurve );
-  mMapToolGroup->addAction( mActionReshapeFeatures );
-  mMapToolGroup->addAction( mActionSplitFeatures );
-  mMapToolGroup->addAction( mActionSplitParts );
-  mMapToolGroup->addAction( mActionDeleteSelected );
-  mMapToolGroup->addAction( mActionAddRing );
-  mMapToolGroup->addAction( mActionFillRing );
-  mMapToolGroup->addAction( mActionAddPart );
-  mMapToolGroup->addAction( mActionSimplifyFeature );
-  mMapToolGroup->addAction( mActionDeleteRing );
-  mMapToolGroup->addAction( mActionDeletePart );
-  mMapToolGroup->addAction( mActionMergeFeatures );
-  mMapToolGroup->addAction( mActionMergeFeatureAttributes );
-  mMapToolGroup->addAction( mActionVertexTool );
-  mMapToolGroup->addAction( mActionVertexToolActiveLayer );
-  mMapToolGroup->addAction( mActionRotatePointSymbols );
-  mMapToolGroup->addAction( mActionOffsetPointSymbol );
-  mMapToolGroup->addAction( mActionPinLabels );
-  mMapToolGroup->addAction( mActionShowHideLabels );
-  mMapToolGroup->addAction( mActionMoveLabel );
-  mMapToolGroup->addAction( mActionRotateLabel );
-  mMapToolGroup->addAction( mActionChangeLabelProperties );
-  mMapToolGroup->addAction( mActionReverseLine );
-  mMapToolGroup->addAction( mActionTrimExtendFeature );
+  if(mActionPan) mMapToolGroup->addAction( mActionPan );
+  if(mActionZoomIn) mMapToolGroup->addAction( mActionZoomIn );
+  if(mActionZoomOut) mMapToolGroup->addAction( mActionZoomOut );
+  if(mActionIdentify) mMapToolGroup->addAction( mActionIdentify );
+  if(mActionFeatureAction) mMapToolGroup->addAction( mActionFeatureAction );
+  if(mActionSelectFeatures) mMapToolGroup->addAction( mActionSelectFeatures );
+  if(mActionSelectPolygon) mMapToolGroup->addAction( mActionSelectPolygon );
+  if(mActionSelectFreehand) mMapToolGroup->addAction( mActionSelectFreehand );
+  if(mActionSelectRadius) mMapToolGroup->addAction( mActionSelectRadius );
+  if(mActionDeselectAll) mMapToolGroup->addAction( mActionDeselectAll );
+  if(mActionDeselectActiveLayer) mMapToolGroup->addAction( mActionDeselectActiveLayer );
+  if(mActionSelectAll) mMapToolGroup->addAction( mActionSelectAll );
+  if(mActionReselect) mMapToolGroup->addAction( mActionReselect );
+  if(mActionInvertSelection) mMapToolGroup->addAction( mActionInvertSelection );
+  if(mActionMeasure) mMapToolGroup->addAction( mActionMeasure );
+  if(mActionMeasureArea) mMapToolGroup->addAction( mActionMeasureArea );
+  if(mActionMeasureAngle) mMapToolGroup->addAction( mActionMeasureAngle );
+  if(mActionAddFeature) mMapToolGroup->addAction( mActionAddFeature );
+  if(mActionCircularStringCurvePoint) mMapToolGroup->addAction( mActionCircularStringCurvePoint );
+  if(mActionCircularStringRadius) mMapToolGroup->addAction( mActionCircularStringRadius );
+  if(mActionCircle2Points) mMapToolGroup->addAction( mActionCircle2Points );
+  if(mActionCircle3Points) mMapToolGroup->addAction( mActionCircle3Points );
+  if(mActionCircle3Tangents) mMapToolGroup->addAction( mActionCircle3Tangents );
+  if(mActionCircle2TangentsPoint) mMapToolGroup->addAction( mActionCircle2TangentsPoint );
+  if(mActionCircleCenterPoint) mMapToolGroup->addAction( mActionCircleCenterPoint );
+  if(mActionEllipseCenter2Points) mMapToolGroup->addAction( mActionEllipseCenter2Points );
+  if(mActionEllipseCenterPoint) mMapToolGroup->addAction( mActionEllipseCenterPoint );
+  if(mActionEllipseExtent) mMapToolGroup->addAction( mActionEllipseExtent );
+  if(mActionEllipseFoci) mMapToolGroup->addAction( mActionEllipseFoci );
+  if(mActionRectangleCenterPoint) mMapToolGroup->addAction( mActionRectangleCenterPoint );
+  if(mActionRectangleExtent) mMapToolGroup->addAction( mActionRectangleExtent );
+  if(mActionRectangle3PointsDistance) mMapToolGroup->addAction( mActionRectangle3PointsDistance );
+  if(mActionRectangle3PointsProjected) mMapToolGroup->addAction( mActionRectangle3PointsProjected );
+  if(mActionRegularPolygon2Points) mMapToolGroup->addAction( mActionRegularPolygon2Points );
+  if(mActionRegularPolygonCenterPoint) mMapToolGroup->addAction( mActionRegularPolygonCenterPoint );
+  if(mActionRegularPolygonCenterCorner) mMapToolGroup->addAction( mActionRegularPolygonCenterCorner );
+  if(mActionMoveFeature) mMapToolGroup->addAction( mActionMoveFeature );
+  if(mActionMoveFeatureCopy) mMapToolGroup->addAction( mActionMoveFeatureCopy );
+  if(mActionRotateFeature) mMapToolGroup->addAction( mActionRotateFeature );
+  if(mActionOffsetCurve) mMapToolGroup->addAction( mActionOffsetCurve );
+  if(mActionReshapeFeatures) mMapToolGroup->addAction( mActionReshapeFeatures );
+  if(mActionSplitFeatures) mMapToolGroup->addAction( mActionSplitFeatures );
+  if(mActionSplitParts) mMapToolGroup->addAction( mActionSplitParts );
+  if(mActionDeleteSelected) mMapToolGroup->addAction( mActionDeleteSelected );
+  if(mActionAddRing) mMapToolGroup->addAction( mActionAddRing );
+  if(mActionFillRing) mMapToolGroup->addAction( mActionFillRing );
+  if(mActionAddPart) mMapToolGroup->addAction( mActionAddPart );
+  if(mActionSimplifyFeature) mMapToolGroup->addAction( mActionSimplifyFeature );
+  if(mActionDeleteRing) mMapToolGroup->addAction( mActionDeleteRing );
+  if(mActionDeletePart) mMapToolGroup->addAction( mActionDeletePart );
+  if(mActionMergeFeatures) mMapToolGroup->addAction( mActionMergeFeatures );
+  if(mActionMergeFeatureAttributes) mMapToolGroup->addAction( mActionMergeFeatureAttributes );
+  if(mActionVertexTool) mMapToolGroup->addAction( mActionVertexTool );
+  if(mActionVertexToolActiveLayer) mMapToolGroup->addAction( mActionVertexToolActiveLayer );
+  if(mActionRotatePointSymbols) mMapToolGroup->addAction( mActionRotatePointSymbols );
+  if(mActionOffsetPointSymbol) mMapToolGroup->addAction( mActionOffsetPointSymbol );
+  if(mActionPinLabels) mMapToolGroup->addAction( mActionPinLabels );
+  if(mActionShowHideLabels) mMapToolGroup->addAction( mActionShowHideLabels );
+  if(mActionMoveLabel) mMapToolGroup->addAction( mActionMoveLabel );
+  if(mActionRotateLabel) mMapToolGroup->addAction( mActionRotateLabel );
+  if(mActionChangeLabelProperties) mMapToolGroup->addAction( mActionChangeLabelProperties );
+  if(mActionReverseLine) mMapToolGroup->addAction( mActionReverseLine );
+  if(mActionTrimExtendFeature) mMapToolGroup->addAction( mActionTrimExtendFeature );
 
   //
   // Preview Modes Group
   QActionGroup *mPreviewGroup = new QActionGroup( this );
   mPreviewGroup->setExclusive( true );
-  mActionPreviewModeOff->setActionGroup( mPreviewGroup );
-  mActionPreviewModeGrayscale->setActionGroup( mPreviewGroup );
-  mActionPreviewModeMono->setActionGroup( mPreviewGroup );
-  mActionPreviewProtanope->setActionGroup( mPreviewGroup );
-  mActionPreviewDeuteranope->setActionGroup( mPreviewGroup );
+  if(mActionPreviewModeOff) mActionPreviewModeOff->setActionGroup( mPreviewGroup );
+  if(mActionPreviewModeGrayscale) mActionPreviewModeGrayscale->setActionGroup( mPreviewGroup );
+  if(mActionPreviewModeMono) mActionPreviewModeMono->setActionGroup( mPreviewGroup );
+  if(mActionPreviewProtanope) mActionPreviewProtanope->setActionGroup( mPreviewGroup );
+  if(mActionPreviewDeuteranope) mActionPreviewDeuteranope->setActionGroup( mPreviewGroup );
 }
 
 void QgisApp::setAppStyleSheet( const QString &stylesheet )
@@ -3121,8 +3122,8 @@ void QgisApp::createMenus()
     QDialogButtonBox::ButtonLayout( style()->styleHint( QStyle::SH_DialogButtonLayout, nullptr, this ) );
 
   // Connect once for the entire submenu.
-  connect( mRecentProjectsMenu, &QMenu::triggered, this, static_cast < void ( QgisApp::* )( QAction *action ) >( &QgisApp::openProject ) );
-  connect( mProjectFromTemplateMenu, &QMenu::triggered,
+  if(mRecentProjectsMenu) connect( mRecentProjectsMenu, &QMenu::triggered, this, static_cast < void ( QgisApp::* )( QAction *action ) >( &QgisApp::openProject ) );
+  if(mProjectFromTemplateMenu) connect( mProjectFromTemplateMenu, &QMenu::triggered,
            this, &QgisApp::fileNewFromTemplateAction );
 
 
@@ -3130,22 +3131,22 @@ void QgisApp::createMenus()
 
   if ( layout != QDialogButtonBox::KdeLayout )
   {
-    mViewMenu->addSeparator();
-    mViewMenu->addMenu( mPanelMenu );
-    mViewMenu->addMenu( mToolbarMenu );
-    mViewMenu->addAction( mActionToggleFullScreen );
-    mViewMenu->addAction( mActionTogglePanelsVisibility );
-    mViewMenu->addAction( mActionToggleMapOnly );
+    if(mViewMenu) mViewMenu->addSeparator();
+    if(mViewMenu) mViewMenu->addMenu( mPanelMenu );
+    if(mViewMenu) mViewMenu->addMenu( mToolbarMenu );
+    if(mViewMenu && mActionToggleFullScreen) mViewMenu->addAction( mActionToggleFullScreen );
+    if(mViewMenu && mActionTogglePanelsVisibility) mViewMenu->addAction( mActionTogglePanelsVisibility );
+    if(mViewMenu && mActionToggleMapOnly) mViewMenu->addAction( mActionToggleMapOnly );
   }
-  else
+  else if(mSettingsMenu) 
   {
     // on the top of the settings menu
     QAction *before = mSettingsMenu->actions().at( 0 );
     mSettingsMenu->insertMenu( before, mPanelMenu );
     mSettingsMenu->insertMenu( before, mToolbarMenu );
-    mSettingsMenu->insertAction( before, mActionToggleFullScreen );
-    mSettingsMenu->insertAction( before, mActionTogglePanelsVisibility );
-    mSettingsMenu->insertAction( before, mActionToggleMapOnly );
+    if(mActionToggleFullScreen) mSettingsMenu->insertAction( before, mActionToggleFullScreen );
+    if(mActionTogglePanelsVisibility) mSettingsMenu->insertAction( before, mActionTogglePanelsVisibility );
+    if(mActionToggleMapOnly) mSettingsMenu->insertAction( before, mActionToggleMapOnly );
     mSettingsMenu->insertSeparator( before );
   }
 
@@ -3153,26 +3154,26 @@ void QgisApp::createMenus()
 
   // keep plugins from hijacking About and Preferences application menus
   // these duplicate actions will be moved to application menus by Qt
-  mProjectMenu->addAction( mActionAbout );
+  if(mProjectMenu && mActionAbout) mProjectMenu->addAction( mActionAbout );
   QAction *actionPrefs = new QAction( tr( "Preferences…" ), this );
   actionPrefs->setMenuRole( QAction::PreferencesRole );
   actionPrefs->setIcon( mActionOptions->icon() );
   connect( actionPrefs, &QAction::triggered, this, &QgisApp::options );
-  mProjectMenu->addAction( actionPrefs );
+  if(mProjectMenu) mProjectMenu->addAction( actionPrefs );
 
   // Window Menu
 
   mWindowMenu = new QMenu( tr( "Window" ), this );
 
-  mWindowMenu->addAction( mActionWindowMinimize );
-  mWindowMenu->addAction( mActionWindowZoom );
-  mWindowMenu->addSeparator();
+  if(mActionWindowMinimize) mWindowMenu->addAction( mActionWindowMinimize );
+  if(mActionWindowZoom) mWindowMenu->addAction( mActionWindowZoom );
+  if(mActionWindowMinimize || mActionWindowZoom) mWindowMenu->addSeparator();
 
-  mWindowMenu->addAction( mActionWindowAllToFront );
-  mWindowMenu->addSeparator();
+  if(mActionWindowAllToFront) mWindowMenu->addAction( mActionWindowAllToFront );
+  if(mActionWindowAllToFront) mWindowMenu->addSeparator();
 
   // insert before Help menu, as per Mac OS convention
-  menuBar()->insertMenu( mHelpMenu->menuAction(), mWindowMenu );
+  if(mHelpMenu) menuBar()->insertMenu( mHelpMenu->menuAction(), mWindowMenu );
 #endif
 
   // Database Menu
@@ -3889,15 +3890,26 @@ void QgisApp::createStatusBar()
   mMessageButton->setCheckable( true );
   mStatusBar->addPermanentWidget( mMessageButton, 0 );
 
+  QgsSettings settings;
+  if (settings.value(QStringLiteral("qgis/enableLocatorWidget"), true).toBool())
+  {
   mLocatorWidget = new QgsLocatorWidget( mStatusBar );
   mStatusBar->addPermanentWidget( mLocatorWidget, 0, QgsStatusBar::AnchorLeft );
   QShortcut *locatorShortCut = new QShortcut( QKeySequence( tr( "Ctrl+K" ) ), this );
   connect( locatorShortCut, &QShortcut::activated, mLocatorWidget, [ = ] { mLocatorWidget->search( QString() ); } );
   locatorShortCut->setObjectName( QStringLiteral( "Locator" ) );
   locatorShortCut->setWhatsThis( tr( "Trigger Locator" ) );
+  }
+  else
+  {
+    mLocatorWidget = new QgsLocatorWidget(nullptr);
+  }
 
   mLocatorWidget->locator()->registerFilter( new QgsLayerTreeLocatorFilter() );
   mLocatorWidget->locator()->registerFilter( new QgsLayoutLocatorFilter() );
+
+  if (settings.value(QStringLiteral("qgis/enableActionLocatorFilter"), true).toBool())
+  {
   QList< QWidget *> actionObjects;
   actionObjects << menuBar()
                 << mAdvancedDigitizeToolBar
@@ -3917,6 +3929,7 @@ void QgisApp::createStatusBar()
                 << mSnappingToolBar;
 
   mLocatorWidget->locator()->registerFilter( new QgsActionLocatorFilter( actionObjects ) );
+  }
   mLocatorWidget->locator()->registerFilter( new QgsActiveLayerFeaturesLocatorFilter() );
   mLocatorWidget->locator()->registerFilter( new QgsAllLayersFeaturesLocatorFilter() );
   mLocatorWidget->locator()->registerFilter( new QgsExpressionCalculatorLocatorFilter() );
@@ -3980,163 +3993,163 @@ void QgisApp::setTheme( const QString &themeName )
 
   QString theme = themeName;
 
-  mStyleSheetBuilder->buildStyleSheet( mStyleSheetBuilder->defaultOptions() );
+  if(mStyleSheetBuilder) mStyleSheetBuilder->buildStyleSheet( mStyleSheetBuilder->defaultOptions() );
   QgsApplication::setUITheme( theme );
 
-  mActionNewProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileNew.svg" ) ) );
-  mActionOpenProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileOpen.svg" ) ) );
-  mActionSaveProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileSave.svg" ) ) );
-  mActionSaveProjectAs->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileSaveAs.svg" ) ) );
-  mActionSaveMapAsImage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveMapAsImage.svg" ) ) );
-  mActionSaveMapAsPdf->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAsPDF.svg" ) ) );
-  mActionExit->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileExit.png" ) ) );
-  mActionAddOgrLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddOgrLayer.svg" ) ) );
-  mActionAddRasterLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddRasterLayer.svg" ) ) );
+  if(mActionNewProject) mActionNewProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileNew.svg" ) ) );
+  if(mActionOpenProject) mActionOpenProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileOpen.svg" ) ) );
+  if(mActionSaveProject) mActionSaveProject->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileSave.svg" ) ) );
+  if(mActionSaveProjectAs) mActionSaveProjectAs->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileSaveAs.svg" ) ) );
+  if(mActionSaveMapAsImage) mActionSaveMapAsImage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveMapAsImage.svg" ) ) );
+  if(mActionSaveMapAsPdf) mActionSaveMapAsPdf->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAsPDF.svg" ) ) );
+  if(mActionExit) mActionExit->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFileExit.png" ) ) );
+  if(mActionAddOgrLayer) mActionAddOgrLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddOgrLayer.svg" ) ) );
+  if(mActionAddRasterLayer) mActionAddRasterLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddRasterLayer.svg" ) ) );
 #ifdef HAVE_POSTGRESQL
-  mActionAddPgLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddPostgisLayer.svg" ) ) );
+  if(mActionAddPgLayer) mActionAddPgLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddPostgisLayer.svg" ) ) );
 #endif
-  mActionNewSpatiaLiteLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewSpatiaLiteLayer.svg" ) ) );
-  mActionAddSpatiaLiteLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddSpatiaLiteLayer.svg" ) ) );
-  mActionAddMssqlLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddMssqlLayer.svg" ) ) );
-  mActionAddDb2Layer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddDb2Layer.svg" ) ) );
+  if(mActionNewSpatiaLiteLayer) mActionNewSpatiaLiteLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewSpatiaLiteLayer.svg" ) ) );
+  if(mActionAddSpatiaLiteLayer) mActionAddSpatiaLiteLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddSpatiaLiteLayer.svg" ) ) );
+  if(mActionAddMssqlLayer) mActionAddMssqlLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddMssqlLayer.svg" ) ) );
+  if(mActionAddDb2Layer) mActionAddDb2Layer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddDb2Layer.svg" ) ) );
 #ifdef HAVE_ORACLE
-  mActionAddOracleLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddOracleLayer.svg" ) ) );
+  if(mActionAddOracleLayer) mActionAddOracleLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddOracleLayer.svg" ) ) );
 #endif
-  mActionRemoveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRemoveLayer.svg" ) ) );
-  mActionDuplicateLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDuplicateLayer.svg" ) ) );
-  mActionSetLayerCRS->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSetLayerCRS.png" ) ) );
-  mActionSetProjectCRSFromLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSetProjectCRSFromLayer.png" ) ) );
-  mActionNewVectorLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewVectorLayer.svg" ) ) );
-  mActionDataSourceManager->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDataSourceManager.svg" ) ) );
-  mActionNewMemoryLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCreateMemory.svg" ) ) );
-  mActionAddAllToOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAllToOverview.svg" ) ) );
-  mActionHideAllLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideAllLayers.svg" ) ) );
-  mActionShowAllLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowAllLayers.svg" ) ) );
-  mActionHideSelectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideSelectedLayers.svg" ) ) );
-  mActionHideDeselectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideDeselectedLayers.svg" ) ) );
-  mActionShowSelectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowSelectedLayers.svg" ) ) );
-  mActionRemoveAllFromOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRemoveAllFromOverview.svg" ) ) );
-  mActionToggleFullScreen->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleFullScreen.png" ) ) );
-  mActionProjectProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionProjectProperties.svg" ) ) );
-  mActionManagePlugins->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowPluginManager.svg" ) ) );
-  mActionShowPythonDialog->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "console/mIconRunConsole.svg" ) ) );
-  mActionCheckQgisVersion->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconSuccess.svg" ) ) );
-  mActionOptions->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOptions.svg" ) ) );
-  mActionConfigureShortcuts->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionKeyboardShortcuts.svg" ) ) );
-  mActionCustomization->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInterfaceCustomization.svg" ) ) );
-  mActionHelpContents->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpContents.svg" ) ) );
-  mActionLocalHistogramStretch->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionLocalHistogramStretch.svg" ) ) );
-  mActionFullHistogramStretch->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFullHistogramStretch.svg" ) ) );
-  mActionIncreaseBrightness->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseBrightness.svg" ) ) );
-  mActionDecreaseBrightness->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseBrightness.svg" ) ) );
-  mActionIncreaseContrast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseContrast.svg" ) ) );
-  mActionDecreaseContrast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseContrast.svg" ) ) );
-  mActionIncreaseGamma->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseGamma.svg" ) ) );
-  mActionDecreaseGamma->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseGamma.svg" ) ) );
-  mActionZoomActualSize->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomNative.png" ) ) );
-  mActionQgisHomePage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionQgisHomePage.png" ) ) );
-  mActionAbout->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpAbout.svg" ) ) );
-  mActionSponsors->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpSponsors.png" ) ) );
-  mActionDraw->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRefresh.svg" ) ) );
-  mActionToggleEditing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleEditing.svg" ) ) );
-  mActionSaveLayerEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAllEdits.svg" ) ) );
-  mActionAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAllEdits.svg" ) ) );
-  mActionSaveEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveEdits.svg" ) ) );
-  mActionSaveAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAllEdits.svg" ) ) );
-  mActionRollbackEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRollbackEdits.svg" ) ) );
-  mActionRollbackAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRollbackAllEdits.svg" ) ) );
-  mActionCancelEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCancelEdits.svg" ) ) );
-  mActionCancelAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCancelAllEdits.svg" ) ) );
-  mActionCutFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditCut.svg" ) ) );
-  mActionCopyFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditCopy.svg" ) ) );
-  mActionPasteFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditPaste.svg" ) ) );
-  mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePoint.svg" ) ) );
-  mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeaturePoint.svg" ) ) );
-  mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyPoint.svg" ) ) );
-  mActionRotateFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRotateFeature.svg" ) ) );
-  mActionReshapeFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionReshape.svg" ) ) );
-  mActionSplitFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSplitFeatures.svg" ) ) );
-  mActionSplitParts->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSplitParts.svg" ) ) );
-  mActionDeleteSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeleteSelectedFeatures.svg" ) ) );
-  mActionVertexTool->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionVertexTool.svg" ) ) );
-  mActionVertexToolActiveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionVertexToolActiveLayer.svg" ) ) );
-  mActionSimplifyFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSimplify.svg" ) ) );
-  mActionUndo->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionUndo.svg" ) ) );
-  mActionRedo->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRedo.svg" ) ) );
-  mActionAddRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddRing.svg" ) ) );
-  mActionFillRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFillRing.svg" ) ) );
-  mActionAddPart->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddPart.svg" ) ) );
-  mActionDeleteRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeleteRing.svg" ) ) );
-  mActionDeletePart->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeletePart.svg" ) ) );
-  mActionMergeFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMergeFeatures.svg" ) ) );
-  mActionOffsetCurve->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOffsetCurve.svg" ) ) );
-  mActionMergeFeatureAttributes->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMergeFeatureAttributes.svg" ) ) );
-  mActionRotatePointSymbols->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionRotatePointSymbols.svg" ) ) );
-  mActionOffsetPointSymbol->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionOffsetPointSymbols.svg" ) ) );
-  mActionZoomIn->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
-  mActionZoomOut->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomOut.svg" ) ) );
-  mActionZoomFullExtent->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomFullExtent.svg" ) ) );
-  mActionZoomToSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomToSelected.svg" ) ) );
-  mActionShowRasterCalculator->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowRasterCalculator.png" ) ) );
-  mActionShowMeshCalculator->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowMeshCalculator.png" ) ) );
-  mActionPan->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPan.svg" ) ) );
-  mActionPanToSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPanToSelected.svg" ) ) );
-  mActionZoomLast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomLast.svg" ) ) );
-  mActionZoomNext->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomNext.svg" ) ) );
-  mActionZoomToLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomToLayer.svg" ) ) );
-  mActionZoomActualSize->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomActual.svg" ) ) );
-  mActionIdentify->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIdentify.svg" ) ) );
-  mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mAction.svg" ) ) );
-  mActionSelectFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectRectangle.svg" ) ) );
-  mActionSelectPolygon->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectPolygon.svg" ) ) );
-  mActionSelectFreehand->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectFreehand.svg" ) ) );
-  mActionSelectRadius->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectRadius.svg" ) ) );
-  mActionDeselectAll->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeselectAll.svg" ) ) );
-  mActionDeselectActiveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeselectActiveLayer.svg" ) ) );
-  mActionSelectAll->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectAll.svg" ) ) );
-  mActionInvertSelection->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInvertSelection.svg" ) ) );
-  mActionSelectByExpression->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconExpressionSelect.svg" ) ) );
-  mActionSelectByForm->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconFormSelect.svg" ) ) );
-  mActionOpenTable->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOpenTable.svg" ) ) );
-  mActionOpenFieldCalc->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCalculateField.svg" ) ) );
-  mActionMeasure->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasure.svg" ) ) );
-  mActionMeasureArea->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasureArea.svg" ) ) );
-  mActionMeasureAngle->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasureAngle.svg" ) ) );
-  mActionMapTips->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMapTips.svg" ) ) );
-  mActionShowBookmarkManager->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowBookmarks.svg" ) ) );
-  mActionShowBookmarks->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowBookmarks.svg" ) ) );
-  mActionNewBookmark->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewBookmark.svg" ) ) );
-  mActionCustomProjection->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCustomProjection.svg" ) ) );
-  mActionAddWmsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWmsLayer.svg" ) ) );
-  mActionAddXyzLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddXyzLayer.svg" ) ) );
-  mActionAddVectorTileLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddVectorTileLayer.svg" ) ) );
-  mActionAddWcsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWcsLayer.svg" ) ) );
-  mActionAddWfsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWfsLayer.svg" ) ) );
-  mActionAddAfsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAfsLayer.svg" ) ) );
-  mActionAddAmsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAmsLayer.svg" ) ) );
-  mActionAddToOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInOverview.svg" ) ) );
-  mActionAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAnnotation.svg" ) ) );
-  mActionFormAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFormAnnotation.svg" ) ) );
-  mActionHtmlAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHtmlAnnotation.svg" ) ) );
-  mActionSvgAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSvgAnnotation.svg" ) ) );
-  mActionTextAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionTextAnnotation.svg" ) ) );
-  mActionLabeling->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionLabeling.svg" ) ) );
-  mActionShowPinnedLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowPinnedLabels.svg" ) ) );
-  mActionPinLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPinLabels.svg" ) ) );
-  mActionShowHideLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowHideLabels.svg" ) ) );
-  mActionShowUnplacedLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowUnplacedLabel.svg" ) ) );
-  mActionMoveLabel->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveLabel.svg" ) ) );
-  mActionRotateLabel->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRotateLabel.svg" ) ) );
-  mActionChangeLabelProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionChangeLabelProperties.svg" ) ) );
-  mActionDiagramProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/propertyicons/diagram.svg" ) ) );
-  mActionDecorationTitle->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/title_label.svg" ) ) );
-  mActionDecorationCopyright->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/copyright_label.svg" ) ) );
-  mActionDecorationImage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddImage.svg" ) ) );
-  mActionDecorationNorthArrow->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/north_arrow.svg" ) ) );
-  mActionDecorationScaleBar->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionScaleBar.svg" ) ) );
-  mActionDecorationGrid->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/grid.svg" ) ) );
-  mActionReverseLine->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionReverseLine.svg" ) ) );
-  mActionTrimExtendFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionTrimExtendFeature.svg" ) ) );
+  if(mActionRemoveLayer) mActionRemoveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRemoveLayer.svg" ) ) );
+  if(mActionDuplicateLayer) mActionDuplicateLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDuplicateLayer.svg" ) ) );
+  if(mActionSetLayerCRS) mActionSetLayerCRS->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSetLayerCRS.png" ) ) );
+  if(mActionSetProjectCRSFromLayer) mActionSetProjectCRSFromLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSetProjectCRSFromLayer.png" ) ) );
+  if(mActionNewVectorLayer) mActionNewVectorLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewVectorLayer.svg" ) ) );
+  if(mActionDataSourceManager) mActionDataSourceManager->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDataSourceManager.svg" ) ) );
+  if(mActionNewMemoryLayer) mActionNewMemoryLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCreateMemory.svg" ) ) );
+  if(mActionAddAllToOverview) mActionAddAllToOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAllToOverview.svg" ) ) );
+  if(mActionHideAllLayers) mActionHideAllLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideAllLayers.svg" ) ) );
+  if(mActionShowAllLayers) mActionShowAllLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowAllLayers.svg" ) ) );
+  if(mActionHideSelectedLayers) mActionHideSelectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideSelectedLayers.svg" ) ) );
+  if(mActionHideDeselectedLayers) mActionHideDeselectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHideDeselectedLayers.svg" ) ) );
+  if(mActionShowSelectedLayers) mActionShowSelectedLayers->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowSelectedLayers.svg" ) ) );
+  if(mActionRemoveAllFromOverview) mActionRemoveAllFromOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRemoveAllFromOverview.svg" ) ) );
+  if(mActionToggleFullScreen) mActionToggleFullScreen->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleFullScreen.png" ) ) );
+  if(mActionProjectProperties) mActionProjectProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionProjectProperties.png" ) ) );
+  if(mActionManagePlugins) mActionManagePlugins->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowPluginManager.svg" ) ) );
+  if(mActionShowPythonDialog) mActionShowPythonDialog->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "console/mIconRunConsole.svg" ) ) );
+  if(mActionCheckQgisVersion) mActionCheckQgisVersion->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconSuccess.svg" ) ) );
+  if(mActionOptions) mActionOptions->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOptions.svg" ) ) );
+  if(mActionConfigureShortcuts) mActionConfigureShortcuts->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionKeyboardShortcuts.svg" ) ) );
+  if(mActionCustomization) mActionCustomization->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInterfaceCustomization.svg" ) ) );
+  if(mActionHelpContents) mActionHelpContents->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpContents.svg" ) ) );
+  if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionLocalHistogramStretch.svg" ) ) );
+  if(mActionFullHistogramStretch) mActionFullHistogramStretch->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFullHistogramStretch.svg" ) ) );
+  if(mActionIncreaseBrightness) mActionIncreaseBrightness->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseBrightness.svg" ) ) );
+  if(mActionDecreaseBrightness) mActionDecreaseBrightness->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseBrightness.svg" ) ) );
+  if(mActionIncreaseContrast) mActionIncreaseContrast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseContrast.svg" ) ) );
+  if(mActionDecreaseContrast) mActionDecreaseContrast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseContrast.svg" ) ) );
+  if(mActionIncreaseGamma) mActionIncreaseGamma->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIncreaseGamma.svg" ) ) );
+  if(mActionDecreaseGamma) mActionDecreaseGamma->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDecreaseGamma.svg" ) ) );
+  if(mActionZoomActualSize) mActionZoomActualSize->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomNative.png" ) ) );
+  if(mActionQgisHomePage) mActionQgisHomePage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionQgisHomePage.png" ) ) );
+  if(mActionAbout) mActionAbout->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpAbout.svg" ) ) );
+  if(mActionSponsors) mActionSponsors->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHelpSponsors.png" ) ) );
+  if(mActionDraw) mActionDraw->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRefresh.svg" ) ) );
+  if(mActionToggleEditing) mActionToggleEditing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionToggleEditing.svg" ) ) );
+  if(mActionSaveLayerEdits) mActionSaveLayerEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAllEdits.svg" ) ) );
+  if(mActionAllEdits) mActionAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAllEdits.svg" ) ) );
+  if(mActionSaveEdits) mActionSaveEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveEdits.svg" ) ) );
+  if(mActionSaveAllEdits) mActionSaveAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSaveAllEdits.svg" ) ) );
+  if(mActionRollbackEdits) mActionRollbackEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRollbackEdits.svg" ) ) );
+  if(mActionRollbackAllEdits) mActionRollbackAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRollbackAllEdits.svg" ) ) );
+  if(mActionCancelEdits) mActionCancelEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCancelEdits.svg" ) ) );
+  if(mActionCancelAllEdits) mActionCancelAllEdits->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCancelAllEdits.svg" ) ) );
+  if(mActionCutFeatures) mActionCutFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditCut.svg" ) ) );
+  if(mActionCopyFeatures) mActionCopyFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditCopy.svg" ) ) );
+  if(mActionPasteFeatures) mActionPasteFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionEditPaste.svg" ) ) );
+  if(mActionAddFeature) mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePoint.svg" ) ) );
+  if(mActionMoveFeature) mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeaturePoint.svg" ) ) );
+  if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyPoint.svg" ) ) );
+  if(mActionRotateFeature) mActionRotateFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRotateFeature.svg" ) ) );
+  if(mActionReshapeFeatures) mActionReshapeFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionReshape.svg" ) ) );
+  if(mActionSplitFeatures) mActionSplitFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSplitFeatures.svg" ) ) );
+  if(mActionSplitParts) mActionSplitParts->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSplitParts.svg" ) ) );
+  if(mActionDeleteSelected) mActionDeleteSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeleteSelectedFeatures.svg" ) ) );
+  if(mActionVertexTool) mActionVertexTool->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionVertexTool.svg" ) ) );
+  if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionVertexToolActiveLayer.svg" ) ) );
+  if(mActionSimplifyFeature) mActionSimplifyFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSimplify.svg" ) ) );
+  if(mActionUndo) mActionUndo->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionUndo.svg" ) ) );
+  if(mActionRedo) mActionRedo->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRedo.svg" ) ) );
+  if(mActionAddRing) mActionAddRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddRing.svg" ) ) );
+  if(mActionFillRing) mActionFillRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFillRing.svg" ) ) );
+  if(mActionAddPart) mActionAddPart->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddPart.svg" ) ) );
+  if(mActionDeleteRing) mActionDeleteRing->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeleteRing.svg" ) ) );
+  if(mActionDeletePart) mActionDeletePart->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeletePart.svg" ) ) );
+  if(mActionMergeFeatures) mActionMergeFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMergeFeatures.svg" ) ) );
+  if(mActionOffsetCurve) mActionOffsetCurve->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOffsetCurve.svg" ) ) );
+  if(mActionMergeFeatureAttributes) mActionMergeFeatureAttributes->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMergeFeatureAttributes.svg" ) ) );
+  if(mActionRotatePointSymbols) mActionRotatePointSymbols->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionRotatePointSymbols.svg" ) ) );
+  if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionOffsetPointSymbols.svg" ) ) );
+  if(mActionZoomIn) mActionZoomIn->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
+  if(mActionZoomOut) mActionZoomOut->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomOut.svg" ) ) );
+  if(mActionZoomFullExtent) mActionZoomFullExtent->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomFullExtent.svg" ) ) );
+  if(mActionZoomToSelected) mActionZoomToSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomToSelected.svg" ) ) );
+  if(mActionShowRasterCalculator) mActionShowRasterCalculator->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowRasterCalculator.png" ) ) );
+  if(mActionShowMeshCalculator) mActionShowMeshCalculator->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowMeshCalculator.png" ) ) );
+  if(mActionPan) mActionPan->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPan.svg" ) ) );
+  if(mActionPanToSelected) mActionPanToSelected->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPanToSelected.svg" ) ) );
+  if(mActionZoomLast) mActionZoomLast->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomLast.svg" ) ) );
+  if(mActionZoomNext) mActionZoomNext->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomNext.svg" ) ) );
+  if(mActionZoomToLayer) mActionZoomToLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomToLayer.svg" ) ) );
+  if(mActionZoomActualSize) mActionZoomActualSize->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomActual.svg" ) ) );
+  if(mActionIdentify) mActionIdentify->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionIdentify.svg" ) ) );
+  if(mActionFeatureAction) mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mAction.svg" ) ) );
+  if(mActionSelectFeatures) mActionSelectFeatures->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectRectangle.svg" ) ) );
+  if(mActionSelectPolygon) mActionSelectPolygon->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectPolygon.svg" ) ) );
+  if(mActionSelectFreehand) mActionSelectFreehand->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectFreehand.svg" ) ) );
+  if(mActionSelectRadius) mActionSelectRadius->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectRadius.svg" ) ) );
+  if(mActionDeselectAll) mActionDeselectAll->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeselectAll.svg" ) ) );
+  if(mActionDeselectActiveLayer) mActionDeselectActiveLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionDeselectActiveLayer.svg" ) ) );
+  if(mActionSelectAll) mActionSelectAll->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSelectAll.svg" ) ) );
+  if(mActionInvertSelection) mActionInvertSelection->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInvertSelection.svg" ) ) );
+  if(mActionSelectByExpression) mActionSelectByExpression->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconExpressionSelect.svg" ) ) );
+  if(mActionSelectByForm) mActionSelectByForm->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mIconFormSelect.svg" ) ) );
+  if(mActionOpenTable) mActionOpenTable->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionOpenTable.svg" ) ) );
+  if(mActionOpenFieldCalc) mActionOpenFieldCalc->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCalculateField.svg" ) ) );
+  if(mActionMeasure) mActionMeasure->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasure.svg" ) ) );
+  if(mActionMeasureArea) mActionMeasureArea->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasureArea.svg" ) ) );
+  if(mActionMeasureAngle) mActionMeasureAngle->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasureAngle.svg" ) ) );
+  if(mActionMapTips) mActionMapTips->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMapTips.svg" ) ) );
+  if(mActionShowBookmarkManager) mActionShowBookmarkManager->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowBookmarks.svg" ) ) );
+  if(mActionShowBookmarks) mActionShowBookmarks->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowBookmarks.svg" ) ) );
+  if(mActionNewBookmark) mActionNewBookmark->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewBookmark.svg" ) ) );
+  if(mActionCustomProjection) mActionCustomProjection->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCustomProjection.svg" ) ) );
+  if(mActionAddWmsLayer) mActionAddWmsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWmsLayer.svg" ) ) );
+  if(mActionAddXyzLayer) mActionAddXyzLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddXyzLayer.svg" ) ) );
+  if(mActionAddVectorTileLayer) mActionAddVectorTileLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddVectorTileLayer.svg" ) ) );
+  if(mActionAddWcsLayer) mActionAddWcsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWcsLayer.svg" ) ) );
+  if(mActionAddWfsLayer) mActionAddWfsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddWfsLayer.svg" ) ) );
+  if(mActionAddAfsLayer) mActionAddAfsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAfsLayer.svg" ) ) );
+  if(mActionAddAmsLayer) mActionAddAmsLayer->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddAmsLayer.svg" ) ) );
+  if(mActionAddToOverview) mActionAddToOverview->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionInOverview.svg" ) ) );
+  if(mActionAnnotation) mActionAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAnnotation.svg" ) ) );
+  if(mActionFormAnnotation) mActionFormAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionFormAnnotation.svg" ) ) );
+  if(mActionHtmlAnnotation) mActionHtmlAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionHtmlAnnotation.svg" ) ) );
+  if(mActionSvgAnnotation) mActionSvgAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionSvgAnnotation.svg" ) ) );
+  if(mActionTextAnnotation) mActionTextAnnotation->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionTextAnnotation.svg" ) ) );
+  if(mActionLabeling) mActionLabeling->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionLabeling.svg" ) ) );
+  if(mActionShowPinnedLabels) mActionShowPinnedLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowPinnedLabels.svg" ) ) );
+  if(mActionPinLabels) mActionPinLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionPinLabels.svg" ) ) );
+  if(mActionShowHideLabels) mActionShowHideLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowHideLabels.svg" ) ) );
+  if(mActionShowUnplacedLabels) mActionShowUnplacedLabels->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionShowUnplacedLabel.svg" ) ) );
+  if(mActionMoveLabel) mActionMoveLabel->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveLabel.svg" ) ) );
+  if(mActionRotateLabel) mActionRotateLabel->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionRotateLabel.svg" ) ) );
+  if(mActionChangeLabelProperties) mActionChangeLabelProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionChangeLabelProperties.svg" ) ) );
+  if(mActionDiagramProperties) mActionDiagramProperties->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/propertyicons/diagram.svg" ) ) );
+  if(mActionDecorationTitle) mActionDecorationTitle->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/title_label.svg" ) ) );
+  if(mActionDecorationCopyright) mActionDecorationCopyright->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/copyright_label.svg" ) ) );
+  if(mActionDecorationImage) mActionDecorationImage->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddImage.svg" ) ) );
+  if(mActionDecorationNorthArrow) mActionDecorationNorthArrow->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/north_arrow.svg" ) ) );
+  if(mActionDecorationScaleBar) mActionDecorationScaleBar->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionScaleBar.svg" ) ) );
+  if(mActionDecorationGrid) mActionDecorationGrid->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/grid.svg" ) ) );
+  if(mActionReverseLine) mActionReverseLine->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionReverseLine.svg" ) ) );
+  if(mActionTrimExtendFeature) mActionTrimExtendFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionTrimExtendFeature.svg" ) ) );
   mActionTemporalController->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/propertyicons/temporal.svg" ) ) );
 
   emit currentThemeChanged( themeName );
@@ -4293,154 +4306,154 @@ void QgisApp::setupConnections()
   connect( QgsProject::instance(), &QgsProject::transactionGroupsChanged, this, &QgisApp::onTransactionGroupsChanged );
 
   // connect preview modes actions
-  connect( mActionPreviewModeOff, &QAction::triggered, this, &QgisApp::disablePreviewMode );
-  connect( mActionPreviewModeGrayscale, &QAction::triggered, this, &QgisApp::activateGrayscalePreview );
-  connect( mActionPreviewModeMono, &QAction::triggered, this, &QgisApp::activateMonoPreview );
-  connect( mActionPreviewProtanope, &QAction::triggered, this, &QgisApp::activateProtanopePreview );
-  connect( mActionPreviewDeuteranope, &QAction::triggered, this, &QgisApp::activateDeuteranopePreview );
+  if(mActionPreviewModeOff) connect( mActionPreviewModeOff, &QAction::triggered, this, &QgisApp::disablePreviewMode );
+  if(mActionPreviewModeGrayscale) connect( mActionPreviewModeGrayscale, &QAction::triggered, this, &QgisApp::activateGrayscalePreview );
+  if(mActionPreviewModeMono) connect( mActionPreviewModeMono, &QAction::triggered, this, &QgisApp::activateMonoPreview );
+  if(mActionPreviewProtanope) connect( mActionPreviewProtanope, &QAction::triggered, this, &QgisApp::activateProtanopePreview );
+  if(mActionPreviewDeuteranope) connect( mActionPreviewDeuteranope, &QAction::triggered, this, &QgisApp::activateDeuteranopePreview );
 
   // setup undo/redo actions
-  connect( mUndoWidget, &QgsUndoWidget::undoStackChanged, this, &QgisApp::updateUndoActions );
+  if(mUndoWidget) connect( mUndoWidget, &QgsUndoWidget::undoStackChanged, this, &QgisApp::updateUndoActions );
 
-  connect( mLayoutsMenu, &QMenu::aboutToShow, this, &QgisApp::layoutsMenuAboutToShow );
+  if(mLayoutsMenu) connect( mLayoutsMenu, &QMenu::aboutToShow, this, &QgisApp::layoutsMenuAboutToShow );
 }
 
 void QgisApp::createCanvasTools()
 {
   // create tools
   mMapTools.mZoomIn = new QgsMapToolZoom( mMapCanvas, false /* zoomIn */ );
-  mMapTools.mZoomIn->setAction( mActionZoomIn );
+  if(mActionZoomIn) mMapTools.mZoomIn->setAction( mActionZoomIn );
   mMapTools.mZoomOut = new QgsMapToolZoom( mMapCanvas, true /* zoomOut */ );
-  mMapTools.mZoomOut->setAction( mActionZoomOut );
+  if(mActionZoomOut) mMapTools.mZoomOut->setAction( mActionZoomOut );
   mMapTools.mPan = new QgsMapToolPan( mMapCanvas );
   connect( static_cast< QgsMapToolPan * >( mMapTools.mPan ), &QgsMapToolPan::panDistanceBearingChanged, this, &QgisApp::showPanMessage );
-  mMapTools.mPan->setAction( mActionPan );
+  if(mActionPan) mMapTools.mPan->setAction( mActionPan );
   mMapTools.mIdentify = new QgsMapToolIdentifyAction( mMapCanvas );
-  mMapTools.mIdentify->setAction( mActionIdentify );
+  if(mActionIdentify) mMapTools.mIdentify->setAction( mActionIdentify );
   connect( mMapTools.mIdentify, &QgsMapToolIdentifyAction::copyToClipboard,
            this, &QgisApp::copyFeatures );
   mMapTools.mFeatureAction = new QgsMapToolFeatureAction( mMapCanvas );
-  mMapTools.mFeatureAction->setAction( mActionFeatureAction );
+  if(mActionFeatureAction) mMapTools.mFeatureAction->setAction( mActionFeatureAction );
   mMapTools.mMeasureDist = new QgsMeasureTool( mMapCanvas, false /* area */ );
-  mMapTools.mMeasureDist->setAction( mActionMeasure );
+  if(mActionMeasure) mMapTools.mMeasureDist->setAction( mActionMeasure );
   mMapTools.mMeasureArea = new QgsMeasureTool( mMapCanvas, true /* area */ );
-  mMapTools.mMeasureArea->setAction( mActionMeasureArea );
+  if(mActionMeasureArea) mMapTools.mMeasureArea->setAction( mActionMeasureArea );
   mMapTools.mMeasureAngle = new QgsMapToolMeasureAngle( mMapCanvas );
-  mMapTools.mMeasureAngle->setAction( mActionMeasureAngle );
+  if(mActionMeasureAngle) mMapTools.mMeasureAngle->setAction( mActionMeasureAngle );
   mMapTools.mTextAnnotation = new QgsMapToolTextAnnotation( mMapCanvas );
-  mMapTools.mTextAnnotation->setAction( mActionTextAnnotation );
+  if(mActionTextAnnotation) mMapTools.mTextAnnotation->setAction( mActionTextAnnotation );
   mMapTools.mFormAnnotation = new QgsMapToolFormAnnotation( mMapCanvas );
-  mMapTools.mFormAnnotation->setAction( mActionFormAnnotation );
+  if(mActionFormAnnotation) mMapTools.mFormAnnotation->setAction( mActionFormAnnotation );
   mMapTools.mHtmlAnnotation = new QgsMapToolHtmlAnnotation( mMapCanvas );
-  mMapTools.mHtmlAnnotation->setAction( mActionHtmlAnnotation );
+  if(mActionHtmlAnnotation) mMapTools.mHtmlAnnotation->setAction( mActionHtmlAnnotation );
   mMapTools.mSvgAnnotation = new QgsMapToolSvgAnnotation( mMapCanvas );
-  mMapTools.mSvgAnnotation->setAction( mActionSvgAnnotation );
+  if(mActionSvgAnnotation) mMapTools.mSvgAnnotation->setAction( mActionSvgAnnotation );
   mMapTools.mAnnotation = new QgsMapToolAnnotation( mMapCanvas );
-  mMapTools.mAnnotation->setAction( mActionAnnotation );
+  if(mActionAnnotation) mMapTools.mAnnotation->setAction( mActionAnnotation );
   mMapTools.mAddFeature = new QgsMapToolAddFeature( mMapCanvas, QgsMapToolCapture::CaptureNone );
-  mMapTools.mAddFeature->setAction( mActionAddFeature );
+  if(mActionAddFeature) mMapTools.mAddFeature->setAction( mActionAddFeature );
   mMapTools.mCircularStringCurvePoint = new QgsMapToolCircularStringCurvePoint( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircularStringCurvePoint->setAction( mActionCircularStringCurvePoint );
+  if(mActionCircularStringCurvePoint) mMapTools.mCircularStringCurvePoint->setAction( mActionCircularStringCurvePoint );
   mMapTools.mCircularStringRadius = new QgsMapToolCircularStringRadius( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircularStringRadius->setAction( mActionCircularStringRadius );
+  if(mActionCircularStringRadius) mMapTools.mCircularStringRadius->setAction( mActionCircularStringRadius );
   mMapTools.mCircle2Points = new QgsMapToolCircle2Points( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircle2Points->setAction( mActionCircle2Points );
+  if(mActionCircle2Points) mMapTools.mCircle2Points->setAction( mActionCircle2Points );
   mMapTools.mCircle3Points = new QgsMapToolCircle3Points( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircle3Points->setAction( mActionCircle3Points );
+  if(mActionCircle3Points) mMapTools.mCircle3Points->setAction( mActionCircle3Points );
   mMapTools.mCircle3Tangents = new QgsMapToolCircle3Tangents( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircle3Tangents->setAction( mActionCircle3Tangents );
+  if(mActionCircle3Tangents) mMapTools.mCircle3Tangents->setAction( mActionCircle3Tangents );
   mMapTools.mCircle2TangentsPoint = new QgsMapToolCircle2TangentsPoint( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircle2TangentsPoint->setAction( mActionCircle2TangentsPoint );
+  if(mActionCircle2TangentsPoint) mMapTools.mCircle2TangentsPoint->setAction( mActionCircle2TangentsPoint );
   mMapTools.mCircleCenterPoint = new QgsMapToolCircleCenterPoint( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mCircleCenterPoint->setAction( mActionCircleCenterPoint );
+  if(mActionCircleCenterPoint) mMapTools.mCircleCenterPoint->setAction( mActionCircleCenterPoint );
   mMapTools.mEllipseCenter2Points = new QgsMapToolEllipseCenter2Points( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mEllipseCenter2Points->setAction( mActionEllipseCenter2Points );
+  if(mActionEllipseCenter2Points) mMapTools.mEllipseCenter2Points->setAction( mActionEllipseCenter2Points );
   mMapTools.mEllipseCenterPoint = new QgsMapToolEllipseCenterPoint( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mEllipseCenterPoint->setAction( mActionEllipseCenterPoint );
+  if(mActionEllipseCenterPoint) mMapTools.mEllipseCenterPoint->setAction( mActionEllipseCenterPoint );
   mMapTools.mEllipseExtent = new QgsMapToolEllipseExtent( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mEllipseExtent->setAction( mActionEllipseExtent );
+  if(mActionEllipseExtent) mMapTools.mEllipseExtent->setAction( mActionEllipseExtent );
   mMapTools.mEllipseFoci = new QgsMapToolEllipseFoci( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mEllipseFoci->setAction( mActionEllipseFoci );
+  if(mActionEllipseFoci) mMapTools.mEllipseFoci->setAction( mActionEllipseFoci );
   mMapTools.mRectangleCenterPoint = new QgsMapToolRectangleCenter( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mRectangleCenterPoint->setAction( mActionRectangleCenterPoint );
+  if(mActionRectangleCenterPoint) mMapTools.mRectangleCenterPoint->setAction( mActionRectangleCenterPoint );
   mMapTools.mRectangleExtent = new QgsMapToolRectangleExtent( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mRectangleExtent->setAction( mActionRectangleExtent );
+  if(mActionRectangleExtent) mMapTools.mRectangleExtent->setAction( mActionRectangleExtent );
   mMapTools.mRectangle3PointsDistance = new QgsMapToolRectangle3Points( mMapTools.mAddFeature, mMapCanvas, QgsMapToolRectangle3Points::DistanceMode );
-  mMapTools.mRectangle3PointsDistance->setAction( mActionRectangle3PointsDistance );
+  if(mActionRectangle3PointsDistance) mMapTools.mRectangle3PointsDistance->setAction( mActionRectangle3PointsDistance );
   mMapTools.mRectangle3PointsProjected = new QgsMapToolRectangle3Points( mMapTools.mAddFeature, mMapCanvas, QgsMapToolRectangle3Points::ProjectedMode );
-  mMapTools.mRectangle3PointsProjected->setAction( mActionRectangle3PointsProjected );
+  if(mActionRectangle3PointsProjected) mMapTools.mRectangle3PointsProjected->setAction( mActionRectangle3PointsProjected );
   mMapTools.mRegularPolygon2Points = new QgsMapToolRegularPolygon2Points( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mRegularPolygon2Points->setAction( mActionRegularPolygon2Points );
+  if(mActionRegularPolygon2Points) mMapTools.mRegularPolygon2Points->setAction( mActionRegularPolygon2Points );
   mMapTools.mRegularPolygonCenterPoint = new QgsMapToolRegularPolygonCenterPoint( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mRegularPolygonCenterPoint->setAction( mActionRegularPolygonCenterPoint );
+  if(mActionRegularPolygonCenterPoint) mMapTools.mRegularPolygonCenterPoint->setAction( mActionRegularPolygonCenterPoint );
   mMapTools.mRegularPolygonCenterCorner = new QgsMapToolRegularPolygonCenterCorner( mMapTools.mAddFeature, mMapCanvas );
-  mMapTools.mRegularPolygonCenterCorner->setAction( mActionRegularPolygonCenterCorner );
+  if(mActionRegularPolygonCenterCorner) mMapTools.mRegularPolygonCenterCorner->setAction( mActionRegularPolygonCenterCorner );
   mMapTools.mMoveFeature = new QgsMapToolMoveFeature( mMapCanvas, QgsMapToolMoveFeature::Move );
-  mMapTools.mMoveFeature->setAction( mActionMoveFeature );
+  if(mActionMoveFeature) mMapTools.mMoveFeature->setAction( mActionMoveFeature );
   mMapTools.mMoveFeatureCopy = new QgsMapToolMoveFeature( mMapCanvas, QgsMapToolMoveFeature::CopyMove );
-  mMapTools.mMoveFeatureCopy->setAction( mActionMoveFeatureCopy );
+  if(mActionMoveFeatureCopy) mMapTools.mMoveFeatureCopy->setAction( mActionMoveFeatureCopy );
   mMapTools.mRotateFeature = new QgsMapToolRotateFeature( mMapCanvas );
-  mMapTools.mRotateFeature->setAction( mActionRotateFeature );
+  if(mActionRotateFeature) mMapTools.mRotateFeature->setAction( mActionRotateFeature );
   mMapTools.mOffsetCurve = new QgsMapToolOffsetCurve( mMapCanvas );
-  mMapTools.mOffsetCurve->setAction( mActionOffsetCurve );
+  if(mActionOffsetCurve) mMapTools.mOffsetCurve->setAction( mActionOffsetCurve );
   mMapTools.mReshapeFeatures = new QgsMapToolReshape( mMapCanvas );
-  mMapTools.mReshapeFeatures->setAction( mActionReshapeFeatures );
+  if(mActionReshapeFeatures) mMapTools.mReshapeFeatures->setAction( mActionReshapeFeatures );
   mMapTools.mReverseLine = new QgsMapToolReverseLine( mMapCanvas );
-  mMapTools.mReverseLine->setAction( mActionReverseLine );
+  if(mActionReverseLine) mMapTools.mReverseLine->setAction( mActionReverseLine );
   mMapTools.mSplitFeatures = new QgsMapToolSplitFeatures( mMapCanvas );
-  mMapTools.mSplitFeatures->setAction( mActionSplitFeatures );
+  if(mActionSplitFeatures) mMapTools.mSplitFeatures->setAction( mActionSplitFeatures );
   mMapTools.mSplitParts = new QgsMapToolSplitParts( mMapCanvas );
-  mMapTools.mSplitParts->setAction( mActionSplitParts );
+  if(mActionSplitParts) mMapTools.mSplitParts->setAction( mActionSplitParts );
   mMapTools.mSelectFeatures = new QgsMapToolSelect( mMapCanvas );
-  mMapTools.mSelectFeatures->setAction( mActionSelectFeatures );
+  if(mActionSelectFeatures) mMapTools.mSelectFeatures->setAction( mActionSelectFeatures );
   mMapTools.mSelectFeatures->setSelectionMode( QgsMapToolSelectionHandler::SelectSimple );
   connect( mMapTools.mSelectFeatures, &QgsMapToolSelect::modeChanged, this, &QgisApp::selectionModeChanged );
   mMapTools.mSelectPolygon = new QgsMapToolSelect( mMapCanvas );
-  mMapTools.mSelectPolygon->setAction( mActionSelectPolygon );
+  if(mActionSelectPolygon) mMapTools.mSelectPolygon->setAction( mActionSelectPolygon );
   mMapTools.mSelectPolygon->setSelectionMode( QgsMapToolSelectionHandler::SelectPolygon );
   connect( mMapTools.mSelectPolygon, &QgsMapToolSelect::modeChanged, this, &QgisApp::selectionModeChanged );
   mMapTools.mSelectFreehand = new QgsMapToolSelect( mMapCanvas );
-  mMapTools.mSelectFreehand->setAction( mActionSelectFreehand );
+  if(mActionSelectFreehand) mMapTools.mSelectFreehand->setAction( mActionSelectFreehand );
   mMapTools.mSelectFreehand->setSelectionMode( QgsMapToolSelectionHandler::SelectFreehand );
   connect( mMapTools.mSelectFreehand, &QgsMapToolSelect::modeChanged, this, &QgisApp::selectionModeChanged );
   mMapTools.mSelectRadius = new QgsMapToolSelect( mMapCanvas );
-  mMapTools.mSelectRadius->setAction( mActionSelectRadius );
+  if(mActionSelectRadius) mMapTools.mSelectRadius->setAction( mActionSelectRadius );
   mMapTools.mSelectRadius->setSelectionMode( QgsMapToolSelectionHandler::SelectRadius );
   connect( mMapTools.mSelectRadius, &QgsMapToolSelect::modeChanged, this, &QgisApp::selectionModeChanged );
   mMapTools.mAddRing = new QgsMapToolAddRing( mMapCanvas );
-  mMapTools.mAddRing->setAction( mActionAddRing );
+  if(mActionAddRing) mMapTools.mAddRing->setAction( mActionAddRing );
   mMapTools.mFillRing = new QgsMapToolFillRing( mMapCanvas );
-  mMapTools.mFillRing->setAction( mActionFillRing );
+  if(mActionFillRing) mMapTools.mFillRing->setAction( mActionFillRing );
   mMapTools.mAddPart = new QgsMapToolAddPart( mMapCanvas );
-  mMapTools.mAddPart->setAction( mActionAddPart );
+  if(mActionAddPart) mMapTools.mAddPart->setAction( mActionAddPart );
   mMapTools.mSimplifyFeature = new QgsMapToolSimplify( mMapCanvas );
-  mMapTools.mSimplifyFeature->setAction( mActionSimplifyFeature );
+  if(mActionSimplifyFeature) mMapTools.mSimplifyFeature->setAction( mActionSimplifyFeature );
   mMapTools.mDeleteRing = new QgsMapToolDeleteRing( mMapCanvas );
-  mMapTools.mDeleteRing->setAction( mActionDeleteRing );
+  if(mActionDeleteRing) mMapTools.mDeleteRing->setAction( mActionDeleteRing );
   mMapTools.mDeletePart = new QgsMapToolDeletePart( mMapCanvas );
-  mMapTools.mDeletePart->setAction( mActionDeletePart );
+  if(mActionDeletePart) mMapTools.mDeletePart->setAction( mActionDeletePart );
   mMapTools.mVertexTool = new QgsVertexTool( mMapCanvas, mAdvancedDigitizingDockWidget );
-  mMapTools.mVertexTool->setAction( mActionVertexTool );
+  if(mActionVertexTool) mMapTools.mVertexTool->setAction( mActionVertexTool );
   mMapTools.mVertexToolActiveLayer = new QgsVertexTool( mMapCanvas, mAdvancedDigitizingDockWidget, QgsVertexTool::ActiveLayer );
-  mMapTools.mVertexToolActiveLayer->setAction( mActionVertexToolActiveLayer );
+  if(mActionVertexToolActiveLayer) mMapTools.mVertexToolActiveLayer->setAction( mActionVertexToolActiveLayer );
   mMapTools.mRotatePointSymbolsTool = new QgsMapToolRotatePointSymbols( mMapCanvas );
-  mMapTools.mRotatePointSymbolsTool->setAction( mActionRotatePointSymbols );
+  if(mActionRotatePointSymbols) mMapTools.mRotatePointSymbolsTool->setAction( mActionRotatePointSymbols );
   mMapTools.mOffsetPointSymbolTool = new QgsMapToolOffsetPointSymbol( mMapCanvas );
-  mMapTools.mOffsetPointSymbolTool->setAction( mActionOffsetPointSymbol );
+  if(mActionOffsetPointSymbol) mMapTools.mOffsetPointSymbolTool->setAction( mActionOffsetPointSymbol );
   mMapTools.mTrimExtendFeature = new QgsMapToolTrimExtendFeature( mMapCanvas );
-  mMapTools.mTrimExtendFeature->setAction( mActionTrimExtendFeature );
+  if(mActionTrimExtendFeature) mMapTools.mTrimExtendFeature->setAction( mActionTrimExtendFeature );
 
   mMapTools.mPinLabels = new QgsMapToolPinLabels( mMapCanvas );
-  mMapTools.mPinLabels->setAction( mActionPinLabels );
+  if(mActionPinLabels) mMapTools.mPinLabels->setAction( mActionPinLabels );
   mMapTools.mShowHideLabels = new QgsMapToolShowHideLabels( mMapCanvas );
-  mMapTools.mShowHideLabels->setAction( mActionShowHideLabels );
+  if(mActionShowHideLabels) mMapTools.mShowHideLabels->setAction( mActionShowHideLabels );
   mMapTools.mMoveLabel = new QgsMapToolMoveLabel( mMapCanvas );
-  mMapTools.mMoveLabel->setAction( mActionMoveLabel );
+  if(mActionMoveLabel) mMapTools.mMoveLabel->setAction( mActionMoveLabel );
 
   mMapTools.mRotateLabel = new QgsMapToolRotateLabel( mMapCanvas );
-  mMapTools.mRotateLabel->setAction( mActionRotateLabel );
+  if(mActionRotateLabel) mMapTools.mRotateLabel->setAction( mActionRotateLabel );
   mMapTools.mChangeLabelProperties = new QgsMapToolChangeLabelProperties( mMapCanvas );
-  mMapTools.mChangeLabelProperties->setAction( mActionChangeLabelProperties );
+  if(mActionChangeLabelProperties) mMapTools.mChangeLabelProperties->setAction( mActionChangeLabelProperties );
 //ensure that non edit tool is initialized or we will get crashes in some situations
   mNonEditMapTool = mMapTools.mPan;
 }
@@ -4474,7 +4487,7 @@ void QgisApp::createOverview()
   mOverviewDock->setWidget( mOverviewCanvas );
   addDockWidget( Qt::LeftDockWidgetArea, mOverviewDock );
   // add to the Panel submenu
-  mPanelMenu->addAction( mOverviewDock->toggleViewAction() );
+  if(mPanelMenu) mPanelMenu->addAction( mOverviewDock->toggleViewAction() );
 
   mLayerTreeCanvasBridge->setOverviewCanvas( mOverviewCanvas );
 }
@@ -4489,7 +4502,7 @@ void QgisApp::addDockWidget( Qt::DockWidgetArea area, QDockWidget *thepDockWidge
   setCorner( Qt::TopRightCorner, Qt::RightDockWidgetArea );
   setCorner( Qt::BottomRightCorner, Qt::RightDockWidgetArea );
   // add to the Panel submenu
-  mPanelMenu->addAction( thepDockWidget->toggleViewAction() );
+  if(mPanelMenu) mPanelMenu->addAction( thepDockWidget->toggleViewAction() );
 
   thepDockWidget->show();
 
@@ -4500,14 +4513,14 @@ void QgisApp::addDockWidget( Qt::DockWidgetArea area, QDockWidget *thepDockWidge
 void QgisApp::removeDockWidget( QDockWidget *thepDockWidget )
 {
   QMainWindow::removeDockWidget( thepDockWidget );
-  mPanelMenu->removeAction( thepDockWidget->toggleViewAction() );
+  if(mPanelMenu) mPanelMenu->removeAction( thepDockWidget->toggleViewAction() );
 }
 
 QToolBar *QgisApp::addToolBar( const QString &name )
 {
   QToolBar *toolBar = QMainWindow::addToolBar( name );
   // add to the Toolbar submenu
-  mToolbarMenu->addAction( toolBar->toggleViewAction() );
+  if(mToolbarMenu) mToolbarMenu->addAction( toolBar->toggleViewAction() );
   return toolBar;
 }
 
@@ -4515,7 +4528,7 @@ void QgisApp::addToolBar( QToolBar *toolBar, Qt::ToolBarArea area )
 {
   QMainWindow::addToolBar( area, toolBar );
   // add to the Toolbar submenu
-  mToolbarMenu->addAction( toolBar->toggleViewAction() );
+  if(mToolbarMenu) mToolbarMenu->addAction( toolBar->toggleViewAction() );
 }
 
 QgsLayerTreeView *QgisApp::layerTreeView()
@@ -4684,24 +4697,24 @@ QgsMessageBar *QgisApp::messageBar()
 
 void QgisApp::toggleLogMessageIcon( bool hasLogMessage )
 {
-  if ( hasLogMessage && !mLogDock->isVisible() )
+  if ( hasLogMessage && mLogDock && !mLogDock->isVisible() )
   {
-    mMessageButton->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mMessageLog.svg" ) ) );
+    if(mMessageButton) mMessageButton->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mMessageLog.svg" ) ) );
   }
   else
   {
-    mMessageButton->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mMessageLogRead.svg" ) ) );
+    if(mMessageButton) mMessageButton->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mMessageLogRead.svg" ) ) );
   }
 }
 
 void QgisApp::openMessageLog()
 {
-  mLogDock->setUserVisible( true );
+  if(mMessageButton) mMessageButton->setChecked( true );
 }
 
 void QgisApp::addUserInputWidget( QWidget *widget )
 {
-  mUserInputDockWidget->addUserInputWidget( widget );
+  if(mUserInputDockWidget) mUserInputDockWidget->addUserInputWidget( widget );
 }
 
 void QgisApp::initLayerTreeView()
@@ -4894,7 +4907,7 @@ QgsLayerTreeRegistryBridge::InsertionPoint QgisApp::layerTreeInsertionPoint() co
 
 void QgisApp::setGpsPanelConnection( QgsGpsConnection *connection )
 {
-  mpGpsWidget->setConnection( connection );
+  if(mpGpsWidget) mpGpsWidget->setConnection( connection );
 }
 
 void QgisApp::autoSelectAddedLayer( QList<QgsMapLayer *> layers )
@@ -4936,25 +4949,25 @@ void QgisApp::setMapTipsDelay( int timerInterval )
 void QgisApp::createDecorations()
 {
   QgsDecorationTitle *decorationTitle = new QgsDecorationTitle( this );
-  connect( mActionDecorationTitle, &QAction::triggered, decorationTitle, &QgsDecorationTitle::run );
+  if(mActionDecorationTitle) connect( mActionDecorationTitle, &QAction::triggered, decorationTitle, &QgsDecorationTitle::run );
 
   QgsDecorationCopyright *decorationCopyright = new QgsDecorationCopyright( this );
-  connect( mActionDecorationCopyright, &QAction::triggered, decorationCopyright, &QgsDecorationCopyright::run );
+  if(mActionDecorationCopyright) connect( mActionDecorationCopyright, &QAction::triggered, decorationCopyright, &QgsDecorationCopyright::run );
 
   QgsDecorationImage *decorationImage = new QgsDecorationImage( this );
-  connect( mActionDecorationImage, &QAction::triggered, decorationImage, &QgsDecorationImage::run );
+  if(mActionDecorationImage) connect( mActionDecorationImage, &QAction::triggered, decorationImage, &QgsDecorationImage::run );
 
   QgsDecorationNorthArrow *decorationNorthArrow = new QgsDecorationNorthArrow( this );
-  connect( mActionDecorationNorthArrow, &QAction::triggered, decorationNorthArrow, &QgsDecorationNorthArrow::run );
+  if(mActionDecorationNorthArrow) connect( mActionDecorationNorthArrow, &QAction::triggered, decorationNorthArrow, &QgsDecorationNorthArrow::run );
 
   QgsDecorationScaleBar *decorationScaleBar = new QgsDecorationScaleBar( this );
-  connect( mActionDecorationScaleBar, &QAction::triggered, decorationScaleBar, &QgsDecorationScaleBar::run );
+  if(mActionDecorationScaleBar) connect( mActionDecorationScaleBar, &QAction::triggered, decorationScaleBar, &QgsDecorationScaleBar::run );
 
   QgsDecorationGrid *decorationGrid = new QgsDecorationGrid( this );
-  connect( mActionDecorationGrid, &QAction::triggered, decorationGrid, &QgsDecorationGrid::run );
+  if(mActionDecorationGrid) connect( mActionDecorationGrid, &QAction::triggered, decorationGrid, &QgsDecorationGrid::run );
 
   QgsDecorationLayoutExtent *decorationLayoutExtent = new QgsDecorationLayoutExtent( this );
-  connect( mActionDecorationLayoutExtent, &QAction::triggered, decorationLayoutExtent, &QgsDecorationLayoutExtent::run );
+  if(mActionDecorationLayoutExtent) connect( mActionDecorationLayoutExtent, &QAction::triggered, decorationLayoutExtent, &QgsDecorationLayoutExtent::run );
 
   // add the decorations in a particular order so they are rendered in that order
   addDecorationItem( decorationGrid );
@@ -5176,18 +5189,18 @@ void QgisApp::updateProjectFromTemplates()
   QStringList templateFiles = templateDir.entryList( filters );
 
   // Remove existing entries
-  mProjectFromTemplateMenu->clear();
+  if(mProjectFromTemplateMenu) mProjectFromTemplateMenu->clear();
 
   // Add entries
   const auto constTemplateFiles = templateFiles;
   for ( const QString &templateFile : constTemplateFiles )
   {
-    mProjectFromTemplateMenu->addAction( templateFile );
+    if(mProjectFromTemplateMenu) mProjectFromTemplateMenu->addAction( templateFile );
   }
 
   // add <blank> entry, which loads a blank template (regardless of "default template")
   if ( settings.value( QStringLiteral( "qgis/newProjectDefault" ), QVariant( false ) ).toBool() )
-    mProjectFromTemplateMenu->addAction( tr( "< Blank >" ) );
+    if(mProjectFromTemplateMenu) mProjectFromTemplateMenu->addAction( tr( "< Blank >" ) );
 
 } // QgisApp::updateProjectFromTemplates
 
@@ -5218,8 +5231,8 @@ void QgisApp::restoreWindowState()
 
   if ( settings.value( QStringLiteral( "UI/hidebrowser" ), false ).toBool() )
   {
-    mBrowserWidget->hide();
-    mBrowserWidget2->hide();
+    if (mBrowserWidget) mBrowserWidget->hide();
+    if (mBrowserWidget2) mBrowserWidget2->hide();
     settings.remove( QStringLiteral( "UI/hidebrowser" ) );
   }
 
@@ -6399,6 +6412,7 @@ void QgisApp::fileExit()
   if ( checkUnsavedLayerEdits() && checkMemoryLayers() && saveDirty() && checkExitBlockers() )
   {
     closeProject();
+    if(userProfileManager()!=Q_NULLPTR)
     userProfileManager()->setDefaultFromActive();
 
     // shouldn't be needed, but from this stage on, we don't want/need ANY map canvas refreshes to take place
@@ -6421,7 +6435,7 @@ bool QgisApp::fileNewBlank()
 
 void QgisApp::fileClose()
 {
-  if ( fileNewBlank() )
+  if ( fileNewBlank() && mCentralContainer )
     mCentralContainer->setCurrentIndex( 1 );
 }
 
@@ -8113,10 +8127,10 @@ void QgisApp::updateDefaultFeatureAction( QAction *action )
   if ( !vlayer )
     return;
 
-  mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mAction.svg" ) ) );
-  mActionFeatureAction->setToolTip( tr( "No action selected" ) );
+  if(mActionFeatureAction) mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mAction.svg" ) ) );
+  if(mActionFeatureAction) mActionFeatureAction->setToolTip( tr( "No action selected" ) );
 
-  mFeatureActionMenu->setActiveAction( action );
+  if(mFeatureActionMenu) mFeatureActionMenu->setActiveAction( action );
 
   QgsAction qgsAction;
   if ( action )
@@ -8129,12 +8143,12 @@ void QgisApp::updateDefaultFeatureAction( QAction *action )
     vlayer->actions()->setDefaultAction( QStringLiteral( "Canvas" ), qgsAction.id() );
     QgsGui::mapLayerActionRegistry()->setDefaultActionForLayer( vlayer, nullptr );
 
-    mActionFeatureAction->setToolTip( tr( "Run feature action<br><b>%1</b>" ).arg( qgsAction.name() ) );
+    if(mActionFeatureAction) mActionFeatureAction->setToolTip( tr( "Run feature action<br><b>%1</b>" ).arg( qgsAction.name() ) );
 
     if ( !qgsAction.icon().isNull() )
-      mActionFeatureAction->setIcon( qgsAction.icon() );
+      if(mActionFeatureAction) mActionFeatureAction->setIcon( qgsAction.icon() );
     else
-      mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionActive.svg" ) ) );
+      if(mActionFeatureAction) mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionActive.svg" ) ) );
   }
   else
   {
@@ -8147,12 +8161,12 @@ void QgisApp::updateDefaultFeatureAction( QAction *action )
       QgsGui::mapLayerActionRegistry()->setDefaultActionForLayer( vlayer, mapLayerAction );
 
       if ( !mapLayerAction->text().isEmpty() )
-        mActionFeatureAction->setToolTip( tr( "Run feature action<br><b>%1</b>" ).arg( mapLayerAction->text() ) );
+        if(mActionFeatureAction) mActionFeatureAction->setToolTip( tr( "Run feature action<br><b>%1</b>" ).arg( mapLayerAction->text() ) );
 
       if ( !mapLayerAction->icon().isNull() )
-        mActionFeatureAction->setIcon( mapLayerAction->icon() );
+        if(mActionFeatureAction) mActionFeatureAction->setIcon( mapLayerAction->icon() );
       else
-        mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionActive.svg" ) ) );
+        if(mActionFeatureAction) mActionFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionActive.svg" ) ) );
     }
     else
     {
@@ -8163,7 +8177,7 @@ void QgisApp::updateDefaultFeatureAction( QAction *action )
 
 void QgisApp::refreshFeatureActions()
 {
-  mFeatureActionMenu->clear();
+  if(mFeatureActionMenu) mFeatureActionMenu->clear();
 
   QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( activeLayer() );
   if ( !vlayer )
@@ -8179,11 +8193,11 @@ void QgisApp::refreshFeatureActions()
     QString actionTitle = !action.shortTitle().isEmpty() ? action.shortTitle() : action.icon().isNull() ? action.name() : QString();
     QAction *qAction = new QAction( action.icon(), actionTitle, mFeatureActionMenu );
     qAction->setData( QVariant::fromValue<QgsAction>( action ) );
-    mFeatureActionMenu->addAction( qAction );
+    if(mFeatureActionMenu) mFeatureActionMenu->addAction( qAction );
 
     if ( action.name() == vlayer->actions()->defaultAction( QStringLiteral( "Canvas" ) ).name() )
     {
-      mFeatureActionMenu->setActiveAction( qAction );
+      if(mFeatureActionMenu) mFeatureActionMenu->setActiveAction( qAction );
     }
   }
 
@@ -8192,19 +8206,19 @@ void QgisApp::refreshFeatureActions()
   if ( !actions.isEmpty() && !registeredActions.empty() )
   {
     //add a separator between user defined and standard actions
-    mFeatureActionMenu->addSeparator();
+    if(mFeatureActionMenu) mFeatureActionMenu->addSeparator();
   }
 
   for ( int i = 0; i < registeredActions.size(); i++ )
   {
-    mFeatureActionMenu->addAction( registeredActions.at( i ) );
+    if(mFeatureActionMenu) mFeatureActionMenu->addAction( registeredActions.at( i ) );
     if ( registeredActions.at( i ) == QgsGui::mapLayerActionRegistry()->defaultActionForLayer( vlayer ) )
     {
-      mFeatureActionMenu->setActiveAction( registeredActions.at( i ) );
+      if(mFeatureActionMenu) mFeatureActionMenu->setActiveAction( registeredActions.at( i ) );
     }
   }
 
-  updateDefaultFeatureAction( mFeatureActionMenu->activeAction() );
+  if(mFeatureActionMenu) updateDefaultFeatureAction( mFeatureActionMenu->activeAction() );
 }
 
 void QgisApp::changeDataSource( QgsMapLayer *layer )
@@ -9714,7 +9728,7 @@ void QgisApp::showPinnedLabels( bool show )
 
 void QgisApp::pinLabels()
 {
-  mActionShowPinnedLabels->setChecked( true );
+  if(mActionShowPinnedLabels) mActionShowPinnedLabels->setChecked( true );
   mMapCanvas->setMapTool( mMapTools.mPinLabels );
 }
 
@@ -10727,7 +10741,7 @@ void QgisApp::copyStyle( QgsMapLayer *sourceLayer, QgsMapLayer::StyleCategories 
     clipboard()->setData( QStringLiteral( QGSCLIPBOARD_STYLE_MIME ), doc.toByteArray(), doc.toString() );
 
     // Enables the paste menu element
-    mActionPasteStyle->setEnabled( true );
+    if(mActionPasteStyle) mActionPasteStyle->setEnabled( true );
   }
 }
 
@@ -10883,7 +10897,7 @@ void QgisApp::toggleMapTips( bool enabled )
     mpMaptip->clear( mMapCanvas );
   }
 
-  if ( mActionMapTips->isChecked() != mMapTipsVisible )
+  if ( mActionMapTips && mActionMapTips->isChecked() != mMapTipsVisible )
     mActionMapTips->setChecked( mMapTipsVisible );
 }
 
@@ -10897,7 +10911,7 @@ void QgisApp::toggleEditing()
   else
   {
     // active although there's no layer active!?
-    mActionToggleEditing->setChecked( false );
+    if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
   }
 }
 
@@ -10962,8 +10976,8 @@ bool QgisApp::toggleEditing( QgsMapLayer *layer, bool allowCancel )
   {
     if ( !( vlayer->dataProvider()->capabilities() & QgsVectorDataProvider::EditingCapabilities ) )
     {
-      mActionToggleEditing->setChecked( false );
-      mActionToggleEditing->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
+      if(mActionToggleEditing) mActionToggleEditing->setEnabled( false );
       visibleMessageBar()->pushMessage( tr( "Start editing failed" ),
                                         tr( "Provider cannot be opened for editing" ),
                                         Qgis::Info, messageTimeout() );
@@ -11233,21 +11247,21 @@ void QgisApp::updateLayerModifiedActions()
                                && vlayer->isModified() );
     }
   }
-  mActionSaveLayerEdits->setEnabled( enableSaveLayerEdits );
+  if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( enableSaveLayerEdits );
 
   QList<QgsLayerTreeLayer *> selectedLayerNodes = mLayerTreeView ? mLayerTreeView->selectedLayerNodes() : QList<QgsLayerTreeLayer *>();
 
-  mActionSaveEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayerNodes ) );
-  mActionRollbackEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayerNodes ) );
-  mActionCancelEdits->setEnabled( QgsLayerTreeUtils::layersEditable( selectedLayerNodes ) );
+  if(mActionSaveEdits) mActionSaveEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayerNodes ) );
+  if(mActionRollbackEdits) mActionRollbackEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayerNodes ) );
+  if(mActionCancelEdits) mActionCancelEdits->setEnabled( QgsLayerTreeUtils::layersEditable( selectedLayerNodes ) );
 
   bool hasEditLayers = !editableLayers().isEmpty();
-  mActionAllEdits->setEnabled( hasEditLayers );
-  mActionCancelAllEdits->setEnabled( hasEditLayers );
+  if(mActionAllEdits) mActionAllEdits->setEnabled( hasEditLayers );
+  if(mActionCancelAllEdits) mActionCancelAllEdits->setEnabled( hasEditLayers );
 
   bool hasModifiedLayers = !editableLayers( true ).isEmpty();
-  mActionSaveAllEdits->setEnabled( hasModifiedLayers );
-  mActionRollbackAllEdits->setEnabled( hasModifiedLayers );
+  if(mActionSaveAllEdits) mActionSaveAllEdits->setEnabled( hasModifiedLayers );
+  if(mActionRollbackAllEdits) mActionRollbackAllEdits->setEnabled( hasModifiedLayers );
 }
 
 QList<QgsMapLayer *> QgisApp::editableLayers( bool modified ) const
@@ -13364,9 +13378,9 @@ void QgisApp::closeProject()
 
   mPythonMacrosEnabled = false;
 
-  mLegendExpressionFilterButton->setExpressionText( QString() );
-  mLegendExpressionFilterButton->setChecked( false );
-  mActionFilterLegend->setChecked( false );
+  if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setExpressionText( QString() );
+  if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setChecked( false );
+  if(mActionFilterLegend) mActionFilterLegend->setChecked( false );
 
   closeAdditionalMapCanvases();
   closeAdditional3DMapCanvases();
@@ -13437,6 +13451,7 @@ QMenu *QgisApp::getPluginMenu( const QString &menuName )
    * present, there is no python separator and the plugin list is at the bottom
    * of the menu.
    */
+  if(!mPluginMenu) return nullptr;
 
   QString cleanedMenuName = menuName;
 #ifdef Q_OS_MAC
@@ -13493,6 +13508,7 @@ void QgisApp::addPluginToMenu( const QString &name, QAction *action )
 
 void QgisApp::removePluginMenu( const QString &name, QAction *action )
 {
+  if(!mPluginMenu) return;
   QMenu *menu = getPluginMenu( name );
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
@@ -13697,16 +13713,17 @@ QMenu *QgisApp::getWebMenu( const QString &menuName )
 
 void QgisApp::insertAddLayerAction( QAction *action )
 {
-  mAddLayerMenu->insertAction( mActionAddLayerSeparator, action );
+  if(mAddLayerMenu && mActionAddLayerSeparator) mAddLayerMenu->insertAction( mActionAddLayerSeparator, action );
 }
 
 void QgisApp::removeAddLayerAction( QAction *action )
 {
-  mAddLayerMenu->removeAction( action );
+  if(mAddLayerMenu) mAddLayerMenu->removeAction( action );
 }
 
 void QgisApp::addPluginToDatabaseMenu( const QString &name, QAction *action )
 {
+  if(!mDatabaseMenu) return;
   QMenu *menu = getDatabaseMenu( name );
   menu->addAction( action );
 
@@ -13828,6 +13845,7 @@ void QgisApp::removePluginDatabaseMenu( const QString &name, QAction *action )
 
 void QgisApp::removePluginRasterMenu( const QString &name, QAction *action )
 {
+  if(!mRasterMenu) return;
   QMenu *menu = getRasterMenu( name );
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
@@ -14056,6 +14074,8 @@ void QgisApp::markDirty()
 
 void QgisApp::extentChanged()
 {
+  if (!mLayerTreeView) return;
+
   // allow symbols in the legend update their preview if they use map units
   mLayerTreeView->layerTreeModel()->setLegendMapViewData( mMapCanvas->mapUnitsPerPixel(),
       static_cast< int >( std::round( mMapCanvas->mapSettings().outputDpi() ) ), mMapCanvas->scale() );
@@ -14109,13 +14129,13 @@ void QgisApp::showRotation()
 {
   // update the statusbar with the current rotation.
   double myrotation = mMapCanvas->rotation();
-  whileBlocking( mRotationEdit )->setValue( myrotation );
+  if(mRotationEdit) whileBlocking( mRotationEdit )->setValue( myrotation );
 }
 
 void QgisApp::showPanMessage( double distance, QgsUnitTypes::DistanceUnit unit, double bearing )
 {
   const bool showMessage = QgsSettings().value( QStringLiteral( "showPanDistanceInStatusBar" ), true, QgsSettings::App ).toBool();
-  if ( !showMessage )
+  if ( !showMessage || !mBearingNumericFormat )
     return;
 
   const double distanceInProjectUnits = distance * QgsUnitTypes::fromUnitToUnitFactor( unit, QgsProject::instance()->distanceUnits() );
@@ -14312,28 +14332,28 @@ void QgisApp::legendLayerSelectionChanged()
 {
   const QList<QgsLayerTreeLayer *> selectedLayers = mLayerTreeView ? mLayerTreeView->selectedLayerNodes() : QList<QgsLayerTreeLayer *>();
 
-  mActionDuplicateLayer->setEnabled( !selectedLayers.isEmpty() );
-  mActionSetLayerScaleVisibility->setEnabled( !selectedLayers.isEmpty() );
-  mActionSetLayerCRS->setEnabled( !selectedLayers.isEmpty() );
-  mActionSetProjectCRSFromLayer->setEnabled( selectedLayers.count() == 1 );
+  if(mActionDuplicateLayer) mActionDuplicateLayer->setEnabled( !selectedLayers.isEmpty() );
+  if(mActionSetLayerScaleVisibility) mActionSetLayerScaleVisibility->setEnabled( !selectedLayers.isEmpty() );
+  if(mActionSetLayerCRS) mActionSetLayerCRS->setEnabled( !selectedLayers.isEmpty() );
+  if(mActionSetProjectCRSFromLayer) mActionSetProjectCRSFromLayer->setEnabled( selectedLayers.count() == 1 );
 
-  mActionSaveEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayers ) );
-  mActionRollbackEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayers ) );
-  mActionCancelEdits->setEnabled( QgsLayerTreeUtils::layersEditable( selectedLayers ) );
+  if(mActionSaveEdits) mActionSaveEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayers ) );
+  if(mActionRollbackEdits) mActionRollbackEdits->setEnabled( QgsLayerTreeUtils::layersModified( selectedLayers ) );
+  if(mActionCancelEdits) mActionCancelEdits->setEnabled( QgsLayerTreeUtils::layersEditable( selectedLayers ) );
 
-  mLegendExpressionFilterButton->setEnabled( false );
-  mLegendExpressionFilterButton->setVectorLayer( nullptr );
+  if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setEnabled( false );
+  if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setVectorLayer( nullptr );
   if ( selectedLayers.size() == 1 )
   {
     QgsLayerTreeLayer *l = selectedLayers.front();
     if ( l->layer() && l->layer()->type() == QgsMapLayerType::VectorLayer )
     {
-      mLegendExpressionFilterButton->setEnabled( true );
+      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setEnabled( true );
       bool exprEnabled;
       QString expr = QgsLayerTreeUtils::legendFilterByExpression( *l, &exprEnabled );
-      mLegendExpressionFilterButton->setExpressionText( expr );
-      mLegendExpressionFilterButton->setVectorLayer( qobject_cast<QgsVectorLayer *>( l->layer() ) );
-      mLegendExpressionFilterButton->setChecked( exprEnabled );
+      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setExpressionText( expr );
+      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setVectorLayer( qobject_cast<QgsVectorLayer *>( l->layer() ) );
+      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setChecked( exprEnabled );
     }
   }
 
@@ -14347,7 +14367,7 @@ void QgisApp::legendLayerSelectionChanged()
       break;
     }
   }
-  mActionRemoveLayer->setEnabled( removeEnabled );
+  if(mActionRemoveLayer) mActionRemoveLayer->setEnabled( removeEnabled );
 }
 
 void QgisApp::layerEditStateChanged()
@@ -14380,20 +14400,20 @@ void QgisApp::updateLabelToolButtons()
     }
   }
 
-  mActionPinLabels->setEnabled( enablePin );
-  mActionShowHideLabels->setEnabled( enableShowHide );
-  mActionMoveLabel->setEnabled( enableMove );
-  mActionRotateLabel->setEnabled( enableRotate );
-  mActionChangeLabelProperties->setEnabled( enableChange );
+  if(mActionPinLabels) mActionPinLabels->setEnabled( enablePin );
+  if(mActionShowHideLabels) mActionShowHideLabels->setEnabled( enableShowHide );
+  if(mActionMoveLabel) mActionMoveLabel->setEnabled( enableMove );
+  if(mActionRotateLabel) mActionRotateLabel->setEnabled( enableRotate );
+  if(mActionChangeLabelProperties) mActionChangeLabelProperties->setEnabled( enableChange );
 }
 
 void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 {
   updateLabelToolButtons();
 
-  mMenuPasteAs->setEnabled( clipboard() && !clipboard()->isEmpty() );
-  mActionPasteAsNewVector->setEnabled( clipboard() && !clipboard()->isEmpty() );
-  mActionPasteAsNewMemoryVector->setEnabled( clipboard() && !clipboard()->isEmpty() );
+  if(mMenuPasteAs) mMenuPasteAs->setEnabled( clipboard() && !clipboard()->isEmpty() );
+  if(mActionPasteAsNewVector) mActionPasteAsNewVector->setEnabled( clipboard() && !clipboard()->isEmpty() );
+  if(mActionPasteAsNewMemoryVector) mActionPasteAsNewMemoryVector->setEnabled( clipboard() && !clipboard()->isEmpty() );
 
   updateLayerModifiedActions();
 
@@ -14406,7 +14426,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
       if ( !handler->action()->isEnabled() )
       {
         mMapCanvas->unsetMapTool( handler->mapTool() );
-        mActionPan->trigger();
+        if(mActionPan) mActionPan->trigger();
       }
       else
       {
@@ -14418,107 +14438,107 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
   if ( !layer )
   {
     menuSelect->setEnabled( false );
-    mActionSelectFeatures->setEnabled( false );
-    mActionSelectPolygon->setEnabled( false );
-    mActionSelectFreehand->setEnabled( false );
-    mActionSelectRadius->setEnabled( false );
-    mActionIdentify->setEnabled( QgsSettings().enumValue( QStringLiteral( "/Map/identifyMode" ), QgsMapToolIdentify::ActiveLayer ) != QgsMapToolIdentify::ActiveLayer );
-    mActionSelectByExpression->setEnabled( false );
-    mActionSelectByForm->setEnabled( false );
-    mActionLabeling->setEnabled( false );
-    mActionOpenTable->setEnabled( false );
-    mActionSelectAll->setEnabled( false );
-    mActionReselect->setEnabled( false );
-    mActionInvertSelection->setEnabled( false );
-    mActionOpenFieldCalc->setEnabled( false );
-    mActionToggleEditing->setEnabled( false );
-    mActionToggleEditing->setChecked( false );
-    mActionSaveLayerEdits->setEnabled( false );
-    mActionSaveLayerDefinition->setEnabled( false );
-    mActionLayerSaveAs->setEnabled( false );
-    mActionLayerProperties->setEnabled( false );
-    mActionLayerSubsetString->setEnabled( false );
-    mActionAddToOverview->setEnabled( false );
-    mActionFeatureAction->setEnabled( false );
-    mActionAddFeature->setEnabled( false );
-    mActionCircularStringCurvePoint->setEnabled( false );
-    mActionCircularStringRadius->setEnabled( false );
-    mMenuCircle->setEnabled( false );
-    mActionCircle2Points->setEnabled( false );
-    mActionCircle3Points->setEnabled( false );
-    mActionCircle3Tangents->setEnabled( false );
-    mActionCircle2TangentsPoint->setEnabled( false );
-    mActionCircleCenterPoint->setEnabled( false );
-    mMenuEllipse->setEnabled( false );
-    mActionEllipseCenter2Points->setEnabled( false );
-    mActionEllipseCenterPoint->setEnabled( false );
-    mActionEllipseExtent->setEnabled( false );
-    mActionEllipseFoci->setEnabled( false );
-    mMenuRectangle->setEnabled( false );
-    mActionRectangleCenterPoint->setEnabled( false );
-    mActionRectangleExtent->setEnabled( false );
-    mActionRectangle3PointsDistance->setEnabled( false );
-    mActionRectangle3PointsProjected->setEnabled( false );
-    mMenuRegularPolygon->setEnabled( false );
-    mActionRegularPolygon2Points->setEnabled( false );
-    mActionRegularPolygonCenterPoint->setEnabled( false );
-    mActionRegularPolygonCenterCorner->setEnabled( false );
-    mActionMoveFeature->setEnabled( false );
-    mActionMoveFeatureCopy->setEnabled( false );
-    mActionRotateFeature->setEnabled( false );
-    mActionOffsetCurve->setEnabled( false );
-    mActionVertexTool->setEnabled( false );
-    mActionVertexToolActiveLayer->setEnabled( false );
-    mActionDeleteSelected->setEnabled( false );
-    mActionCutFeatures->setEnabled( false );
-    mActionCopyFeatures->setEnabled( false );
-    mActionPasteFeatures->setEnabled( false );
-    mActionCopyStyle->setEnabled( false );
-    mActionPasteStyle->setEnabled( false );
-    mActionCopyLayer->setEnabled( false );
+    if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( false );
+    if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( false );
+    if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( false );
+    if(mActionSelectRadius) mActionSelectRadius->setEnabled( false );
+    if(mActionIdentify) mActionIdentify->setEnabled( QgsSettings().enumValue( QStringLiteral( "/Map/identifyMode" ), QgsMapToolIdentify::ActiveLayer ) != QgsMapToolIdentify::ActiveLayer );
+    if(mActionSelectByExpression) mActionSelectByExpression->setEnabled( false );
+    if(mActionSelectByForm) mActionSelectByForm->setEnabled( false );
+    if(mActionLabeling) mActionLabeling->setEnabled( false );
+    if(mActionOpenTable) mActionOpenTable->setEnabled( false );
+    if(mActionSelectAll) mActionSelectAll->setEnabled( false );
+    if(mActionReselect) mActionReselect->setEnabled( false );
+    if(mActionInvertSelection) mActionInvertSelection->setEnabled( false );
+    if(mActionOpenFieldCalc) mActionOpenFieldCalc->setEnabled( false );
+    if(mActionToggleEditing) mActionToggleEditing->setEnabled( false );
+    if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
+    if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( false );
+    if(mActionSaveLayerDefinition) mActionSaveLayerDefinition->setEnabled( false );
+    if(mActionLayerSaveAs) mActionLayerSaveAs->setEnabled( false );
+    if(mActionLayerProperties) mActionLayerProperties->setEnabled( false );
+    if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( false );
+    if(mActionAddToOverview) mActionAddToOverview->setEnabled( false );
+    if(mActionFeatureAction) mActionFeatureAction->setEnabled( false );
+    if(mActionAddFeature) mActionAddFeature->setEnabled( false );
+    if(mActionCircularStringCurvePoint) mActionCircularStringCurvePoint->setEnabled( false );
+    if(mActionCircularStringRadius) mActionCircularStringRadius->setEnabled( false );
+    if(mMenuCircle) mMenuCircle->setEnabled( false );
+    if(mActionCircle2Points) mActionCircle2Points->setEnabled( false );
+    if(mActionCircle3Points) mActionCircle3Points->setEnabled( false );
+    if(mActionCircle3Tangents) mActionCircle3Tangents->setEnabled( false );
+    if(mActionCircle2TangentsPoint) mActionCircle2TangentsPoint->setEnabled( false );
+    if(mActionCircleCenterPoint) mActionCircleCenterPoint->setEnabled( false );
+    if(mMenuEllipse) mMenuEllipse->setEnabled( false );
+    if(mActionEllipseCenter2Points) mActionEllipseCenter2Points->setEnabled( false );
+    if(mActionEllipseCenterPoint) mActionEllipseCenterPoint->setEnabled( false );
+    if(mActionEllipseExtent) mActionEllipseExtent->setEnabled( false );
+    if(mActionEllipseFoci) mActionEllipseFoci->setEnabled( false );
+    if(mMenuRectangle) mMenuRectangle->setEnabled( false );
+    if(mActionRectangleCenterPoint) mActionRectangleCenterPoint->setEnabled( false );
+    if(mActionRectangleExtent) mActionRectangleExtent->setEnabled( false );
+    if(mActionRectangle3PointsDistance) mActionRectangle3PointsDistance->setEnabled( false );
+    if(mActionRectangle3PointsProjected) mActionRectangle3PointsProjected->setEnabled( false );
+    if(mMenuRegularPolygon) mMenuRegularPolygon->setEnabled( false );
+    if(mActionRegularPolygon2Points) mActionRegularPolygon2Points->setEnabled( false );
+    if(mActionRegularPolygonCenterPoint) mActionRegularPolygonCenterPoint->setEnabled( false );
+    if(mActionRegularPolygonCenterCorner) mActionRegularPolygonCenterCorner->setEnabled( false );
+    if(mActionMoveFeature) mActionMoveFeature->setEnabled( false );
+    if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( false );
+    if(mActionRotateFeature) mActionRotateFeature->setEnabled( false );
+    if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
+    if(mActionVertexTool) mActionVertexTool->setEnabled( false );
+    if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( false );
+    if(mActionDeleteSelected) mActionDeleteSelected->setEnabled( false );
+    if(mActionCutFeatures) mActionCutFeatures->setEnabled( false );
+    if(mActionCopyFeatures) mActionCopyFeatures->setEnabled( false );
+    if(mActionPasteFeatures) mActionPasteFeatures->setEnabled( false );
+    if(mActionCopyStyle) mActionCopyStyle->setEnabled( false );
+    if(mActionPasteStyle) mActionPasteStyle->setEnabled( false );
+    if(mActionCopyLayer) mActionCopyLayer->setEnabled( false );
     // pasting should be allowed if there is a layer in the clipboard
-    mActionPasteLayer->setEnabled( clipboard()->hasFormat( QStringLiteral( QGSCLIPBOARD_MAPLAYER_MIME ) ) );
-    mActionReverseLine->setEnabled( false );
-    mActionTrimExtendFeature->setEnabled( false );
+    if(mActionPasteLayer) mActionPasteLayer->setEnabled( clipboard()->hasFormat( QStringLiteral( QGSCLIPBOARD_MAPLAYER_MIME ) ) );
+    if(mActionReverseLine) mActionReverseLine->setEnabled( false );
+    if(mActionTrimExtendFeature) mActionTrimExtendFeature->setEnabled( false );
 
-    mUndoDock->widget()->setEnabled( false );
-    mActionUndo->setEnabled( false );
-    mActionRedo->setEnabled( false );
-    mActionSimplifyFeature->setEnabled( false );
-    mActionAddRing->setEnabled( false );
-    mActionFillRing->setEnabled( false );
-    mActionAddPart->setEnabled( false );
-    mActionDeleteRing->setEnabled( false );
-    mActionDeletePart->setEnabled( false );
-    mActionReshapeFeatures->setEnabled( false );
-    mActionSplitFeatures->setEnabled( false );
-    mActionSplitParts->setEnabled( false );
-    mActionMergeFeatures->setEnabled( false );
-    mActionMergeFeatureAttributes->setEnabled( false );
-    mActionMultiEditAttributes->setEnabled( false );
-    mActionRotatePointSymbols->setEnabled( false );
-    mActionOffsetPointSymbol->setEnabled( false );
+    if(mUndoDock) mUndoDock->widget()->setEnabled( false );
+    if(mActionUndo) mActionUndo->setEnabled( false );
+    if(mActionRedo) mActionRedo->setEnabled( false );
+    if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+    if(mActionAddRing) mActionAddRing->setEnabled( false );
+    if(mActionFillRing) mActionFillRing->setEnabled( false );
+    if(mActionAddPart) mActionAddPart->setEnabled( false );
+    if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+    if(mActionDeletePart) mActionDeletePart->setEnabled( false );
+    if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+    if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+    if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+    if(mActionMergeFeatures) mActionMergeFeatures->setEnabled( false );
+    if(mActionMergeFeatureAttributes) mActionMergeFeatureAttributes->setEnabled( false );
+    if(mActionMultiEditAttributes) mActionMultiEditAttributes->setEnabled( false );
+    if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( false );
+    if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( false );
 
-    mActionPinLabels->setEnabled( false );
-    mActionShowHideLabels->setEnabled( false );
-    mActionMoveLabel->setEnabled( false );
-    mActionRotateLabel->setEnabled( false );
-    mActionChangeLabelProperties->setEnabled( false );
+    if(mActionPinLabels) mActionPinLabels->setEnabled( false );
+    if(mActionShowHideLabels) mActionShowHideLabels->setEnabled( false );
+    if(mActionMoveLabel) mActionMoveLabel->setEnabled( false );
+    if(mActionRotateLabel) mActionRotateLabel->setEnabled( false );
+    if(mActionChangeLabelProperties) mActionChangeLabelProperties->setEnabled( false );
 
-    mActionDiagramProperties->setEnabled( false );
+    if(mActionDiagramProperties) mActionDiagramProperties->setEnabled( false );
 
-    mActionLocalHistogramStretch->setEnabled( false );
-    mActionFullHistogramStretch->setEnabled( false );
-    mActionLocalCumulativeCutStretch->setEnabled( false );
-    mActionFullCumulativeCutStretch->setEnabled( false );
-    mActionIncreaseBrightness->setEnabled( false );
-    mActionDecreaseBrightness->setEnabled( false );
-    mActionIncreaseContrast->setEnabled( false );
-    mActionDecreaseContrast->setEnabled( false );
-    mActionIncreaseGamma->setEnabled( false );
-    mActionDecreaseGamma->setEnabled( false );
-    mActionZoomActualSize->setEnabled( false );
-    mActionZoomToLayer->setEnabled( false );
+    if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( false );
+    if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
+    if(mActionLocalCumulativeCutStretch) mActionLocalCumulativeCutStretch->setEnabled( false );
+    if(mActionFullCumulativeCutStretch) mActionFullCumulativeCutStretch->setEnabled( false );
+    if(mActionIncreaseBrightness) mActionIncreaseBrightness->setEnabled( false );
+    if(mActionDecreaseBrightness) mActionDecreaseBrightness->setEnabled( false );
+    if(mActionIncreaseContrast) mActionIncreaseContrast->setEnabled( false );
+    if(mActionDecreaseContrast) mActionDecreaseContrast->setEnabled( false );
+    if(mActionIncreaseGamma) mActionIncreaseGamma->setEnabled( false );
+    if(mActionDecreaseGamma) mActionDecreaseGamma->setEnabled( false );
+    if(mActionZoomActualSize) mActionZoomActualSize->setEnabled( false );
+    if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( false );
 
     enableDigitizeWithCurveAction( false );
 
@@ -14527,13 +14547,13 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 
   menuSelect->setEnabled( true );
 
-  mActionLayerProperties->setEnabled( QgsProject::instance()->layerIsEmbedded( layer->id() ).isEmpty() );
-  mActionAddToOverview->setEnabled( true );
-  mActionZoomToLayer->setEnabled( true );
+  if(mActionLayerProperties) mActionLayerProperties->setEnabled( QgsProject::instance()->layerIsEmbedded( layer->id() ).isEmpty() );
+  if(mActionAddToOverview) mActionAddToOverview->setEnabled( true );
+  if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( true );
 
-  mActionCopyStyle->setEnabled( true );
-  mActionPasteStyle->setEnabled( clipboard()->hasFormat( QStringLiteral( QGSCLIPBOARD_STYLE_MIME ) ) );
-  mActionCopyLayer->setEnabled( true );
+  if(mActionCopyStyle) mActionCopyStyle->setEnabled( true );
+  if(mActionPasteStyle) mActionPasteStyle->setEnabled( clipboard()->hasFormat( QStringLiteral( QGSCLIPBOARD_STYLE_MIME ) ) );
+  if(mActionCopyLayer) mActionCopyLayer->setEnabled( true );
 
   // Vector layers
   switch ( layer->type() )
@@ -14549,39 +14569,39 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
       bool layerHasActions = !vlayer->actions()->actions( QStringLiteral( "Canvas" ) ).isEmpty() || !QgsGui::mapLayerActionRegistry()->mapLayerActions( vlayer ).isEmpty();
       bool isSpatial = vlayer->isSpatial();
 
-      mActionLocalHistogramStretch->setEnabled( false );
-      mActionFullHistogramStretch->setEnabled( false );
-      mActionLocalCumulativeCutStretch->setEnabled( false );
-      mActionFullCumulativeCutStretch->setEnabled( false );
-      mActionIncreaseBrightness->setEnabled( false );
-      mActionDecreaseBrightness->setEnabled( false );
-      mActionIncreaseContrast->setEnabled( false );
-      mActionDecreaseContrast->setEnabled( false );
-      mActionIncreaseGamma->setEnabled( false );
-      mActionDecreaseGamma->setEnabled( false );
-      mActionZoomActualSize->setEnabled( false );
-      mActionZoomToLayer->setEnabled( isSpatial );
-      mActionZoomToSelected->setEnabled( isSpatial );
-      mActionLabeling->setEnabled( isSpatial );
-      mActionDiagramProperties->setEnabled( isSpatial );
-      mActionReverseLine->setEnabled( false );
-      mActionTrimExtendFeature->setEnabled( false );
+      if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( false );
+      if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
+      if(mActionLocalCumulativeCutStretch) mActionLocalCumulativeCutStretch->setEnabled( false );
+      if(mActionFullCumulativeCutStretch) mActionFullCumulativeCutStretch->setEnabled( false );
+      if(mActionIncreaseBrightness) mActionIncreaseBrightness->setEnabled( false );
+      if(mActionDecreaseBrightness) mActionDecreaseBrightness->setEnabled( false );
+      if(mActionIncreaseContrast) mActionIncreaseContrast->setEnabled( false );
+      if(mActionDecreaseContrast) mActionDecreaseContrast->setEnabled( false );
+      if(mActionIncreaseGamma) mActionIncreaseGamma->setEnabled( false );
+      if(mActionDecreaseGamma) mActionDecreaseGamma->setEnabled( false );
+      if(mActionZoomActualSize) mActionZoomActualSize->setEnabled( false );
+      if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( isSpatial );
+      if(mActionZoomToSelected) mActionZoomToSelected->setEnabled( isSpatial );
+      if(mActionLabeling) mActionLabeling->setEnabled( isSpatial );
+      if(mActionDiagramProperties) mActionDiagramProperties->setEnabled( isSpatial );
+      if(mActionReverseLine) mActionReverseLine->setEnabled( false );
+      if(mActionTrimExtendFeature) mActionTrimExtendFeature->setEnabled( false );
 
-      mActionSelectFeatures->setEnabled( isSpatial );
-      mActionSelectPolygon->setEnabled( isSpatial );
-      mActionSelectFreehand->setEnabled( isSpatial );
-      mActionSelectRadius->setEnabled( isSpatial );
-      mActionIdentify->setEnabled( isSpatial );
-      mActionSelectByExpression->setEnabled( true );
-      mActionSelectByForm->setEnabled( true );
-      mActionOpenTable->setEnabled( true );
-      mActionSelectAll->setEnabled( true );
-      mActionReselect->setEnabled( true );
-      mActionInvertSelection->setEnabled( true );
-      mActionSaveLayerDefinition->setEnabled( true );
-      mActionLayerSaveAs->setEnabled( true );
-      mActionCopyFeatures->setEnabled( layerHasSelection );
-      mActionFeatureAction->setEnabled( layerHasActions );
+      if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( isSpatial );
+      if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( isSpatial );
+      if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( isSpatial );
+      if(mActionSelectRadius) mActionSelectRadius->setEnabled( isSpatial );
+      if(mActionIdentify) mActionIdentify->setEnabled( isSpatial );
+      if(mActionSelectByExpression) mActionSelectByExpression->setEnabled( true );
+      if(mActionSelectByForm) mActionSelectByForm->setEnabled( true );
+      if(mActionOpenTable) mActionOpenTable->setEnabled( true );
+      if(mActionSelectAll) mActionSelectAll->setEnabled( true );
+      if(mActionReselect) mActionReselect->setEnabled( true );
+      if(mActionInvertSelection) mActionInvertSelection->setEnabled( true );
+      if(mActionSaveLayerDefinition) mActionSaveLayerDefinition->setEnabled( true );
+      if(mActionLayerSaveAs) mActionLayerSaveAs->setEnabled( true );
+      if(mActionCopyFeatures) mActionCopyFeatures->setEnabled( layerHasSelection );
+      if(mActionFeatureAction) mActionFeatureAction->setEnabled( layerHasActions );
 
       if ( !isEditable && mMapCanvas && mMapCanvas->mapTool()
            && ( mMapCanvas->mapTool()->flags() & QgsMapTool::EditTool ) && !mSaveRollbackInProgress )
@@ -14597,14 +14617,14 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
         bool canSupportEditing = dprovider->capabilities() & QgsVectorDataProvider::EditingCapabilities;
         bool canChangeGeometry = isSpatial && dprovider->capabilities() & QgsVectorDataProvider::ChangeGeometries;
 
-        mActionLayerSubsetString->setEnabled( !isEditable && dprovider->supportsSubsetString() );
+        if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( !isEditable && dprovider->supportsSubsetString() );
 
-        mActionToggleEditing->setEnabled( canSupportEditing && !vlayer->readOnly() );
-        mActionToggleEditing->setChecked( canSupportEditing && isEditable );
-        mActionSaveLayerEdits->setEnabled( canSupportEditing && isEditable && vlayer->isModified() );
-        mUndoDock->widget()->setEnabled( canSupportEditing && isEditable );
-        mActionUndo->setEnabled( canSupportEditing );
-        mActionRedo->setEnabled( canSupportEditing );
+        if(mActionToggleEditing) mActionToggleEditing->setEnabled( canSupportEditing && !vlayer->readOnly() );
+        if(mActionToggleEditing) mActionToggleEditing->setChecked( canSupportEditing && isEditable );
+        if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( canSupportEditing && isEditable && vlayer->isModified() );
+        if(mUndoDock) mUndoDock->widget()->setEnabled( canSupportEditing && isEditable );
+        if(mActionUndo) mActionUndo->setEnabled( canSupportEditing );
+        if(mActionRedo) mActionRedo->setEnabled( canSupportEditing );
 
         //start editing/stop editing
         if ( canSupportEditing )
@@ -14612,162 +14632,162 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
           updateUndoActions();
         }
 
-        mActionPasteFeatures->setEnabled( isEditable && canAddFeatures && !clipboard()->isEmpty() );
+        if(mActionPasteFeatures) mActionPasteFeatures->setEnabled( isEditable && canAddFeatures && !clipboard()->isEmpty() );
 
-        mActionAddFeature->setEnabled( isEditable && canAddFeatures );
+        if(mActionAddFeature) mActionAddFeature->setEnabled( isEditable && canAddFeatures );
 
         bool enableCircularTools;
         bool enableShapeTools;
         enableCircularTools = isEditable && ( canAddFeatures || canChangeGeometry )
                               && ( vlayer->geometryType() == QgsWkbTypes::LineGeometry || vlayer->geometryType() == QgsWkbTypes::PolygonGeometry );
         enableShapeTools = enableCircularTools;
-        mActionCircularStringCurvePoint->setEnabled( enableCircularTools );
-        mActionCircularStringRadius->setEnabled( enableCircularTools );
-        mMenuCircle->setEnabled( enableShapeTools );
-        mActionCircle2Points->setEnabled( enableShapeTools );
-        mActionCircle3Points->setEnabled( enableShapeTools );
-        mActionCircle3Tangents->setEnabled( enableShapeTools );
-        mActionCircle2TangentsPoint->setEnabled( enableShapeTools );
-        mActionCircleCenterPoint->setEnabled( enableShapeTools );
-        mMenuEllipse->setEnabled( enableShapeTools );
-        mActionEllipseCenter2Points->setEnabled( enableShapeTools );
-        mActionEllipseCenterPoint->setEnabled( enableShapeTools );
-        mActionEllipseExtent->setEnabled( enableShapeTools );
-        mActionEllipseFoci->setEnabled( enableShapeTools );
-        mMenuRectangle->setEnabled( enableShapeTools );
-        mActionRectangleCenterPoint->setEnabled( enableShapeTools );
-        mActionRectangleExtent->setEnabled( enableShapeTools );
-        mActionRectangle3PointsDistance->setEnabled( enableShapeTools );
-        mActionRectangle3PointsProjected->setEnabled( enableShapeTools );
-        mMenuRegularPolygon->setEnabled( enableShapeTools );
-        mActionRegularPolygon2Points->setEnabled( enableShapeTools );
-        mActionRegularPolygonCenterPoint->setEnabled( enableShapeTools );
-        mActionRegularPolygonCenterCorner->setEnabled( enableShapeTools );
+        if(mActionCircularStringCurvePoint) mActionCircularStringCurvePoint->setEnabled( enableCircularTools );
+        if(mActionCircularStringRadius) mActionCircularStringRadius->setEnabled( enableCircularTools );
+        if(mMenuCircle) mMenuCircle->setEnabled( enableShapeTools );
+        if(mActionCircle2Points) mActionCircle2Points->setEnabled( enableShapeTools );
+        if(mActionCircle3Points) mActionCircle3Points->setEnabled( enableShapeTools );
+        if(mActionCircle3Tangents) mActionCircle3Tangents->setEnabled( enableShapeTools );
+        if(mActionCircle2TangentsPoint) mActionCircle2TangentsPoint->setEnabled( enableShapeTools );
+        if(mActionCircleCenterPoint) mActionCircleCenterPoint->setEnabled( enableShapeTools );
+        if(mMenuEllipse) mMenuEllipse->setEnabled( enableShapeTools );
+        if(mActionEllipseCenter2Points) mActionEllipseCenter2Points->setEnabled( enableShapeTools );
+        if(mActionEllipseCenterPoint) mActionEllipseCenterPoint->setEnabled( enableShapeTools );
+        if(mActionEllipseExtent) mActionEllipseExtent->setEnabled( enableShapeTools );
+        if(mActionEllipseFoci) mActionEllipseFoci->setEnabled( enableShapeTools );
+        if(mMenuRectangle) mMenuRectangle->setEnabled( enableShapeTools );
+        if(mActionRectangleCenterPoint) mActionRectangleCenterPoint->setEnabled( enableShapeTools );
+        if(mActionRectangleExtent) mActionRectangleExtent->setEnabled( enableShapeTools );
+        if(mActionRectangle3PointsDistance) mActionRectangle3PointsDistance->setEnabled( enableShapeTools );
+        if(mActionRectangle3PointsProjected) mActionRectangle3PointsProjected->setEnabled( enableShapeTools );
+        if(mMenuRegularPolygon) mMenuRegularPolygon->setEnabled( enableShapeTools );
+        if(mActionRegularPolygon2Points) mActionRegularPolygon2Points->setEnabled( enableShapeTools );
+        if(mActionRegularPolygonCenterPoint) mActionRegularPolygonCenterPoint->setEnabled( enableShapeTools );
+        if(mActionRegularPolygonCenterCorner) mActionRegularPolygonCenterCorner->setEnabled( enableShapeTools );
 
         //does provider allow deleting of features?
-        mActionDeleteSelected->setEnabled( isEditable && canDeleteFeatures && layerHasSelection );
-        mActionCutFeatures->setEnabled( isEditable && canDeleteFeatures && layerHasSelection );
+        if(mActionDeleteSelected) mActionDeleteSelected->setEnabled( isEditable && canDeleteFeatures && layerHasSelection );
+        if(mActionCutFeatures) mActionCutFeatures->setEnabled( isEditable && canDeleteFeatures && layerHasSelection );
 
         //merge tool needs editable layer and provider with the capability of adding and deleting features
         if ( isEditable && canChangeAttributes )
         {
-          mActionMergeFeatures->setEnabled( layerHasSelection && canDeleteFeatures && canAddFeatures );
-          mActionMergeFeatureAttributes->setEnabled( layerHasSelection );
-          mActionMultiEditAttributes->setEnabled( layerHasSelection );
+          if(mActionMergeFeatures) mActionMergeFeatures->setEnabled( layerHasSelection && canDeleteFeatures && canAddFeatures );
+          if(mActionMergeFeatureAttributes) mActionMergeFeatureAttributes->setEnabled( layerHasSelection );
+          if(mActionMultiEditAttributes) mActionMultiEditAttributes->setEnabled( layerHasSelection );
         }
         else
         {
-          mActionMergeFeatures->setEnabled( false );
-          mActionMergeFeatureAttributes->setEnabled( false );
-          mActionMultiEditAttributes->setEnabled( false );
+          if(mActionMergeFeatures) mActionMergeFeatures->setEnabled( false );
+          if(mActionMergeFeatureAttributes) mActionMergeFeatureAttributes->setEnabled( false );
+          if(mActionMultiEditAttributes) mActionMultiEditAttributes->setEnabled( false );
         }
 
         bool isMultiPart = QgsWkbTypes::isMultiType( vlayer->wkbType() ) || !dprovider->doesStrictFeatureTypeCheck();
 
         // moving enabled if geometry changes are supported
-        mActionAddPart->setEnabled( isEditable && canChangeGeometry );
-        mActionDeletePart->setEnabled( isEditable && canChangeGeometry );
-        mActionMoveFeature->setEnabled( isEditable && canChangeGeometry );
-        mActionMoveFeatureCopy->setEnabled( isEditable && canChangeGeometry );
-        mActionRotateFeature->setEnabled( isEditable && canChangeGeometry );
-        mActionVertexTool->setEnabled( isEditable && canChangeGeometry );
-        mActionVertexToolActiveLayer->setEnabled( isEditable && canChangeGeometry );
+        if(mActionAddPart) mActionAddPart->setEnabled( isEditable && canChangeGeometry );
+        if(mActionDeletePart) mActionDeletePart->setEnabled( isEditable && canChangeGeometry );
+        if(mActionMoveFeature) mActionMoveFeature->setEnabled( isEditable && canChangeGeometry );
+        if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( isEditable && canChangeGeometry );
+        if(mActionRotateFeature) mActionRotateFeature->setEnabled( isEditable && canChangeGeometry );
+        if(mActionVertexTool) mActionVertexTool->setEnabled( isEditable && canChangeGeometry );
+        if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( isEditable && canChangeGeometry );
 
         enableDigitizeWithCurveAction( isEditable && canChangeGeometry );
 
         if ( vlayer->geometryType() == QgsWkbTypes::PointGeometry )
         {
-          mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePoint.svg" ) ) );
+          if(mActionAddFeature) mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePoint.svg" ) ) );
           addFeatureText = tr( "Add Point Feature" );
-          mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeaturePoint.svg" ) ) );
-          mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyPoint.svg" ) ) );
+          if(mActionMoveFeature) mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeaturePoint.svg" ) ) );
+          if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyPoint.svg" ) ) );
 
-          mActionAddRing->setEnabled( false );
-          mActionFillRing->setEnabled( false );
-          mActionReshapeFeatures->setEnabled( false );
-          mActionSplitFeatures->setEnabled( false );
-          mActionSplitParts->setEnabled( false );
-          mActionSimplifyFeature->setEnabled( false );
-          mActionDeleteRing->setEnabled( false );
-          mActionRotatePointSymbols->setEnabled( false );
-          mActionOffsetPointSymbol->setEnabled( false );
-          mActionOffsetCurve->setEnabled( false );
+          if(mActionAddRing) mActionAddRing->setEnabled( false );
+          if(mActionFillRing) mActionFillRing->setEnabled( false );
+          if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+          if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+          if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+          if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+          if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+          if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( false );
+          if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( false );
+          if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
 
           if ( isEditable && canChangeAttributes )
           {
             if ( QgsMapToolRotatePointSymbols::layerIsRotatable( vlayer ) )
             {
-              mActionRotatePointSymbols->setEnabled( true );
+              if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( true );
             }
             if ( QgsMapToolOffsetPointSymbol::layerIsOffsetable( vlayer ) )
             {
-              mActionOffsetPointSymbol->setEnabled( true );
+              if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( true );
             }
           }
         }
         else if ( vlayer->geometryType() == QgsWkbTypes::LineGeometry )
         {
-          mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCaptureLine.svg" ) ) );
+          if(mActionAddFeature) mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCaptureLine.svg" ) ) );
           addFeatureText = tr( "Add Line Feature" );
-          mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureLine.svg" ) ) );
-          mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyLine.svg" ) ) );
+          if(mActionMoveFeature) mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureLine.svg" ) ) );
+          if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopyLine.svg" ) ) );
 
-          mActionReshapeFeatures->setEnabled( isEditable && canChangeGeometry );
-          mActionSplitFeatures->setEnabled( isEditable && canAddFeatures );
-          mActionSplitParts->setEnabled( isEditable && canChangeGeometry && isMultiPart );
-          mActionSimplifyFeature->setEnabled( isEditable && canChangeGeometry );
-          mActionOffsetCurve->setEnabled( isEditable && canAddFeatures && canChangeAttributes );
-          mActionReverseLine->setEnabled( isEditable && canChangeGeometry );
-          mActionTrimExtendFeature->setEnabled( isEditable && canChangeGeometry );
+          if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( isEditable && canChangeGeometry );
+          if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( isEditable && canAddFeatures );
+          if(mActionSplitParts) mActionSplitParts->setEnabled( isEditable && canChangeGeometry && isMultiPart );
+          if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( isEditable && canChangeGeometry );
+          if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( isEditable && canAddFeatures && canChangeAttributes );
+          if(mActionReverseLine) mActionReverseLine->setEnabled( isEditable && canChangeGeometry );
+          if(mActionTrimExtendFeature) mActionTrimExtendFeature->setEnabled( isEditable && canChangeGeometry );
 
-          mActionAddRing->setEnabled( false );
-          mActionFillRing->setEnabled( false );
-          mActionDeleteRing->setEnabled( false );
+          if(mActionAddRing) mActionAddRing->setEnabled( false );
+          if(mActionFillRing) mActionFillRing->setEnabled( false );
+          if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
         }
         else if ( vlayer->geometryType() == QgsWkbTypes::PolygonGeometry )
         {
-          mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePolygon.svg" ) ) );
+          if(mActionAddFeature) mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionCapturePolygon.svg" ) ) );
           addFeatureText = tr( "Add Polygon Feature" );
-          mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeature.svg" ) ) );
-          mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopy.svg" ) ) );
+          if(mActionMoveFeature) mActionMoveFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeature.svg" ) ) );
+          if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMoveFeatureCopy.svg" ) ) );
 
-          mActionAddRing->setEnabled( isEditable && canChangeGeometry );
-          mActionFillRing->setEnabled( isEditable && canChangeGeometry );
-          mActionReshapeFeatures->setEnabled( isEditable && canChangeGeometry );
-          mActionSplitFeatures->setEnabled( isEditable && canAddFeatures );
-          mActionSplitParts->setEnabled( isEditable && canChangeGeometry && isMultiPart );
-          mActionSimplifyFeature->setEnabled( isEditable && canChangeGeometry );
-          mActionDeleteRing->setEnabled( isEditable && canChangeGeometry );
-          mActionOffsetCurve->setEnabled( isEditable && canAddFeatures && canChangeAttributes );
-          mActionTrimExtendFeature->setEnabled( isEditable && canChangeGeometry );
+          if(mActionAddRing) mActionAddRing->setEnabled( isEditable && canChangeGeometry );
+          if(mActionFillRing) mActionFillRing->setEnabled( isEditable && canChangeGeometry );
+          if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( isEditable && canChangeGeometry );
+          if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( isEditable && canAddFeatures );
+          if(mActionSplitParts) mActionSplitParts->setEnabled( isEditable && canChangeGeometry && isMultiPart );
+          if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( isEditable && canChangeGeometry );
+          if(mActionDeleteRing) mActionDeleteRing->setEnabled( isEditable && canChangeGeometry );
+          if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( isEditable && canAddFeatures && canChangeAttributes );
+          if(mActionTrimExtendFeature) mActionTrimExtendFeature->setEnabled( isEditable && canChangeGeometry );
         }
         else if ( vlayer->geometryType() == QgsWkbTypes::NullGeometry )
         {
-          mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewTableRow.svg" ) ) );
+          if(mActionAddFeature) mActionAddFeature->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionNewTableRow.svg" ) ) );
           addFeatureText = tr( "Add Record" );
-          mActionAddRing->setEnabled( false );
-          mActionFillRing->setEnabled( false );
-          mActionReshapeFeatures->setEnabled( false );
-          mActionSplitFeatures->setEnabled( false );
-          mActionSplitParts->setEnabled( false );
-          mActionSimplifyFeature->setEnabled( false );
-          mActionDeleteRing->setEnabled( false );
-          mActionOffsetCurve->setEnabled( false );
+          if(mActionAddRing) mActionAddRing->setEnabled( false );
+          if(mActionFillRing) mActionFillRing->setEnabled( false );
+          if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+          if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+          if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+          if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+          if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+          if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
         }
 
-        mActionOpenFieldCalc->setEnabled( true );
-        mActionAddFeature->setText( addFeatureText );
-        mActionAddFeature->setToolTip( addFeatureText );
+        if(mActionOpenFieldCalc) mActionOpenFieldCalc->setEnabled( true );
+        if(mActionAddFeature) mActionAddFeature->setText( addFeatureText );
+        if(mActionAddFeature) mActionAddFeature->setToolTip( addFeatureText );
         QgsGui::shortcutsManager()->unregisterAction( mActionAddFeature );
-        if ( !mActionAddFeature->text().isEmpty() ) // The text will be empty on unknown geometry type -> in this case do not create a shortcut
+        if ( mActionAddFeature && !mActionAddFeature->text().isEmpty() ) // The text will be empty on unknown geometry type -> in this case do not create a shortcut
           QgsGui::shortcutsManager()->registerAction( mActionAddFeature, mActionAddFeature->shortcut().toString() );
       }
       else
       {
-        mUndoDock->widget()->setEnabled( false );
-        mActionUndo->setEnabled( false );
-        mActionRedo->setEnabled( false );
-        mActionLayerSubsetString->setEnabled( false );
+        if(mUndoDock) mUndoDock->widget()->setEnabled( false );
+        if(mActionUndo) mActionUndo->setEnabled( false );
+        if(mActionRedo) mActionRedo->setEnabled( false );
+        if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( false );
       }
       break;
     }
@@ -14783,102 +14803,101 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
       {
         if ( dprovider->capabilities() & QgsRasterDataProvider::Size )
         {
-          mActionFullHistogramStretch->setEnabled( true );
+          if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( true );
         }
         else
         {
           // it would hang up reading the data for WMS for example
-          mActionFullHistogramStretch->setEnabled( false );
+          if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
         }
-        mActionLocalHistogramStretch->setEnabled( true );
+        if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( true );
       }
       else
       {
-        mActionLocalHistogramStretch->setEnabled( false );
-        mActionFullHistogramStretch->setEnabled( false );
+        if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( false );
+        if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
       }
 
-      mActionLocalCumulativeCutStretch->setEnabled( true );
-      mActionFullCumulativeCutStretch->setEnabled( true );
-      mActionIncreaseBrightness->setEnabled( true );
-      mActionDecreaseBrightness->setEnabled( true );
-      mActionIncreaseContrast->setEnabled( true );
-      mActionDecreaseContrast->setEnabled( true );
-      mActionIncreaseGamma->setEnabled( true );
-      mActionDecreaseGamma->setEnabled( true );
+      if(mActionLocalCumulativeCutStretch) mActionLocalCumulativeCutStretch->setEnabled( true );
+      if(mActionFullCumulativeCutStretch) mActionFullCumulativeCutStretch->setEnabled( true );
+      if(mActionIncreaseBrightness) mActionIncreaseBrightness->setEnabled( true );
+      if(mActionDecreaseBrightness) mActionDecreaseBrightness->setEnabled( true );
+      if(mActionIncreaseContrast) mActionIncreaseContrast->setEnabled( true );
+      if(mActionDecreaseContrast) mActionDecreaseContrast->setEnabled( true );
+      if(mActionIncreaseGamma) mActionIncreaseGamma->setEnabled( true );
+      if(mActionDecreaseGamma) mActionDecreaseGamma->setEnabled( true );
 
-      mActionLayerSubsetString->setEnabled( false );
-      mActionFeatureAction->setEnabled( false );
-      mActionSelectFeatures->setEnabled( false );
-      mActionSelectPolygon->setEnabled( false );
-      mActionSelectFreehand->setEnabled( false );
-      mActionSelectRadius->setEnabled( false );
-      mActionZoomActualSize->setEnabled( true );
-      mActionZoomToLayer->setEnabled( true );
-      mActionZoomToSelected->setEnabled( false );
-      mActionOpenTable->setEnabled( false );
-      mActionSelectAll->setEnabled( false );
-      mActionReselect->setEnabled( false );
-      mActionInvertSelection->setEnabled( false );
-      mActionSelectByExpression->setEnabled( false );
-      mActionSelectByForm->setEnabled( false );
-      mActionOpenFieldCalc->setEnabled( false );
-      mActionToggleEditing->setEnabled( false );
-      mActionToggleEditing->setChecked( false );
-      mActionSaveLayerEdits->setEnabled( false );
-      mUndoDock->widget()->setEnabled( false );
-      mActionUndo->setEnabled( false );
-      mActionRedo->setEnabled( false );
-      mActionSaveLayerDefinition->setEnabled( true );
-      mActionLayerSaveAs->setEnabled( true );
-      mActionAddFeature->setEnabled( false );
-      mActionCircularStringCurvePoint->setEnabled( false );
-      mActionCircularStringRadius->setEnabled( false );
-      mMenuCircle->setEnabled( false );
-      mActionCircle2Points->setEnabled( false );
-      mActionCircle3Points->setEnabled( false );
-      mActionCircle3Tangents->setEnabled( false );
-      mActionCircle2TangentsPoint->setEnabled( false );
-      mActionCircleCenterPoint->setEnabled( false );
-      mMenuEllipse->setEnabled( false );
-      mActionEllipseCenter2Points->setEnabled( false );
-      mActionEllipseCenterPoint->setEnabled( false );
-      mActionEllipseExtent->setEnabled( false );
-      mActionEllipseFoci->setEnabled( false );
-      mMenuRectangle->setEnabled( false );
-      mActionRectangleCenterPoint->setEnabled( false );
-      mActionRectangleExtent->setEnabled( false );
-      mActionRectangle3PointsDistance->setEnabled( false );
-      mActionRectangle3PointsProjected->setEnabled( false );
-      mMenuRegularPolygon->setEnabled( false );
-      mActionRegularPolygon2Points->setEnabled( false );
-      mActionRegularPolygonCenterPoint->setEnabled( false );
-      mActionRegularPolygonCenterCorner->setEnabled( false );
-      mActionReverseLine->setEnabled( false );
-      mActionTrimExtendFeature->setEnabled( false );
-      mActionDeleteSelected->setEnabled( false );
-      mActionAddRing->setEnabled( false );
-      mActionFillRing->setEnabled( false );
-      mActionAddPart->setEnabled( false );
-      mActionVertexTool->setEnabled( false );
-      mActionVertexToolActiveLayer->setEnabled( false );
-      mActionMoveFeature->setEnabled( false );
-      mActionMoveFeatureCopy->setEnabled( false );
-      mActionRotateFeature->setEnabled( false );
-      mActionOffsetCurve->setEnabled( false );
-      mActionCopyFeatures->setEnabled( false );
-      mActionCutFeatures->setEnabled( false );
-      mActionPasteFeatures->setEnabled( false );
-      mActionRotatePointSymbols->setEnabled( false );
-      mActionOffsetPointSymbol->setEnabled( false );
-      mActionDeletePart->setEnabled( false );
-      mActionDeleteRing->setEnabled( false );
-      mActionSimplifyFeature->setEnabled( false );
-      mActionReshapeFeatures->setEnabled( false );
-      mActionSplitFeatures->setEnabled( false );
-      mActionSplitParts->setEnabled( false );
-      mActionLabeling->setEnabled( false );
-      mActionDiagramProperties->setEnabled( false );
+      if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( false );
+      if(mActionFeatureAction) mActionFeatureAction->setEnabled( false );
+      if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( false );
+      if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( false );
+      if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( false );
+      if(mActionSelectRadius) mActionSelectRadius->setEnabled( false );
+      if(mActionZoomActualSize) mActionZoomActualSize->setEnabled( true );
+      if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( true );
+      if(mActionZoomToSelected) mActionZoomToSelected->setEnabled( false );
+      if(mActionOpenTable) mActionOpenTable->setEnabled( false );
+      if(mActionSelectAll) mActionSelectAll->setEnabled( false );
+      if(mActionReselect) mActionReselect->setEnabled( false );
+      if(mActionInvertSelection) mActionInvertSelection->setEnabled( false );
+      if(mActionSelectByExpression) mActionSelectByExpression->setEnabled( false );
+      if(mActionSelectByForm) mActionSelectByForm->setEnabled( false );
+      if(mActionOpenFieldCalc) mActionOpenFieldCalc->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
+      if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( false );
+      if(mUndoDock) mUndoDock->widget()->setEnabled( false );
+      if(mActionUndo) mActionUndo->setEnabled( false );
+      if(mActionRedo) mActionRedo->setEnabled( false );
+      if(mActionSaveLayerDefinition) mActionSaveLayerDefinition->setEnabled( true );
+      if(mActionLayerSaveAs) mActionLayerSaveAs->setEnabled( true );
+      if(mActionAddFeature) mActionAddFeature->setEnabled( false );
+      if(mActionCircularStringCurvePoint) mActionCircularStringCurvePoint->setEnabled( false );
+      if(mActionCircularStringRadius) mActionCircularStringRadius->setEnabled( false );
+      if(mMenuCircle) mMenuCircle->setEnabled( false );
+      if(mActionCircle2Points) mActionCircle2Points->setEnabled( false );
+      if(mActionCircle3Points) mActionCircle3Points->setEnabled( false );
+      if(mActionCircle3Tangents) mActionCircle3Tangents->setEnabled( false );
+      if(mActionCircle2TangentsPoint) mActionCircle2TangentsPoint->setEnabled( false );
+      if(mActionCircleCenterPoint) mActionCircleCenterPoint->setEnabled( false );
+      if(mMenuEllipse) mMenuEllipse->setEnabled( false );
+      if(mActionEllipseCenter2Points) mActionEllipseCenter2Points->setEnabled( false );
+      if(mActionEllipseCenterPoint) mActionEllipseCenterPoint->setEnabled( false );
+      if(mActionEllipseExtent) mActionEllipseExtent->setEnabled( false );
+      if(mActionEllipseFoci) mActionEllipseFoci->setEnabled( false );
+      if(mMenuRectangle) mMenuRectangle->setEnabled( false );
+      if(mActionRectangleCenterPoint) mActionRectangleCenterPoint->setEnabled( false );
+      if(mActionRectangleExtent) mActionRectangleExtent->setEnabled( false );
+      if(mActionRectangle3PointsDistance) mActionRectangle3PointsDistance->setEnabled( false );
+      if(mActionRectangle3PointsProjected) mActionRectangle3PointsProjected->setEnabled( false );
+      if(mActionRegularPolygon2Points) mActionRegularPolygon2Points->setEnabled( false );
+      if(mActionRegularPolygonCenterPoint) mActionRegularPolygonCenterPoint->setEnabled( false );
+      if(mActionRegularPolygonCenterCorner) mActionRegularPolygonCenterCorner->setEnabled( false );
+      if(mActionReverseLine) mActionReverseLine->setEnabled( false );
+      if(mActionTrimExtendFeature) mActionTrimExtendFeature->setEnabled( false );
+      if(mActionDeleteSelected) mActionDeleteSelected->setEnabled( false );
+      if(mActionAddRing) mActionAddRing->setEnabled( false );
+      if(mActionFillRing) mActionFillRing->setEnabled( false );
+      if(mActionAddPart) mActionAddPart->setEnabled( false );
+      if(mActionVertexTool) mActionVertexTool->setEnabled( false );
+      if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( false );
+      if(mActionMoveFeature) mActionMoveFeature->setEnabled( false );
+      if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( false );
+      if(mActionRotateFeature) mActionRotateFeature->setEnabled( false );
+      if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
+      if(mActionCopyFeatures) mActionCopyFeatures->setEnabled( false );
+      if(mActionCutFeatures) mActionCutFeatures->setEnabled( false );
+      if(mActionPasteFeatures) mActionPasteFeatures->setEnabled( false );
+      if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( false );
+      if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( false );
+      if(mActionDeletePart) mActionDeletePart->setEnabled( false );
+      if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+      if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+      if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+      if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+      if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+      if(mActionLabeling) mActionLabeling->setEnabled( false );
+      if(mActionDiagramProperties) mActionDiagramProperties->setEnabled( false );
 
       enableDigitizeWithCurveAction( false );
 
@@ -14887,7 +14906,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 
       //Enable the Identify tool ( GDAL datasets draw without a provider )
       //but turn off if data provider exists and has no Identify capabilities
-      mActionIdentify->setEnabled( true );
+      if(mActionIdentify) mActionIdentify->setEnabled( true );
 
       QgsSettings settings;
       QgsMapToolIdentify::IdentifyMode identifyMode = settings.enumValue( QStringLiteral( "Map/identifyMode" ), QgsMapToolIdentify::ActiveLayer );
@@ -14898,11 +14917,11 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
           // does provider allow the identify map tool?
           if ( dprovider->capabilities() & QgsRasterDataProvider::Identify )
           {
-            mActionIdentify->setEnabled( true );
+            if(mActionIdentify) mActionIdentify->setEnabled( true );
           }
           else
           {
-            mActionIdentify->setEnabled( false );
+            if(mActionIdentify) mActionIdentify->setEnabled( false );
           }
         }
       }
@@ -14910,132 +14929,132 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
     }
 
     case QgsMapLayerType::MeshLayer:
-      mActionLocalHistogramStretch->setEnabled( false );
-      mActionFullHistogramStretch->setEnabled( false );
-      mActionLocalCumulativeCutStretch->setEnabled( false );
-      mActionFullCumulativeCutStretch->setEnabled( false );
-      mActionIncreaseBrightness->setEnabled( false );
-      mActionDecreaseBrightness->setEnabled( false );
-      mActionIncreaseContrast->setEnabled( false );
-      mActionDecreaseContrast->setEnabled( false );
-      mActionIncreaseGamma->setEnabled( false );
-      mActionDecreaseGamma->setEnabled( false );
-      mActionLayerSubsetString->setEnabled( false );
-      mActionFeatureAction->setEnabled( false );
-      mActionSelectFeatures->setEnabled( false );
-      mActionSelectPolygon->setEnabled( false );
-      mActionSelectFreehand->setEnabled( false );
-      mActionSelectRadius->setEnabled( false );
-      mActionZoomActualSize->setEnabled( false );
-      mActionZoomToLayer->setEnabled( true );
-      mActionZoomToSelected->setEnabled( false );
-      mActionOpenTable->setEnabled( false );
-      mActionSelectAll->setEnabled( false );
-      mActionReselect->setEnabled( false );
-      mActionInvertSelection->setEnabled( false );
-      mActionSelectByExpression->setEnabled( false );
-      mActionSelectByForm->setEnabled( false );
-      mActionOpenFieldCalc->setEnabled( false );
-      mActionToggleEditing->setEnabled( false );
-      mActionToggleEditing->setChecked( false );
-      mActionSaveLayerEdits->setEnabled( false );
-      mUndoDock->widget()->setEnabled( false );
-      mActionUndo->setEnabled( false );
-      mActionRedo->setEnabled( false );
-      mActionSaveLayerDefinition->setEnabled( true );
-      mActionLayerSaveAs->setEnabled( false );
-      mActionAddFeature->setEnabled( false );
-      mActionCircularStringCurvePoint->setEnabled( false );
-      mActionCircularStringRadius->setEnabled( false );
-      mActionDeleteSelected->setEnabled( false );
-      mActionAddRing->setEnabled( false );
-      mActionFillRing->setEnabled( false );
-      mActionAddPart->setEnabled( false );
-      mActionVertexTool->setEnabled( false );
-      mActionVertexToolActiveLayer->setEnabled( false );
-      mActionMoveFeature->setEnabled( false );
-      mActionMoveFeatureCopy->setEnabled( false );
-      mActionRotateFeature->setEnabled( false );
-      mActionOffsetCurve->setEnabled( false );
-      mActionCopyFeatures->setEnabled( false );
-      mActionCutFeatures->setEnabled( false );
-      mActionPasteFeatures->setEnabled( false );
-      mActionRotatePointSymbols->setEnabled( false );
-      mActionOffsetPointSymbol->setEnabled( false );
-      mActionDeletePart->setEnabled( false );
-      mActionDeleteRing->setEnabled( false );
-      mActionSimplifyFeature->setEnabled( false );
-      mActionReshapeFeatures->setEnabled( false );
-      mActionSplitFeatures->setEnabled( false );
-      mActionSplitParts->setEnabled( false );
-      mActionLabeling->setEnabled( false );
-      mActionDiagramProperties->setEnabled( false );
-      mActionIdentify->setEnabled( true );
+      if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( false );
+      if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
+      if(mActionLocalCumulativeCutStretch) mActionLocalCumulativeCutStretch->setEnabled( false );
+      if(mActionFullCumulativeCutStretch) mActionFullCumulativeCutStretch->setEnabled( false );
+      if(mActionIncreaseBrightness) mActionIncreaseBrightness->setEnabled( false );
+      if(mActionDecreaseBrightness) mActionDecreaseBrightness->setEnabled( false );
+      if(mActionIncreaseContrast) mActionIncreaseContrast->setEnabled( false );
+      if(mActionDecreaseContrast) mActionDecreaseContrast->setEnabled( false );
+      if(mActionIncreaseGamma) mActionIncreaseGamma->setEnabled( false );
+      if(mActionDecreaseGamma) mActionDecreaseGamma->setEnabled( false );
+      if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( false );
+      if(mActionFeatureAction) mActionFeatureAction->setEnabled( false );
+      if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( false );
+      if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( false );
+      if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( false );
+      if(mActionSelectRadius) mActionSelectRadius->setEnabled( false );
+      if(mActionZoomActualSize) mActionZoomActualSize->setEnabled( false );
+      if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( true );
+      if(mActionZoomToSelected) mActionZoomToSelected->setEnabled( false );
+      if(mActionOpenTable) mActionOpenTable->setEnabled( false );
+      if(mActionSelectAll) mActionSelectAll->setEnabled( false );
+      if(mActionReselect) mActionReselect->setEnabled( false );
+      if(mActionInvertSelection) mActionInvertSelection->setEnabled( false );
+      if(mActionSelectByExpression) mActionSelectByExpression->setEnabled( false );
+      if(mActionSelectByForm) mActionSelectByForm->setEnabled( false );
+      if(mActionOpenFieldCalc) mActionOpenFieldCalc->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
+      if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( false );
+      if(mUndoDock) mUndoDock->widget()->setEnabled( false );
+      if(mActionUndo) mActionUndo->setEnabled( false );
+      if(mActionRedo) mActionRedo->setEnabled( false );
+      if(mActionSaveLayerDefinition) mActionSaveLayerDefinition->setEnabled( true );
+      if(mActionLayerSaveAs) mActionLayerSaveAs->setEnabled( false );
+      if(mActionAddFeature) mActionAddFeature->setEnabled( false );
+      if(mActionCircularStringCurvePoint) mActionCircularStringCurvePoint->setEnabled( false );
+      if(mActionCircularStringRadius) mActionCircularStringRadius->setEnabled( false );
+      if(mActionDeleteSelected) mActionDeleteSelected->setEnabled( false );
+      if(mActionAddRing) mActionAddRing->setEnabled( false );
+      if(mActionFillRing) mActionFillRing->setEnabled( false );
+      if(mActionAddPart) mActionAddPart->setEnabled( false );
+      if(mActionVertexTool) mActionVertexTool->setEnabled( false );
+      if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( false );
+      if(mActionMoveFeature) mActionMoveFeature->setEnabled( false );
+      if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( false );
+      if(mActionRotateFeature) mActionRotateFeature->setEnabled( false );
+      if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
+      if(mActionCopyFeatures) mActionCopyFeatures->setEnabled( false );
+      if(mActionCutFeatures) mActionCutFeatures->setEnabled( false );
+      if(mActionPasteFeatures) mActionPasteFeatures->setEnabled( false );
+      if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( false );
+      if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( false );
+      if(mActionDeletePart) mActionDeletePart->setEnabled( false );
+      if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+      if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+      if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+      if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+      if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+      if(mActionLabeling) mActionLabeling->setEnabled( false );
+      if(mActionDiagramProperties) mActionDiagramProperties->setEnabled( false );
+      if(mActionIdentify) mActionIdentify->setEnabled( true );
       enableDigitizeWithCurveAction( false );
       break;
 
     case QgsMapLayerType::VectorTileLayer:
-      mActionLocalHistogramStretch->setEnabled( false );
-      mActionFullHistogramStretch->setEnabled( false );
-      mActionLocalCumulativeCutStretch->setEnabled( false );
-      mActionFullCumulativeCutStretch->setEnabled( false );
-      mActionIncreaseBrightness->setEnabled( false );
-      mActionDecreaseBrightness->setEnabled( false );
-      mActionIncreaseContrast->setEnabled( false );
-      mActionDecreaseContrast->setEnabled( false );
-      mActionIncreaseGamma->setEnabled( false );
-      mActionDecreaseGamma->setEnabled( false );
-      mActionLayerSubsetString->setEnabled( false );
-      mActionFeatureAction->setEnabled( false );
-      mActionSelectFeatures->setEnabled( false );
-      mActionSelectPolygon->setEnabled( false );
-      mActionSelectFreehand->setEnabled( false );
-      mActionSelectRadius->setEnabled( false );
-      mActionZoomActualSize->setEnabled( false );
-      mActionZoomToLayer->setEnabled( true );
-      mActionZoomToSelected->setEnabled( false );
-      mActionOpenTable->setEnabled( false );
-      mActionSelectAll->setEnabled( false );
-      mActionReselect->setEnabled( false );
-      mActionInvertSelection->setEnabled( false );
-      mActionSelectByExpression->setEnabled( false );
-      mActionSelectByForm->setEnabled( false );
-      mActionOpenFieldCalc->setEnabled( false );
-      mActionToggleEditing->setEnabled( false );
-      mActionToggleEditing->setChecked( false );
-      mActionSaveLayerEdits->setEnabled( false );
-      mUndoDock->widget()->setEnabled( false );
-      mActionUndo->setEnabled( false );
-      mActionRedo->setEnabled( false );
-      mActionSaveLayerDefinition->setEnabled( true );
-      mActionLayerSaveAs->setEnabled( false );
-      mActionAddFeature->setEnabled( false );
-      mActionCircularStringCurvePoint->setEnabled( false );
-      mActionCircularStringRadius->setEnabled( false );
-      mActionDeleteSelected->setEnabled( false );
-      mActionAddRing->setEnabled( false );
-      mActionFillRing->setEnabled( false );
-      mActionAddPart->setEnabled( false );
-      mActionVertexTool->setEnabled( false );
-      mActionVertexToolActiveLayer->setEnabled( false );
-      mActionMoveFeature->setEnabled( false );
-      mActionMoveFeatureCopy->setEnabled( false );
-      mActionRotateFeature->setEnabled( false );
-      mActionOffsetCurve->setEnabled( false );
-      mActionCopyFeatures->setEnabled( false );
-      mActionCutFeatures->setEnabled( false );
-      mActionPasteFeatures->setEnabled( false );
-      mActionRotatePointSymbols->setEnabled( false );
-      mActionOffsetPointSymbol->setEnabled( false );
-      mActionDeletePart->setEnabled( false );
-      mActionDeleteRing->setEnabled( false );
-      mActionSimplifyFeature->setEnabled( false );
-      mActionReshapeFeatures->setEnabled( false );
-      mActionSplitFeatures->setEnabled( false );
-      mActionSplitParts->setEnabled( false );
-      mActionLabeling->setEnabled( false );
-      mActionDiagramProperties->setEnabled( false );
-      mActionIdentify->setEnabled( true );
+      if(mActionLocalHistogramStretch) mActionLocalHistogramStretch->setEnabled( false );
+      if(mActionFullHistogramStretch) mActionFullHistogramStretch->setEnabled( false );
+      if(mActionLocalCumulativeCutStretch) mActionLocalCumulativeCutStretch->setEnabled( false );
+      if(mActionFullCumulativeCutStretch) mActionFullCumulativeCutStretch->setEnabled( false );
+      if(mActionIncreaseBrightness) mActionIncreaseBrightness->setEnabled( false );
+      if(mActionDecreaseBrightness) mActionDecreaseBrightness->setEnabled( false );
+      if(mActionIncreaseContrast) mActionIncreaseContrast->setEnabled( false );
+      if(mActionDecreaseContrast) mActionDecreaseContrast->setEnabled( false );
+      if(mActionIncreaseGamma) mActionIncreaseGamma->setEnabled( false );
+      if(mActionDecreaseGamma) mActionDecreaseGamma->setEnabled( false );
+      if(mActionLayerSubsetString) mActionLayerSubsetString->setEnabled( false );
+      if(mActionFeatureAction) mActionFeatureAction->setEnabled( false );
+      if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( false );
+      if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( false );
+      if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( false );
+      if(mActionSelectRadius) mActionSelectRadius->setEnabled( false );
+      if(mActionZoomActualSize) mActionZoomActualSize->setEnabled( false );
+      if(mActionZoomToLayer) mActionZoomToLayer->setEnabled( true );
+      if(mActionZoomToSelected) mActionZoomToSelected->setEnabled( false );
+      if(mActionOpenTable) mActionOpenTable->setEnabled( false );
+      if(mActionSelectAll) mActionSelectAll->setEnabled( false );
+      if(mActionReselect) mActionReselect->setEnabled( false );
+      if(mActionInvertSelection) mActionInvertSelection->setEnabled( false );
+      if(mActionSelectByExpression) mActionSelectByExpression->setEnabled( false );
+      if(mActionSelectByForm) mActionSelectByForm->setEnabled( false );
+      if(mActionOpenFieldCalc) mActionOpenFieldCalc->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setEnabled( false );
+      if(mActionToggleEditing) mActionToggleEditing->setChecked( false );
+      if(mActionSaveLayerEdits) mActionSaveLayerEdits->setEnabled( false );
+      if(mUndoDock) mUndoDock->widget()->setEnabled( false );
+      if(mActionUndo) mActionUndo->setEnabled( false );
+      if(mActionRedo) mActionRedo->setEnabled( false );
+      if(mActionSaveLayerDefinition) mActionSaveLayerDefinition->setEnabled( true );
+      if(mActionLayerSaveAs) mActionLayerSaveAs->setEnabled( false );
+      if(mActionAddFeature) mActionAddFeature->setEnabled( false );
+      if(mActionCircularStringCurvePoint) mActionCircularStringCurvePoint->setEnabled( false );
+      if(mActionCircularStringRadius) mActionCircularStringRadius->setEnabled( false );
+      if(mActionDeleteSelected) mActionDeleteSelected->setEnabled( false );
+      if(mActionAddRing) mActionAddRing->setEnabled( false );
+      if(mActionFillRing) mActionFillRing->setEnabled( false );
+      if(mActionAddPart) mActionAddPart->setEnabled( false );
+      if(mActionVertexTool) mActionVertexTool->setEnabled( false );
+      if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( false );
+      if(mActionMoveFeature) mActionMoveFeature->setEnabled( false );
+      if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( false );
+      if(mActionRotateFeature) mActionRotateFeature->setEnabled( false );
+      if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
+      if(mActionCopyFeatures) mActionCopyFeatures->setEnabled( false );
+      if(mActionCutFeatures) mActionCutFeatures->setEnabled( false );
+      if(mActionPasteFeatures) mActionPasteFeatures->setEnabled( false );
+      if(mActionRotatePointSymbols) mActionRotatePointSymbols->setEnabled( false );
+      if(mActionOffsetPointSymbol) mActionOffsetPointSymbol->setEnabled( false );
+      if(mActionDeletePart) mActionDeletePart->setEnabled( false );
+      if(mActionDeleteRing) mActionDeleteRing->setEnabled( false );
+      if(mActionSimplifyFeature) mActionSimplifyFeature->setEnabled( false );
+      if(mActionReshapeFeatures) mActionReshapeFeatures->setEnabled( false );
+      if(mActionSplitFeatures) mActionSplitFeatures->setEnabled( false );
+      if(mActionSplitParts) mActionSplitParts->setEnabled( false );
+      if(mActionLabeling) mActionLabeling->setEnabled( false );
+      if(mActionDiagramProperties) mActionDiagramProperties->setEnabled( false );
+      if(mActionIdentify) mActionIdentify->setEnabled( true );
       enableDigitizeWithCurveAction( false );
       break;
 
@@ -15050,13 +15069,13 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 
 void QgisApp::refreshActionFeatureAction()
 {
-  mActionFeatureAction->setEnabled( false );
+  if(mActionFeatureAction) mActionFeatureAction->setEnabled( false );
   QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( activeLayer() );
   if ( !vlayer )
     return;
 
   bool layerHasActions = !vlayer->actions()->actions( QStringLiteral( "Canvas" ) ).isEmpty() || !QgsGui::mapLayerActionRegistry()->mapLayerActions( vlayer ).isEmpty();
-  mActionFeatureAction->setEnabled( layerHasActions );
+  if(mActionFeatureAction) mActionFeatureAction->setEnabled( layerHasActions );
 }
 
 void QgisApp::renameView()
@@ -15580,24 +15599,24 @@ void QgisApp::newBookmark( bool inProject )
 
 void QgisApp::showBookmarks()
 {
-  mBrowserWidget->setUserVisible( true );
+  if (mBrowserWidget) mBrowserWidget->setUserVisible( true );
   QModelIndex index = browserModel()->findPath( QStringLiteral( "bookmarks:" ) );
-  mBrowserWidget->setActiveIndex( index );
+  if (mBrowserWidget) mBrowserWidget->setActiveIndex( index );
 }
 
 void QgisApp::showBookmarkManager( bool show )
 {
-  mBookMarksDockWidget->setUserVisible( show );
+  if (mBookMarksDockWidget) mBookMarksDockWidget->setUserVisible( show );
 }
 
 QMap<QString, QModelIndex> QgisApp::getBookmarkIndexMap()
 {
-  return mBookMarksDockWidget->getIndexMap();
+  return mBookMarksDockWidget ? mBookMarksDockWidget->getIndexMap() : QMap<QString, QModelIndex>();
 }
 
 void QgisApp::zoomToBookmarkIndex( const QModelIndex &index )
 {
-  mBookMarksDockWidget->zoomToBookmarkIndex( index );
+  if (mBookMarksDockWidget) mBookMarksDockWidget->zoomToBookmarkIndex( index );
 }
 
 void QgisApp::takeAppScreenShots( const QString &saveDirectory, const int categories )
@@ -15639,8 +15658,8 @@ void QgisApp::updateUndoActions()
       canRedo = vlayer->undoStack()->canRedo();
     }
   }
-  mActionUndo->setEnabled( canUndo );
-  mActionRedo->setEnabled( canRedo );
+  if(mActionUndo) mActionUndo->setEnabled( canUndo );
+  if(mActionRedo) mActionRedo->setEnabled( canRedo );
 }
 
 

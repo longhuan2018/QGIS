@@ -170,12 +170,12 @@ class QgsNetworkLoggerWidgetFactory;
 #include "qgsattributetablefiltermodel.h"
 #include "qgsmasterlayoutinterface.h"
 #include "qgsmaptoolselect.h"
-#include "ogr/qgsvectorlayersaveasdialog.h"
+#include "qgsvectorlayersaveasdialog.h"
 #include "ui_qgisapp.h"
 #include "qgis_app.h"
 #include "qgsvectorlayerref.h"
-#include "devtools/qgsappdevtoolutils.h"
-#include "options/qgsoptionsutils.h"
+#include "qgsappdevtoolutils.h"
+#include "qgsoptionsutils.h"
 
 #include <QGestureEvent>
 #include <QTapAndHoldGesture>
@@ -194,7 +194,7 @@ class QgsGeoreferencerMainWindow;
  * \class QgisApp
  * \brief Main window for the QGIS application
  */
-class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
+class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
 {
     Q_OBJECT
   public:
@@ -204,7 +204,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
              const QString &activeProfile = QString(),
              QWidget *parent = nullptr, Qt::WindowFlags fl = Qt::Window );
     //! Constructor for unit tests
-    QgisApp();
+    QgisApp(QWidget *parent = nullptr, Qt::WindowFlags fl = Qt::Window);
 
     ~QgisApp() override;
 
@@ -314,7 +314,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     void addUserInputWidget( QWidget *widget );
 
     //! Sets theme (icons)
-    void setTheme( const QString &themeName = "default" );
+    virtual void setTheme( const QString &themeName = "default" );
 
     void setIconSizes( int size );
 
@@ -1259,7 +1259,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      */
     QgsAttributeEditorContext createAttributeEditorContext();
 
-  protected:
+  public:
 
     //! Handle state changes (WindowTitleChange)
     void changeEvent( QEvent *event ) override;
@@ -1277,7 +1277,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     virtual void keyReleaseEvent( QKeyEvent *event );
 #endif
 
-  private slots:
+  public slots:
     void newProfile();
 
     void onTaskCompleteShowNotify( long taskId, int status );
@@ -2027,7 +2027,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      */
     void activeLayerChanged( QgsMapLayer *layer );
 
-  private:
+  public:
     void createPreviewImage( const QString &path, const QIcon &overlayIcon = QIcon() );
     void startProfile( const QString &name );
     void endProfile();
@@ -2716,7 +2716,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
             release();
         }
 
-      private:
+    public:
 
         bool mReleased = false;
     };

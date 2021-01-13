@@ -1978,6 +1978,20 @@ bool QgsOgrProvider::addAttributeOGRLevel( const QgsField &field, bool &ignoreEr
       break;
   }
 
+  if (field.defaultValueDefinition().isValid())
+  {
+    QString defaultValue = field.defaultValueDefinition().expression();    
+    if (type==OFTString || type==OFTDateTime || type==OFTDate || type==OFTTime)
+    {
+      if (!defaultValue.startsWith('\''))
+      {
+        defaultValue.replace(QLatin1String("'"), QLatin1String("''"));
+        defaultValue = QString("'%1'").arg(defaultValue);
+      }
+    }
+    OGR_Fld_SetDefault(fielddefn.get(), textEncoding()->fromUnicode(defaultValue).data());
+  }
+
   if ( mOgrLayer->CreateField( fielddefn.get(), true ) != OGRERR_NONE )
   {
     pushError( tr( "OGR error creating field %1: %2" ).arg( field.name(), CPLGetLastErrorMsg() ) );

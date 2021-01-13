@@ -49,6 +49,7 @@ include_directories (
   ${CMAKE_SOURCE_DIR}/src/core/symbology  # needed by qgsvectorfilewriter.h
   ${CMAKE_SOURCE_DIR}/src/core/effects    # needed by qgssymbollayer.h
   ${CMAKE_SOURCE_DIR}/src/core/labeling
+  ${CMAKE_SOURCE_DIR}/src/core/layertree
   ${CMAKE_SOURCE_DIR}/src/core/textrenderer
   ${CMAKE_SOURCE_DIR}/src/core/geocms/geonode
   ${CMAKE_SOURCE_DIR}/src/core/metadata
