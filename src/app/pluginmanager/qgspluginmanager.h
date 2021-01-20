@@ -28,6 +28,7 @@
 #include "qgsguiutils.h"
 #include "qgshelp.h"
 #include "qgis.h"
+#include "qgis_app.h"
 
 class QgsPluginSortFilterProxyModel;
 class QgsPythonUtils;
@@ -45,7 +46,7 @@ const int PLUGMAN_TAB_SETTINGS = 7;
 /**
  * \brief Plugin manager for browsing, (un)installing and (un)loading plugins
 */
-class QgsPluginManager : public QgsOptionsDialogBase, private Ui::QgsPluginManagerBase
+class APP_EXPORT QgsPluginManager : public QgsOptionsDialogBase, private Ui::QgsPluginManagerBase
 {
     Q_OBJECT
   public:

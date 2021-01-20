@@ -19,10 +19,11 @@
 #include <QAbstractListModel>
 #include <QStringList>
 #include <QStyledItemDelegate>
+#include "qgis_app.h"
 
 class QgsMapCanvas;
 
-class QgsRecentProjectItemsModel : public QAbstractListModel
+class APP_EXPORT QgsRecentProjectItemsModel : public QAbstractListModel
 {
     Q_OBJECT
 

@@ -17,11 +17,12 @@
 #define QGSLAYERTREEVIEWNONREMOVABLEINDICATOR_H
 
 #include "qgslayertreeviewindicatorprovider.h"
+#include "qgis_app.h"
 
 #include <QSet>
 #include <memory>
 
-class QgsLayerTreeViewNonRemovableIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
+class APP_EXPORT QgsLayerTreeViewNonRemovableIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
 {
     Q_OBJECT
   public:

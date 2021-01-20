@@ -20,8 +20,9 @@ email                : matthias@opengis.ch
 #include "qgsgeometryvalidationservice.h"
 #include "qgsexpression.h"
 #include "qgsexpressioncontext.h"
+#include "qgis_app.h"
 
-class QgsGeometryValidationModel : public QAbstractItemModel
+class APP_EXPORT QgsGeometryValidationModel : public QAbstractItemModel
 {
     Q_OBJECT
 

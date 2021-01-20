@@ -17,6 +17,7 @@
 #define QGSLAYERTREEVIEWEMBEDDEDINDICATOR_H
 
 #include "qgslayertreeviewindicator.h"
+#include "qgis_app.h"
 
 #include <QSet>
 #include <memory>
@@ -25,7 +26,7 @@ class QgsLayerTreeNode;
 class QgsLayerTreeView;
 
 //! Adds indicators showing whether layers are embedded.
-class QgsLayerTreeViewEmbeddedIndicatorProvider : public QObject
+class APP_EXPORT QgsLayerTreeViewEmbeddedIndicatorProvider : public QObject
 {
     Q_OBJECT
   public:

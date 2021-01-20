@@ -20,10 +20,11 @@
 #include "qgspointlocator.h"
 #include "qgsmaptooladdcircle.h"
 #include "qspinbox.h"
+#include "qgis_app.h"
 
 class QSpinBox;
 
-class QgsMapToolCircle2TangentsPoint: public QgsMapToolAddCircle
+class APP_EXPORT QgsMapToolCircle2TangentsPoint: public QgsMapToolAddCircle
 {
     Q_OBJECT
 

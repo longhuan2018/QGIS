@@ -23,6 +23,7 @@ email                : matthias@opengis.ch
 
 #include "qgsfeature.h"
 #include "qgsgeometrycheckcontext.h"
+#include "qgis_app.h"
 
 class QgsProject;
 class QgsMapLayer;
@@ -44,7 +45,7 @@ class QgsMessageBarItem;
  * It will also make sure, that a layer can only be saved, if all errors have
  * been resolved.
  */
-class QgsGeometryValidationService : public QObject
+class APP_EXPORT QgsGeometryValidationService : public QObject
 {
     Q_OBJECT
 

@@ -18,12 +18,13 @@
 
 #include "qgslayertreeviewindicatorprovider.h"
 #include "qgsmaplayer.h"
+#include "qgis_app.h"
 
 #include <QObject>
 #include <QPointer>
 
 //! Indicators for bad layers
-class QgsLayerTreeViewBadLayerIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
+class APP_EXPORT QgsLayerTreeViewBadLayerIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
 {
     Q_OBJECT
 

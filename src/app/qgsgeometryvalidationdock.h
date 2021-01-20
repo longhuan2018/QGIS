@@ -19,6 +19,7 @@ email                : matthias@opengis.ch
 #include "ui_qgsgeometryvalidationdockbase.h"
 #include "qgsdockwidget.h"
 #include "qgscoordinatetransform.h"
+#include "qgis_app.h"
 
 class QgsMapCanvas;
 class QgsGeometryValidationModel;
@@ -30,7 +31,7 @@ class QgsVectorLayer;
 /**
  * \brief The QgsGeometryValidationDock class
  */
-class QgsGeometryValidationDock : public QgsDockWidget, public Ui_QgsGeometryValidationDockBase
+class APP_EXPORT QgsGeometryValidationDock : public QgsDockWidget, public Ui_QgsGeometryValidationDockBase
 {
     Q_OBJECT
 

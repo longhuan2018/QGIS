@@ -18,12 +18,13 @@
 #include <QObject>
 #include "qgscoordinatereferencesystem.h"
 #include "qgsdatumtransform.h"
+#include "qgis_app.h"
 
 /**
  * Alerts users when a transform grids are required (or desired) for an operation between two
  * CRSes, yet they are not available on the current system.
  */
-class QgsAppMissingGridHandler : public QObject
+class APP_EXPORT QgsAppMissingGridHandler : public QObject
 {
     Q_OBJECT
   public:

@@ -36,3 +36,9 @@ QT5_WRAP_UI(QGIS_UIS_H
 )
 
 add_custom_target(ui ALL DEPENDS ${QGIS_UIS_H})
+
+if (APPLE)
+  install(FILES ${QGIS_UIS_H} DESTINATION ${QGIS_FW_SUBDIR}/qgis_gui.framework/Headers)
+else()
+  install(FILES ${QGIS_UIS_H} DESTINATION ${QGIS_INCLUDE_DIR})
+endif()

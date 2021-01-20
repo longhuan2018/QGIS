@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "qgslayertreeviewindicator.h"
+#include "qgis_app.h"
 
 class QgsLayerTreeNode;
 class QgsLayerTreeView;
@@ -43,7 +44,7 @@ class QgsMapLayer;
  * - connectSignals() default implementation connects layers to dataSourceChanged()
  * - disconnectSignals() default implementation disconnects layers from dataSourceChanged()
  */
-class QgsLayerTreeViewIndicatorProvider : public QObject
+class APP_EXPORT QgsLayerTreeViewIndicatorProvider : public QObject
 {
     Q_OBJECT
   public:

@@ -28,7 +28,7 @@ class QgsLayerItem;
 class QgsFieldsItem;
 class QgsFieldItem;
 
-class QgsAppDirectoryItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsAppDirectoryItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -52,7 +52,7 @@ class QgsAppDirectoryItemGuiProvider : public QObject, public QgsDataItemGuiProv
 };
 
 
-class QgsProjectHomeItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsProjectHomeItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -68,7 +68,7 @@ class QgsProjectHomeItemGuiProvider : public QObject, public QgsDataItemGuiProvi
 };
 
 
-class QgsFavoritesItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsFavoritesItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -84,7 +84,7 @@ class QgsFavoritesItemGuiProvider : public QObject, public QgsDataItemGuiProvide
 };
 
 
-class QgsLayerItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsLayerItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -107,7 +107,7 @@ class QgsLayerItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 };
 
 
-class QgsFieldsItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsFieldsItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -123,7 +123,7 @@ class QgsFieldsItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 };
 
 
-class QgsFieldItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsFieldItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -139,7 +139,7 @@ class QgsFieldItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 };
 
 
-class QgsDatabaseItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsDatabaseItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -156,7 +156,7 @@ class QgsDatabaseItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 
 
 
-class QgsProjectItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsProjectItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 

@@ -287,6 +287,179 @@ if (WITH_3D)
   )
 endif()
 
+SET(QGIS_APP_HDRS
+  qgisapp.h
+  qgisappinterface.h
+  qgisappstylesheet.h
+  qgsabout.h
+  qgsanimationexportdialog.h
+  qgsannotationwidget.h
+  qgsappbrowserproviders.h
+  qgsappcoordinateoperationhandlers.h
+  qgsapplayertreeviewmenuprovider.h
+  qgsappwindowmanager.h
+  qgsattributetabledialog.h
+  qgsbookmarkeditordialog.h
+  qgsbookmarks.h
+  qgsclipboard.h
+  qgscrashhandler.h
+  qgscustomization.h
+  qgscustomprojectiondialog.h
+  qgsdatumtransformtablewidget.h
+  qgsdelattrdialog.h
+  qgsdevtoolspanelwidget.h
+  qgsdiscoverrelationsdialog.h
+  qgsdisplayangle.h
+  qgsfeatureaction.h
+  qgsfirstrundialog.h
+  qgsfixattributedialog.h
+  qgsformannotationdialog.h
+  qgsgeometryvalidationdock.h
+  qgsgeometryvalidationmodel.h
+  qgsgeometryvalidationservice.h
+  qgsguivectorlayertools.h
+  qgshandlebadlayers.h
+  qgshtmlannotationdialog.h
+  qgsidentifyresultsdialog.h
+  qgslayercapabilitiesmodel.h
+  qgslayerstylingwidget.h
+  qgslayertreeviewbadlayerindicator.h
+  qgslayertreeviewembeddedindicator.h
+  qgslayertreeviewfilterindicator.h
+  qgslayertreeviewindicatorprovider.h
+  qgslayertreeviewmemoryindicator.h
+  qgslayertreeviewnocrsindicator.h
+  qgslayertreeviewnonremovableindicator.h
+  qgsmapcanvasdockwidget.h
+  qgsmapsavedialog.h
+  qgsmapthemes.h
+  qgsmaptooladdcircle.h
+  qgsmaptooladdcircularstring.h
+  qgsmaptooladdellipse.h
+  qgsmaptooladdfeature.h
+  qgsmaptooladdpart.h
+  qgsmaptooladdrectangle.h
+  qgsmaptooladdregularpolygon.h
+  qgsmaptooladdring.h
+  qgsmaptoolannotation.h
+  qgsmaptoolcircle2points.h
+  qgsmaptoolcircle2tangentspoint.h
+  qgsmaptoolcircle3points.h
+  qgsmaptoolcircle3tangents.h
+  qgsmaptoolcirclecenterpoint.h
+  qgsmaptoolcircularstringcurvepoint.h
+  qgsmaptoolcircularstringradius.h
+  qgsmaptooldeletepart.h
+  qgsmaptooldeletering.h
+  qgsmaptoolellipsecenter2points.h
+  qgsmaptoolellipsecenterpoint.h
+  qgsmaptoolellipseextent.h
+  qgsmaptoolellipsefoci.h
+  qgsmaptoolfeatureaction.h
+  qgsmaptoolfillring.h
+  qgsmaptoolformannotation.h
+  qgsmaptoolhtmlannotation.h
+  qgsmaptoolidentifyaction.h
+  qgsmaptoolmeasureangle.h
+  qgsmaptoolmovefeature.h
+  qgsmaptooloffsetcurve.h
+  qgsmaptooloffsetpointsymbol.h
+  qgsmaptoolpointsymbol.h
+  qgsmaptoolrectangle3points.h
+  qgsmaptoolrectanglecenter.h
+  qgsmaptoolrectangleextent.h
+  qgsmaptoolregularpolygon2points.h
+  qgsmaptoolregularpolygoncentercorner.h
+  qgsmaptoolregularpolygoncenterpoint.h
+  qgsmaptoolreshape.h
+  qgsmaptoolreverseline.h
+  qgsmaptoolrotatefeature.h
+  qgsmaptoolrotatepointsymbols.h
+  qgsmaptoolselect.h
+  qgsmaptoolselectionhandler.h
+  qgsmaptoolsimplify.h
+  qgsmaptoolsplitfeatures.h
+  qgsmaptoolsplitparts.h
+  qgsmaptoolsvgannotation.h
+  qgsmaptooltextannotation.h
+  qgsmaptooltrimextendfeature.h
+  qgsmeasuredialog.h
+  qgsmeasuretool.h
+  qgsmergeattributesdialog.h
+  qgsnewspatialitelayerdialog.h
+  qgspluginmetadata.h
+  qgspluginregistry.h
+  qgspointmarkeritem.h
+  qgspointrotationitem.h
+  qgsprojectlayergroupdialog.h
+  qgsprojectproperties.h
+  qgsrastercalcdialog.h
+  qgsrecentprojectsitemsmodel.h
+  qgsrelationadddlg.h
+  qgsrelationmanagerdialog.h
+  qgsselectbyformdialog.h
+  qgssnappinglayertreemodel.h
+  qgssnappingwidget.h
+  qgsstatisticalsummarydockwidget.h
+  qgsstatusbarcoordinateswidget.h
+  qgsstatusbarmagnifierwidget.h
+  qgsstatusbarscalewidget.h
+  qgssvgannotationdialog.h
+  qgstemporalcontrollerdockwidget.h
+  qgstextannotationdialog.h
+  qgsundowidget.h
+  qgsversionmigration.h
+
+  browser/qgsinbuiltdataitemproviders.h
+
+  decorations/qgsdecorationcopyright.h
+  decorations/qgsdecorationcopyrightdialog.h
+  decorations/qgsdecorationgrid.h
+  decorations/qgsdecorationgriddialog.h
+  decorations/qgsdecorationimage.h
+  decorations/qgsdecorationimagedialog.h
+  decorations/qgsdecorationitem.h
+  decorations/qgsdecorationlayoutextent.h
+  decorations/qgsdecorationlayoutextentdialog.h
+  decorations/qgsdecorationnortharrow.h
+  decorations/qgsdecorationnortharrowdialog.h
+  decorations/qgsdecorationscalebar.h
+  decorations/qgsdecorationscalebardialog.h
+  decorations/qgsdecorationtitle.h
+  decorations/qgsdecorationtitledialog.h
+
+  devtools/qgsappdevtoolutils.h
+
+  gps/qgsgpsinformationwidget.h
+
+  labeling/qgslabelpropertydialog.h
+  labeling/qgsmaptoolchangelabelproperties.h
+  labeling/qgsmaptoollabel.h
+  labeling/qgsmaptoolmovelabel.h
+  labeling/qgsmaptoolpinlabels.h
+  labeling/qgsmaptoolrotatelabel.h
+  labeling/qgsmaptoolshowhidelabels.h
+
+  locator/qgsinbuiltlocatorfilters.h
+
+  mesh/qgsmeshcalculatordialog.h
+
+  options/qgsoptions.h
+  options/qgsoptionsutils.h
+
+  pluginmanager/qgsapppluginmanagerinterface.h
+  pluginmanager/qgspluginmanager.h
+
+  vertextool/qgsvertexeditor.h
+  vertextool/qgsvertextool.h
+)
+
+if (WITH_3D)
+  set(QGIS_APP_HDRS
+    ${QGIS_APP_HDRS}
+    3d/qgs3dmapcanvasdockwidget.h
+  )
+endif()
 
 set (WITH_QWTPOLAR FALSE CACHE BOOL "Determines whether QwtPolar should be built")
 
@@ -429,6 +602,7 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/src/core/auth
   ${CMAKE_SOURCE_DIR}/src/core/expression
   ${CMAKE_SOURCE_DIR}/src/core/gps
+  ${CMAKE_SOURCE_DIR}/src/core/diagram
   ${CMAKE_SOURCE_DIR}/src/core/dxf
   ${CMAKE_SOURCE_DIR}/src/core/geometry
   ${CMAKE_SOURCE_DIR}/src/core/geocms/geonode
@@ -586,7 +760,7 @@ endif()
 
 # Putting IMAGE_RCC_SRCS into qgis_app lib is causing problems when the lib is
 # loaded (by plugin for example) in test unit (qgis_layoutpicturetest).
-add_library(qgis_app SHARED ${QGIS_APP_SRCS})
+add_library(qgis_app SHARED ${QGIS_APP_SRCS} ${QGIS_APP_HDRS})
 
 target_link_libraries(qgis_app
   ${QWT_LIBRARY}
@@ -631,6 +805,7 @@ GENERATE_EXPORT_HEADER(
    EXPORT_FILE_NAME qgis_app.h
 )
 
+set(QGIS_APP_HDRS ${QGIS_APP_HDRS} ${CMAKE_CURRENT_BINARY_DIR}/qgis_app.h)
 
 if (NOT ANDROID)
   set_target_properties(qgis_app PROPERTIES
@@ -695,6 +870,12 @@ endif()
 if(MSVC)
   install(FILES qgis.ico qgis-mime.ico qgis-qgs.ico qgis-qlr.ico qgis-qml.ico qgis-qpt.ico DESTINATION ${CMAKE_INSTALL_PREFIX}/icons)
 endif()
+
+IF (APPLE)	
+  INSTALL(FILES ${QGIS_APP_HDRS} DESTINATION ${QGIS_FW_SUBDIR}/qgis_app.framework/Headers)	
+ELSE (APPLE)	
+  INSTALL(FILES ${QGIS_APP_HDRS} DESTINATION ${QGIS_INCLUDE_DIR})	
+ENDIF (APPLE)
 
 install(TARGETS qgis_app
   RUNTIME DESTINATION ${QGIS_BIN_DIR}

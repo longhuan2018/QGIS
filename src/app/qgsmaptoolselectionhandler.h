@@ -20,6 +20,7 @@
 #include <QWidget>
 
 #include "qgsgeometry.h"
+#include "qgis_app.h"
 
 class QHBoxLayout;
 class QKeyEvent;
@@ -40,7 +41,7 @@ class QgsIdentifyMenu;
  *
  * \since QGIS 3.2
  */
-class QgsDistanceWidget : public QWidget
+class APP_EXPORT QgsDistanceWidget : public QWidget
 {
     Q_OBJECT
 
@@ -78,7 +79,7 @@ class QgsDistanceWidget : public QWidget
  * \brief Utility class for handling various methods to create geometry for selection in layers.
  * \since QGIS 3.2
  */
-class QgsMapToolSelectionHandler : public QObject
+class APP_EXPORT QgsMapToolSelectionHandler : public QObject
 {
     Q_OBJECT
 

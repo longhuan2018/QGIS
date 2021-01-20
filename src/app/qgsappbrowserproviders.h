@@ -25,7 +25,7 @@
 /**
  * Custom data item for QLR files.
  */
-class QgsQlrDataItem : public QgsLayerItem
+class APP_EXPORT QgsQlrDataItem : public QgsLayerItem
 {
     Q_OBJECT
 
@@ -40,7 +40,7 @@ class QgsQlrDataItem : public QgsLayerItem
 /**
  * Data item provider for showing QLR layer files in the browser.
  */
-class QgsQlrDataItemProvider : public QgsDataItemProvider
+class APP_EXPORT QgsQlrDataItemProvider : public QgsDataItemProvider
 {
   public:
     QString name() override;
@@ -51,7 +51,7 @@ class QgsQlrDataItemProvider : public QgsDataItemProvider
 /**
  * Handles drag and drop of QLR files to app.
  */
-class QgsQlrDropHandler : public QgsCustomDropHandler
+class APP_EXPORT QgsQlrDropHandler : public QgsCustomDropHandler
 {
     Q_OBJECT
 
@@ -64,7 +64,7 @@ class QgsQlrDropHandler : public QgsCustomDropHandler
 /**
  * Custom data item for QPT print template files.
  */
-class QgsQptDataItem : public QgsDataItem
+class APP_EXPORT QgsQptDataItem : public QgsDataItem
 {
     Q_OBJECT
 
@@ -82,7 +82,7 @@ class QgsQptDataItem : public QgsDataItem
 /**
  * Data item provider for showing QPT print templates in the browser.
  */
-class QgsQptDataItemProvider : public QgsDataItemProvider
+class APP_EXPORT QgsQptDataItemProvider : public QgsDataItemProvider
 {
   public:
     QString name() override;
@@ -93,7 +93,7 @@ class QgsQptDataItemProvider : public QgsDataItemProvider
 /**
  * Handles drag and drop of QPT print templates to app.
  */
-class QgsQptDropHandler : public QgsCustomDropHandler
+class APP_EXPORT QgsQptDropHandler : public QgsCustomDropHandler
 {
     Q_OBJECT
 
@@ -109,7 +109,7 @@ class QgsQptDropHandler : public QgsCustomDropHandler
 /**
  * Custom data item for py Python scripts.
  */
-class QgsPyDataItem : public QgsDataItem
+class APP_EXPORT QgsPyDataItem : public QgsDataItem
 {
     Q_OBJECT
 
@@ -127,7 +127,7 @@ class QgsPyDataItem : public QgsDataItem
 /**
  * Data item provider for showing Python py scripts in the browser.
  */
-class QgsPyDataItemProvider : public QgsDataItemProvider
+class APP_EXPORT QgsPyDataItemProvider : public QgsDataItemProvider
 {
   public:
     QString name() override;
@@ -138,7 +138,7 @@ class QgsPyDataItemProvider : public QgsDataItemProvider
 /**
  * Handles drag and drop of Python py scripts to app.
  */
-class QgsPyDropHandler : public QgsCustomDropHandler
+class APP_EXPORT QgsPyDropHandler : public QgsCustomDropHandler
 {
     Q_OBJECT
 
@@ -153,7 +153,7 @@ class QgsPyDropHandler : public QgsCustomDropHandler
 /**
  * Custom data item for XML style libraries.
  */
-class QgsStyleXmlDataItem : public QgsDataItem
+class APP_EXPORT QgsStyleXmlDataItem : public QgsDataItem
 {
     Q_OBJECT
 
@@ -174,7 +174,7 @@ class QgsStyleXmlDataItem : public QgsDataItem
 /**
  * Data item provider for showing style XML libraries in the browser.
  */
-class QgsStyleXmlDataItemProvider : public QgsDataItemProvider
+class APP_EXPORT QgsStyleXmlDataItemProvider : public QgsDataItemProvider
 {
   public:
     QString name() override;
@@ -185,7 +185,7 @@ class QgsStyleXmlDataItemProvider : public QgsDataItemProvider
 /**
  * Handles drag and drop of style XML libraries to app.
  */
-class QgsStyleXmlDropHandler : public QgsCustomDropHandler
+class APP_EXPORT QgsStyleXmlDropHandler : public QgsCustomDropHandler
 {
     Q_OBJECT
 
@@ -252,7 +252,7 @@ class APP_EXPORT QgsBookmarksDataItemProvider : public QgsDataItemProvider
     QgsDataItem *createDataItem( const QString &pathIn, QgsDataItem *parentItem ) override;
 };
 
-class QgsBookmarksItemGuiProvider : public QObject, public QgsDataItemGuiProvider
+class APP_EXPORT QgsBookmarksItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
 
@@ -395,7 +395,7 @@ class APP_EXPORT QgsBookmarkItem : public QgsDataItem
 /**
  * Handles drag and drop of bookmarks files to canvases.
  */
-class QgsBookmarkDropHandler : public QgsCustomDropHandler
+class APP_EXPORT QgsBookmarkDropHandler : public QgsCustomDropHandler
 {
     Q_OBJECT
 
@@ -410,7 +410,7 @@ class QgsBookmarkDropHandler : public QgsCustomDropHandler
 /**
  * Data item provider for showing html files in the browser.
  */
-class QgsHtmlDataItemProvider : public QgsDataItemProvider
+class APP_EXPORT QgsHtmlDataItemProvider : public QgsDataItemProvider
 {
   public:
     QString name() override;
@@ -421,7 +421,7 @@ class QgsHtmlDataItemProvider : public QgsDataItemProvider
 /**
  * Custom data item for html files.
  */
-class QgsHtmlDataItem : public QgsDataItem
+class APP_EXPORT QgsHtmlDataItem : public QgsDataItem
 {
     Q_OBJECT
 

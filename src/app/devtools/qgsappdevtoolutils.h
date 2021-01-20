@@ -18,6 +18,7 @@
 
 class QgsDevToolWidgetFactory;
 #include <memory>
+#include "qgis_app.h"
 
 /**
  * \ingroup app
@@ -27,7 +28,7 @@ class QgsDevToolWidgetFactory;
  *
  * \since QGIS 3.14
  */
-class QgsScopedDevToolWidgetFactory
+class APP_EXPORT QgsScopedDevToolWidgetFactory
 {
   public:
     QgsScopedDevToolWidgetFactory();

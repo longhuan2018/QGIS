@@ -17,9 +17,10 @@
 #define QGSLAYERTREEVIEWMEMORYINDICATOR_H
 
 #include "qgslayertreeviewindicatorprovider.h"
+#include "qgis_app.h"
 
 //! Adds indicators showing whether layers are memory layers.
-class QgsLayerTreeViewMemoryIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
+class APP_EXPORT QgsLayerTreeViewMemoryIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
 {
     Q_OBJECT
   public:

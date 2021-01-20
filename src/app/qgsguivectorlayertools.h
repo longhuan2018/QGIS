@@ -17,13 +17,14 @@
 #define QGSGUIVECTORLAYERTOOLS_H
 
 #include "qgsvectorlayertools.h"
+#include "qgis_app.h"
 
 /**
  * Implements all the dialogs and actions when editing on a vector layer is toggled
  * or a feature is added.
  */
 
-class QgsGuiVectorLayerTools : public QgsVectorLayerTools
+class APP_EXPORT QgsGuiVectorLayerTools : public QgsVectorLayerTools
 {
     Q_OBJECT
 

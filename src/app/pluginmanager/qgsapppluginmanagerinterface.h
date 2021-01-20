@@ -18,6 +18,7 @@
 #define QGSPLUGINMANAGERAPPIFACE_H
 
 #include "qgspluginmanagerinterface.h"
+#include "qgis_app.h"
 
 class QgsPluginManager;
 
@@ -26,7 +27,7 @@ class QgsPluginManager;
  * QgsPluginManagerInterface
  * Abstract base class to make QgsPluginManager available to pyplugin_installer.
  */
-class QgsAppPluginManagerInterface : public QgsPluginManagerInterface
+class APP_EXPORT QgsAppPluginManagerInterface : public QgsPluginManagerInterface
 {
     Q_OBJECT
 

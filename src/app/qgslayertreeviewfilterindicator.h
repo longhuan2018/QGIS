@@ -17,11 +17,12 @@
 #define QGSLAYERTREEVIEWFILTERINDICATOR_H
 
 #include "qgslayertreeviewindicatorprovider.h"
+#include "qgis_app.h"
 
 #include <QObject>
 
 //! Adds indicators showing whether vector layers have a filter applied.
-class QgsLayerTreeViewFilterIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
+class APP_EXPORT QgsLayerTreeViewFilterIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
 {
     Q_OBJECT
   public:

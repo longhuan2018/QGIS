@@ -17,6 +17,7 @@
 
 class QgsOptionsWidgetFactory;
 #include <memory>
+#include "qgis_app.h"
 
 /**
  * \ingroup app
@@ -26,7 +27,7 @@ class QgsOptionsWidgetFactory;
  *
  * \since QGIS 3.16
  */
-class QgsScopedOptionsWidgetFactory
+class APP_EXPORT QgsScopedOptionsWidgetFactory
 {
   public:
     QgsScopedOptionsWidgetFactory();

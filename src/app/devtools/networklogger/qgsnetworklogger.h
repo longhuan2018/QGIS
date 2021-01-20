@@ -19,6 +19,7 @@
 #include <QSortFilterProxyModel>
 #include <QElapsedTimer>
 #include "qgsnetworkaccessmanager.h"
+#include "qgis_app.h"
 
 class QgsNetworkLoggerNode;
 class QgsNetworkLoggerRequestGroup;
@@ -33,7 +34,7 @@ class QAction;
  *
  * \since QGIS 3.14
  */
-class QgsNetworkLogger : public QAbstractItemModel
+class APP_EXPORT QgsNetworkLogger : public QAbstractItemModel
 {
     Q_OBJECT
 
@@ -130,7 +131,7 @@ class QgsNetworkLogger : public QAbstractItemModel
  *
  * \since QGIS 3.14
  */
-class QgsNetworkLoggerProxyModel : public QSortFilterProxyModel
+class APP_EXPORT QgsNetworkLoggerProxyModel : public QSortFilterProxyModel
 {
   public:
 

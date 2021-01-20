@@ -18,6 +18,7 @@
 
 #include "qgis.h"
 #include "qgswindowmanagerinterface.h"
+#include "qgis_app.h"
 #include <QPointer>
 
 class QgsStyleManagerDialog;
@@ -27,7 +28,7 @@ class QgsLayoutManagerDialog;
  * \ingroup gui
  * \brief Implementation of QgsWindowManagerInterface for the QGIS application.
  */
-class QgsAppWindowManager : public QgsWindowManagerInterface
+class APP_EXPORT QgsAppWindowManager : public QgsWindowManagerInterface
 {
   public:
 

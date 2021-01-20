@@ -17,9 +17,10 @@
 #define QGSLAYERTREEVIEWNOCRSINDICATOR_H
 
 #include "qgslayertreeviewindicatorprovider.h"
+#include "qgis_app.h"
 
 //! Adds indicators showing whether layers have an unknown/not set CRS
-class QgsLayerTreeViewNoCrsIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
+class APP_EXPORT QgsLayerTreeViewNoCrsIndicatorProvider : public QgsLayerTreeViewIndicatorProvider
 {
     Q_OBJECT
   public:
