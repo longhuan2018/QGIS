@@ -19,13 +19,14 @@
 #include <QWidget>
 #include <memory>
 #include <ui_materialwidget.h>
+#include "qgis_app.h"
 
 class QgsAbstractMaterialSettings;
 enum class QgsMaterialSettingsRenderingTechnique;
 class QgsVectorLayer;
 
 //! Widget for configuration of material settings
-class QgsMaterialWidget : public QWidget, private Ui::MaterialWidgetBase
+class APP_EXPORT QgsMaterialWidget : public QWidget, private Ui::MaterialWidgetBase
 {
     Q_OBJECT
   public:

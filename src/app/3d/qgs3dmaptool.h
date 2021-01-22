@@ -17,6 +17,7 @@
 #define QGS3DMAPTOOL_H
 
 #include <QObject>
+#include "qgis_app.h"
 
 class Qgs3DMapCanvas;
 class QMouseEvent;
@@ -24,7 +25,7 @@ class QMouseEvent;
 /**
  * Base class for map tools operating on 3D map canvas.
  */
-class Qgs3DMapTool : public QObject
+class APP_EXPORT Qgs3DMapTool : public QObject
 {
     Q_OBJECT
 

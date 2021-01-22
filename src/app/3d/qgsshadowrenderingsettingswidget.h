@@ -19,8 +19,9 @@
 #include "ui_shadowrenderingsettingswidget.h"
 
 #include "qgsshadowsettings.h"
+#include "qgis_app.h"
 
-class QgsShadowRenderingSettingsWidget : public QWidget, private Ui::ShadowRenderingSettingsWidget
+class APP_EXPORT QgsShadowRenderingSettingsWidget : public QWidget, private Ui::ShadowRenderingSettingsWidget
 {
     Q_OBJECT
 

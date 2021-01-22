@@ -267,8 +267,8 @@ QgsMapCanvas::~QgsMapCanvas()
 
   mScene->deleteLater();  // crashes in python tests on windows
 
-  delete mCache;
-  delete mLabelingResults;
+  if(mCache) delete mCache;
+  if(mLabelingResults) delete mLabelingResults;
 }
 
 void QgsMapCanvas::setMagnificationFactor( double factor, const QgsPointXY *center )
@@ -669,7 +669,7 @@ void QgsMapCanvas::rendererJobFinished()
     // connected to signal work with correct results
     if ( !mJob->usedCachedLabels() )
     {
-      delete mLabelingResults;
+      if(mLabelingResults) delete mLabelingResults;
       mLabelingResults = mJob->takeLabelingResults();
     }
 

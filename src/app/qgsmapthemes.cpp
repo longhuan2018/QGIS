@@ -38,13 +38,13 @@ QgsMapThemes::QgsMapThemes()
   : mMenu( new QMenu )
 {
 
-  mMenu->addAction( QgisApp::instance()->actionShowAllLayers() );
-  mMenu->addAction( QgisApp::instance()->actionHideAllLayers() );
-  mMenu->addAction( QgisApp::instance()->actionShowSelectedLayers() );
-  mMenu->addAction( QgisApp::instance()->actionHideSelectedLayers() );
-  mMenu->addAction( QgisApp::instance()->actionToggleSelectedLayers() );
-  mMenu->addAction( QgisApp::instance()->actionToggleSelectedLayersIndependently() );
-  mMenu->addAction( QgisApp::instance()->actionHideDeselectedLayers() );
+  if(QgisApp::instance()->actionShowAllLayers()) mMenu->addAction( QgisApp::instance()->actionShowAllLayers() );
+  if(QgisApp::instance()->actionHideAllLayers()) mMenu->addAction( QgisApp::instance()->actionHideAllLayers() );
+  if(QgisApp::instance()->actionShowSelectedLayers()) mMenu->addAction( QgisApp::instance()->actionShowSelectedLayers() );
+  if(QgisApp::instance()->actionHideSelectedLayers()) mMenu->addAction( QgisApp::instance()->actionHideSelectedLayers() );
+  if(QgisApp::instance()->actionToggleSelectedLayers()) mMenu->addAction( QgisApp::instance()->actionToggleSelectedLayers() );
+  if(QgisApp::instance()->actionToggleSelectedLayersIndependently()) mMenu->addAction( QgisApp::instance()->actionToggleSelectedLayersIndependently() );
+  if(QgisApp::instance()->actionHideDeselectedLayers()) mMenu->addAction( QgisApp::instance()->actionHideDeselectedLayers() );
   mMenu->addSeparator();
 
   mReplaceMenu = new QMenu( tr( "Replace Theme" ) );

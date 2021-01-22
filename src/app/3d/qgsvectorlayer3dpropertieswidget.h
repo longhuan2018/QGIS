@@ -19,11 +19,12 @@
 #include <QWidget>
 
 #include "ui_qgsvectorlayer3dpropertieswidget.h"
+#include "qgis_app.h"
 
 class QgsAbstractVectorLayer3DRenderer;
 
 
-class QgsVectorLayer3DPropertiesWidget : public QWidget, private Ui::QgsVectorLayer3DPropertiesWidget
+class APP_EXPORT QgsVectorLayer3DPropertiesWidget : public QWidget, private Ui::QgsVectorLayer3DPropertiesWidget
 {
     Q_OBJECT
   public:

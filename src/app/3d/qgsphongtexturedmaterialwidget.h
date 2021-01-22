@@ -18,6 +18,7 @@
 
 #include "qgsmaterialsettingswidget.h"
 #include "qgsabstractmaterialsettings.h"
+#include "qgis_app.h"
 
 #include <ui_phongtexturedmaterialwidgetbase.h>
 
@@ -25,7 +26,7 @@ class QgsPhongMaterialSettings;
 
 
 //! Widget for configuration of textured Phong material settings
-class QgsPhongTexturedMaterialWidget : public QgsMaterialSettingsWidget, private Ui::PhongTexturedMaterialWidgetBase
+class APP_EXPORT QgsPhongTexturedMaterialWidget : public QgsMaterialSettingsWidget, private Ui::PhongTexturedMaterialWidgetBase
 {
     Q_OBJECT
   public:

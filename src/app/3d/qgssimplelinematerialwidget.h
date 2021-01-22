@@ -18,9 +18,10 @@
 
 #include "qgsmaterialsettingswidget.h"
 #include <ui_simplelinematerialwidgetbase.h>
+#include "qgis_app.h"
 
 //! Widget for configuration of simple line material settings
-class QgsSimpleLineMaterialWidget : public QgsMaterialSettingsWidget, private Ui::SimpleLineMaterialWidgetBase
+class APP_EXPORT QgsSimpleLineMaterialWidget : public QgsMaterialSettingsWidget, private Ui::SimpleLineMaterialWidgetBase
 {
     Q_OBJECT
   public:

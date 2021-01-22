@@ -408,10 +408,9 @@ SET(QGIS_APP_HDRS
   qgstemporalcontrollerdockwidget.h
   qgstextannotationdialog.h
   qgsundowidget.h
+  qgsvectorlayerdigitizingproperties.h
   qgsversionmigration.h
-
   browser/qgsinbuiltdataitemproviders.h
-
   decorations/qgsdecorationcopyright.h
   decorations/qgsdecorationcopyrightdialog.h
   decorations/qgsdecorationgrid.h
@@ -427,11 +426,15 @@ SET(QGIS_APP_HDRS
   decorations/qgsdecorationscalebardialog.h
   decorations/qgsdecorationtitle.h
   decorations/qgsdecorationtitledialog.h
-
   devtools/qgsappdevtoolutils.h
-
+  devtools/networklogger/qgsnetworklogger.h
+  devtools/networklogger/qgsnetworkloggerpanelwidget.h
+  devtools/networklogger/qgsnetworkloggerwidgetfactory.h
+  devtools/profiler/qgsprofilerpanelwidget.h
+  devtools/profiler/qgsprofilerwidgetfactory.h
+  gps/qgsgpsbearingitem.h
   gps/qgsgpsinformationwidget.h
-
+  gps/qgsgpsmarker.h
   labeling/qgslabelpropertydialog.h
   labeling/qgsmaptoolchangelabelproperties.h
   labeling/qgsmaptoollabel.h
@@ -439,17 +442,13 @@ SET(QGIS_APP_HDRS
   labeling/qgsmaptoolpinlabels.h
   labeling/qgsmaptoolrotatelabel.h
   labeling/qgsmaptoolshowhidelabels.h
-
   locator/qgsinbuiltlocatorfilters.h
-
   mesh/qgsmeshcalculatordialog.h
-
+  options/qgscodeeditoroptions.h
   options/qgsoptions.h
   options/qgsoptionsutils.h
-
   pluginmanager/qgsapppluginmanagerinterface.h
   pluginmanager/qgspluginmanager.h
-
   vertextool/qgsvertexeditor.h
   vertextool/qgsvertextool.h
 )
@@ -457,7 +456,37 @@ SET(QGIS_APP_HDRS
 if (WITH_3D)
   set(QGIS_APP_HDRS
     ${QGIS_APP_HDRS}
+    3d/qgs3danimationexportdialog.h
+    3d/qgs3danimationwidget.h
+    3d/qgs3dapputils.h
+    3d/qgs3dicongenerator.h
+    3d/qgs3dmapcanvas.h
     3d/qgs3dmapcanvasdockwidget.h
+    3d/qgs3dmapconfigwidget.h
+    3d/qgs3dmaptool.h
+    3d/qgs3dmaptoolidentify.h
+    3d/qgs3dmaptoolmeasureline.h
+    3d/qgs3dmeasuredialog.h
+    3d/qgs3dmodelsourcelineedit.h
+    3d/qgs3dnavigationwidget.h
+    3d/qgsgoochmaterialwidget.h
+    3d/qgslightswidget.h
+    3d/qgsline3dsymbolwidget.h
+    3d/qgsmap3dexportwidget.h
+    3d/qgsmaterialwidget.h
+    3d/qgsmesh3dsymbolwidget.h
+    3d/qgsmeshlayer3drendererwidget.h
+    3d/qgsphongmaterialwidget.h
+    3d/qgsphongtexturedmaterialwidget.h
+    3d/qgspoint3dsymbolwidget.h
+    3d/qgspolygon3dsymbolwidget.h
+    3d/qgsrulebased3drendererwidget.h
+    3d/qgsshadowrenderingsettingswidget.h
+    3d/qgssimplelinematerialwidget.h
+    3d/qgsskyboxrenderingsettingswidget.h
+    3d/qgssymbol3dwidget.h
+    3d/qgsvectorlayer3dpropertieswidget.h
+    3d/qgsvectorlayer3drendererwidget.h
   )
 endif()
 

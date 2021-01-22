@@ -17,6 +17,7 @@
 #define QGS3DMODELSOURCELINEEDIT_H
 
 #include "qgsfilecontentsourcelineedit.h"
+#include "qgis_app.h"
 
 #include <QString>
 
@@ -28,7 +29,7 @@
  *
  * \since QGIS 3.16
  */
-class Qgs3DModelSourceLineEdit : public QgsAbstractFileContentSourceLineEdit
+class APP_EXPORT Qgs3DModelSourceLineEdit : public QgsAbstractFileContentSourceLineEdit
 {
     Q_OBJECT
   public:

@@ -18,6 +18,7 @@
 #include "ui_qgscodeditorsettings.h"
 #include "qgsoptionswidgetfactory.h"
 #include "qgscodeeditor.h"
+#include "qgis_app.h"
 
 /**
  * \ingroup app
@@ -26,7 +27,7 @@
  *
  * \since QGIS 3.16
  */
-class QgsCodeEditorOptionsWidget : public QgsOptionsPageWidget, private Ui::QgsCodeEditorSettingsBase
+class APP_EXPORT QgsCodeEditorOptionsWidget : public QgsOptionsPageWidget, private Ui::QgsCodeEditorSettingsBase
 {
     Q_OBJECT
 
@@ -53,7 +54,7 @@ class QgsCodeEditorOptionsWidget : public QgsOptionsPageWidget, private Ui::QgsC
 };
 
 
-class QgsCodeEditorOptionsFactory : public QgsOptionsWidgetFactory
+class APP_EXPORT QgsCodeEditorOptionsFactory : public QgsOptionsWidgetFactory
 {
     Q_OBJECT
 

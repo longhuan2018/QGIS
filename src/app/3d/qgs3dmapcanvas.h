@@ -20,6 +20,7 @@
 #include <Qt3DRender/QRenderCapture>
 
 #include "qgsrange.h"
+#include "qgis_app.h"
 
 namespace Qt3DExtras
 {
@@ -36,7 +37,7 @@ class Qgs3DNavigationWidget;
 class QgsTemporalController;
 
 
-class Qgs3DMapCanvas : public QWidget
+class APP_EXPORT Qgs3DMapCanvas : public QWidget
 {
     Q_OBJECT
   public:

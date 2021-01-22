@@ -28,7 +28,7 @@ namespace Qt3DRender
 class Qgs3DMapToolIdentifyPickHandler;
 
 
-class Qgs3DMapToolIdentify : public Qgs3DMapTool
+class APP_EXPORT Qgs3DMapToolIdentify : public Qgs3DMapTool
 {
     Q_OBJECT
 

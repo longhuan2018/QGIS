@@ -19,9 +19,6 @@
 
 #include "ui_qgsgpsinformationwidgetbase.h"
 #include "qgis_app.h"
-#include "gmath.h"
-#include "info.h"
-#include "nmeatime.h"
 #include "qgsgpsmarker.h"
 #include "qgsmaptoolcapture.h"
 #include "qgspanelwidget.h"
@@ -155,8 +152,8 @@ class APP_EXPORT QgsGpsInformationWidget: public QgsPanelWidget, public QgsMapCa
     QTextStream mLogFileTextStream;
     QIntValidator *mAcquisitionIntValidator = nullptr;
     QIntValidator *mDistanceThresholdValidator = nullptr;
-    nmeaPOS mLastNmeaPosition;
-    nmeaTIME mLastNmeaTime;
+    QgsPointXY mLastNmeaPosition;
+    QDateTime  mLastNmeaTime;
     std::unique_ptr<QTimer> mAcquisitionTimer;
     bool mAcquisitionEnabled = true;
     int mAcquisitionInterval = 0;

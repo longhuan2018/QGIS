@@ -18,11 +18,12 @@
 
 #include "qgs3dsymbolwidget.h"
 #include "ui_polygon3dsymbolwidget.h"
+#include "qgis_app.h"
 
 class QgsPolygon3DSymbol;
 
 //! A widget for configuration of 3D symbol for polygons
-class QgsPolygon3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Polygon3DSymbolWidget
+class APP_EXPORT QgsPolygon3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Polygon3DSymbolWidget
 {
     Q_OBJECT
   public:

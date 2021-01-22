@@ -22,8 +22,9 @@
 
 #include "qgspointlightsettings.h"
 #include "qgsdirectionallightsettings.h"
+#include "qgis_app.h"
 
-class QgsLightsModel : public QAbstractListModel
+class APP_EXPORT QgsLightsModel : public QAbstractListModel
 {
     Q_OBJECT
   public:
@@ -68,7 +69,7 @@ class QgsLightsModel : public QAbstractListModel
  * Widget for configuration of lights in 3D map scene
  * \since QGIS 3.6
  */
-class QgsLightsWidget : public QWidget, private Ui::QgsLightsWidget
+class APP_EXPORT QgsLightsWidget : public QWidget, private Ui::QgsLightsWidget
 {
     Q_OBJECT
   public:

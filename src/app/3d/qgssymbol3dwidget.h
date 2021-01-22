@@ -18,6 +18,7 @@
 
 #include <QWidget>
 #include <memory>
+#include "qgis_app.h"
 
 class QLabel;
 class QStackedWidget;
@@ -33,7 +34,7 @@ class QgsVectorLayer;
 /**
  * Widget for selection of 3D symbol
  */
-class QgsSymbol3DWidget : public QWidget
+class APP_EXPORT QgsSymbol3DWidget : public QWidget
 {
     Q_OBJECT
 

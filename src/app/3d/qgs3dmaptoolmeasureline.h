@@ -36,7 +36,7 @@ class Qgs3DMapToolMeasureLinePickHandler;
 class Qgs3DMeasureDialog;
 
 
-class Qgs3DMapToolMeasureLine : public Qgs3DMapTool
+class APP_EXPORT Qgs3DMapToolMeasureLine : public Qgs3DMapTool
 {
     Q_OBJECT
 

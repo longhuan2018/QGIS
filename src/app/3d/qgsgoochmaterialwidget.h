@@ -17,6 +17,7 @@
 #define QGSGOOCHMATERIALWIDGET_H
 
 #include "qgsmaterialsettingswidget.h"
+#include "qgis_app.h"
 
 #include <ui_goochmaterialwidget.h>
 
@@ -24,7 +25,7 @@ class QgsGoochMaterialSettings;
 
 
 //! Widget for configuration of Gooch material settings
-class QgsGoochMaterialWidget : public QgsMaterialSettingsWidget, private Ui::GoochMaterialWidget
+class APP_EXPORT QgsGoochMaterialWidget : public QgsMaterialSettingsWidget, private Ui::GoochMaterialWidget
 {
     Q_OBJECT
   public:

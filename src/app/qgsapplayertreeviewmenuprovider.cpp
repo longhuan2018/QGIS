@@ -253,7 +253,7 @@ QMenu *QgsAppLayerTreeViewMenuProvider::createContextMenu()
           }
         }
 
-        if ( allEditsAction->isEnabled() )
+        if (allEditsAction && allEditsAction->isEnabled() )
           menu->addAction( allEditsAction );
 
         if ( provider && provider->supportsSubsetString() )

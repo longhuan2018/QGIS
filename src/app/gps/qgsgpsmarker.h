@@ -20,6 +20,7 @@
 #include "qgscoordinatereferencesystem.h"
 #include "qgspointxy.h"
 #include <QSvgRenderer>
+#include "qgis_app.h"
 
 class QPainter;
 
@@ -27,7 +28,7 @@ class QPainter;
  * \ingroup app
  * A class for marking the position of a gps pointer.
  */
-class QgsGpsMarker : public QgsMapCanvasItem
+class APP_EXPORT QgsGpsMarker : public QgsMapCanvasItem
 {
   public:
     explicit QgsGpsMarker( QgsMapCanvas *mapCanvas );

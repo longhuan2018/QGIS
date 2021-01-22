@@ -16,6 +16,7 @@
 #ifndef QGSLINE3DSYMBOLWIDGET_H
 #define QGSLINE3DSYMBOLWIDGET_H
 
+#include "qgis_app.h"
 #include "qgs3dsymbolwidget.h"
 
 #include "ui_line3dsymbolwidget.h"
@@ -25,7 +26,7 @@
 class QgsLine3DSymbol;
 
 //! A widget for configuration of 3D symbol for polygons
-class QgsLine3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Line3DSymbolWidget
+class APP_EXPORT QgsLine3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Line3DSymbolWidget
 {
     Q_OBJECT
   public:

@@ -25,7 +25,7 @@
 #include "qgs3dmapcanvas.h"
 #include "qgscameracontroller.h"
 
-class Qgs3DNavigationWidget : public QWidget
+class APP_EXPORT Qgs3DNavigationWidget : public QWidget
 {
     Q_OBJECT
   public:

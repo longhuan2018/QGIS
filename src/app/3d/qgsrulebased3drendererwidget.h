@@ -18,6 +18,7 @@
 
 #include <QWidget>
 
+#include "qgis_app.h"
 #include "qgspanelwidget.h"
 
 #include <memory>
@@ -32,7 +33,7 @@ class QgsRuleBased3DRenderer;
 #include <QAbstractItemModel>
 
 
-class QgsRuleBased3DRendererModel : public QAbstractItemModel
+class APP_EXPORT QgsRuleBased3DRendererModel : public QAbstractItemModel
 {
     Q_OBJECT
 
@@ -80,7 +81,7 @@ class QgsRuleBased3DRendererModel : public QAbstractItemModel
 
 
 
-class QgsRuleBased3DRendererWidget : public QgsPanelWidget, private Ui::QgsRuleBased3DRendererWidget
+class APP_EXPORT QgsRuleBased3DRendererWidget : public QgsPanelWidget, private Ui::QgsRuleBased3DRendererWidget
 {
     Q_OBJECT
 
@@ -130,7 +131,7 @@ class QgsSymbol3DWidget;
 
 #include "ui_qgs3drendererrulepropswidget.h"
 
-class Qgs3DRendererRulePropsWidget : public QgsPanelWidget, private Ui::Qgs3DRendererRulePropsWidget
+class APP_EXPORT Qgs3DRendererRulePropsWidget : public QgsPanelWidget, private Ui::Qgs3DRendererRulePropsWidget
 {
     Q_OBJECT
 

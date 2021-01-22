@@ -18,12 +18,13 @@
 
 #include "qgs3dsymbolwidget.h"
 #include "ui_point3dsymbolwidget.h"
+#include "qgis_app.h"
 
 class QgsPoint3DSymbol;
 
 
 //! A widget for configuration of 3D symbol for points
-class QgsPoint3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Point3DSymbolWidget
+class APP_EXPORT QgsPoint3DSymbolWidget : public Qgs3DSymbolWidget, private Ui::Point3DSymbolWidget
 {
     Q_OBJECT
   public:

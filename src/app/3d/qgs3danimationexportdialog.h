@@ -24,11 +24,12 @@
 #include "qgs3danimationsettings.h"
 
 #include "ui_animationexport3ddialog.h"
+#include "qgis_app.h"
 
 /**
  * Dialog for settings for 3D animation export
  */
-class Qgs3DAnimationExportDialog : public QDialog, private Ui::AnimationExport3DDialog
+class APP_EXPORT Qgs3DAnimationExportDialog : public QDialog, private Ui::AnimationExport3DDialog
 {
     Q_OBJECT
   public:

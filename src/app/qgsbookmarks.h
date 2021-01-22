@@ -32,7 +32,7 @@ class QgsBookmarkManagerProxyModel;
 /**
  * \brief QgsDoubleSpinBoxBookmarksDelegate class shows 6 digits when value is a double
  */
-class QgsDoubleSpinBoxBookmarksDelegate : public QStyledItemDelegate
+class APP_EXPORT QgsDoubleSpinBoxBookmarksDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
 

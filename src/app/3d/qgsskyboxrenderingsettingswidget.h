@@ -19,8 +19,9 @@
 #include "ui_skyboxrenderingsettingswidget.h"
 
 #include "qgsskyboxsettings.h"
+#include "qgis_app.h"
 
-class QgsSkyboxRenderingSettingsWidget : public QWidget, private Ui::SkyboxRenderingSettingsWidget
+class APP_EXPORT QgsSkyboxRenderingSettingsWidget : public QWidget, private Ui::SkyboxRenderingSettingsWidget
 {
     Q_OBJECT
 

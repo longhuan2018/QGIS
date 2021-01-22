@@ -20,13 +20,14 @@
 #include "qgsmaplayerconfigwidget.h"
 #include "qgsmaplayerconfigwidgetfactory.h"
 #include "ui_qgsvectorlayerdigitizingproperties.h"
+#include "qgis_app.h"
 
 class QgsCollapsibleGroupBox;
 class QgsMapLayerComboBox;
 class QgsDoubleSpinBox;
 
 
-class QgsVectorLayerDigitizingPropertiesPage : public QgsMapLayerConfigWidget, private Ui::QgsVectorLayerDigitizingPropertiesPage
+class APP_EXPORT QgsVectorLayerDigitizingPropertiesPage : public QgsMapLayerConfigWidget, private Ui::QgsVectorLayerDigitizingPropertiesPage
 {
     Q_OBJECT
 
@@ -45,7 +46,7 @@ class QgsVectorLayerDigitizingPropertiesPage : public QgsMapLayerConfigWidget, p
 };
 
 
-class QgsVectorLayerDigitizingPropertiesFactory : public QObject, public QgsMapLayerConfigWidgetFactory
+class APP_EXPORT QgsVectorLayerDigitizingPropertiesFactory : public QObject, public QgsMapLayerConfigWidgetFactory
 {
     Q_OBJECT
   public:

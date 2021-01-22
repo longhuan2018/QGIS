@@ -18,6 +18,7 @@
 
 #include "qgsmaterialsettingswidget.h"
 #include "qgsabstractmaterialsettings.h"
+#include "qgis_app.h"
 
 #include <ui_phongmaterialwidget.h>
 
@@ -25,7 +26,7 @@ class QgsPhongMaterialSettings;
 
 
 //! Widget for configuration of Phong material settings
-class QgsPhongMaterialWidget : public QgsMaterialSettingsWidget, private Ui::PhongMaterialWidget
+class APP_EXPORT QgsPhongMaterialWidget : public QgsMaterialSettingsWidget, private Ui::PhongMaterialWidget
 {
     Q_OBJECT
   public:

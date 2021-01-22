@@ -21,6 +21,7 @@
 #include "qgsmaplayerconfigwidget.h"
 #include "qgsmeshlayer3drenderer.h"
 #include "qgsmaplayerconfigwidgetfactory.h"
+#include "qgis_app.h"
 
 class QCheckBox;
 
@@ -30,7 +31,7 @@ class QgsMapCanvas;
 
 
 //! Widget for configuration of 3D renderer of a mesh layer
-class QgsMeshLayer3DRendererWidget : public QgsMapLayerConfigWidget
+class APP_EXPORT QgsMeshLayer3DRendererWidget : public QgsMapLayerConfigWidget
 {
     Q_OBJECT
   public:
@@ -55,7 +56,7 @@ class QgsMeshLayer3DRendererWidget : public QgsMapLayerConfigWidget
     std::unique_ptr<QgsMeshLayer3DRenderer> mRenderer;
 };
 
-class QgsMeshLayer3DRendererWidgetFactory : public QObject, public QgsMapLayerConfigWidgetFactory
+class APP_EXPORT QgsMeshLayer3DRendererWidgetFactory : public QObject, public QgsMapLayerConfigWidgetFactory
 {
     Q_OBJECT
   public:

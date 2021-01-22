@@ -25,7 +25,7 @@
 #include "qgsunittypes.h"
 
 
-class Qgs3DMeasureDialog : public QDialog, private Ui::QgsMeasureBase
+class APP_EXPORT Qgs3DMeasureDialog : public QDialog, private Ui::QgsMeasureBase
 {
     Q_OBJECT
 

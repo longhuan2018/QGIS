@@ -20,13 +20,14 @@
 #include <memory>
 
 #include "ui_animation3dwidget.h"
+#include "qgis_app.h"
 
 
 class Qgs3DAnimationSettings;
 class QgsCameraController;
 class Qgs3DMapSettings;
 
-class Qgs3DAnimationWidget : public QWidget, private Ui::Animation3DWidget
+class APP_EXPORT Qgs3DAnimationWidget : public QWidget, private Ui::Animation3DWidget
 {
     Q_OBJECT
   public:

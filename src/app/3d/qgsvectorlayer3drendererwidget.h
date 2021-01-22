@@ -21,6 +21,7 @@
 #include "qgsmaplayerconfigwidget.h"
 #include "qgsmaplayerconfigwidgetfactory.h"
 #include "qgsvectorlayer3drenderer.h"
+#include "qgis_app.h"
 
 class QComboBox;
 class QCheckBox;
@@ -35,7 +36,7 @@ class QgsSymbol3DWidget;
 class QgsVectorLayer3DPropertiesWidget;
 
 
-class QgsSingleSymbol3DRendererWidget : public QWidget
+class APP_EXPORT QgsSingleSymbol3DRendererWidget : public QWidget
 {
     Q_OBJECT
   public:
@@ -59,7 +60,7 @@ class QgsSingleSymbol3DRendererWidget : public QWidget
 
 
 //! Widget for configuration of 3D renderer of a vector layer
-class QgsVectorLayer3DRendererWidget : public QgsMapLayerConfigWidget
+class APP_EXPORT QgsVectorLayer3DRendererWidget : public QgsMapLayerConfigWidget
 {
     Q_OBJECT
   public:
@@ -88,7 +89,7 @@ class QgsVectorLayer3DRendererWidget : public QgsMapLayerConfigWidget
     QgsRuleBased3DRendererWidget *widgetRuleBasedRenderer = nullptr;
 };
 
-class QgsVectorLayer3DRendererWidgetFactory : public QObject, public QgsMapLayerConfigWidgetFactory
+class APP_EXPORT QgsVectorLayer3DRendererWidgetFactory : public QObject, public QgsMapLayerConfigWidgetFactory
 {
     Q_OBJECT
   public:

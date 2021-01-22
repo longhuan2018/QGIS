@@ -19,6 +19,7 @@
 #include "qgspointmarkeritem.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgspointxy.h"
+#include "qgis_app.h"
 
 class QPainter;
 class QgsLineSymbol;
@@ -27,7 +28,7 @@ class QgsLineSymbol;
  * \ingroup app
  * A canvas item for showing the bearing of the GPS device
  */
-class QgsGpsBearingItem : public QObject, public QgsMapCanvasLineSymbolItem
+class APP_EXPORT QgsGpsBearingItem : public QObject, public QgsMapCanvasLineSymbolItem
 {
     Q_OBJECT
 

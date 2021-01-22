@@ -16,7 +16,9 @@
  ***************************************************************************/
 #include "qgsgpsinformationwidget.h"
 
+#include "gmath.h"
 #include "info.h"
+#include "nmeatime.h"
 
 #include "qgisapp.h"
 #include "qgsapplication.h"
@@ -37,7 +39,6 @@
 #include "qgswkbptr.h"
 #include "qgssettings.h"
 #include "qgsstatusbar.h"
-#include "gmath.h"
 #include "qgsmapcanvas.h"
 #include "qgsmessagebar.h"
 #include "qgsbearingutils.h"
@@ -127,8 +128,8 @@ QgsGpsInformationWidget::QgsGpsInformationWidget( QgsMapCanvas *mapCanvas, QWidg
   } );
 
   mLastGpsPosition = QgsPointXY( 0.0, 0.0 );
-  mLastNmeaPosition.lat = nmea_degree2radian( 0.0 );
-  mLastNmeaPosition.lon = nmea_degree2radian( 0.0 );
+  mLastNmeaPosition.setX( nmea_degree2radian( 0.0 ) );
+  mLastNmeaPosition.setY( nmea_degree2radian( 0.0 ) );
 
   populateDevices();
   QWidget *mpHistogramWidget = mStackedWidget->widget( 1 );
@@ -877,6 +878,9 @@ void QgsGpsInformationWidget::displayGPSInformation( const QgsGpsInformation &in
   QgsPointXY myNewCenter;
   nmeaPOS newNmeaPosition;
   nmeaTIME newNmeaTime;
+  nmeaPOS lastNmeaPosition;
+  lastNmeaPosition.lat = nmea_degree2radian(mLastGpsPosition.y());
+  lastNmeaPosition.lon = nmea_degree2radian(mLastGpsPosition.x());
   double newAlt = 0.0;
   if ( validFlag )
   {
@@ -889,10 +893,10 @@ void QgsGpsInformationWidget::displayGPSInformation( const QgsGpsInformation &in
   else
   {
     myNewCenter = mLastGpsPosition;
-    newNmeaPosition = mLastNmeaPosition;
+    newNmeaPosition = lastNmeaPosition;
     newAlt = mLastElevation;
   }
-  if ( !mAcquisitionEnabled || ( nmea_distance( &newNmeaPosition, &mLastNmeaPosition ) < mDistanceThreshold ) )
+  if ( !mAcquisitionEnabled || ( nmea_distance( &newNmeaPosition, &lastNmeaPosition) < mDistanceThreshold ) )
   {
     // do not update position if update is disabled by timer or distance is under threshold
     myNewCenter = mLastGpsPosition;
@@ -972,8 +976,8 @@ void QgsGpsInformationWidget::displayGPSInformation( const QgsGpsInformation &in
   {
     mSecondLastGpsPosition = mLastGpsPosition;
     mLastGpsPosition = myNewCenter;
-    mLastNmeaPosition = newNmeaPosition;
-    mLastNmeaTime = newNmeaTime;
+    mLastNmeaTime = QDateTime(QDate(1900 + newNmeaTime.year, newNmeaTime.mon + 1, newNmeaTime.day),
+      QTime(newNmeaTime.hour, newNmeaTime.min, newNmeaTime.sec, newNmeaTime.msec));
     mLastElevation = newAlt;
     // Pan based on user specified behavior
     if ( radRecenterMap->isChecked() || radRecenterWhenNeeded->isChecked() )
@@ -1554,8 +1558,7 @@ QVariant QgsGpsInformationWidget::timestamp( QgsVectorLayer *vlayer, int idx )
   QVariant value;
   if ( idx != -1 )
   {
-    QDateTime time( QDate( 1900 + mLastNmeaTime.year, mLastNmeaTime.mon + 1, mLastNmeaTime.day ),
-                    QTime( mLastNmeaTime.hour, mLastNmeaTime.min, mLastNmeaTime.sec, mLastNmeaTime.msec ) );
+    QDateTime time = mLastNmeaTime;
     // Time from GPS is UTC time
     time.setTimeSpec( Qt::UTC );
     // Apply leap seconds correction

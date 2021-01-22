@@ -17,6 +17,7 @@
 #define QGSMAP3DEXPORTWIDGET_H
 
 #include <QWidget>
+#include "qgis_app.h"
 
 namespace Ui
 {
@@ -26,7 +27,7 @@ namespace Ui
 class Qgs3DMapScene;
 class Qgs3DMapExportSettings;
 
-class QgsMap3DExportWidget : public QWidget
+class APP_EXPORT QgsMap3DExportWidget : public QWidget
 {
     Q_OBJECT
 

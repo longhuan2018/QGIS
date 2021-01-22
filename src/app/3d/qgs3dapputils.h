@@ -16,7 +16,9 @@
 #ifndef QGS3DAPPUTILS_H
 #define QGS3DAPPUTILS_H
 
-class Qgs3DAppUtils
+#include "qgis_app.h"
+
+class APP_EXPORT Qgs3DAppUtils
 {
   public:
 

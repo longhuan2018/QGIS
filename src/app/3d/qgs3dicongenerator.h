@@ -17,10 +17,11 @@
 #define QGS3DICONGENERATOR_H
 
 #include "qgsstylemodel.h"
+#include "qgis_app.h"
 
 class QgsSymbol;
 
-class Qgs3DIconGenerator : public QgsAbstractStyleEntityIconGenerator
+class APP_EXPORT Qgs3DIconGenerator : public QgsAbstractStyleEntityIconGenerator
 {
     Q_OBJECT
 

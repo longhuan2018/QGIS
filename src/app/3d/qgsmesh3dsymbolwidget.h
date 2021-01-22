@@ -20,13 +20,14 @@
 
 #include "qgsmesh3dsymbol.h"
 #include "ui_qgsmesh3dpropswidget.h"
+#include "qgis_app.h"
 
 class QgsMeshDatasetGroupListModel;
 class QgsMesh3DSymbol;
 class QgsMeshLayer;
 
 //! A widget for configuration of 3D symbol for meshes
-class QgsMesh3dSymbolWidget : public QWidget, private Ui::QgsMesh3dPropsWidget
+class APP_EXPORT QgsMesh3dSymbolWidget : public QWidget, private Ui::QgsMesh3dPropsWidget
 {
     Q_OBJECT
   public:

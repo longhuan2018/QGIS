@@ -211,6 +211,10 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     QgisApp( QgisApp const & ) = delete;
     QgisApp &operator=( QgisApp const & ) = delete;
 
+    virtual bool initUI(const QString& caption, bool restorePlugins = true,
+             bool skipVersionCheck = false, const QString &rootProfileLocation = QString(),
+             const QString &activeProfile = QString());
+
     /**
      * Open a raster layer for the given file
      * \returns FALSE if unable to open a raster layer for rasterFile
@@ -2721,6 +2725,7 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
         bool mReleased = false;
     };
     int mFreezeCount = 0;
+    QString mCaption;
     friend class QgsCanvasRefreshBlocker;
 
     friend class TestQgisAppPython;
