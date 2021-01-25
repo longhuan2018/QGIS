@@ -16,10 +16,11 @@
 #define QGSNETWORKLOGGERWIDGETFACTORY_H
 
 #include "qgsdevtoolwidgetfactory.h"
+#include "qgis_app.h"
 
 class QgsNetworkLogger;
 
-class QgsNetworkLoggerWidgetFactory: public QgsDevToolWidgetFactory
+class APP_EXPORT QgsNetworkLoggerWidgetFactory: public QgsDevToolWidgetFactory
 {
   public:
 

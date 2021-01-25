@@ -13520,13 +13520,14 @@ QMenu *QgisApp::getPluginMenu( const QString &menuName )
 void QgisApp::addPluginToMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getPluginMenu( name );
+  if( menu==nullptr ) return;
   menu->addAction( action );
 }
 
 void QgisApp::removePluginMenu( const QString &name, QAction *action )
 {
-  if(!mPluginMenu) return;
   QMenu *menu = getPluginMenu( name );
+  if( menu==nullptr ) return;
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
   {
@@ -13544,7 +13545,7 @@ void QgisApp::removePluginMenu( const QString &name, QAction *action )
 
 QMenu *QgisApp::getDatabaseMenu( const QString &menuName )
 {
-  if ( menuName.isEmpty() )
+  if ( menuName.isEmpty() || mDatabaseMenu==nullptr )
     return mDatabaseMenu;
 
   QString cleanedMenuName = menuName;
@@ -13588,7 +13589,7 @@ QMenu *QgisApp::getDatabaseMenu( const QString &menuName )
 
 QMenu *QgisApp::getRasterMenu( const QString &menuName )
 {
-  if ( menuName.isEmpty() )
+  if ( menuName.isEmpty() || mRasterMenu==nullptr )
     return mRasterMenu;
 
   QString cleanedMenuName = menuName;
@@ -13642,7 +13643,7 @@ QMenu *QgisApp::getRasterMenu( const QString &menuName )
 
 QMenu *QgisApp::getVectorMenu( const QString &menuName )
 {
-  if ( menuName.isEmpty() )
+  if ( menuName.isEmpty() || mVectorMenu==nullptr )
     return mVectorMenu;
 
   QString cleanedMenuName = menuName;
@@ -13686,7 +13687,7 @@ QMenu *QgisApp::getVectorMenu( const QString &menuName )
 
 QMenu *QgisApp::getWebMenu( const QString &menuName )
 {
-  if ( menuName.isEmpty() )
+  if ( menuName.isEmpty() || mWebMenu==nullptr )
     return mWebMenu;
 
   QString cleanedMenuName = menuName;
@@ -13740,8 +13741,8 @@ void QgisApp::removeAddLayerAction( QAction *action )
 
 void QgisApp::addPluginToDatabaseMenu( const QString &name, QAction *action )
 {
-  if(!mDatabaseMenu) return;
   QMenu *menu = getDatabaseMenu( name );
+  if( menu==nullptr ) return;
   menu->addAction( action );
 
   // add the Database menu to the menuBar if not added yet
@@ -13784,18 +13785,21 @@ void QgisApp::addPluginToDatabaseMenu( const QString &name, QAction *action )
 void QgisApp::addPluginToRasterMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getRasterMenu( name );
+  if( menu==nullptr ) return;
   menu->addAction( action );
 }
 
 void QgisApp::addPluginToVectorMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getVectorMenu( name );
+  if( menu==nullptr ) return;
   menu->addAction( action );
 }
 
 void QgisApp::addPluginToWebMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getWebMenu( name );
+  if( menu==nullptr ) return;
   menu->addAction( action );
 
   // add the Vector menu to the menuBar if not added yet
@@ -13839,6 +13843,7 @@ void QgisApp::addPluginToWebMenu( const QString &name, QAction *action )
 void QgisApp::removePluginDatabaseMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getDatabaseMenu( name );
+  if( menu==nullptr ) return;
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
   {
@@ -13862,8 +13867,8 @@ void QgisApp::removePluginDatabaseMenu( const QString &name, QAction *action )
 
 void QgisApp::removePluginRasterMenu( const QString &name, QAction *action )
 {
-  if(!mRasterMenu) return;
   QMenu *menu = getRasterMenu( name );
+  if( menu==nullptr ) return;
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
   {
@@ -13882,6 +13887,7 @@ void QgisApp::removePluginRasterMenu( const QString &name, QAction *action )
 void QgisApp::removePluginVectorMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getVectorMenu( name );
+  if( menu==nullptr ) return;
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
   {
@@ -13906,6 +13912,7 @@ void QgisApp::removePluginVectorMenu( const QString &name, QAction *action )
 void QgisApp::removePluginWebMenu( const QString &name, QAction *action )
 {
   QMenu *menu = getWebMenu( name );
+  if( menu==nullptr ) return;
   menu->removeAction( action );
   if ( menu->actions().isEmpty() )
   {
@@ -13929,55 +13936,55 @@ void QgisApp::removePluginWebMenu( const QString &name, QAction *action )
 
 int QgisApp::addPluginToolBarIcon( QAction *qAction )
 {
-  mPluginToolBar->addAction( qAction );
+  if(mPluginToolBar) mPluginToolBar->addAction( qAction );
   return 0;
 }
 
 QAction *QgisApp::addPluginToolBarWidget( QWidget *widget )
 {
-  return mPluginToolBar->addWidget( widget );
+  return mPluginToolBar!=nullptr ? mPluginToolBar->addWidget( widget ) : nullptr;
 }
 
 void QgisApp::removePluginToolBarIcon( QAction *qAction )
 {
-  mPluginToolBar->removeAction( qAction );
+  if(mPluginToolBar) mPluginToolBar->removeAction( qAction );
 }
 
 int QgisApp::addRasterToolBarIcon( QAction *qAction )
 {
-  mRasterToolBar->addAction( qAction );
+  if(mRasterToolBar) mRasterToolBar->addAction( qAction );
   return 0;
 }
 
 QAction *QgisApp::addRasterToolBarWidget( QWidget *widget )
 {
-  return mRasterToolBar->addWidget( widget );
+  return mRasterToolBar!=nullptr ? mRasterToolBar->addWidget( widget ) : nullptr;
 }
 
 void QgisApp::removeRasterToolBarIcon( QAction *qAction )
 {
-  mRasterToolBar->removeAction( qAction );
+  if(mRasterToolBar) mRasterToolBar->removeAction( qAction );
 }
 
 int QgisApp::addVectorToolBarIcon( QAction *qAction )
 {
-  mVectorToolBar->addAction( qAction );
+  if(mVectorToolBar) mVectorToolBar->addAction( qAction );
   return 0;
 }
 
 QAction *QgisApp::addVectorToolBarWidget( QWidget *widget )
 {
-  return mVectorToolBar->addWidget( widget );
+  return mVectorToolBar!=nullptr ? mVectorToolBar->addWidget( widget ) : nullptr;
 }
 
 void QgisApp::removeVectorToolBarIcon( QAction *qAction )
 {
-  mVectorToolBar->removeAction( qAction );
+  if(mVectorToolBar) mVectorToolBar->removeAction( qAction );
 }
 
 int QgisApp::addDatabaseToolBarIcon( QAction *qAction )
 {
-  mDatabaseToolBar->addAction( qAction );
+  if(mDatabaseToolBar) mDatabaseToolBar->addAction( qAction );
   return 0;
 }
 
@@ -13988,28 +13995,28 @@ void QgisApp::onVirtualLayerAdded( const QString &uri, const QString &layerName 
 
 QAction *QgisApp::addDatabaseToolBarWidget( QWidget *widget )
 {
-  return mDatabaseToolBar->addWidget( widget );
+  return mDatabaseToolBar!=nullptr ? mDatabaseToolBar->addWidget( widget ) : nullptr;
 }
 
 void QgisApp::removeDatabaseToolBarIcon( QAction *qAction )
 {
-  mDatabaseToolBar->removeAction( qAction );
+  if(mDatabaseToolBar) mDatabaseToolBar->removeAction( qAction );
 }
 
 int QgisApp::addWebToolBarIcon( QAction *qAction )
 {
-  mWebToolBar->addAction( qAction );
+  if(mWebToolBar) mWebToolBar->addAction( qAction );
   return 0;
 }
 
 QAction *QgisApp::addWebToolBarWidget( QWidget *widget )
 {
-  return mWebToolBar->addWidget( widget );
+  return mWebToolBar!=nullptr ? mWebToolBar->addWidget( widget ) : nullptr;
 }
 
 void QgisApp::removeWebToolBarIcon( QAction *qAction )
 {
-  mWebToolBar->removeAction( qAction );
+  if(mWebToolBar) mWebToolBar->removeAction( qAction );
 }
 
 void QgisApp::updateCrsStatusBar()

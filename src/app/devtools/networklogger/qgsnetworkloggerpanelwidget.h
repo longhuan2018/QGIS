@@ -15,6 +15,7 @@
 #ifndef QGSNETWORKLOGGERPANELWIDGET_H
 #define QGSNETWORKLOGGERPANELWIDGET_H
 
+#include "qgis_app.h"
 #include "qgsdevtoolwidget.h"
 #include "ui_qgsnetworkloggerpanelbase.h"
 #include <QTreeView>
@@ -29,7 +30,7 @@ class QgsNetworkLoggerProxyModel;
  *
  * \since QGIS 3.14
  */
-class QgsNetworkLoggerTreeView: public QTreeView
+class APP_EXPORT QgsNetworkLoggerTreeView: public QTreeView
 {
     Q_OBJECT
   public:
@@ -77,7 +78,7 @@ class QgsNetworkLoggerTreeView: public QTreeView
  *
  * \since QGIS 3.14
  */
-class QgsNetworkLoggerPanelWidget : public QgsDevToolWidget, private Ui::QgsNetworkLoggerPanelBase
+class APP_EXPORT QgsNetworkLoggerPanelWidget : public QgsDevToolWidget, private Ui::QgsNetworkLoggerPanelBase
 {
     Q_OBJECT
 

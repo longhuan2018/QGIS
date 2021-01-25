@@ -51,13 +51,14 @@ QgsMapToolAddFeature::QgsMapToolAddFeature( QgsMapCanvas *canvas, CaptureMode mo
 bool QgsMapToolAddFeature::addFeature( QgsVectorLayer *vlayer, const QgsFeature &f, bool showModal )
 {
   QgsFeature feat( f );
-  emit beforeAddFeature(vlayer, &feat);
+  QgsAttributeMap defaultAttributes;
+  emit beforeAddFeature(vlayer, &feat, &defaultAttributes);
 
   QgsExpressionContextScope *scope = QgsExpressionContextUtils::mapToolCaptureScope( snappingMatches() );
   QgsFeatureAction *action = new QgsFeatureAction( tr( "add feature" ), feat, vlayer, QString(), -1, this );
   if ( QgsRubberBand *rb = takeRubberBand() )
     connect( action, &QgsFeatureAction::addFeatureFinished, rb, &QgsRubberBand::deleteLater );
-  bool res = action->addFeature( QgsAttributeMap(), showModal, scope );
+  bool res = action->addFeature( defaultAttributes, showModal, scope );
   if ( showModal )
     delete action;
   return res;

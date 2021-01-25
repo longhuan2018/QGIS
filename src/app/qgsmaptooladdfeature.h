@@ -25,7 +25,7 @@ class APP_EXPORT QgsMapToolAddFeature : public QgsMapToolDigitizeFeature
     QgsMapToolAddFeature( QgsMapCanvas *canvas, CaptureMode mode );
 
 signals:
-  void beforeAddFeature(QgsVectorLayer *vlayer, QgsFeature* f);
+  void beforeAddFeature(QgsVectorLayer *vlayer, QgsFeature* f, QgsAttributeMap* featureAttributes);
 
   private:
 
