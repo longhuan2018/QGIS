@@ -278,8 +278,8 @@ void QgsExpression::initGeomCalculator( const QgsExpressionContext *context )
     // actually don't do it right away, cos it's expensive to create and only a very small number of expression
     // functions actually require it. Let's lazily construct it when needed
     d->mDaEllipsoid = context->variable( QStringLiteral( "project_ellipsoid" ) ).toString();
-    d->mDaCrs = context->variable( QStringLiteral( "_layer_crs" ) ).value<QgsCoordinateReferenceSystem>();
-    d->mDaTransformContext = context->variable( QStringLiteral( "_project_transform_context" ) ).value<QgsCoordinateTransformContext>();
+    d->mDaCrs = qgis::make_unique<QgsCoordinateReferenceSystem>( context->variable( QStringLiteral( "_layer_crs" ) ).value<QgsCoordinateReferenceSystem>() );
+    d->mDaTransformContext = qgis::make_unique<QgsCoordinateTransformContext>( context->variable( QStringLiteral( "_project_transform_context" ) ).value<QgsCoordinateTransformContext>() );
   }
 
   // Set the distance units from the context if it has not been set by setDistanceUnits()
@@ -396,12 +396,12 @@ QString QgsExpression::dump() const
 
 QgsDistanceArea *QgsExpression::geomCalculator()
 {
-  if ( !d->mCalc && d->mDaCrs.isValid() )
+  if ( !d->mCalc && d->mDaCrs && d->mDaCrs->isValid() && d->mDaTransformContext )
   {
     // calculator IS required, so initialize it now...
     d->mCalc = std::shared_ptr<QgsDistanceArea>( new QgsDistanceArea() );
     d->mCalc->setEllipsoid( d->mDaEllipsoid.isEmpty() ? geoNone() : d->mDaEllipsoid );
-    d->mCalc->setSourceCrs( d->mDaCrs, d->mDaTransformContext );
+    d->mCalc->setSourceCrs( *d->mDaCrs.get(), *d->mDaTransformContext.get() );
   }
 
   return d->mCalc.get();
@@ -1086,6 +1086,105 @@ QString QgsExpression::createFieldEqualityExpression( const QString &fieldName, 
     expr = QStringLiteral( "%1 = %2" ).arg( quotedColumnRef( fieldName ), quotedValue( value ) );
 
   return expr;
+}
+
+bool QgsExpression::isFieldEqualityExpression( const QString &expression, QString &field, QVariant &value )
+{
+  QgsExpression e( expression );
+
+  if ( !e.rootNode() )
+    return false;
+
+  if ( const QgsExpressionNodeBinaryOperator *binOp = dynamic_cast<const QgsExpressionNodeBinaryOperator *>( e.rootNode() ) )
+  {
+    if ( binOp->op() == QgsExpressionNodeBinaryOperator::boEQ )
+    {
+      const QgsExpressionNodeColumnRef *columnRef = dynamic_cast<const QgsExpressionNodeColumnRef *>( binOp->opLeft() );
+      const QgsExpressionNodeLiteral *literal = dynamic_cast<const QgsExpressionNodeLiteral *>( binOp->opRight() );
+      if ( columnRef && literal )
+      {
+        field = columnRef->name();
+        value = literal->value();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool QgsExpression::attemptReduceToInClause( const QStringList &expressions, QString &result )
+{
+  if ( expressions.empty() )
+    return false;
+
+  QString inField;
+  bool first = true;
+  QStringList values;
+  for ( const QString &expression : expressions )
+  {
+    QString field;
+    QVariant value;
+    if ( QgsExpression::isFieldEqualityExpression( expression, field, value ) )
+    {
+      if ( first )
+      {
+        inField = field;
+        first = false;
+      }
+      else if ( field != inField )
+      {
+        return false;
+      }
+      values << QgsExpression::quotedValue( value );
+    }
+    else
+    {
+      // we also allow reducing similar 'field IN (...)' expressions!
+      QgsExpression e( expression );
+
+      if ( !e.rootNode() )
+        return false;
+
+      if ( const QgsExpressionNodeInOperator *inOp = dynamic_cast<const QgsExpressionNodeInOperator *>( e.rootNode() ) )
+      {
+        if ( inOp->isNotIn() )
+          return false;
+
+        const QgsExpressionNodeColumnRef *columnRef = dynamic_cast<const QgsExpressionNodeColumnRef *>( inOp->node() );
+        if ( !columnRef )
+          return false;
+
+        if ( first )
+        {
+          inField = columnRef->name();
+          first = false;
+        }
+        else if ( columnRef->name() != inField )
+        {
+          return false;
+        }
+
+        if ( QgsExpressionNode::NodeList *nodeList = inOp->list() )
+        {
+          const QList<QgsExpressionNode *> nodes = nodeList->list();
+          for ( const QgsExpressionNode *node : nodes )
+          {
+            const QgsExpressionNodeLiteral *literal = dynamic_cast<const QgsExpressionNodeLiteral *>( node );
+            if ( !literal )
+              return false;
+
+            values << QgsExpression::quotedValue( literal->value() );
+          }
+        }
+      }
+      else
+      {
+        return false;
+      }
+    }
+  }
+  result = QStringLiteral( "%1 IN (%2)" ).arg( inField, values.join( ',' ) );
+  return true;
 }
 
 const QgsExpressionNode *QgsExpression::rootNode() const

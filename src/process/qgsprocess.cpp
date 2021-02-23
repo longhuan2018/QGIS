@@ -74,6 +74,18 @@ void ConsoleFeedback::reportError( const QString &error, bool )
   }
 }
 
+void ConsoleFeedback::pushWarning( const QString &warning )
+{
+  if ( !mUseJson )
+    std::cout << "WARNING:\t" << warning.toLocal8Bit().constData() << '\n';
+  else
+  {
+    if ( !mJsonLog.contains( QStringLiteral( "warning" ) ) )
+      mJsonLog.insert( QStringLiteral( "warning" ), QStringList() );
+    mJsonLog[ QStringLiteral( "warning" )] = mJsonLog.value( QStringLiteral( "warning" ) ).toStringList() << warning;
+  }
+}
+
 void ConsoleFeedback::pushInfo( const QString &info )
 {
   if ( !mUseJson )
@@ -793,9 +805,13 @@ int QgsProcessingExec::execute( const QString &id, const QVariantMap &params, co
     algorithmDetails.insert( QStringLiteral( "id" ), alg->id() );
     addAlgorithmInformation( algorithmDetails, alg );
     json.insert( QStringLiteral( "algorithm_details" ), algorithmDetails );
-    QVariantMap providerJson;
-    addProviderInformation( providerJson, alg->provider() );
-    json.insert( QStringLiteral( "provider_details" ), providerJson );
+
+    if ( alg->provider() )
+    {
+      QVariantMap providerJson;
+      addProviderInformation( providerJson, alg->provider() );
+      json.insert( QStringLiteral( "provider_details" ), providerJson );
+    }
   }
 
   std::unique_ptr< QgsProject > project;

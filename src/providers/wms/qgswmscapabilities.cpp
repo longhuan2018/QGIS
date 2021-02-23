@@ -453,8 +453,6 @@ QDateTime QgsWmsSettings::parseWmstDateTimes( QString item )
   // Standard item will have YYYY-MM-DDTHH:mm:ss.SSSZ
   //  format a Qt::ISODateWithMs
 
-  QString format = "yyyy-MM-ddTHH:mm:ss.SSSZ";
-
   // Check if it does not have time part
   if ( !item.contains( 'T' ) )
     return QDateTime::fromString( item, "yyyy-MM-dd" );
@@ -1234,11 +1232,13 @@ void QgsWmsCapabilities::parseLayer( const QDomElement &element, QgsWmsLayerProp
       }
       else if ( tagName == QLatin1String( "LatLonBoundingBox" ) )    // legacy from earlier versions of WMS
       {
+        // boundingBox element can conatain comma as decimal separator and layer extent is not
+        // calculated at all. Fixing by replacing comma with point.
         layerProperty.ex_GeographicBoundingBox = QgsRectangle(
-              nodeElement.attribute( QStringLiteral( "minx" ) ).toDouble(),
-              nodeElement.attribute( QStringLiteral( "miny" ) ).toDouble(),
-              nodeElement.attribute( QStringLiteral( "maxx" ) ).toDouble(),
-              nodeElement.attribute( QStringLiteral( "maxy" ) ).toDouble()
+              nodeElement.attribute( QStringLiteral( "minx" ) ).replace( ',', '.' ).toDouble(),
+              nodeElement.attribute( QStringLiteral( "miny" ) ).replace( ',', '.' ).toDouble(),
+              nodeElement.attribute( QStringLiteral( "maxx" ) ).replace( ',', '.' ).toDouble(),
+              nodeElement.attribute( QStringLiteral( "maxy" ) ).replace( ',', '.' ).toDouble()
             );
 
         if ( nodeElement.hasAttribute( QStringLiteral( "SRS" ) ) && nodeElement.attribute( QStringLiteral( "SRS" ) ) != DEFAULT_LATLON_CRS )
@@ -1277,10 +1277,12 @@ void QgsWmsCapabilities::parseLayer( const QDomElement &element, QgsWmsLayerProp
 
         double wBLong, eBLong, sBLat, nBLat;
         bool wBOk, eBOk, sBOk, nBOk;
-        wBLong = wBoundLongitudeElem.text().toDouble( &wBOk );
-        eBLong = eBoundLongitudeElem.text().toDouble( &eBOk );
-        sBLat = sBoundLatitudeElem.text().toDouble( &sBOk );
-        nBLat = nBoundLatitudeElem.text().toDouble( &nBOk );
+        // boundingBox element can conatain comma as decimal separator and layer extent is not
+        // calculated at all. Fixing by replacing comma with point.
+        wBLong = wBoundLongitudeElem.text().replace( ',', '.' ).toDouble( &wBOk );
+        eBLong = eBoundLongitudeElem.text().replace( ',', '.' ).toDouble( &eBOk );
+        sBLat = sBoundLatitudeElem.text().replace( ',', '.' ).toDouble( &sBOk );
+        nBLat = nBoundLatitudeElem.text().replace( ',', '.' ).toDouble( &nBOk );
         if ( wBOk && eBOk && sBOk && nBOk )
         {
           layerProperty.ex_GeographicBoundingBox = QgsRectangle( wBLong, sBLat, eBLong, nBLat );
@@ -1289,10 +1291,10 @@ void QgsWmsCapabilities::parseLayer( const QDomElement &element, QgsWmsLayerProp
       else if ( tagName == QLatin1String( "BoundingBox" ) )
       {
         QgsWmsBoundingBoxProperty bbox;
-        bbox.box = QgsRectangle( nodeElement.attribute( QStringLiteral( "minx" ) ).toDouble(),
-                                 nodeElement.attribute( QStringLiteral( "miny" ) ).toDouble(),
-                                 nodeElement.attribute( QStringLiteral( "maxx" ) ).toDouble(),
-                                 nodeElement.attribute( QStringLiteral( "maxy" ) ).toDouble()
+        bbox.box = QgsRectangle( nodeElement.attribute( QStringLiteral( "minx" ) ).replace( ',', '.' ).toDouble(),
+                                 nodeElement.attribute( QStringLiteral( "miny" ) ).replace( ',', '.' ).toDouble(),
+                                 nodeElement.attribute( QStringLiteral( "maxx" ) ).replace( ',', '.' ).toDouble(),
+                                 nodeElement.attribute( QStringLiteral( "maxy" ) ).replace( ',', '.' ).toDouble()
                                );
         if ( nodeElement.hasAttribute( QStringLiteral( "CRS" ) ) || nodeElement.hasAttribute( QStringLiteral( "SRS" ) ) )
         {
@@ -1640,11 +1642,13 @@ void QgsWmsCapabilities::parseTileSetProfile( const QDomElement &element )
       else if ( tagName == QLatin1String( "BoundingBox" ) )
       {
         QgsWmsBoundingBoxProperty boundingBoxProperty;
+        // boundingBox element can conatain comma as decimal separator and layer extent is not
+        // calculated at all. Fixing by replacing comma with point.
         boundingBoxProperty.box = QgsRectangle(
-                                    nodeElement.attribute( QStringLiteral( "minx" ) ).toDouble(),
-                                    nodeElement.attribute( QStringLiteral( "miny" ) ).toDouble(),
-                                    nodeElement.attribute( QStringLiteral( "maxx" ) ).toDouble(),
-                                    nodeElement.attribute( QStringLiteral( "maxy" ) ).toDouble()
+                                    nodeElement.attribute( QStringLiteral( "minx" ) ).replace( ',', '.' ).toDouble(),
+                                    nodeElement.attribute( QStringLiteral( "miny" ) ).replace( ',', '.' ).toDouble(),
+                                    nodeElement.attribute( QStringLiteral( "maxx" ) ).replace( ',', '.' ).toDouble(),
+                                    nodeElement.attribute( QStringLiteral( "maxy" ) ).replace( ',', '.' ).toDouble()
                                   );
         if ( nodeElement.hasAttribute( QStringLiteral( "SRS" ) ) )
           boundingBoxProperty.crs = nodeElement.attribute( QStringLiteral( "SRS" ) );

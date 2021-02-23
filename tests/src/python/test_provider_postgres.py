@@ -31,6 +31,7 @@ from qgis.core import (
     QgsVectorLayer,
     QgsVectorLayerExporter,
     QgsFeatureRequest,
+    QgsFeatureSource,
     QgsFeature,
     QgsFieldConstraints,
     QgsDataProvider,
@@ -2346,7 +2347,7 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
         feature = next(vl.getFeatures())
         self.assertIsNotNone(feature.id())
 
-    @unittest.skipIf(os.environ.get('TRAVIS', '') == 'true', 'Test flaky')
+    @unittest.skipIf(os.environ.get('QGIS_CONTINUOUS_INTEGRATION_RUN', 'true'), 'Test flaky')
     def testDefaultValuesAndClauses(self):
         """Test whether default values like CURRENT_TIMESTAMP or
         now() they are respected. See GH #33383"""
@@ -2512,6 +2513,20 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
             'table': 'my_pg_vector',
             'username': 'my username',
         })
+
+    def testHasSpatialIndex(self):
+        for layer_name in ('hspi_table', 'hspi_materialized_view'):
+            columns = {'geom_without_index': QgsFeatureSource.SpatialIndexNotPresent, 'geom_with_index': QgsFeatureSource.SpatialIndexPresent}
+            for (geometry_column, spatial_index) in columns.items():
+                conn = 'service=\'qgis_test\''
+                if 'QGIS_PGTEST_DB' in os.environ:
+                    conn = os.environ['QGIS_PGTEST_DB']
+                vl = QgsVectorLayer(
+                    conn +
+                    ' sslmode=disable key=\'id\' srid=4326 type=\'Polygon\' table="qgis_test"."{n}" ({c}) sql='.format(n=layer_name, c=geometry_column),
+                    'test', 'postgres')
+                self.assertTrue(vl.isValid())
+                self.assertEqual(vl.hasSpatialIndex(), spatial_index)
 
 
 class TestPyQgsPostgresProviderCompoundKey(unittest.TestCase, ProviderTestCase):

@@ -26,7 +26,7 @@ class QPainter;
 
 /**
  * \ingroup app
- * A class for marking the position of a gps pointer.
+ * \brief A class for marking the position of a gps pointer.
  */
 class APP_EXPORT QgsGpsMarker : public QgsMapCanvasItem
 {

@@ -25,6 +25,7 @@
 #include "qgsprocessingparametertype.h"
 #include "qgsmodelundocommand.h"
 #include "qgsmodelviewtoolselect.h"
+#include "qgsmodelviewtoolpan.h"
 #include "qgsmodelgraphicsscene.h"
 #include "qgsmodelcomponentgraphicitem.h"
 #include "processing/models/qgsprocessingmodelgroupbox.h"
@@ -75,6 +76,7 @@ Qt::DropActions QgsModelerToolboxModel::supportedDragActions() const
 
 QgsModelDesignerDialog::QgsModelDesignerDialog( QWidget *parent, Qt::WindowFlags flags )
   : QMainWindow( parent, flags )
+  , mToolsActionGroup( new QActionGroup( this ) )
 {
   setupUi( this );
 
@@ -157,6 +159,18 @@ QgsModelDesignerDialog::QgsModelDesignerDialog( QWidget *parent, Qt::WindowFlags
   {
     mScene->selectAll();
   } );
+
+  QStringList docksTitle = settings.value( QStringLiteral( "ModelDesigner/hiddenDocksTitle" ), QStringList(), QgsSettings::App ).toStringList();
+  QStringList docksActive = settings.value( QStringLiteral( "ModelDesigner/hiddenDocksActive" ), QStringList(), QgsSettings::App ).toStringList();
+  if ( !docksTitle.isEmpty() )
+  {
+    for ( const auto &title : docksTitle )
+    {
+      mPanelStatus.insert( title, PanelStatus( true, docksActive.contains( title ) ) );
+    }
+  }
+  mActionHidePanels->setChecked( !docksTitle.isEmpty() );
+  connect( mActionHidePanels, &QAction::toggled, this, &QgsModelDesignerDialog::setPanelVisibility );
 
   mUndoAction = mUndoStack->createUndoAction( this );
   mUndoAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionUndo.svg" ) ) );
@@ -296,10 +310,18 @@ QgsModelDesignerDialog::QgsModelDesignerDialog( QWidget *parent, Qt::WindowFlags
   mActionShowComments->setChecked( settings.value( QStringLiteral( "/Processing/Modeler/ShowComments" ), true ).toBool() );
   connect( mActionShowComments, &QAction::toggled, this, &QgsModelDesignerDialog::toggleComments );
 
+  mPanTool = new QgsModelViewToolPan( mView );
+  mPanTool->setAction( mActionPan );
+
+  mToolsActionGroup->addAction( mActionPan );
+  connect( mActionPan, &QAction::triggered, mPanTool, [ = ] { mView->setTool( mPanTool ); } );
+
   mSelectTool = new QgsModelViewToolSelect( mView );
-#if 0
   mSelectTool->setAction( mActionSelectMoveItem );
-#endif
+
+  mToolsActionGroup->addAction( mActionSelectMoveItem );
+  connect( mActionSelectMoveItem, &QAction::triggered, mSelectTool, [ = ] { mView->setTool( mSelectTool ); } );
+
   mView->setTool( mSelectTool );
   mView->setFocus();
 
@@ -349,8 +371,30 @@ QgsModelDesignerDialog::QgsModelDesignerDialog( QWidget *parent, Qt::WindowFlags
 
 QgsModelDesignerDialog::~QgsModelDesignerDialog()
 {
+  QgsSettings settings;
+  if ( !mPanelStatus.isEmpty() )
+  {
+    QStringList docksTitle;
+    QStringList docksActive;
+
+    for ( const auto &panel : mPanelStatus.toStdMap() )
+    {
+      if ( panel.second.isVisible )
+        docksTitle << panel.first;
+      if ( panel.second.isActive )
+        docksActive << panel.first;
+    }
+    settings.setValue( QStringLiteral( "ModelDesigner/hiddenDocksTitle" ), docksTitle, QgsSettings::App );
+    settings.setValue( QStringLiteral( "ModelDesigner/hiddenDocksActive" ), docksActive, QgsSettings::App );
+  }
+  else
+  {
+    settings.remove( QStringLiteral( "ModelDesigner/hiddenDocksTitle" ), QgsSettings::App );
+    settings.remove( QStringLiteral( "ModelDesigner/hiddenDocksActive" ), QgsSettings::App );
+  }
+
   // store the toolbar/dock widget settings using Qt settings API
-  QgsSettings().setValue( QStringLiteral( "ModelDesigner/state" ), saveState(), QgsSettings::App );
+  settings.setValue( QStringLiteral( "ModelDesigner/state" ), saveState(), QgsSettings::App );
 
   mIgnoreUndoStackChanges++;
   delete mSelectTool; // delete mouse handles before everything else
@@ -791,6 +835,56 @@ void QgsModelDesignerDialog::populateZoomToMenu()
       } );
       mGroupMenu->addAction( zoomAction );
     }
+  }
+}
+
+void QgsModelDesignerDialog::setPanelVisibility( bool hidden )
+{
+  const QList<QDockWidget *> docks = findChildren<QDockWidget *>();
+  const QList<QTabBar *> tabBars = findChildren<QTabBar *>();
+
+  if ( hidden )
+  {
+    mPanelStatus.clear();
+    //record status of all docks
+    for ( QDockWidget *dock : docks )
+    {
+      mPanelStatus.insert( dock->windowTitle(), PanelStatus( dock->isVisible(), false ) );
+      dock->setVisible( false );
+    }
+
+    //record active dock tabs
+    for ( QTabBar *tabBar : tabBars )
+    {
+      QString currentTabTitle = tabBar->tabText( tabBar->currentIndex() );
+      mPanelStatus[ currentTabTitle ].isActive = true;
+    }
+  }
+  else
+  {
+    //restore visibility of all docks
+    for ( QDockWidget *dock : docks )
+    {
+      if ( mPanelStatus.contains( dock->windowTitle() ) )
+      {
+        dock->setVisible( mPanelStatus.value( dock->windowTitle() ).isVisible );
+      }
+    }
+
+    //restore previously active dock tabs
+    for ( QTabBar *tabBar : tabBars )
+    {
+      //loop through all tabs in tab bar
+      for ( int i = 0; i < tabBar->count(); ++i )
+      {
+        QString tabTitle = tabBar->tabText( i );
+        if ( mPanelStatus.contains( tabTitle ) && mPanelStatus.value( tabTitle ).isActive )
+        {
+          tabBar->setCurrentIndex( i );
+        }
+      }
+    }
+    mPanelStatus.clear();
   }
 }
 

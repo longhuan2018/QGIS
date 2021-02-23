@@ -35,7 +35,7 @@ PYDEPLOY=${DIR}/deploy.py
 # Configuration: change this!
 
 # Location of mxe install dir
-MXE=${MXE:-/mxe/}
+MXE=${MXE:-/usr/lib/mxe/}
 
 # Directory for build
 BUILD_DIR=${PWD}/build-mxe
@@ -45,13 +45,10 @@ RELEASE_DIR=${PWD}/qgis-mxe-release
 # End configuration
 
 # Windows 64 bit with posix threads
-TARGET=x86_64-w64-mingw32.shared.posix
+TARGET=x86_64-w64-mingw32.shared
 
 # Set base path for all tools
-export PATH=${PATH}:/mxe/usr/bin
-
-# Fix CCACHE directory
-export CCACHE_DIR=${PWD}/.ccache
+export PATH=${PATH}:${MXE}/usr/bin
 
 if [ ! -e ${CCACHE_DIR} ]; then
   mkdir -p ${CCACHE_DIR}
@@ -73,9 +70,12 @@ cd ${BUILD_DIR}
 
 if [[ "$COMMAND" != *"package"* ]]; then
 
+    echo "::group::compile QGIS"
+
     ${MXE}/usr/bin/${TARGET}-cmake .. \
         -DCMAKE_BUILD_TYPE=RelWithDebugInfo \
         -DCMAKE_INSTALL_PREFIX=${RELEASE_DIR} \
+        -DUSE_CCACHE=ON \
         -DENABLE_TESTS=OFF \
         -DWITH_QSPATIALITE=ON \
         -DWITH_APIDOC=OFF \
@@ -90,7 +90,14 @@ if [[ "$COMMAND" != *"package"* ]]; then
 
     make -j16 install
 
+    echo "::endgroup::"
+
+    #echo "ccache statistics"
+    ccache -s
+
 fi
+
+echo "::group::package"
 
 # Collect deps
 
@@ -108,7 +115,6 @@ __TXT__
 
 # First cleanup
 rm -rf ${BUILD_DIR}
-rm -rf ${CCACHE_DIR}
 
 # Make the zip
 
@@ -118,6 +124,8 @@ zip -r -m ${ZIP_NAME} $(basename ${RELEASE_DIR})
 
 # Second cleanup
 rm -rf ${RELEASE_DIR}
+
+echo "::endgroup::"
 
 popd
 
