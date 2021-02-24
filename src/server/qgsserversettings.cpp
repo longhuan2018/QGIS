@@ -108,17 +108,6 @@ void QgsServerSettings::initSettings()
                            };
   mSettings[ sProject.envVar ] = sProject;
 
-  // max cache layers
-  const Setting sMaxCacheLayers = { QgsServerSettingsEnv::MAX_CACHE_LAYERS,
-                                    QgsServerSettingsEnv::DEFAULT_VALUE,
-                                    QStringLiteral( "Specify the maximum number of cached layers" ),
-                                    QString(),
-                                    QVariant::Int,
-                                    QVariant( 100 ),
-                                    QVariant()
-                                  };
-  mSettings[ sMaxCacheLayers.envVar ] = sMaxCacheLayers;
-
   // cache directory
   const Setting sCacheDir = { QgsServerSettingsEnv::QGIS_SERVER_CACHE_DIRECTORY,
                               QgsServerSettingsEnv::DEFAULT_VALUE,
@@ -265,6 +254,19 @@ void QgsServerSettings::initSettings()
                                          };
 
   mSettings[ sProjectsPgConnections.envVar ] = sProjectsPgConnections;
+
+  // log profile
+  const Setting sLogProfile = { QgsServerSettingsEnv::QGIS_SERVER_LOG_PROFILE,
+                                QgsServerSettingsEnv::DEFAULT_VALUE,
+                                QStringLiteral( "Add detailed profile information to the logs, only effective when QGIS_SERVER_LOG_LEVEL=0" ),
+                                QStringLiteral( "/qgis/server_log_profile" ),
+                                QVariant::Bool,
+                                QVariant( false ),
+                                QVariant()
+                              };
+
+  mSettings[ sLogProfile.envVar ] = sLogProfile;
+
 }
 
 void QgsServerSettings::load()
@@ -343,7 +345,8 @@ void QgsServerSettings::loadQSettings( const QString &envOptPath ) const
 
 void QgsServerSettings::prioritize( const QMap<QgsServerSettingsEnv::EnvVar, QString> &env )
 {
-  for ( QgsServerSettingsEnv::EnvVar e : env.keys() )
+  const auto constKeys( env.keys() );
+  for ( const QgsServerSettingsEnv::EnvVar &e : constKeys )
   {
     Setting s = mSettings[ e ];
 
@@ -392,7 +395,7 @@ void QgsServerSettings::logSummary() const
   const QMetaEnum metaEnumSrc( QMetaEnum::fromType<QgsServerSettingsEnv::Source>() );
 
   QgsMessageLog::logMessage( "QGIS Server Settings: ", "Server", Qgis::Info );
-  for ( Setting s : mSettings )
+  for ( const Setting &s : qgis::as_const( mSettings ) )
   {
     const QString src = metaEnumSrc.valueToKey( s.src );
     const QString var = name( s.envVar );
@@ -437,11 +440,6 @@ bool QgsServerSettings::logStderr() const
 Qgis::MessageLevel QgsServerSettings::logLevel() const
 {
   return static_cast<Qgis::MessageLevel>( value( QgsServerSettingsEnv::QGIS_SERVER_LOG_LEVEL ).toInt() );
-}
-
-int QgsServerSettings::maxCacheLayers() const
-{
-  return value( QgsServerSettingsEnv::MAX_CACHE_LAYERS ).toInt();
 }
 
 QString QgsServerSettings::projectFile() const
@@ -512,4 +510,9 @@ bool QgsServerSettings::trustLayerMetadata() const
 bool QgsServerSettings::getPrintDisabled() const
 {
   return value( QgsServerSettingsEnv::QGIS_SERVER_DISABLE_GETPRINT ).toBool();
+}
+
+bool QgsServerSettings::logProfile()
+{
+  return value( QgsServerSettingsEnv::QGIS_SERVER_LOG_PROFILE, false ).toBool();
 }

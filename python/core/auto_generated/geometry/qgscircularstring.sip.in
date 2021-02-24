@@ -83,6 +83,8 @@ to ``p2`` will be used (i.e. winding the other way around the circle).
 
     virtual bool isEmpty() const /HoldGIL/;
 
+    virtual bool isValid( QString &error /Out/, int flags = 0 ) const;
+
     virtual int numPoints() const /HoldGIL/;
 
 
@@ -159,6 +161,9 @@ Sets the circular string's points
     virtual double xAt( int index ) const /HoldGIL/;
 
     virtual double yAt( int index ) const /HoldGIL/;
+
+
+    virtual bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = 0 );
 
 
 

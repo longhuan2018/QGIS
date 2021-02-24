@@ -19,6 +19,7 @@
 #include "qgscontrastenhancement.h"
 #include "qgsrastertransparency.h"
 #include "qgsrasterviewport.h"
+#include "qgslayertreemodellegendnode.h"
 
 #include <QDomDocument>
 #include <QDomElement>
@@ -439,7 +440,26 @@ QList<int> QgsMultiBandColorRenderer::usesBands() const
   return bandList;
 }
 
-void QgsMultiBandColorRenderer::toSld( QDomDocument &doc, QDomElement &element, const QgsStringMap &props ) const
+QList<QgsLayerTreeModelLegendNode *> QgsMultiBandColorRenderer::createLegendNodes( QgsLayerTreeLayer *nodeLayer )
+{
+  QList<QgsLayerTreeModelLegendNode *> res;
+  if ( mRedBand != -1 )
+  {
+    res << new QgsRasterSymbolLegendNode( nodeLayer, QColor( 255, 0, 0 ), displayBandName( mRedBand ) );
+  }
+  if ( mGreenBand != -1 )
+  {
+    res << new QgsRasterSymbolLegendNode( nodeLayer, QColor( 0, 255, 0 ), displayBandName( mGreenBand ) );
+  }
+  if ( mBlueBand != -1 )
+  {
+    res << new QgsRasterSymbolLegendNode( nodeLayer, QColor( 0, 0, 255 ), displayBandName( mBlueBand ) );
+  }
+
+  return res;
+}
+
+void QgsMultiBandColorRenderer::toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const
 {
   // create base structure
   QgsRasterRenderer::toSld( doc, element, props );

@@ -26,6 +26,8 @@
 #include "qgsauthmanager.h"
 #include "qgsmessagelog.h"
 
+#include "qgstiledownloadmanager.h"
+
 QgsVectorTileLoader::QgsVectorTileLoader( const QString &uri, const QgsTileMatrix &tileMatrix, const QgsTileRange &range, const QPointF &viewCenter, const QString &authid, const QString &referer, QgsFeedback *feedback )
   : mEventLoop( new QEventLoop )
   , mFeedback( feedback )
@@ -102,15 +104,14 @@ void QgsVectorTileLoader::loadFromNetworkAsync( const QgsTileXYZ &id, const QgsT
     QgsMessageLog::logMessage( tr( "network request update failed for authentication config" ), tr( "Network" ) );
   }
 
-  QNetworkReply *reply = QgsNetworkAccessManager::instance()->get( request );
-  connect( reply, &QNetworkReply::finished, this, &QgsVectorTileLoader::tileReplyFinished );
-
+  QgsTileDownloadManagerReply *reply = QgsApplication::tileDownloadManager()->get( request );
+  connect( reply, &QgsTileDownloadManagerReply::finished, this, &QgsVectorTileLoader::tileReplyFinished );
   mReplies << reply;
 }
 
 void QgsVectorTileLoader::tileReplyFinished()
 {
-  QNetworkReply *reply = qobject_cast<QNetworkReply *>( sender() );
+  QgsTileDownloadManagerReply *reply = qobject_cast<QgsTileDownloadManagerReply *>( sender() );
 
   int reqX = reply->request().attribute( static_cast<QNetworkRequest::Attribute>( QNetworkRequest::User + 1 ) ).toInt();
   int reqY = reply->request().attribute( static_cast<QNetworkRequest::Attribute>( QNetworkRequest::User + 2 ) ).toInt();
@@ -122,7 +123,7 @@ void QgsVectorTileLoader::tileReplyFinished()
     // TODO: handle redirections?
 
     QgsDebugMsgLevel( QStringLiteral( "Tile download successful: " ) + tileID.toString(), 2 );
-    QByteArray rawData = reply->readAll();
+    QByteArray rawData = reply->data();
     mReplies.removeOne( reply );
     reply->deleteLater();
 
@@ -147,11 +148,12 @@ void QgsVectorTileLoader::tileReplyFinished()
 void QgsVectorTileLoader::canceled()
 {
   QgsDebugMsgLevel( QStringLiteral( "Canceling %1 pending requests" ).arg( mReplies.count() ), 2 );
-  const QList<QNetworkReply *> replies = mReplies;
-  for ( QNetworkReply *reply : replies )
-  {
-    reply->abort();
-  }
+  qDeleteAll( mReplies );
+  mReplies.clear();
+
+  // stop blocking download
+  mEventLoop->quit();
+
 }
 
 //////

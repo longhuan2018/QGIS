@@ -21,6 +21,7 @@
 
 
 
+
 class QgsMapCanvas : QGraphicsView
 {
 %Docstring
@@ -211,7 +212,7 @@ Sets the canvas to the specified ``extent``.
 
 :return: ``True`` if the zoom was successful.
 
-:raises QgsCsException: if a transformation error occurred.
+:raises :: py:class:`QgsCsException` if a transformation error occurred.
 
 .. versionadded:: 3.10
 %End
@@ -287,6 +288,15 @@ Centers canvas extent to feature ids
 Pan to the selected features of current (vector) layer keeping same extent.
 %End
 
+    void panToSelected( const QList<QgsMapLayer *> &layers );
+%Docstring
+Pan to the combined extent of the selected features of all provided (vector) layers.
+
+:param layers: A list of layers
+
+.. versionadded:: 3.18
+%End
+
     void flashFeatureIds( QgsVectorLayer *layer, const QgsFeatureIds &ids,
                           const QColor &startColor = QColor( 255, 0, 0, 255 ), const QColor &endColor = QColor( 255, 0, 0, 0 ),
                           int flashes = 3, int duration = 500 );
@@ -334,7 +344,7 @@ Unset the current map tool or last non zoom tool
 
 This is called from destructor of map tools to make sure
 that this map tool won't be used any more.
-You don't have to call it manually, QgsMapTool takes care of it.
+You don't have to call it manually, :py:class:`QgsMapTool` takes care of it.
 %End
 
     QgsMapTool *mapTool();
@@ -476,7 +486,7 @@ a theme present in the associated project's :py:class:`QgsMapThemeCollection`.
 When the canvas is associated to a map theme, it will automatically follow
 the layer selection and layer styles from that theme. Calls to :py:func:`~QgsMapCanvas.setLayers`
 or :py:func:`~QgsMapCanvas.setLayerStyleOverrides` will have no effect, and canvases associated
-with a QgsLayerTreeMapCanvasBridge will no longer synchronize their
+with a :py:class:`QgsLayerTreeMapCanvasBridge` will no longer synchronize their
 state with the layer tree. In these cases it is necessary to call
 :py:func:`~QgsMapCanvas.setTheme` with an empty string to clear the theme association and
 allow map updates with :py:func:`~QgsMapCanvas.setLayers`, :py:func:`~QgsMapCanvas.setLayerStyleOverrides`, or via
@@ -954,6 +964,15 @@ Zoom to the extent of the selected features of provided (vector) layer.
 :param layer: optionally specify different than current layer
 %End
 
+    void zoomToSelected( const QList<QgsMapLayer *> &layers );
+%Docstring
+Zoom to the combined extent of the selected features of all provided (vector) layers.
+
+:param layers: A list of layers
+
+.. versionadded:: 3.18
+%End
+
     void setZoomResolutions( const QList<double> &resolutions );
 %Docstring
 Set a list of resolutions (map units per pixel) to which to "snap to" when zooming the map
@@ -961,6 +980,16 @@ Set a list of resolutions (map units per pixel) to which to "snap to" when zoomi
 :param resolutions: A list of resolutions
 
 .. versionadded:: 3.12
+%End
+
+    double zoomInFactor() const;
+%Docstring
+Returns the zoom in factor.
+%End
+
+    double zoomOutFactor() const;
+%Docstring
+Returns the zoom in factor.
 %End
 
     const QList<double> &zoomResolutions() const;
@@ -971,6 +1000,28 @@ Set a list of resolutions (map units per pixel) to which to "snap to" when zoomi
 .. seealso:: :py:func:`setZoomResolutions`
 
 .. versionadded:: 3.12
+%End
+
+    QgsDoubleRange zRange() const;
+%Docstring
+Returns the range of z-values which will be visible in the map.
+
+.. seealso:: :py:func:`setZRange`
+
+.. seealso:: :py:func:`zRangeChanged`
+
+.. versionadded:: 3.18
+%End
+
+    void setZRange( const QgsDoubleRange &range );
+%Docstring
+Sets the ``range`` of z-values which will be visible in the map.
+
+.. seealso:: :py:func:`zRange`
+
+.. seealso:: :py:func:`zRangeChanged`
+
+.. versionadded:: 3.18
 %End
 
   signals:
@@ -1036,6 +1087,13 @@ Emitted when canvas finished a refresh request.
     void renderStarting();
 %Docstring
 Emitted when the canvas is about to be rendered.
+%End
+
+    void mapRefreshCanceled();
+%Docstring
+Emitted when the pending map refresh has been canceled
+
+.. versionadded:: 3.18
 %End
 
     void layersChanged();
@@ -1153,6 +1211,16 @@ Emitted when the map canvas temporal range changes.
 .. versionadded:: 3.14
 %End
 
+    void zRangeChanged();
+%Docstring
+Emitted when the map canvas z (elevation) range changes.
+
+.. seealso:: :py:func:`zRange`
+
+.. seealso:: :py:func:`setZRange`
+
+.. versionadded:: 3.18
+%End
 
     void contextMenuAboutToShow( QMenu *menu, QgsMapMouseEvent *event );
 %Docstring
@@ -1161,7 +1229,6 @@ Can be used to extend the context menu.
 
 .. versionadded:: 3.16
 %End
-
 
   protected:
 

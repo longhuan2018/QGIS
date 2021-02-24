@@ -206,7 +206,7 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
     /**
      * Returns the best suited frame number for the specified datetime, based on the start of the corresponding temporal range.
      */
-    long findBestFrameNumberForFrameStart( const QDateTime &frameStart ) const;
+    long long findBestFrameNumberForFrameStart( const QDateTime &frameStart ) const;
 
     QgsExpressionContextScope *createExpressionContextScope() const override SIP_FACTORY;
 
@@ -304,7 +304,7 @@ class CORE_EXPORT QgsTemporalNavigationObject : public QgsTemporalController, pu
     long long mCurrentFrameNumber = 0;
 
     //! Frame duration
-    QgsInterval mFrameDuration;
+    QgsInterval mFrameDuration = QgsInterval( 1.0, QgsUnitTypes::TemporalUnit::TemporalHours );
 
     //! Member for frame rate
     double mFramesPerSecond = 1;

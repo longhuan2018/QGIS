@@ -7,41 +7,7 @@ set (util_SRCS)
 # the UI file won't be wrapped!
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/layout
-  ${CMAKE_SOURCE_DIR}/src/core/mesh
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/numericformats
-  ${CMAKE_SOURCE_DIR}/src/core/processing
-  ${CMAKE_SOURCE_DIR}/src/core/processing/models
-  ${CMAKE_SOURCE_DIR}/src/core/providers/meshmemory
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/core/effects
-  ${CMAKE_SOURCE_DIR}/src/core/textrenderer
-  ${CMAKE_SOURCE_DIR}/src/analysis
-  ${CMAKE_SOURCE_DIR}/src/analysis/interpolation
-  ${CMAKE_SOURCE_DIR}/src/analysis/network
-  ${CMAKE_SOURCE_DIR}/src/analysis/processing
-  ${CMAKE_SOURCE_DIR}/src/analysis/vector
-  ${CMAKE_SOURCE_DIR}/src/analysis/raster
-  ${CMAKE_SOURCE_DIR}/src/analysis/mesh
   ${CMAKE_SOURCE_DIR}/src/test
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
-
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/analysis
-)
-include_directories(SYSTEM
-  ${QT_INCLUDE_DIR}
-  ${GDAL_INCLUDE_DIR}
-  ${GEOS_INCLUDE_DIR}
-  ${SQLITE3_INCLUDE_DIR}
 )
 
 if(HAVE_OPENCL)
@@ -89,7 +55,7 @@ set(TESTS
  testqgsreclassifyutils.cpp
  testqgsalignraster.cpp
  testqgsnetworkanalysis.cpp
- testqgsninecellfilters.cpp 
+ testqgsninecellfilters.cpp
  testqgsmeshcalculator.cpp
  testqgsmeshcontours.cpp
  testqgstriangulation.cpp

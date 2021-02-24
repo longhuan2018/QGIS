@@ -331,6 +331,14 @@ class CORE_EXPORT QgsProcessingParameterDefinition
 {
 
 #ifdef SIP_RUN
+    % TypeHeaderCode
+#include "qgsprocessingparameteraggregate.h"
+#include "qgsprocessingparameterdxflayers.h"
+#include "qgsprocessingparameterfieldmap.h"
+#include "qgsprocessingparametertininputlayers.h"
+#include "qgsprocessingparametervectortilewriterlayers.h"
+#include "qgsprocessingparametermeshdataset.h"
+    % End
     SIP_CONVERT_TO_SUBCLASS_CODE
     if ( sipCpp->type() == QgsProcessingParameterBoolean::typeName() )
       sipType = sipType_QgsProcessingParameterBoolean;
@@ -410,6 +418,14 @@ class CORE_EXPORT QgsProcessingParameterDefinition
       sipType = sipType_QgsProcessingParameterFieldMapping;
     else if ( sipCpp->type() == QgsProcessingParameterTinInputLayers::typeName() )
       sipType = sipType_QgsProcessingParameterTinInputLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterVectorTileWriterLayers::typeName() )
+      sipType = sipType_QgsProcessingParameterVectorTileWriterLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterDxfLayers::typeName() )
+      sipType = sipType_QgsProcessingParameterDxfLayers;
+    else if ( sipCpp->type() == QgsProcessingParameterMeshDatasetGroups::typeName() )
+      sipType = sipType_QgsProcessingParameterMeshDatasetGroups;
+    else if ( sipCpp->type() == QgsProcessingParameterMeshDatasetTime::typeName() )
+      sipType = sipType_QgsProcessingParameterMeshDatasetTime;
     else
       sipType = nullptr;
     SIP_END
@@ -973,6 +989,30 @@ class CORE_EXPORT QgsProcessingParameters
      * \since QGIS 3.4
      */
     static QList<int> parameterAsEnums( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition to a static enum string.
+     * \since QGIS 3.18
+     */
+    static QString parameterAsEnumString( const QgsProcessingParameterDefinition *definition, const QVariantMap &parameters, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition and \a value to a static enum string.
+     * \since QGIS 3.18
+     */
+    static QString parameterAsEnumString( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition to list of static enum strings.
+     * \since QGIS 3.18
+     */
+    static QStringList parameterAsEnumStrings( const QgsProcessingParameterDefinition *definition, const QVariantMap &parameters, const QgsProcessingContext &context );
+
+    /**
+     * Evaluates the parameter with matching \a definition and \a value to list of static enum strings.
+     * \since QGIS 3.18
+     */
+    static QStringList parameterAsEnumStrings( const QgsProcessingParameterDefinition *definition, const QVariant &value, const QgsProcessingContext &context );
 
     /**
      * Evaluates the parameter with matching \a definition to a static boolean value.
@@ -2310,7 +2350,8 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
     QgsProcessingParameterEnum( const QString &name, const QString &description = QString(), const QStringList &options = QStringList(),
                                 bool allowMultiple = false,
                                 const QVariant &defaultValue = QVariant(),
-                                bool optional = false );
+                                bool optional = false,
+                                bool usesStaticStrings = false );
 
     /**
      * Returns the type name for the parameter class.
@@ -2347,6 +2388,22 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
      */
     void setAllowMultiple( bool allowMultiple );
 
+    /**
+     * Returns TRUE if the parameter uses static (non-translated) string
+     * values for its enumeration choice list.
+     * \see setUsesStaticStrings()
+     * \since QGIS 3.18
+     */
+    bool usesStaticStrings() const;
+
+    /**
+     * Sets whether the parameter uses static (non-translated) string
+     * values for its enumeration choice list.
+     * \see usesStaticStrings()
+     * \since QGIS 3.18
+     */
+    void setUsesStaticStrings( bool usesStaticStrings );
+
     QVariantMap toVariantMap() const override;
     bool fromVariantMap( const QVariantMap &map ) override;
 
@@ -2359,7 +2416,7 @@ class CORE_EXPORT QgsProcessingParameterEnum : public QgsProcessingParameterDefi
 
     QStringList mOptions;
     bool mAllowMultiple = false;
-
+    bool mUsesStaticStrings = false;
 };
 
 /**

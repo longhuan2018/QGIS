@@ -16,10 +16,10 @@ set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 #############################################################
 # Project and version
 set(CPACK_PACKAGE_VERSION_MAJOR "3")
-set(CPACK_PACKAGE_VERSION_MINOR "16")
-set(CPACK_PACKAGE_VERSION_PATCH "4")
+set(CPACK_PACKAGE_VERSION_MINOR "18")
+set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(COMPLETE_VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
-set(RELEASE_NAME "Hannover")
+set(RELEASE_NAME "Zürich")
 project(qgis VERSION ${COMPLETE_VERSION})
 
 if (APPLE)
@@ -241,6 +241,28 @@ if(WITH_CORE)
     set(ORACLE_LIBDIR "" CACHE STRING "Path to OCI libraries")
   endif()
 
+  set (WITH_HANA FALSE CACHE BOOL "Determines whether SAP HANA Spatial support should be built")
+  if(WITH_HANA)
+    find_package(ODBC)
+    if(ODBC_FOUND)
+      set(HAVE_HANA TRUE)
+      add_subdirectory(external/odbccpp)
+      set_target_properties(odbccpp_static PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
+    else()
+      message(STATUS "Couldn't find ODBC library")
+    endif()
+  endif(WITH_HANA)
+
+  set (WITH_PDAL FALSE CACHE BOOL "Determines whether PDAL support should be built")
+  if(WITH_PDAL)
+    set(HAVE_PDAL TRUE)
+  endif()
+
+  set (WITH_EPT TRUE CACHE BOOL "Determines whether Entwine Point Cloud (EPT) support should be built")
+  if(WITH_EPT)
+    set(HAVE_EPT TRUE)
+  endif()
+
   #BUILD WITH QtMobility by default on android only. Other platform can force it
   if (ANDROID)
       set (DEFAULT_WITH_QTMOBILITY TRUE)
@@ -385,6 +407,29 @@ if(WITH_CORE)
   else()
     message(STATUS "Qt WebKit support DISABLED.")
   endif()
+
+  if (WITH_EPT)  # EPT provider
+    find_package(ZSTD) # for decompression of point clouds
+    if (NOT ZSTD_FOUND)
+      message(FATAL_ERROR "ZSTD not found - EPT provider cannot be built")
+    endif()
+    find_package(LazPerf) # for decompression of point clouds
+    if (NOT LazPerf_FOUND)
+      message(STATUS "Using embedded laz-perf")
+    endif()
+    set(HAVE_EPT TRUE)  # used in qgsconfig.h
+  endif()
+
+  if (WITH_PDAL)
+    if (NOT WITH_EPT)
+      message(FATAL_ERROR "PDAL provider cannot be built with EPT disabled")
+    endif()
+    find_package(PDAL) # PDAL provider
+  endif()
+  if (PDAL_FOUND)
+    set(HAVE_PDAL TRUE)  # used in qgsconfig.h
+  endif()
+
   #############################################################
   # search for Qt5
   set(QT_MIN_VERSION 5.9.0)
@@ -693,7 +738,11 @@ if (WITH_CORE)
     endif()
   else()
 
-    if (APPLE)
+    if(APPLE)
+        set(QGIS_MACAPP_FRAMEWORK TRUE CACHE BOOL "Build as a framework on OSX")
+    endif()
+
+    if (APPLE AND QGIS_MACAPP_FRAMEWORK)
       if (POLICY CMP0042) # in CMake 3.0.0+
         set (CMAKE_MACOSX_RPATH OFF) # otherwise ON by default
       endif()
@@ -766,6 +815,13 @@ if (WITH_CORE)
       set (DEFAULT_QML_SUBDIR     qml)
 
       set (DEFAULT_SERVER_MODULE_SUBDIR ${DEFAULT_LIBEXEC_SUBDIR}/server)
+
+      # QGIS_MACAPP_FRAMEWORK=FALSE
+      if(APPLE)
+        set (QGIS_MACAPP_BUNDLE -1)
+        set (CMAKE_FRAMEWORK FALSE)
+        set (QGIS_INSTALL_PREFIX ${CMAKE_INSTALL_PREFIX})
+      endif()
     endif()
 
   endif()
@@ -863,19 +919,27 @@ if (DISABLE_DEPRECATED)
   add_definitions(-DQGIS_DISABLE_DEPRECATED)
 endif()
 
+# whether to install required system libs in the output package
+set(QGIS_INSTALL_SYS_LIBS TRUE CACHE BOOL "If set to TRUE install all required system libs in the output package")
 
 #############################################################
 # Python build dependency
 
 find_package(PythonLibrary REQUIRED)
+set(MIN_PYTHON_VERSION "3.6")
+if(${PYTHON_SHORT_VERSION} VERSION_LESS ${MIN_PYTHON_VERSION})
+    message(FATAL_ERROR "Python version ${PYTHON_SHORT_VERSION} is too old. Minimum Python version is ${MIN_PYTHON_VERSION}.")
+endif()
+
+set(MIN_PYTHON_VERSION "3.6")
+if(${PYTHON_SHORT_VERSION} VERSION_LESS ${MIN_PYTHON_VERSION})
+    message(FATAL_ERROR "Python version ${PYTHON_SHORT_VERSION} is too old. Minimum Python version is ${MIN_PYTHON_VERSION}.")
+endif()
 
 #############################################################
 # Python bindings
 
 if (WITH_CORE AND WITH_BINDINGS)
-
-  find_package(PythonLibrary REQUIRED)
-
   # python support: check for interpreter, sip, pyqt5
   find_package(PyQt5 REQUIRED)
   set(PYQT_SIP_FLAGS ${PYQT5_SIP_FLAGS})
@@ -1019,7 +1083,10 @@ if (WITH_CORE)
   if(NOT DEFINED CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS)
     set(CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS_NO_WARNINGS ON)
   endif()
-  include(InstallRequiredSystemLibraries)
+
+  if(QGIS_INSTALL_SYS_LIBS)
+    include(InstallRequiredSystemLibraries)
+  endif()
 
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "QGIS")
   set(CPACK_PACKAGE_VENDOR "Open Source Geospatial Foundation")

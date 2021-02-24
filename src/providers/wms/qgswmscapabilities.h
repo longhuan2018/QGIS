@@ -436,7 +436,7 @@ struct QgsWmstResolution
   int minutes = -1;
   int seconds = -1;
 
-  long long interval()
+  long long interval() const
   {
     long long secs = 0.0;
 
@@ -456,13 +456,13 @@ struct QgsWmstResolution
     return secs;
   }
 
-  bool active()
+  bool active() const
   {
     return year != -1 || month != -1 || day != -1 ||
            hour != -1 || minutes != -1 || seconds != -1;
   }
 
-  QString text()
+  QString text() const
   {
     QString text( "P" );
 
@@ -506,7 +506,7 @@ struct QgsWmstResolution
     return text;
   }
 
-  bool operator== ( const QgsWmstResolution &other )
+  bool operator==( const QgsWmstResolution &other ) const
   {
     return year == other.year && month == other.month &&
            day == other.day && hour == other.hour &&
@@ -569,7 +569,7 @@ struct QgsWmtsTileMatrix
   QString identifier;
   QString title, abstract;
   QStringList keywords;
-  double scaleDenom;
+  double scaleDenom = 0;
   QgsPointXY topLeft;  //!< Top-left corner of the tile matrix in map units
   int tileWidth;     //!< Width of a tile in pixels
   int tileHeight;    //!< Height of a tile in pixels
@@ -643,7 +643,7 @@ struct QgsWmtsStyle
   QString identifier;
   QString title, abstract;
   QStringList keywords;
-  bool isDefault;
+  bool isDefault = false;
   QList<QgsWmtsLegendURL> legendURLs;
 };
 
@@ -815,7 +815,7 @@ class QgsWmsSettings
      *
      * \since QGIS 3.14
      */
-    QgsWmstDimensionExtent parseTemporalExtent( QString extent );
+    QgsWmstDimensionExtent parseTemporalExtent( const QString &extent );
 
     /**
      * Sets the dimension extent property
@@ -823,7 +823,7 @@ class QgsWmsSettings
      * \see timeDimensionExtent()
      * \since QGIS 3.14
      */
-    void setTimeDimensionExtent( QgsWmstDimensionExtent timeDimensionExtent );
+    void setTimeDimensionExtent( const QgsWmstDimensionExtent &timeDimensionExtent );
 
     /**
      * Returns the dimension extent property.
@@ -838,21 +838,21 @@ class QgsWmsSettings
      *
      * \since QGIS 3.14
      */
-    QgsWmstResolution parseWmstResolution( QString item );
+    QgsWmstResolution parseWmstResolution( const QString &item );
 
     /**
      * Parse the given string item into QDateTime instant.
      *
      * \since QGIS 3.14
      */
-    QDateTime parseWmstDateTimes( QString item );
+    QDateTime parseWmstDateTimes( const QString &item );
 
     /**
      * Returns the datetime with the sum of passed \a dateTime and the \a resolution time.
      *
      * \since QGIS 3.14
      */
-    QDateTime addTime( QDateTime dateTime, QgsWmstResolution resolution );
+    QDateTime addTime( const QDateTime &dateTime, const QgsWmstResolution &resolution );
 
     /**
      * Finds the least closest datetime from list of available dimension temporal ranges
@@ -862,7 +862,7 @@ class QgsWmsSettings
      *
      * \since QGIS 3.14
      */
-    QDateTime findLeastClosestDateTime( QDateTime dateTime, bool dateOnly = false ) const;
+    QDateTime findLeastClosestDateTime( const QDateTime &dateTime, bool dateOnly = false ) const;
 
   protected:
     QgsWmsParserSettings    mParserSettings;
@@ -933,6 +933,7 @@ class QgsWmsSettings
     QStringList mActiveSubLayers;
     QStringList mActiveSubStyles;
 
+    //! Opacities for wms layers. Same ordering as mActiveSubLayers/mActiveSubStyles
     QStringList mOpacities;
 
     /**

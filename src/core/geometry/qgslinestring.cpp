@@ -23,6 +23,8 @@
 #include "qgsmaptopixel.h"
 #include "qgswkbptr.h"
 #include "qgslinesegment.h"
+#include "qgsgeometrytransformer.h"
+#include "qgsfeedback.h"
 
 #include <nlohmann/json.hpp>
 #include <cmath>
@@ -308,6 +310,16 @@ void QgsLineString::clear()
 bool QgsLineString::isEmpty() const
 {
   return mX.isEmpty();
+}
+
+bool QgsLineString::isValid( QString &error, int flags ) const
+{
+  if ( !isEmpty() && ( numPoints() < 2 ) )
+  {
+    error = QObject::tr( "LineString has less than 2 points and is not empty." );
+    return false;
+  }
+  return QgsCurve::isValid( error, flags );
 }
 
 QgsLineString *QgsLineString::snappedToGrid( double hSpacing, double vSpacing, double dSpacing, double mSpacing ) const
@@ -1030,12 +1042,12 @@ QgsLineString *QgsLineString::curveSubstring( double startDistance, double endDi
 
   endDistance = std::max( startDistance, endDistance );
 
-  double distanceTraversed = 0;
   const int totalPoints = numPoints();
   if ( totalPoints == 0 )
     return clone();
 
   QVector< QgsPoint > substringPoints;
+  substringPoints.reserve( totalPoints );
 
   QgsWkbTypes::Type pointType = QgsWkbTypes::Point;
   if ( is3D() )
@@ -1048,19 +1060,15 @@ QgsLineString *QgsLineString::curveSubstring( double startDistance, double endDi
   const double *z = is3D() ? mZ.constData() : nullptr;
   const double *m = isMeasure() ? mM.constData() : nullptr;
 
+  double distanceTraversed = 0;
   double prevX = *x++;
   double prevY = *y++;
   double prevZ = z ? *z++ : 0.0;
   double prevM = m ? *m++ : 0.0;
   bool foundStart = false;
 
-  if ( qgsDoubleNear( startDistance, 0.0 ) || startDistance < 0 )
-  {
-    substringPoints << QgsPoint( pointType, prevX, prevY, prevZ, prevM );
-    foundStart = true;
-  }
-
-  substringPoints.reserve( totalPoints );
+  if ( startDistance < 0 )
+    startDistance = 0;
 
   for ( int i = 1; i < totalPoints; ++i )
   {
@@ -1070,7 +1078,8 @@ QgsLineString *QgsLineString::curveSubstring( double startDistance, double endDi
     double thisM = m ? *m++ : 0.0;
 
     const double segmentLength = std::sqrt( ( thisX - prevX ) * ( thisX - prevX ) + ( thisY - prevY ) * ( thisY - prevY ) );
-    if ( distanceTraversed < startDistance && distanceTraversed + segmentLength > startDistance )
+
+    if ( distanceTraversed <= startDistance && startDistance < distanceTraversed + segmentLength )
     {
       // start point falls on this segment
       const double distanceToStart = startDistance - distanceTraversed;
@@ -1100,14 +1109,20 @@ QgsLineString *QgsLineString::curveSubstring( double startDistance, double endDi
       substringPoints << QgsPoint( pointType, thisX, thisY, thisZ, thisM );
     }
 
-    distanceTraversed += segmentLength;
-    if ( distanceTraversed > endDistance )
-      break;
-
     prevX = thisX;
     prevY = thisY;
     prevZ = thisZ;
     prevM = thisM;
+    distanceTraversed += segmentLength;
+    if ( distanceTraversed >= endDistance )
+      break;
+  }
+
+  // start point is the last node
+  if ( !foundStart && qgsDoubleNear( distanceTraversed, startDistance ) )
+  {
+    substringPoints << QgsPoint( pointType, prevX, prevY, prevZ, prevM )
+                    << QgsPoint( pointType, prevX, prevY, prevZ, prevM );
   }
 
   return new QgsLineString( substringPoints );
@@ -1707,6 +1722,50 @@ bool QgsLineString::convertTo( QgsWkbTypes::Type type )
   {
     return QgsCurve::convertTo( type );
   }
+}
+
+bool QgsLineString::transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback )
+{
+  if ( !transformer )
+    return false;
+
+  bool hasZ = is3D();
+  bool hasM = isMeasure();
+  int size = mX.size();
+
+  double *srcX = mX.data();
+  double *srcY = mY.data();
+  double *srcM = hasM ? mM.data() : nullptr;
+  double *srcZ = hasZ ? mZ.data() : nullptr;
+
+  bool res = true;
+  for ( int i = 0; i < size; ++i )
+  {
+    double x = *srcX;
+    double y = *srcY;
+    double z = hasZ ? *srcZ : std::numeric_limits<double>::quiet_NaN();
+    double m = hasM ? *srcM : std::numeric_limits<double>::quiet_NaN();
+    if ( !transformer->transformPoint( x, y, z, m ) )
+    {
+      res = false;
+      break;
+    }
+
+    *srcX++ = x;
+    *srcY++ = y;
+    if ( hasM )
+      *srcM++ = m;
+    if ( hasZ )
+      *srcZ++ = z;
+
+    if ( feedback && feedback->isCanceled() )
+    {
+      res = false;
+      break;
+    }
+  }
+  clearCache();
+  return res;
 }
 
 void QgsLineString::filterVertices( const std::function<bool ( const QgsPoint & )> &filter )

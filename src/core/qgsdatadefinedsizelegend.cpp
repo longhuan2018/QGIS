@@ -240,7 +240,7 @@ void QgsDataDefinedSizeLegend::drawCollapsedLegend( QgsRenderContext &context, Q
   // but we need to avoid overlapping texts, so adjust the vertical positions
   double middleIndex = 0; // classes.count() / 2;  // will get the ideal position
   QList<double> textCenterY;
-  double lastY = symbolTopY[middleIndex];
+  double lastY = middleIndex < symbolTopY.size() ? symbolTopY[middleIndex] : 0;
   textCenterY << lastY;
   for ( int i = middleIndex + 1; i < classes.count(); ++i )
   {
@@ -300,7 +300,6 @@ void QgsDataDefinedSizeLegend::drawCollapsedLegend( QgsRenderContext &context, Q
 
   if ( mLineSymbol )
   {
-    mLineSymbol->setColor( mTextColor );
     mLineSymbol->startRender( context );
   }
 
@@ -375,10 +374,10 @@ QgsDataDefinedSizeLegend *QgsDataDefinedSizeLegend::readXml( const QDomElement &
     ddsLegend->setSymbol( QgsSymbolLayerUtils::loadSymbol<QgsMarkerSymbol>( elemSymbol, context ) );
   }
 
-  QDomElement lineSymbol = elem.firstChildElement( QStringLiteral( "lineSymbol" ) );
-  if ( !lineSymbol.isNull() )
+  const QDomElement lineSymbolElem = elem.firstChildElement( QStringLiteral( "lineSymbol" ) );
+  if ( !lineSymbolElem.isNull() )
   {
-    ddsLegend->setLineSymbol( QgsSymbolLayerUtils::loadSymbol<QgsLineSymbol>( lineSymbol, context ) );
+    ddsLegend->setLineSymbol( QgsSymbolLayerUtils::loadSymbol<QgsLineSymbol>( lineSymbolElem.firstChildElement(), context ) );
   }
 
   QgsSizeScaleTransformer *transformer = nullptr;
@@ -435,8 +434,9 @@ void QgsDataDefinedSizeLegend::writeXml( QDomElement &elem, const QgsReadWriteCo
 
   if ( mLineSymbol )
   {
-    QDomElement elemSymbol = QgsSymbolLayerUtils::saveSymbol( QStringLiteral( "lineSymbol" ), mLineSymbol.get(), doc, context );
-    elem.appendChild( elemSymbol );
+    QDomElement lineSymbolElem = doc.createElement( QStringLiteral( "lineSymbol" ) );
+    lineSymbolElem.appendChild( QgsSymbolLayerUtils::saveSymbol( QStringLiteral( "lineSymbol" ), mLineSymbol.get(), doc, context ) );
+    elem.appendChild( lineSymbolElem );
   }
 
   if ( mSizeScaleTransformer )

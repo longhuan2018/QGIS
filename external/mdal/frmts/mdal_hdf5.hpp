@@ -196,9 +196,9 @@ class HdfDataset
     //! creates invalid dataset
     HdfDataset() = default;
 
-    //! Create new, simple 1 dimensional dataset
+    //! Creates new, simple 1 dimensional dataset
     HdfDataset( hid_t file, const std::string &path, HdfDataType dtype, size_t nItems = 1 );
-    //! Create new dataset with custom dimensions
+    //! Creates new dataset with custom dimensions
     HdfDataset( hid_t file, const std::string &path, HdfDataType dtype, HdfDataspace dataspace );
     //! Opens dataset for reading
     HdfDataset( hid_t file, const std::string &path );
@@ -289,9 +289,6 @@ class HdfDataset
 
   protected:
     std::shared_ptr<Handle> d;
-    hid_t m_fileId;
-    std::string m_path;
-
     HdfDataType mType; // when in write mode
 };
 

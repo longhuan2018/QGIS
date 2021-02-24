@@ -17,6 +17,10 @@
 #define QGS3DAPPUTILS_H
 
 #include "qgis_app.h"
+#include <memory>
+
+class QgsPointCloudLayer3DRenderer;
+class QgsPointCloudRenderer;
 
 class APP_EXPORT Qgs3DAppUtils
 {
@@ -26,6 +30,8 @@ class APP_EXPORT Qgs3DAppUtils
      * Initializes 3D components belonging to the app library.
      */
     static void initialize();
+
+    static std::unique_ptr< QgsPointCloudLayer3DRenderer > convert2dPointCloudRendererTo3d( QgsPointCloudRenderer *renderer );
 
 };
 

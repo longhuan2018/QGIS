@@ -308,8 +308,7 @@ static QString pickLegend( const QgsWmsStyleProperty &s )
 
 static const QgsWmsStyleProperty *searchStyle( const QVector<QgsWmsStyleProperty> &styles, const QString &name )
 {
-  const auto constStyles = styles;
-  for ( const QgsWmsStyleProperty &s : constStyles )
+  for ( const QgsWmsStyleProperty &s : styles )
     if ( s.name == name )
       return &s;
   return nullptr;
@@ -1042,8 +1041,8 @@ QUrl QgsWmsProvider::createRequestUrlWMS( const QgsRectangle &viewExtent, int pi
   {
     if ( mActiveSubLayerVisibility.constFind( *it ).value() )
     {
-      visibleLayers += *it;
-      visibleStyles += *it2;
+      visibleLayers += QUrl::toPercentEncoding( *it );
+      visibleStyles += QUrl::toPercentEncoding( *it2 );
     }
 
     ++it2;
@@ -3068,7 +3067,7 @@ QgsRasterIdentifyResult QgsWmsProvider::identify( const QgsPointXY &point, QgsRa
         const QStringList parts = mSettings.mBaseUrl.split( QRegularExpression( "\\?" ) );
         const QString base = parts.isEmpty() ? mSettings.mBaseUrl : parts.first();
         // and strip everything before the `rest` element (at least for GeoServer)
-        const int index = url.length() - url.lastIndexOf( QStringLiteral( "rest" ) ) + 1; // +1 for the /
+        const int index = url.length() - url.lastIndexOf( QLatin1String( "rest" ) ) + 1; // +1 for the /
         url = base + url.right( index );
       }
 
@@ -4682,14 +4681,14 @@ QList<QgsDataItemProvider *> QgsWmsProviderMetadata::dataItemProviders() const
   return providers;
 }
 
-QVariantMap QgsWmsProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsWmsProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QUrlQuery query { uri };
   const auto constItems { query.queryItems() };
   QVariantMap decoded;
   for ( const auto &item : constItems )
   {
-    if ( item.first == QStringLiteral( "url" ) )
+    if ( item.first == QLatin1String( "url" ) )
     {
       const QUrl url( item.second );
       if ( url.isLocalFile() )
@@ -4709,13 +4708,13 @@ QVariantMap QgsWmsProviderMetadata::decodeUri( const QString &uri )
   return decoded;
 }
 
-QString QgsWmsProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsWmsProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QUrlQuery query;
   QList<QPair<QString, QString> > items;
   for ( auto it = parts.constBegin(); it != parts.constEnd(); ++it )
   {
-    if ( it.key() == QStringLiteral( "path" ) )
+    if ( it.key() == QLatin1String( "path" ) )
     {
       items.push_back( { QStringLiteral( "url" ), QUrl::fromLocalFile( it.value().toString() ).toString() } );
     }

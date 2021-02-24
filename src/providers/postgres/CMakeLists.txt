@@ -35,21 +35,7 @@ set(PG_HDRS
 # Build
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/gui
-  ${CMAKE_SOURCE_DIR}/src/gui/auth
-  ${CMAKE_SOURCE_DIR}/src/gui/codeeditors
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
 
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/gui
   ${CMAKE_BINARY_DIR}/src/ui
 )
 
@@ -71,6 +57,7 @@ endif()
 # static library
 add_library (postgresprovider_a STATIC ${PG_SRCS} ${PG_HDRS})
 target_link_libraries (postgresprovider_a
+  qgis_core
   ${POSTGRES_LIBRARY}
   ${Qt5Xml_LIBRARIES}
   ${Qt5Core_LIBRARIES}
@@ -83,6 +70,8 @@ target_link_libraries (postgresprovider_a
 if (WITH_GUI)
   add_library(postgresprovider_gui_a STATIC ${PG_GUI_SRCS})
   target_link_libraries(postgresprovider_gui_a
+    qgis_gui
+    postgresprovider_a
     ${POSTGRES_LIBRARY}
     ${Qt5Xml_LIBRARIES}
     ${Qt5Core_LIBRARIES}
@@ -110,6 +99,7 @@ set(PGRASTER_SRCS
 # static library
 add_library (postgresrasterprovider_a STATIC ${PGRASTER_SRCS} ${PG_HDRS})
 target_link_libraries (postgresrasterprovider_a
+    qgis_core
     ${POSTGRES_LIBRARY}
     ${Qt5Xml_LIBRARIES}
     ${Qt5Core_LIBRARIES}
@@ -120,6 +110,13 @@ target_link_libraries (postgresrasterprovider_a
     ${Qt5Gui_LIBRARIES}
     ${Qt5Widgets_LIBRARIES}
 )
+
+if (WITH_GUI)
+  target_link_libraries (postgresrasterprovider_a
+    qgis_gui
+  )
+  add_dependencies(postgresrasterprovider_a ui)
+endif()
 
 #################################################################
 
@@ -149,7 +146,7 @@ else()
     target_link_libraries (postgresprovider
       qgis_gui
     )
-    add_dependencies(postgresprovider ui)    
+    add_dependencies(postgresprovider ui)
   endif()
 
 

@@ -20,6 +20,7 @@
 #include "qgsdataprovider.h"
 #include "qgsmaplayer.h"
 #include "qgsexception.h"
+#include "qgsabstractdatabaseproviderconnection.h"
 
 QgsProviderMetadata::QgsProviderMetadata( QString const &key,
     QString const &description,
@@ -50,6 +51,11 @@ QString QgsProviderMetadata::description() const
   return mDescription;
 }
 
+QgsProviderMetadata::ProviderMetadataCapabilities QgsProviderMetadata::capabilities() const
+{
+  return QgsProviderMetadata::ProviderMetadataCapabilities();
+}
+
 QString QgsProviderMetadata::library() const
 {
   return mLibrary;
@@ -78,6 +84,21 @@ QString QgsProviderMetadata::filters( FilterType )
 QList<QgsMeshDriverMetadata> QgsProviderMetadata::meshDriversMetadata()
 {
   return QList<QgsMeshDriverMetadata>();
+}
+
+int QgsProviderMetadata::priorityForUri( const QString & ) const
+{
+  return 0;
+}
+
+QList<QgsMapLayerType> QgsProviderMetadata::validLayerTypesForUri( const QString & ) const
+{
+  return QList<QgsMapLayerType>();
+}
+
+bool QgsProviderMetadata::uriIsBlocklisted( const QString & ) const
+{
+  return false;
 }
 
 QgsDataProvider *QgsProviderMetadata::createProvider( const QString &uri,
@@ -125,12 +146,12 @@ bool QgsProviderMetadata::boolParameter( const QVariantMap &uri, const QString &
   return defaultValue;
 }
 
-QVariantMap QgsProviderMetadata::decodeUri( const QString & )
+QVariantMap QgsProviderMetadata::decodeUri( const QString & ) const
 {
   return QVariantMap();
 }
 
-QString QgsProviderMetadata::encodeUri( const QVariantMap & )
+QString QgsProviderMetadata::encodeUri( const QVariantMap & ) const
 {
   return QString();
 }

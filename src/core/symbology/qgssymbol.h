@@ -25,6 +25,7 @@
 #include "qgsrendercontext.h"
 #include "qgsproperty.h"
 #include "qgssymbollayerreference.h"
+#include "qgspropertycollection.h"
 
 class QColor;
 class QImage;
@@ -106,6 +107,21 @@ class CORE_EXPORT QgsSymbol
       DynamicRotation = 2, //!< Rotation of symbol may be changed during rendering and symbol should not be cached
     };
     Q_DECLARE_FLAGS( RenderHints, RenderHint )
+
+    /**
+     * Data definable properties.
+     * \since QGIS 3.18
+     */
+    enum Property
+    {
+      PropertyOpacity, //!< Opacity
+    };
+
+    /**
+     * Returns the symbol property definitions.
+     * \since QGIS 3.18
+     */
+    static const QgsPropertiesDefinition &propertyDefinitions();
 
     virtual ~QgsSymbol();
 
@@ -407,7 +423,7 @@ class CORE_EXPORT QgsSymbol
     /**
      * Converts the symbol to a SLD representation.
      */
-    void toSld( QDomDocument &doc, QDomElement &element, QgsStringMap props ) const;
+    void toSld( QDomDocument &doc, QDomElement &element, QVariantMap props ) const;
 
     /**
      * Returns the units to use for sizes and widths within the symbol. Individual
@@ -535,10 +551,53 @@ class CORE_EXPORT QgsSymbol
     QSet<QString> usedAttributes( const QgsRenderContext &context ) const;
 
     /**
+     * Sets a data defined property for the symbol. Any existing property with the same key
+     * will be overwritten.
+     * \see dataDefinedProperties()
+     * \see Property
+     * \since QGIS 3.18
+     */
+    void setDataDefinedProperty( Property key, const QgsProperty &property );
+
+    /**
+     * Returns a reference to the symbol's property collection, used for data defined overrides.
+     * \see setDataDefinedProperties()
+     * \see Property
+     * \since QGIS 3.18
+     */
+    QgsPropertyCollection &dataDefinedProperties() { return mDataDefinedProperties; }
+
+    /**
+     * Returns a reference to the symbol's property collection, used for data defined overrides.
+     * \see setDataDefinedProperties()
+     * \since QGIS 3.18
+     */
+    const QgsPropertyCollection &dataDefinedProperties() const { return mDataDefinedProperties; } SIP_SKIP
+
+    /**
+     * Sets the symbol's property collection, used for data defined overrides.
+     * \param collection property collection. Existing properties will be replaced.
+     * \see dataDefinedProperties()
+     * \since QGIS 3.18
+     */
+    void setDataDefinedProperties( const QgsPropertyCollection &collection ) { mDataDefinedProperties = collection; }
+
+    /**
      * Returns whether the symbol utilizes any data defined properties.
      * \since QGIS 2.12
      */
     bool hasDataDefinedProperties() const;
+
+    /**
+     * Returns TRUE if the symbol rendering can cause visible artifacts across a single feature
+     * when the feature is rendered as a series of adjacent map tiles each containing a portion of the feature's geometry.
+     *
+     * Internally this calls QgsSymbolLayer::canCauseArtifactsBetweenAdjacentTiles() for all symbol layers in the symbol
+     * and returns TRUE if any of the layers returned TRUE.
+     *
+     * \since QGIS 3.18
+     */
+    bool canCauseArtifactsBetweenAdjacentTiles() const;
 
     /**
      * \note the layer will be NULLPTR after stopRender
@@ -651,6 +710,11 @@ class CORE_EXPORT QgsSymbol
     QgsSymbol( const QgsSymbol & );
 #endif
 
+    static void initPropertyDefinitions();
+
+    //! Property definitions
+    static QgsPropertiesDefinition sPropertyDefinitions;
+
     /**
      * TRUE if render has already been started - guards against multiple calls to
      * startRender() (usually a result of not cloning a shared symbol instance before rendering).
@@ -659,6 +723,8 @@ class CORE_EXPORT QgsSymbol
 
     //! Initialized in startRender, destroyed in stopRender
     std::unique_ptr< QgsSymbolRenderContext > mSymbolRenderContext;
+
+    QgsPropertyCollection mDataDefinedProperties;
 
     /**
      * Called before symbol layers will be rendered for a particular \a feature.
@@ -942,7 +1008,7 @@ class CORE_EXPORT QgsMarkerSymbol : public QgsSymbol
      * Create a marker symbol with one symbol layer: SimpleMarker with specified properties.
      * This is a convenience method for easier creation of marker symbols.
      */
-    static QgsMarkerSymbol *createSimple( const QgsStringMap &properties ) SIP_FACTORY;
+    static QgsMarkerSymbol *createSimple( const QVariantMap &properties ) SIP_FACTORY;
 
     /**
      * Constructor for QgsMarkerSymbol, with the specified list of initial symbol \a layers.
@@ -1142,7 +1208,7 @@ class CORE_EXPORT QgsLineSymbol : public QgsSymbol
      * Create a line symbol with one symbol layer: SimpleLine with specified properties.
      * This is a convenience method for easier creation of line symbols.
      */
-    static QgsLineSymbol *createSimple( const QgsStringMap &properties ) SIP_FACTORY;
+    static QgsLineSymbol *createSimple( const QVariantMap &properties ) SIP_FACTORY;
 
     /**
      * Constructor for QgsLineSymbol, with the specified list of initial symbol \a layers.
@@ -1245,7 +1311,7 @@ class CORE_EXPORT QgsFillSymbol : public QgsSymbol
      * Create a fill symbol with one symbol layer: SimpleFill with specified properties.
      * This is a convenience method for easier creation of fill symbols.
      */
-    static QgsFillSymbol *createSimple( const QgsStringMap &properties ) SIP_FACTORY;
+    static QgsFillSymbol *createSimple( const QVariantMap &properties ) SIP_FACTORY;
 
     /**
      * Constructor for QgsFillSymbol, with the specified list of initial symbol \a layers.

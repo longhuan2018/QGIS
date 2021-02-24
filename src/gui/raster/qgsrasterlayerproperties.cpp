@@ -34,6 +34,8 @@
 #include "qgsmultibandcolorrendererwidget.h"
 #include "qgsnative.h"
 #include "qgspalettedrendererwidget.h"
+#include "qgsprovidersourcewidgetproviderregistry.h"
+#include "qgsprovidersourcewidget.h"
 #include "qgsproject.h"
 #include "qgsrasterbandstats.h"
 #include "qgsrastercontourrendererwidget.h"
@@ -61,6 +63,7 @@
 #include "qgsproviderregistry.h"
 #include "qgsrasterlayertemporalproperties.h"
 #include "qgsdoublevalidator.h"
+#include "qgsmaplayerconfigwidgetfactory.h"
 
 #include "qgsrasterlayertemporalpropertieswidget.h"
 #include "qgsprojecttimesettings.h"
@@ -128,6 +131,8 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
 
   if ( mRasterLayer && mRasterLayer->temporalProperties() )
     connect( mRasterLayer->temporalProperties(), &QgsRasterLayerTemporalProperties::changed, this, &QgsRasterLayerProperties::temporalPropertiesChange );
+
+  mSourceGroupBox->hide();
 
   mBtnStyle = new QPushButton( tr( "Style" ) );
   QMenu *menuStyle = new QMenu( this );
@@ -345,8 +350,8 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
     mPostgresRasterTemporalGroup->setVisible( false );
   }
 
-  QgsDebugMsg( "Setting crs to " + mRasterLayer->crs().toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
-  QgsDebugMsg( "Setting crs to " + mRasterLayer->crs().userFriendlyIdentifier() );
+  QgsDebugMsgLevel( "Setting crs to " + mRasterLayer->crs().toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ), 2 );
+  QgsDebugMsgLevel( "Setting crs to " + mRasterLayer->crs().userFriendlyIdentifier(), 2 );
   mCrsSelector->setCrs( mRasterLayer->crs() );
 
   // Set text for pyramid info box
@@ -541,6 +546,23 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
   mOptsPage_Server->setProperty( "helpPage", QStringLiteral( "working_with_raster/raster_properties.html#server-properties" ) );
 }
 
+void QgsRasterLayerProperties::addPropertiesPageFactory( QgsMapLayerConfigWidgetFactory *factory )
+{
+  if ( !factory->supportsLayer( mRasterLayer ) || !factory->supportLayerPropertiesDialog() )
+  {
+    return;
+  }
+
+  QgsMapLayerConfigWidget *page = factory->createWidget( mRasterLayer, nullptr, false, this );
+  mLayerPropertiesPages << page;
+
+  const QString beforePage = factory->layerPropertiesPagePositionHint();
+  if ( beforePage.isEmpty() )
+    addPage( factory->title(), factory->title(), factory->icon(), page );
+  else
+    insertPage( factory->title(), factory->title(), factory->icon(), page, beforePage );
+}
+
 void QgsRasterLayerProperties::setupTransparencyTable( int nBands )
 {
   tableTransparency->clear();
@@ -638,7 +660,7 @@ void QgsRasterLayerProperties::populateTransparencyTable( QgsRasterRenderer *ren
 
 void QgsRasterLayerProperties::setRendererWidget( const QString &rendererName )
 {
-  QgsDebugMsg( "rendererName = " + rendererName );
+  QgsDebugMsgLevel( "rendererName = " + rendererName, 3 );
   QgsRasterRendererWidget *oldWidget = mRendererWidget;
   QgsRasterRenderer *oldRenderer = mRasterLayer->renderer();
 
@@ -658,7 +680,7 @@ void QgsRasterLayerProperties::setRendererWidget( const QString &rendererName )
   {
     if ( rendererEntry.widgetCreateFunction ) //single band color data renderer e.g. has no widget
     {
-      QgsDebugMsg( QStringLiteral( "renderer has widgetCreateFunction" ) );
+      QgsDebugMsgLevel( QStringLiteral( "renderer has widgetCreateFunction" ), 3 );
       // Current canvas extent (used to calc min/max) in layer CRS
       QgsRectangle myExtent = mMapCanvas->mapSettings().outputExtentToLayerExtent( mRasterLayer, mMapCanvas->extent() );
       if ( oldWidget && ( !oldRenderer || rendererName != oldRenderer->type() ) )
@@ -714,18 +736,30 @@ void QgsRasterLayerProperties::setRendererWidget( const QString &rendererName )
   }
 }
 
-/**
-  \note moved from ctor
-
-  Previously this dialog was created anew with each right-click pop-up menu
-  invocation.  Changed so that the dialog always exists after first
-  invocation, and is just re-synchronized with its layer's state when
-  re-shown.
-
-*/
 void QgsRasterLayerProperties::sync()
 {
   QgsSettings myQSettings;
+
+  if ( !mSourceWidget )
+  {
+    mSourceWidget = QgsGui::sourceWidgetProviderRegistry()->createWidget( mRasterLayer );
+    if ( mSourceWidget )
+    {
+      QHBoxLayout *layout = new QHBoxLayout();
+      layout->addWidget( mSourceWidget );
+      mSourceGroupBox->setLayout( layout );
+      mSourceGroupBox->show();
+
+      connect( mSourceWidget, &QgsProviderSourceWidget::validChanged, this, [ = ]( bool isValid )
+      {
+        buttonBox->button( QDialogButtonBox::Apply )->setEnabled( isValid );
+        buttonBox->button( QDialogButtonBox::Ok )->setEnabled( isValid );
+      } );
+    }
+  }
+
+  if ( mSourceWidget )
+    mSourceWidget->setSourceUri( mRasterLayer->source() );
 
   const QgsRasterDataProvider *provider = mRasterLayer->dataProvider();
   if ( !provider )
@@ -760,7 +794,7 @@ void QgsRasterLayerProperties::sync()
     }
   }
 
-  QgsDebugMsg( QStringLiteral( "populate transparency tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "populate transparency tab" ), 3 );
 
   /*
    * Style tab
@@ -826,7 +860,7 @@ void QgsRasterLayerProperties::sync()
   lblSrcNoDataValue->setEnabled( enableSrcNoData );
 
   QgsRasterRangeList noDataRangeList = provider->userNoDataValues( 1 );
-  QgsDebugMsg( QStringLiteral( "noDataRangeList.size = %1" ).arg( noDataRangeList.size() ) );
+  QgsDebugMsgLevel( QStringLiteral( "noDataRangeList.size = %1" ).arg( noDataRangeList.size() ), 3 );
   if ( !noDataRangeList.isEmpty() )
   {
     leNoDataValue->insert( QgsRasterBlock::printValue( noDataRangeList.value( 0 ).min() ) );
@@ -842,12 +876,12 @@ void QgsRasterLayerProperties::sync()
 
   populateTransparencyTable( mRasterLayer->renderer() );
 
-  QgsDebugMsg( QStringLiteral( "populate colormap tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "populate colormap tab" ), 3 );
   /*
    * Transparent Pixel Tab
    */
 
-  QgsDebugMsg( QStringLiteral( "populate general tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "populate general tab" ), 3 );
   /*
    * General Tab
    */
@@ -914,10 +948,24 @@ void QgsRasterLayerProperties::sync()
   mLegendConfigEmbeddedWidget->setLayer( mRasterLayer );
 
   mTemporalWidget->syncToLayer();
+
+  for ( QgsMapLayerConfigWidget *page : qgis::as_const( mLayerPropertiesPages ) )
+  {
+    page->syncToLayer( mRasterLayer );
+  }
+
 }
 
 void QgsRasterLayerProperties::apply()
 {
+  if ( mSourceWidget )
+  {
+    const QString newSource = mSourceWidget->sourceUri();
+    if ( newSource != mRasterLayer->source() )
+    {
+      mRasterLayer->setDataSource( newSource, mRasterLayer->name(), mRasterLayer->providerType(), QgsDataProvider::ProviderOptions() );
+    }
+  }
 
   // Do nothing on "bad" layers
   if ( !mRasterLayer->isValid() )
@@ -928,7 +976,7 @@ void QgsRasterLayerProperties::apply()
    */
   mLegendConfigEmbeddedWidget->applyToLayer();
 
-  QgsDebugMsg( QStringLiteral( "apply processing symbology tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "apply processing symbology tab" ), 3 );
   /*
    * Symbology Tab
    */
@@ -940,7 +988,7 @@ void QgsRasterLayerProperties::apply()
   mRasterLayer->brightnessFilter()->setContrast( mSliderContrast->value() );
   mRasterLayer->brightnessFilter()->setGamma( mGammaSpinBox->value() );
 
-  QgsDebugMsg( QStringLiteral( "processing transparency tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "processing transparency tab" ), 3 );
   /*
    * Transparent Pixel Tab
    */
@@ -1018,7 +1066,7 @@ void QgsRasterLayerProperties::apply()
     rasterRenderer->setOpacity( mOpacityWidget->opacity() );
   }
 
-  QgsDebugMsg( QStringLiteral( "processing general tab" ) );
+  QgsDebugMsgLevel( QStringLiteral( "processing general tab" ), 3 );
   /*
    * General Tab
    */
@@ -1579,7 +1627,7 @@ void QgsRasterLayerProperties::pbnDefaultValues_clicked()
 
 void QgsRasterLayerProperties::setTransparencyCell( int row, int column, double value )
 {
-  QgsDebugMsg( QStringLiteral( "value = %1" ).arg( value, 0, 'g', 17 ) );
+  QgsDebugMsgLevel( QStringLiteral( "value = %1" ).arg( value, 0, 'g', 17 ), 3 );
   QgsRasterDataProvider *provider = mRasterLayer->dataProvider();
   if ( !provider ) return;
 
@@ -1716,7 +1764,7 @@ void QgsRasterLayerProperties::pbnExportTransparentPixelValues_clicked()
 void QgsRasterLayerProperties::transparencyCellTextEdited( const QString &text )
 {
   Q_UNUSED( text )
-  QgsDebugMsg( QStringLiteral( "text = %1" ).arg( text ) );
+  QgsDebugMsgLevel( QStringLiteral( "text = %1" ).arg( text ), 3 );
   QgsRasterRenderer *renderer = mRendererWidget->renderer();
   if ( !renderer )
   {
@@ -1742,14 +1790,14 @@ void QgsRasterLayerProperties::transparencyCellTextEdited( const QString &text )
       }
       if ( row != -1 ) break;
     }
-    QgsDebugMsg( QStringLiteral( "row = %1 column =%2" ).arg( row ).arg( column ) );
+    QgsDebugMsgLevel( QStringLiteral( "row = %1 column =%2" ).arg( row ).arg( column ), 3 );
 
     if ( column == 0 )
     {
       QLineEdit *toLineEdit = dynamic_cast<QLineEdit *>( tableTransparency->cellWidget( row, 1 ) );
       if ( !toLineEdit ) return;
       bool toChanged = mTransparencyToEdited.value( row );
-      QgsDebugMsg( QStringLiteral( "toChanged = %1" ).arg( toChanged ) );
+      QgsDebugMsgLevel( QStringLiteral( "toChanged = %1" ).arg( toChanged ), 3 );
       if ( !toChanged )
       {
         toLineEdit->setText( lineEdit->text() );
@@ -1968,7 +2016,7 @@ void QgsRasterLayerProperties::pixelSelected( const QgsPointXY &canvasPoint, con
           return; // Don't add nodata, transparent anyway
         }
         double value = myPixelMap.value( bandNo ).toDouble();
-        QgsDebugMsg( QStringLiteral( "value = %1" ).arg( value, 0, 'g', 17 ) );
+        QgsDebugMsgLevel( QStringLiteral( "value = %1" ).arg( value, 0, 'g', 17 ), 3 );
         values.append( value );
       }
     }

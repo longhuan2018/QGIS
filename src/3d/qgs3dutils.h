@@ -35,6 +35,9 @@ namespace Qt3DExtras
 #include "qgs3danimationsettings.h"
 #include "qgs3dtypes.h"
 #include "qgsaabb.h"
+#include "qgsray3d.h"
+
+#include <Qt3DRender/QCamera>
 
 #include <memory>
 
@@ -119,7 +122,7 @@ class _3D_EXPORT Qgs3DUtils
     static QMatrix4x4 stringToMatrix4x4( const QString &str );
 
     //! Calculates (x,y,z) positions of (multi)point from the given feature
-    static void extractPointPositions( QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions );
+    static void extractPointPositions( const QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions );
 
     /**
         Returns true if bbox is completely outside the current viewing volume.
@@ -174,6 +177,9 @@ class _3D_EXPORT Qgs3DUtils
 
     //! Returns phong material settings object based on the Qt3D material
     static QgsPhongMaterialSettings phongMaterialFromQt3DComponent( Qt3DExtras::QPhongMaterial *material );
+
+    //! Convert from clicked point on the screen to a ray in world coordinates
+    static QgsRay3D rayFromScreenPoint( const QPoint &point, const QSize &windowSize, Qt3DRender::QCamera *camera );
 };
 
 #endif // QGS3DUTILS_H

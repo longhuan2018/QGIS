@@ -58,7 +58,7 @@ class CORE_EXPORT QgsLocatorResult
     /**
      * Returns the ``userData``.
      *
-     * \since QGIS 3.16.2
+     * \since QGIS 3.18
      */
     QVariant getUserData() const;
 
@@ -99,7 +99,7 @@ class CORE_EXPORT QgsLocatorResult
       * \note This should be translated.
       * \since QGIS 3.2
       */
-    QString group = QString();
+    QString group;
 
     /**
      * The ResultAction stores basic information for additional
@@ -355,6 +355,20 @@ class CORE_EXPORT QgsLocatorFilter : public QObject
      */
     void logMessage( const QString &message, Qgis::MessageLevel level = Qgis::Info );
 
+    /**
+     * Returns the delay (in milliseconds) for the filter to wait prior to fetching results.
+     * \see setFetchResultsDelay()
+     * \since QGIS 3.18
+     */
+    int fetchResultsDelay() const { return mFetchResultsDelay; }
+
+    /**
+     * Sets a \a delay (in milliseconds) for the filter to wait prior to fetching results.
+     * \see fetchResultsDelay()
+     * \note If the locator filter has a FastFlag, this value is ignored.
+     * \since QGIS 3.18
+     */
+    void setFetchResultsDelay( int delay ) { mFetchResultsDelay = delay; }
 
   signals:
 
@@ -374,6 +388,7 @@ class CORE_EXPORT QgsLocatorFilter : public QObject
     bool mEnabled = true;
     bool mUseWithoutPrefix = true;
     QString mActivePrefifx = QString();
+    int mFetchResultsDelay = 0;
 
 };
 

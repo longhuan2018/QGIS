@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include <QSqlRecord>
+#include <QSqlField>
 
 #include "qgsmssqlproviderconnection.h"
 #include "qgsmssqlconnection.h"
@@ -64,6 +65,9 @@ QgsMssqlProviderConnection::QgsMssqlProviderConnection( const QString &uri, cons
       currentUri.setParam( param, inputUri.param( param ) );
     }
   }
+
+  if ( inputUri.hasParam( QStringLiteral( "excludedSchemas" ) ) )
+    currentUri.setParam( QStringLiteral( "excludedSchemas" ), inputUri.param( QStringLiteral( "excludedSchemas" ) ) );
 
   setUri( currentUri.uri() );
   setDefaultCapabilities();
@@ -213,19 +217,18 @@ void QgsMssqlProviderConnection::dropSchema( const QString &schemaName,  bool fo
                      .arg( QgsMssqlProvider::quotedIdentifier( schemaName ) ) );
 }
 
-QList<QVariantList> QgsMssqlProviderConnection::executeSql( const QString &sql, QgsFeedback *feedback ) const
+QgsAbstractDatabaseProviderConnection::QueryResult QgsMssqlProviderConnection::execSql( const QString &sql, QgsFeedback *feedback ) const
 {
   checkCapability( Capability::ExecuteSql );
   return executeSqlPrivate( sql, true, feedback );
 }
 
-QList<QVariantList> QgsMssqlProviderConnection::executeSqlPrivate( const QString &sql, bool resolveTypes, QgsFeedback *feedback ) const
+QgsAbstractDatabaseProviderConnection::QueryResult QgsMssqlProviderConnection::executeSqlPrivate( const QString &sql, bool resolveTypes, QgsFeedback *feedback ) const
 {
-  QList<QVariantList> results;
 
   if ( feedback && feedback->isCanceled() )
   {
-    return results;
+    return QgsAbstractDatabaseProviderConnection::QueryResult();
   }
 
   const QgsDataSourceUri dsUri { uri() };
@@ -236,15 +239,14 @@ QList<QVariantList> QgsMssqlProviderConnection::executeSqlPrivate( const QString
   if ( !QgsMssqlConnection::openDatabase( db ) )
   {
     throw QgsProviderConnectionException( QObject::tr( "Connection to %1 failed: %2" )
-                                          .arg( uri() )
-                                          .arg( db.lastError().text() ) );
+                                          .arg( uri(), db.lastError().text() ) );
   }
   else
   {
 
     if ( feedback && feedback->isCanceled() )
     {
-      return results;
+      return QgsAbstractDatabaseProviderConnection::QueryResult();
     }
 
     //qDebug() << "MSSQL QUERY:" << sql;
@@ -255,8 +257,7 @@ QList<QVariantList> QgsMssqlProviderConnection::executeSqlPrivate( const QString
     {
       const QString errorMessage { q.lastError().text() };
       throw QgsProviderConnectionException( QObject::tr( "SQL error: %1 \n %2" )
-                                            .arg( sql )
-                                            .arg( errorMessage ) );
+                                            .arg( sql, errorMessage ) );
 
     }
 
@@ -264,27 +265,57 @@ QList<QVariantList> QgsMssqlProviderConnection::executeSqlPrivate( const QString
     {
       const QSqlRecord rec { q.record() };
       const int numCols { rec.count() };
-      while ( q.next() && ( ! feedback || ! feedback->isCanceled() ) )
+      auto iterator = std::make_shared<QgssMssqlProviderResultIterator>( resolveTypes, numCols, q );
+      QgsAbstractDatabaseProviderConnection::QueryResult results( iterator );
+      for ( int idx = 0; idx < numCols; ++idx )
       {
-        QVariantList row;
-        for ( int col = 0; col < numCols; ++col )
-        {
-          if ( resolveTypes )
-          {
-            row.push_back( q.value( col ) );
-          }
-          else
-          {
-            row.push_back( q.value( col ).toString() );
-          }
-        }
-        results.push_back( row );
+        results.appendColumn( rec.field( idx ).name() );
       }
+      iterator->nextRow();
+      return results;
     }
 
   }
-  return results;
+  return QgsAbstractDatabaseProviderConnection::QueryResult();
 }
+
+
+QVariantList QgssMssqlProviderResultIterator::nextRowPrivate()
+{
+  const QVariantList currentRow = mNextRow;
+  mNextRow = nextRowInternal();
+  return currentRow;
+}
+
+bool QgssMssqlProviderResultIterator::hasNextRowPrivate() const
+{
+  return ! mNextRow.isEmpty();
+}
+
+QVariantList QgssMssqlProviderResultIterator::nextRowInternal()
+{
+  QVariantList row;
+  if ( mQuery.next() )
+  {
+    for ( int col = 0; col < mColumnCount; ++col )
+    {
+      if ( mResolveTypes )
+      {
+        row.push_back( mQuery.value( col ) );
+      }
+      else
+      {
+        row.push_back( mQuery.value( col ).toString() );
+      }
+    }
+  }
+  else
+  {
+    mQuery.finish();
+  }
+  return row;
+}
+
 
 QList<QgsMssqlProviderConnection::TableProperty> QgsMssqlProviderConnection::tables( const QString &schema, const TableFlags &flags ) const
 {
@@ -360,7 +391,7 @@ QList<QgsMssqlProviderConnection::TableProperty> QgsMssqlProviderConnection::tab
              .arg( QgsMssqlProvider::quotedValue( schema ) );
   }
 
-  const QList<QVariantList> results { executeSqlPrivate( query, false ) };
+  const QList<QVariantList> results { executeSqlPrivate( query, false ).rows() };
   for ( const auto &row : results )
   {
     Q_ASSERT( row.count( ) == 6 );
@@ -394,7 +425,7 @@ QList<QgsMssqlProviderConnection::TableProperty> QgsMssqlProviderConnection::tab
       // This may fail for invalid geometries
       try
       {
-        const auto geomColResults { executeSqlPrivate( geomColSql ) };
+        const auto geomColResults { executeSqlPrivate( geomColSql ).rows() };
         for ( const auto &row : geomColResults )
         {
           table.addGeometryColumnType( QgsWkbTypes::parseType( row[0].toString() ),
@@ -431,9 +462,14 @@ QStringList QgsMssqlProviderConnection::schemas( ) const
 {
   checkCapability( Capability::Schemas );
   QStringList schemas;
+
+  QgsDataSourceUri connUri( uri() );
+
   const QgsDataSourceUri dsUri { uri() };
-  const QString sql { QStringLiteral(
-                        R"raw(
+  const QString sql
+  {
+    QStringLiteral(
+      R"raw(
     SELECT s.name AS schema_name,
         s.schema_id,
         u.name AS schema_owner
@@ -442,12 +478,22 @@ QStringList QgsMssqlProviderConnection::schemas( ) const
             ON u.uid = s.principal_id
      WHERE u.issqluser = 1
         AND u.name NOT IN ('sys', 'guest', 'INFORMATION_SCHEMA')
-    )raw" )};
-  const QList<QVariantList> result { executeSqlPrivate( sql, false ) };
+    )raw" )
+  };
+
+  const QList<QVariantList> result { executeSqlPrivate( sql, false ).rows() };
+
+  QStringList excludedSchemaList;
+  if ( connUri.hasParam( QStringLiteral( "excludedSchemas" ) ) )
+    excludedSchemaList = QgsDataSourceUri( uri() ).param( QStringLiteral( "excludedSchemas" ) ).split( ',' );
   for ( const auto &row : result )
   {
     if ( row.size() > 0 )
-      schemas.push_back( row.at( 0 ).toString() );
+    {
+      QString schema = row.at( 0 ).toString();
+      if ( !excludedSchemaList.contains( schema ) )
+        schemas.push_back( schema );
+    }
   }
   return schemas;
 }
@@ -473,13 +519,14 @@ void QgsMssqlProviderConnection::store( const QString &name ) const
   settings.setValue( "password", dsUri.password() );
   settings.setValue( "estimatedMetadata", dsUri.useEstimatedMetadata() );
 
+  QgsMssqlConnection::setExcludedSchemasList( name, dsUri.database(), dsUri.param( QStringLiteral( "excludedSchemas" ) ).split( ',' ) );
+
   for ( const auto &param : EXTRA_CONNECTION_PARAMETERS )
   {
     if ( dsUri.hasParam( param ) )
     {
       settings.setValue( param, dsUri.param( param ) == QStringLiteral( "true" )
                          || dsUri.param( param ) == '1' );
-
     }
   }
 

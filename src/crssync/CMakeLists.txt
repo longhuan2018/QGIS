@@ -1,16 +1,5 @@
 add_executable(crssync main.cpp)
 
-include_directories(
-  ../core
-  ../core/geometry
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_BINARY_DIR}/src/core
-)
-include_directories(SYSTEM
-  ${GDAL_INCLUDE_DIR}
-  ${PROJ_INCLUDE_DIR}
-)
-
 target_link_libraries(crssync
   qgis_core
   ${PROJ_LIBRARY}

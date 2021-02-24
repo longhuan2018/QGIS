@@ -59,6 +59,7 @@ class QgsHighlight;
 class QgsVectorLayer;
 
 class QgsLabelingResults;
+
 class QgsMapRendererCache;
 class QgsMapRendererQImageJob;
 class QgsMapSettings;
@@ -309,6 +310,13 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
 
     //! Pan to the selected features of current (vector) layer keeping same extent.
     void panToSelected( QgsVectorLayer *layer = nullptr );
+
+    /**
+     * Pan to the combined extent of the selected features of all provided (vector) layers.
+     * \param layers A list of layers
+     * \since QGIS 3.18
+     */
+    void panToSelected( const QList<QgsMapLayer *> &layers );
 
     /**
      * Causes a set of features with matching \a ids from a vector \a layer to flash
@@ -866,6 +874,13 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     void zoomToSelected( QgsVectorLayer *layer = nullptr );
 
     /**
+     * Zoom to the combined extent of the selected features of all provided (vector) layers.
+     * \param layers A list of layers
+     * \since QGIS 3.18
+     */
+    void zoomToSelected( const QList<QgsMapLayer *> &layers );
+
+    /**
      * Set a list of resolutions (map units per pixel) to which to "snap to" when zooming the map
      * \param resolutions A list of resolutions
      * \since QGIS 3.12
@@ -873,11 +888,41 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     void setZoomResolutions( const QList<double> &resolutions ) { mZoomResolutions = resolutions; }
 
     /**
+     * Returns the zoom in factor.
+     */
+    double zoomInFactor() const;
+
+    /**
+     * Returns the zoom in factor.
+     */
+    double zoomOutFactor() const;
+
+    /**
      * \returns List of resolutions to which to "snap to" when zooming the map
      * \see setZoomResolutions()
      * \since QGIS 3.12
      */
     const QList<double> &zoomResolutions() const { return mZoomResolutions; }
+
+    /**
+     * Returns the range of z-values which will be visible in the map.
+     *
+     * \see setZRange()
+     * \see zRangeChanged()
+     *
+     * \since QGIS 3.18
+     */
+    QgsDoubleRange zRange() const;
+
+    /**
+     * Sets the \a range of z-values which will be visible in the map.
+     *
+     * \see zRange()
+     * \see zRangeChanged()
+     *
+     * \since QGIS 3.18
+     */
+    void setZRange( const QgsDoubleRange &range );
 
   private slots:
     //! called when current maptool is destroyed
@@ -950,6 +995,12 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     // ### QGIS 3: rename to mapRefreshStarted()
     //! Emitted when the canvas is about to be rendered.
     void renderStarting();
+
+    /**
+     * Emitted when the pending map refresh has been canceled
+     * \since QGIS 3.18
+     */
+    void mapRefreshCanceled();
 
     //! Emitted when a new set of layers has been received
     void layersChanged();
@@ -1044,6 +1095,15 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      */
     void temporalRangeChanged();
 
+    /**
+     * Emitted when the map canvas z (elevation) range changes.
+     *
+     * \see zRange()
+     * \see setZRange()
+     *
+     * \since QGIS 3.18
+     */
+    void zRangeChanged();
 
     /**
      * Emitted before the map canvas context menu will be shown.
@@ -1052,7 +1112,6 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * \since QGIS 3.16
      */
     void contextMenuAboutToShow( QMenu *menu, QgsMapMouseEvent *event );
-
 
   protected:
 
@@ -1168,9 +1227,6 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     //! Pointer to project linked to this canvas
     QgsProject *mProject = nullptr;
 
-    //! Context menu
-    QMenu *mMenu = nullptr;
-
     //! recently used extent
     QList <QgsRectangle> mLastExtent;
     int mLastExtentIndex = -1;
@@ -1248,6 +1304,8 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
 
     QList< QgsMapCanvasInteractionBlocker * > mInteractionBlockers;
 
+    int mBlockItemPositionUpdates = 0;
+
     /**
      * Returns the last cursor position on the canvas in geographical coordinates
      * \since QGIS 3.4
@@ -1304,14 +1362,17 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     bool panOperationInProgress();
 
     int nextZoomLevel( const QList<double> &resolutions, bool zoomIn = true ) const;
-    double zoomInFactor() const;
-    double zoomOutFactor() const;
 
     /**
      * Make sure to remove any rendered images of temporal-enabled layers from cache (does nothing if cache is not enabled)
      * \since QGIS 3.14
      */
     void clearTemporalCache();
+
+    /**
+     * Removes any rendered images of elevation aware layers from cache
+     */
+    void clearElevationCache();
 
     void showContextMenu( QgsMapMouseEvent *event );
 

@@ -476,7 +476,9 @@ void QgsExpressionTreeView::loadRecent( const QString &collection )
   for ( const QString &expression : expressions )
   {
     QString help = formatRecentExpressionHelp( expression, expression );
-    registerItem( name, expression, expression, help, QgsExpressionItem::ExpressionNode, false, i );
+    QString label = expression;
+    label.replace( '\n', ' ' );
+    registerItem( name, label, expression, help, QgsExpressionItem::ExpressionNode, false, i );
     i++;
   }
 }
@@ -650,7 +652,7 @@ void QgsExpressionTreeView::loadExpressionsFromJson( const QJsonDocument &expres
   settings.beginGroup( QStringLiteral( "user" ), QgsSettings::Section::Expressions );
   mUserExpressionLabels = settings.childGroups();
 
-  for ( const QJsonValue &expressionValue : expressionsObject["expressions"].toArray() )
+  for ( const QJsonValue && expressionValue : expressionsObject["expressions"].toArray() )
   {
     // validate the type of the array element, can be anything
     if ( ! expressionValue.isObject() )

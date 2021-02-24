@@ -18,6 +18,7 @@ email                : marco.hugentobler at sourcepole dot com
 
 #include <array>
 #include <functional>
+#include <type_traits>
 #include <QString>
 
 #include "qgis_core.h"
@@ -44,6 +45,8 @@ class QgsGeometryPartIterator;
 class QgsGeometryConstPartIterator;
 class QgsConstWkbPtr;
 class QPainterPath;
+class QgsAbstractGeometryTransformer;
+class QgsFeedback;
 
 typedef QVector< QgsPoint > QgsPointSequence;
 #ifndef SIP_RUN
@@ -688,6 +691,21 @@ class CORE_EXPORT QgsAbstractGeometry
      */
     virtual bool isValid( QString &error SIP_OUT, int flags = 0 ) const = 0;
 
+    /**
+     * Transforms the vertices from the geometry in place, using the specified geometry \a transformer
+     * object.
+     *
+     * Depending on the \a transformer used, this may result in an invalid geometry.
+     *
+     * The optional \a feedback argument can be used to cancel the transformation before it completes.
+     * If this is done, the geometry will be left in a semi-transformed state.
+     *
+     * \returns TRUE if the geometry was successfully transformed.
+     *
+     * \since QGIS 3.18
+     */
+    virtual bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = nullptr ) = 0;
+
 #ifndef SIP_RUN
 
     /**
@@ -1154,7 +1172,7 @@ struct CORE_EXPORT QgsVertexId
 template <class T>
 inline T qgsgeometry_cast( const QgsAbstractGeometry *geom )
 {
-  return const_cast<T>( reinterpret_cast<T>( 0 )->cast( geom ) );
+  return const_cast<T>( std::remove_pointer<T>::type::cast( geom ) );
 }
 
 #endif

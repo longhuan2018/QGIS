@@ -18,13 +18,13 @@ class QgsRasterLayer : QgsMapLayer
 
 Represents a raster layer.
 
-A QgsRasterLayer is instantiated by specifying the name of a data provider,
+A :py:class:`QgsRasterLayer` is instantiated by specifying the name of a data provider,
 such as "gdal" or "wms", and a url defining the specific data set to connect to.
-The raster layer constructor in turn instantiates a QgsRasterDataProvider subclass
+The raster layer constructor in turn instantiates a :py:class:`QgsRasterDataProvider` subclass
 corresponding to the provider type, and passes it the url. The data provider
 connects to the data source.
 
-Sample usage of the QgsRasterLayer class:
+Sample usage of the :py:class:`QgsRasterLayer` class:
 
 .. code-block:: python
 
@@ -151,7 +151,7 @@ Set the data provider.
 %Docstring
 Set the data provider.
 
-:param provider: provider key string, must match a valid QgsRasterDataProvider key. E.g. "gdal", "wms", etc.
+:param provider: provider key string, must match a valid :py:class:`QgsRasterDataProvider` key. E.g. "gdal", "wms", etc.
 :param options: provider options
 :param flags: provider flags since QGIS 3.16
 
@@ -297,9 +297,12 @@ This will be ``None`` if the layer is invalid.
 This is an overloaded version of the :py:func:`~QgsRasterLayer.draw` function that is called by both :py:func:`~QgsRasterLayer.draw` and thumbnailAsPixmap
 %End
 
-    QgsLegendColorList legendSymbologyItems() const;
+ QgsLegendColorList legendSymbologyItems() const /Deprecated/;
 %Docstring
-Returns a list with classification items (Text and color)
+Returns a list with classification items (Text and color).
+
+.. deprecated::
+   use :py:func:`QgsRasterRenderer.createLegendNodes()` instead.
 %End
 
     virtual bool isSpatial() const;
@@ -337,6 +340,11 @@ In a world file, this is normally the first row (without the sign).
 
 .. seealso:: :py:func:`rasterUnitsPerPixelX`
 %End
+
+    virtual void setOpacity( double opacity ) ${SIP_FINAL};
+
+    virtual double opacity() const ${SIP_FINAL};
+
 
     void setContrastEnhancement( QgsContrastEnhancement::ContrastEnhancementAlgorithm algorithm,
                                  QgsRasterMinMaxOrigin::Limits limits = QgsRasterMinMaxOrigin::MinMax,
@@ -403,7 +411,7 @@ Draws a preview of the rasterlayer into a QImage
     virtual bool accept( QgsStyleEntityVisitorInterface *visitor ) const;
 
 
-    bool writeSld( QDomNode &node, QDomDocument &doc, QString &errorMessage, const QgsStringMap &props = QgsStringMap() ) const;
+    bool writeSld( QDomNode &node, QDomDocument &doc, QString &errorMessage, const QVariantMap &props = QVariantMap() ) const;
 %Docstring
 Writes the symbology of the layer into the document provided in SLD 1.0.0 format
 

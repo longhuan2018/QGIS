@@ -70,7 +70,6 @@ class QgsMesh3dGeometry: public  Qt3DRender::QGeometry
     QgsVector3D mOrigin;
     float mVertScale;
     QgsTriangularMesh mTriangulaMesh;
-
 };
 
 /**

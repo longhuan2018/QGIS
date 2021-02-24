@@ -1,7 +1,12 @@
 name: Code Layout
 
-on: [push, pull_request]
-
+on:
+  push:
+    branches:
+      - master
+      - release-**
+  pull_request:
+  
 jobs:
   documentation_checks:
     runs-on: ubuntu-latest
@@ -9,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2.2.1
         with:
           python-version: 3.7
       - name: Install Requirements
@@ -38,8 +43,8 @@ jobs:
         run: |
          mkdir build
          cd build
-         cmake -DWITH_SERVER=ON -DUSE_CCACHE=OFF -DWITH_CORE=OFF -DWITH_APIDOC=ON -DWITH_ASTYLE=ON -DENABLE_TESTS=ON -DWITH_DOT=NO ..
-          make -j3
+         cmake -DWITH_SERVER=ON -DUSE_CCACHE=OFF -DWITH_CORE=OFF -DWITH_APIDOC=ON -DWITH_ASTYLE=ON -DENABLE_TESTS=ON -DWITH_DOT=NO -DWERROR=ON ..
+          make -j3 apidoc
       - name: Run Tests
         run: cd build && ctest -V -R PyQgsDocCoverage
 
@@ -94,7 +99,8 @@ jobs:
       - name: Install Requirements
         run: |
           sudo apt install -y \
-              expect
+              expect \
+              silversearcher-ag
       - name: Doxygen Layout Test
         run: ./tests/code_layout/test_doxygen_layout.sh
 
@@ -137,7 +143,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python 3.7
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v2.2.1
         with:
           python-version: 3.7
       - name: Install Requirements

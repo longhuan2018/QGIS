@@ -6,34 +6,8 @@ set (util_SRCS)
 # Don't forget to include output directory, otherwise
 # the UI file won't be wrapped!
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
   ${CMAKE_SOURCE_DIR}/tests/core #for render checker class
-  ${CMAKE_SOURCE_DIR}/src/3d
-  ${CMAKE_SOURCE_DIR}/src/3d/chunks
-  ${CMAKE_SOURCE_DIR}/src/3d/materials
-  ${CMAKE_SOURCE_DIR}/src/3d/mesh
-  ${CMAKE_SOURCE_DIR}/src/3d/symbols
-  ${CMAKE_SOURCE_DIR}/src/3d/terrain
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/3d
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/layout
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/mesh
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/core/effects
-  ${CMAKE_SOURCE_DIR}/src/core/fieldformatter
   ${CMAKE_SOURCE_DIR}/src/test
-  ${CMAKE_SOURCE_DIR}/src/native
-
-
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/3d
   ${CMAKE_BINARY_DIR}/src/ui
   ${CMAKE_BINARY_DIR}/src/native
   ${CMAKE_CURRENT_BINARY_DIR}
@@ -67,7 +41,8 @@ macro (ADD_QGIS_TEST testname testsrc)
     ${GEOS_LIBRARY}
     ${GDAL_LIBRARY}
     qgis_core
-    qgis_3d)
+    qgis_3d
+    qgis_native)
   add_test(qgis_${testname} ${CMAKE_CURRENT_BINARY_DIR}/../../../output/bin/qgis_${testname} -maxwarnings 10000)
   target_link_libraries(qgis_${testname} qgis_native)
   add_test(qgis_${testname} ${CMAKE_CURRENT_BINARY_DIR}/../../../output/bin/qgis_${testname})
@@ -76,9 +51,13 @@ macro (ADD_QGIS_TEST testname testsrc)
   #  INSTALL_RPATH_USE_LINK_PATH true )
 endmacro (ADD_QGIS_TEST)
 
+add_subdirectory(sandbox)
+
 ADD_QGIS_TEST(3dutilstest testqgs3dutils.cpp)
 ADD_QGIS_TEST(3drenderingtest testqgs3drendering.cpp)
 ADD_QGIS_TEST(layout3dmaptest testqgslayout3dmap.cpp)
 ADD_QGIS_TEST(materialregistrytest testqgsmaterialregistry.cpp)
+ADD_QGIS_TEST(3dmaterialtest testqgs3dmaterial.cpp)
 ADD_QGIS_TEST(tessellatortest testqgstessellator.cpp)
 ADD_QGIS_TEST(3dsymbolregistrytest testqgs3dsymbolregistry.cpp)
+

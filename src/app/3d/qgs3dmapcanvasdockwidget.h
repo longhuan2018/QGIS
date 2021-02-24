@@ -61,10 +61,13 @@ class APP_EXPORT Qgs3DMapCanvasDockWidget : public QgsDockWidget
     void measureLine();
     void exportScene();
     void toggleNavigationWidget( bool visibility );
+    void toggleFpsCounter( bool visibility );
 
     void onMainCanvasLayersChanged();
     void onMainCanvasColorChanged();
     void onTotalPendingJobsCountChanged();
+    void updateFpsCount( float fpsCount );
+    void cameraNavigationSpeedChanged( double speed );
     void mapThemeMenuAboutToShow();
     //! Renames the active map theme called \a theme to \a newTheme
     void currentMapThemeRenamed( const QString &theme, const QString &newTheme );
@@ -75,11 +78,18 @@ class APP_EXPORT Qgs3DMapCanvasDockWidget : public QgsDockWidget
     QgsMapCanvas *mMainCanvas = nullptr;
     QProgressBar *mProgressPendingJobs = nullptr;
     QLabel *mLabelPendingJobs = nullptr;
+    QLabel *mLabelFpsCounter = nullptr;
+    QLabel *mLabelNavigationSpeed = nullptr;
+    QTimer *mLabelNavSpeedHideTimeout = nullptr;
     Qgs3DMapToolIdentify *mMapToolIdentify = nullptr;
     Qgs3DMapToolMeasureLine *mMapToolMeasureLine = nullptr;
     QMenu *mMapThemeMenu = nullptr;
+    QMenu *mOptionsMenu = nullptr;
     QList<QAction *> mMapThemeMenuPresetActions;
     QToolButton *mBtnMapThemes = nullptr;
+    QAction *mActionEnableShadows = nullptr;
+    QAction *mActionEnableEyeDome = nullptr;
+    QToolButton *mBtnOptions = nullptr;
 };
 
 #endif // QGS3DMAPCANVASDOCKWIDGET_H

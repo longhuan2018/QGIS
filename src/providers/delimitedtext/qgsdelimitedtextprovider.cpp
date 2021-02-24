@@ -1260,7 +1260,7 @@ QString  QgsDelimitedTextProvider::description() const
   return TEXT_PROVIDER_DESCRIPTION;
 }
 
-QVariantMap QgsDelimitedTextProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsDelimitedTextProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QUrl url( uri );
   const QUrlQuery queryItems( url.query() );
@@ -1269,7 +1269,7 @@ QVariantMap QgsDelimitedTextProviderMetadata::decodeUri( const QString &uri )
   QStringList openOptions;
   for ( const auto &item : queryItems.queryItems() )
   {
-    if ( item.first == QStringLiteral( "subset" ) )
+    if ( item.first == QLatin1String( "subset" ) )
     {
       subset = item.second;
     }
@@ -1287,7 +1287,7 @@ QVariantMap QgsDelimitedTextProviderMetadata::decodeUri( const QString &uri )
   return components;
 }
 
-QString QgsDelimitedTextProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsDelimitedTextProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QUrl url = QUrl::fromLocalFile( parts.value( QStringLiteral( "path" ) ).toString() );
   const QStringList openOptions = parts.value( QStringLiteral( "openOptions" ) ).toStringList();

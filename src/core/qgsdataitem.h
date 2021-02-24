@@ -416,6 +416,17 @@ class CORE_EXPORT QgsDataItem : public QObject
     //! Move object and all its descendants to thread
     void moveToThread( QThread *targetThread );
 
+    /**
+     * For data items that represent a DB connection or one of its children,
+     * this method returns a connection.
+     * All other data items will return NULL.
+     *
+     * Ownership of the returned objects is transferred to the caller.
+     *
+     * \since QGIS 3.16
+     */
+    virtual QgsAbstractDatabaseProviderConnection *databaseConnection() const SIP_FACTORY;
+
   protected:
     virtual void populate( const QVector<QgsDataItem *> &children );
 
@@ -546,7 +557,8 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
       Table,
       Plugin,    //!< Added in 2.10
       Mesh,      //!< Added in 3.2
-      VectorTile //!< Added in 3.14
+      VectorTile, //!< Added in 3.14
+      PointCloud //!< Added in 3.18
     };
 
     Q_ENUM( LayerType )
@@ -627,6 +639,13 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
     QStringList mSupportFormats;
 
   public:
+
+    /**
+     * Returns the icon for a vector layer whose geometry type is provided.
+     * \since QGIS 3.18
+     */
+    static QIcon iconForWkbType( QgsWkbTypes::Type type );
+
     static QIcon iconPoint();
     static QIcon iconLine();
     static QIcon iconPolygon();
@@ -637,9 +656,11 @@ class CORE_EXPORT QgsLayerItem : public QgsDataItem
     static QIcon iconMesh();
     //! Returns icon for vector tile layer
     static QIcon iconVectorTile();
-
+    //! Returns icon for point cloud layer
+    static QIcon iconPointCloud();
     //! \returns the layer name
     virtual QString layerName() const { return name(); }
+
 };
 
 
@@ -681,6 +702,8 @@ class CORE_EXPORT QgsDataCollectionItem : public QgsDataItem
      */
     static QIcon iconDataCollection();
 
+    QgsAbstractDatabaseProviderConnection *databaseConnection() const override;
+
   protected:
 
     /**
@@ -694,6 +717,7 @@ class CORE_EXPORT QgsDataCollectionItem : public QgsDataItem
      * \since QGIS 3.4
      */
     static QIcon homeDirIcon();
+
 };
 
 
@@ -722,6 +746,7 @@ class CORE_EXPORT QgsDatabaseSchemaItem : public QgsDataCollectionItem
 
     ~QgsDatabaseSchemaItem() override;
 
+    QgsAbstractDatabaseProviderConnection *databaseConnection() const override;
 
     /**
      * Returns the standard browser data collection icon.
@@ -1009,7 +1034,7 @@ class CORE_EXPORT QgsFieldsItem : public QgsDataItem
      *
      * The \a path argument gives the item path in the browser tree. The \a path string can take any form,
      * but QgsDataItem items pointing to different logical locations should always use a different item \a path.
-     * The \connectionUri argument is the connection part of the layer URI that it is used internally to create
+     * The \a connectionUri argument is the connection part of the layer URI that it is used internally to create
      * a connection and retrieve fields information.
      * The \a providerKey string can be used to specify the key for the QgsDataItemProvider that created this item.
      * The \a schema and \a tableName are used to retrieve the layer and field information from the \a connectionUri.

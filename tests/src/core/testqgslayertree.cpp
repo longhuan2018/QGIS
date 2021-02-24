@@ -58,6 +58,7 @@ class TestQgsLayerTree : public QObject
     void testUtilsCountMapLayers();
     void testSymbolText();
     void testNodeDepth();
+    void testRasterSymbolNode();
 
   private:
 
@@ -435,7 +436,7 @@ void TestQgsLayerTree::testLegendSymbolCategorized()
   QgsCategorizedSymbolRenderer *renderer = new QgsCategorizedSymbolRenderer();
   renderer->setClassAttribute( QStringLiteral( "col1" ) );
   renderer->setSourceSymbol( QgsSymbol::defaultSymbol( QgsWkbTypes::PointGeometry ) );
-  QgsStringMap props;
+  QVariantMap props;
   props.insert( QStringLiteral( "color" ), QStringLiteral( "#ff0000" ) );
   props.insert( QStringLiteral( "outline_color" ), QStringLiteral( "#000000" ) );
   renderer->addCategory( QgsRendererCategory( "a", QgsMarkerSymbol::createSimple( props ), QStringLiteral( "a" ) ) );
@@ -452,7 +453,7 @@ void TestQgsLayerTree::testLegendSymbolGraduated()
   QgsGraduatedSymbolRenderer *renderer = new QgsGraduatedSymbolRenderer();
   renderer->setClassAttribute( QStringLiteral( "col1" ) );
   renderer->setSourceSymbol( QgsSymbol::defaultSymbol( QgsWkbTypes::PointGeometry ) );
-  QgsStringMap props;
+  QVariantMap props;
   props.insert( QStringLiteral( "color" ), QStringLiteral( "#ff0000" ) );
   props.insert( QStringLiteral( "outline_color" ), QStringLiteral( "#000000" ) );
   renderer->addClass( QgsRendererRange( 1, 2, QgsMarkerSymbol::createSimple( props ), QStringLiteral( "a" ) ) );
@@ -467,7 +468,7 @@ void TestQgsLayerTree::testLegendSymbolRuleBased()
 {
   //test retrieving/setting a rule based renderer's symbol through the legend node
   QgsRuleBasedRenderer::Rule *root = new QgsRuleBasedRenderer::Rule( nullptr );
-  QgsStringMap props;
+  QVariantMap props;
   props.insert( QStringLiteral( "color" ), QStringLiteral( "#ff0000" ) );
   props.insert( QStringLiteral( "outline_color" ), QStringLiteral( "#000000" ) );
   root->appendChild( new QgsRuleBasedRenderer::Rule( QgsMarkerSymbol::createSimple( props ), 0, 0, QStringLiteral( "\"col1\"=1" ) ) );
@@ -566,7 +567,7 @@ void TestQgsLayerTree::testRendererLegend( QgsFeatureRenderer *renderer )
   QCOMPARE( symbolList.at( 1 ).symbol()->color(), QColor( 255, 255, 0 ) );
 
   //another test - check directly setting symbol at renderer
-  QgsStringMap props;
+  QVariantMap props;
   props.insert( QStringLiteral( "color" ), QStringLiteral( "#00ffff" ) );
   props.insert( QStringLiteral( "outline_color" ), QStringLiteral( "#000000" ) );
   renderer->setLegendSymbolItem( symbolList.at( 2 ).ruleKey(), QgsMarkerSymbol::createSimple( props ) );
@@ -843,6 +844,34 @@ void TestQgsLayerTree::testNodeDepth()
   mRoot->removeChildNode( n );
   mRoot->removeChildNode( g1 );
   delete vl;
+}
+
+void TestQgsLayerTree::testRasterSymbolNode()
+{
+  QCOMPARE( mRoot->depth(), 0 );
+  QgsLayerTreeNode *secondGroup = mRoot->children()[1];
+  QCOMPARE( secondGroup->depth(), 1 );
+
+  std::unique_ptr< QgsRasterLayer > rl = qgis::make_unique< QgsRasterLayer >( QStringLiteral( TEST_DATA_DIR ) + "/tenbytenraster.asc", QStringLiteral( "rl" ), QStringLiteral( "gdal" ) );
+  QVERIFY( rl->isValid() );
+
+  std::unique_ptr< QgsLayerTreeLayer > n = qgis::make_unique< QgsLayerTreeLayer >( rl.get() );
+
+  // not checkable
+  QgsRasterSymbolLegendNode rasterNode( n.get(), QColor( 255, 0, 0 ), QStringLiteral( "my node" ), nullptr, false, QStringLiteral( "key" ) );
+  QVERIFY( !rasterNode.isCheckable() );
+  QCOMPARE( rasterNode.ruleKey(), QStringLiteral( "key" ) );
+  QCOMPARE( static_cast< int >( rasterNode.flags() ), static_cast< int >( Qt::ItemIsEnabled ) );
+  QCOMPARE( rasterNode.data( Qt::DisplayRole ).toString(), QStringLiteral( "my node" ) );
+  QCOMPARE( rasterNode.data( QgsLayerTreeModelLegendNode::NodeTypeRole ).toInt(), static_cast< int >( QgsLayerTreeModelLegendNode::RasterSymbolLegend ) );
+  QCOMPARE( rasterNode.data( QgsLayerTreeModelLegendNode::RuleKeyRole ).toString(), QStringLiteral( "key" ) );
+  QCOMPARE( rasterNode.data( Qt::CheckStateRole ), QVariant() );
+  QVERIFY( !rasterNode.setData( true, Qt::CheckStateRole ) );
+
+  // checkable
+  QgsRasterSymbolLegendNode rasterNode2( n.get(), QColor( 255, 0, 0 ), QStringLiteral( "my node" ), nullptr, true, QStringLiteral( "key" ) );
+  QVERIFY( rasterNode2.isCheckable() );
+  QCOMPARE( static_cast< int >( rasterNode2.flags() ), static_cast< int >( Qt::ItemIsEnabled | Qt::ItemIsUserCheckable ) );
 }
 
 QGSTEST_MAIN( TestQgsLayerTree )

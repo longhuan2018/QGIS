@@ -891,7 +891,7 @@ bool QgsPostgresProvider::loadFields()
         notNullMap[attrelid][attnum] = attNotNull;
         uniqueMap[attrelid][attnum] = uniqueConstraint;
         identityMap[attrelid][attnum] = attIdentity.isEmpty() ? " " : attIdentity;
-        generatedMap[attrelid][attnum] = attGenerated.isEmpty() ? "" : defVal;
+        generatedMap[attrelid][attnum] = attGenerated.isEmpty() ? QString() : defVal;
 
         // Also include atttype oid from pg_attribute, because PQnfields only returns basic type for for domains
         attroids.insert( attType );
@@ -1229,9 +1229,13 @@ bool QgsPostgresProvider::loadFields()
     }
 
     mDefaultValues.insert( mAttributeFields.size(), defValMap[tableoid][attnum] );
-    mGeneratedValues.insert( mAttributeFields.size(), generatedMap[tableoid][attnum] );
+
+    const QString generatedValue = generatedMap[tableoid][attnum];
+    if ( !generatedValue.isNull() )
+      mGeneratedValues.insert( mAttributeFields.size(), generatedValue );
 
     QgsField newField = QgsField( fieldName, fieldType, fieldTypeName, fieldSize, fieldPrec, fieldComment, fieldSubType );
+    newField.setReadOnly( !generatedValue.isNull() );
 
     QgsFieldConstraints constraints;
     if ( notNullMap[tableoid][attnum] || ( mPrimaryKeyAttrs.size() == 1 && mPrimaryKeyAttrs[0] == i ) || identityMap[tableoid][attnum] != ' ' )
@@ -1313,6 +1317,8 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
 {
   QgsDebugMsgLevel( QStringLiteral( "Checking for permissions on the relation" ), 2 );
 
+  mEnabledCapabilities = QgsVectorDataProvider::Capability::ReloadData;
+
   QgsPostgresResult testAccess;
   if ( !mIsQuery )
   {
@@ -1344,7 +1350,7 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
     // the latter flag is here just for compatibility
     if ( !mSelectAtIdDisabled )
     {
-      mEnabledCapabilities = QgsVectorDataProvider::SelectAtId;
+      mEnabledCapabilities |= QgsVectorDataProvider::SelectAtId;
     }
 
     if ( !inRecovery )
@@ -2108,7 +2114,6 @@ bool QgsPostgresProvider::isValid() const
 QString QgsPostgresProvider::defaultValueClause( int fieldId ) const
 {
   QString defVal = mDefaultValues.value( fieldId, QString() );
-  QString genVal = mGeneratedValues.value( fieldId, QString() );
 
   // with generated columns (PostgreSQL 12+), the provider will ALWAYS evaluate the default values.
   // The only acceptable value for such columns on INSERT or UPDATE clauses is the keyword "DEFAULT".
@@ -2117,7 +2122,7 @@ QString QgsPostgresProvider::defaultValueClause( int fieldId ) const
   // On inserting a new feature or updating a generated field, this is
   // omitted from the generated queries.
   // See https://www.postgresql.org/docs/12/ddl-generated-columns.html
-  if ( !genVal.isEmpty() )
+  if ( mGeneratedValues.contains( fieldId ) )
   {
     return defVal;
   }
@@ -2535,7 +2540,7 @@ bool QgsPostgresProvider::addFeatures( QgsFeatureList &flist, Flags flags )
             // but we need to escape all double quotes and backslashes
             list_vals.replaceInStrings( "\\", "\\\\" );
             list_vals.replaceInStrings( "\"", "\\\"" );
-            v = QStringLiteral( "{\"" ) + value.toStringList().join( QStringLiteral( "\",\"" ) ) + QStringLiteral( "\"}" );
+            v = QStringLiteral( "{\"" ) + value.toStringList().join( QLatin1String( "\",\"" ) ) + QStringLiteral( "\"}" );
           }
           else if ( value.type() == QVariant::List )
           {
@@ -3005,7 +3010,7 @@ bool QgsPostgresProvider::changeAttributeValues( const QgsChangedAttributesMap &
 
           pkChanged = pkChanged || mPrimaryKeyAttrs.contains( siter.key() );
 
-          if ( mGeneratedValues.contains( siter.key() ) && !mGeneratedValues.value( siter.key(), QString() ).isEmpty() )
+          if ( mGeneratedValues.contains( siter.key() ) )
           {
             QgsLogger::warning( tr( "Changing the value of GENERATED field %1 is not allowed." ).arg( fld.name() ) );
             continue;
@@ -3369,7 +3374,7 @@ bool QgsPostgresProvider::changeFeatures( const QgsChangedAttributesMap &attr_ma
 
           pkChanged = pkChanged || mPrimaryKeyAttrs.contains( siter.key() );
 
-          if ( mGeneratedValues.contains( siter.key() ) && !mGeneratedValues.value( siter.key(), QString() ).isEmpty() )
+          if ( mGeneratedValues.contains( siter.key() ) )
           {
             QgsLogger::warning( tr( "Changing the value of GENERATED field %1 is not allowed." ).arg( fld.name() ) );
             continue;
@@ -4984,6 +4989,7 @@ QList<QgsRelation> QgsPostgresProvider::discoverRelations( const QgsVectorLayer 
   }
 
   int nbFound = 0;
+  QList<QString> refTableFound;
   for ( int row = 0; row < sqlResult.PQntuples(); ++row )
   {
     const QString name = sqlResult.PQgetvalue( row, 0 );
@@ -5001,7 +5007,7 @@ QList<QgsRelation> QgsPostgresProvider::discoverRelations( const QgsVectorLayer 
     }
     const QString refColumn = sqlResult.PQgetvalue( row, 4 );
     const QString position = sqlResult.PQgetvalue( row, 5 );
-    if ( ( position == QLatin1String( "1" ) ) || ( nbFound == 0 ) )
+    if ( ( position == QLatin1String( "1" ) ) || ( nbFound == 0 ) || ( !refTableFound.contains( refTable ) ) )
     {
       // first reference field => try to find if we have layers for the referenced table
       const QList<QgsVectorLayer *> foundLayers = searchLayers( layers, mUri.connectionInfo( false ), refSchema, refTable );
@@ -5018,6 +5024,7 @@ QList<QgsRelation> QgsPostgresProvider::discoverRelations( const QgsVectorLayer 
         {
           result.append( relation );
           ++nbFound;
+          refTableFound.append( refTable );
         }
         else
         {
@@ -5028,9 +5035,16 @@ QList<QgsRelation> QgsPostgresProvider::discoverRelations( const QgsVectorLayer 
     else
     {
       // multi reference field => add the field pair to all the referenced layers found
+      const QList<QgsVectorLayer *> foundLayers = searchLayers( layers, mUri.connectionInfo( false ), refSchema, refTable );
       for ( int i = 0; i < nbFound; ++i )
       {
-        result[result.size() - 1 - i].addFieldPair( fkColumn, refColumn );
+        for ( const QgsVectorLayer *foundLayer : foundLayers )
+        {
+          if ( result[result.size() - 1 - i].referencedLayerId() == foundLayer->id() )
+          {
+            result[result.size() - 1 - i].addFieldPair( fkColumn, refColumn );
+          }
+        }
       }
     }
   }
@@ -5741,7 +5755,7 @@ QGISEXTERN QgsProviderMetadata *providerMetadataFactory()
 #endif
 
 
-QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QgsDataSourceUri dsUri { uri };
   QVariantMap uriParts;
@@ -5790,7 +5804,7 @@ QVariantMap QgsPostgresProviderMetadata::decodeUri( const QString &uri )
 }
 
 
-QString QgsPostgresProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsPostgresProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   QgsDataSourceUri dsUri;
   if ( parts.contains( QStringLiteral( "dbname" ) ) )

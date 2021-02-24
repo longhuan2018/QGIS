@@ -88,6 +88,11 @@ QgsDwgImportDialog::QgsDwgImportDialog( QWidget *parent, Qt::WindowFlags f )
   mCrsSelector->setMessage( tr( "Select the coordinate reference system for the dxf file. "
                                 "The data points will be transformed from the layer coordinate reference system." ) );
 
+
+  if ( ! QgsVectorFileWriter::supportedFormatExtensions().contains( QStringLiteral( "gpkg" ) ) )
+  {
+    bar->pushMessage( tr( "GDAL/OGR not built with GPKG (sqlite3) support. You will not be able to export the DWG in a GPKG." ), Qgis::Critical );
+  }
   pbLoadDatabase_clicked();
   updateUI();
 }
@@ -226,7 +231,7 @@ void QgsDwgImportDialog::pbLoadDatabase_clicked()
   }
   else
   {
-    bar->pushMessage( tr( "Could not open layer list" ), Qgis::Critical, 4 );
+    bar->pushMessage( tr( "Could not open layer list" ), Qgis::Critical );
   }
 }
 
@@ -253,11 +258,11 @@ void QgsDwgImportDialog::pbImportDrawing_clicked()
   QString error;
   if ( importer.import( leDrawing->text(), error, cbExpandInserts->isChecked(), cbUseCurves->isChecked(), lblMessage ) )
   {
-    bar->pushMessage( tr( "Drawing import completed." ), Qgis::Info, 4 );
+    bar->pushMessage( tr( "Drawing import completed." ), Qgis::Info );
   }
   else
   {
-    bar->pushMessage( tr( "Drawing import failed (%1)" ).arg( error ), Qgis::Critical, 4 );
+    bar->pushMessage( tr( "Drawing import failed (%1)" ).arg( error ), Qgis::Critical );
   }
 
   pbLoadDatabase_clicked();

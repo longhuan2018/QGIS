@@ -24,6 +24,7 @@
 #include "qgsproject.h"
 #include "qgsgdalutils.h"
 #include "qgsvectortiledataitems.h"
+#include "qgsproviderregistry.h"
 #include "symbology/qgsstyle.h"
 
 #include <QFileInfo>
@@ -83,25 +84,10 @@ QVector<QgsDataItem *> QgsGdalLayerItem::createChildren()
     QgsDebugMsgLevel( QStringLiteral( "got %1 sublayers" ).arg( mSublayers.count() ), 3 );
     for ( int i = 0; i < mSublayers.count(); i++ )
     {
-      QString name = mSublayers[i];
-      // if netcdf/hdf use all text after filename
-      // for hdf4 it would be best to get description, because the subdataset_index is not very practical
-      if ( name.startsWith( QLatin1String( "netcdf" ), Qt::CaseInsensitive ) ||
-           name.startsWith( QLatin1String( "hdf" ), Qt::CaseInsensitive ) )
-        name = name.mid( name.indexOf( mPath ) + mPath.length() + 1 );
-      else
-      {
-        // remove driver name and file name and initial ':'
-        name.remove( name.split( QgsDataProvider::sublayerSeparator() )[0] + ':' );
-        name.remove( mPath );
-      }
-      // remove any : or " left over
-      if ( name.startsWith( ':' ) ) name.remove( 0, 1 );
-      if ( name.startsWith( '\"' ) ) name.remove( 0, 1 );
-      if ( name.endsWith( ':' ) ) name.chop( 1 );
-      if ( name.endsWith( '\"' ) ) name.chop( 1 );
-
-      childItem = new QgsGdalLayerItem( this, name, mSublayers[i], mSublayers[i] );
+      const QStringList parts = mSublayers[i].split( QgsDataProvider::sublayerSeparator() );
+      const QString path = parts[0];
+      const QString desc = parts[1];
+      childItem = new QgsGdalLayerItem( this, desc, path, path );
       if ( childItem )
       {
         children.append( childItem );
@@ -142,6 +128,19 @@ QgsDataItem *QgsGdalDataItemProvider::createDataItem( const QString &pathIn, Qgs
 
   QString path( pathIn );
   if ( path.isEmpty() )
+    return nullptr;
+
+  // if another provider has preference for this path, let it win. This allows us to hide known files
+  // more strongly associated with another provider from showing duplicate entries for the ogr provider.
+  // e.g. in particular this hides "ept.json" files from showing as a non-functional ogr data item, and
+  // instead ONLY shows them as the functional EPT point cloud provider items
+  if ( QgsProviderRegistry::instance()->shouldDeferUriForOtherProviders( path, QStringLiteral( "gdal" ) ) )
+  {
+    return nullptr;
+  }
+
+  // hide blocklisted URIs, such as .aux.xml files
+  if ( QgsProviderRegistry::instance()->uriIsBlocklisted( path ) )
     return nullptr;
 
   QgsDebugMsgLevel( "thePath = " + path, 2 );
@@ -209,19 +208,6 @@ QgsDataItem *QgsGdalDataItemProvider::createDataItem( const QString &pathIn, Qgs
     QgsDebugMsgLevel( QStringLiteral( "extensions: " ) + sExtensions.join( ' ' ), 2 );
     QgsDebugMsgLevel( QStringLiteral( "wildcards: " ) + sWildcards.join( ' ' ), 2 );
   } );
-
-  // skip *.aux.xml files (GDAL auxiliary metadata files),
-  // *.shp.xml files (ESRI metadata) and *.tif.xml files (TIFF metadata)
-  // unless that extension is in the list (*.xml might be though)
-  if ( path.endsWith( QLatin1String( ".aux.xml" ), Qt::CaseInsensitive ) &&
-       !sExtensions.contains( QStringLiteral( "aux.xml" ) ) )
-    return nullptr;
-  if ( path.endsWith( QLatin1String( ".shp.xml" ), Qt::CaseInsensitive ) &&
-       !sExtensions.contains( QStringLiteral( "shp.xml" ) ) )
-    return nullptr;
-  if ( path.endsWith( QLatin1String( ".tif.xml" ), Qt::CaseInsensitive ) &&
-       !sExtensions.contains( QStringLiteral( "tif.xml" ) ) )
-    return nullptr;
 
   // skip QGIS style xml files
   if ( path.endsWith( QLatin1String( ".xml" ), Qt::CaseInsensitive ) &&

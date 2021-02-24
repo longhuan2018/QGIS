@@ -967,7 +967,7 @@ bool QgsMdalProviderMetadata::createMeshData( const QgsMesh &mesh, const QString
   return true;
 }
 
-QVariantMap QgsMdalProviderMetadata::decodeUri( const QString &uri )
+QVariantMap QgsMdalProviderMetadata::decodeUri( const QString &uri ) const
 {
   const QString path = uri;
   QVariantMap uriComponents;
@@ -975,7 +975,7 @@ QVariantMap QgsMdalProviderMetadata::decodeUri( const QString &uri )
   return uriComponents;
 }
 
-QString QgsMdalProviderMetadata::encodeUri( const QVariantMap &parts )
+QString QgsMdalProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   const QString path = parts.value( QStringLiteral( "path" ) ).toString();
   return path;
@@ -999,9 +999,13 @@ QString QgsMdalProviderMetadata::filters( FilterType type )
       QgsMdalProvider::fileMeshFilters( fileMeshFiltersString, fileMeshDatasetFiltersString );
       return fileMeshDatasetFiltersString;
     }
-    default:
+
+    case QgsProviderMetadata::FilterType::FilterRaster:
+    case QgsProviderMetadata::FilterType::FilterVector:
+    case QgsProviderMetadata::FilterType::FilterPointCloud:
       return QString();
   }
+  return QString();
 }
 
 QList<QgsMeshDriverMetadata> QgsMdalProviderMetadata::meshDriversMetadata()

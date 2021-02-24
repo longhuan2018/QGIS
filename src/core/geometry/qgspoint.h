@@ -418,7 +418,7 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
     double inclination( const QgsPoint &other ) const SIP_HOLDGIL;
 
     /**
-     * Returns a new point which correspond to this point projected by a specified distance
+     * Returns a new point which corresponds to this point projected by a specified distance
      * with specified angles (azimuth and inclination), using Cartesian mathematics.
      * M value is preserved.
      * \param distance distance to project
@@ -537,6 +537,8 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
     void swapXy() override;
     bool convertTo( QgsWkbTypes::Type type ) override;
 
+    bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = nullptr ) override;
+
 #ifndef SIP_RUN
 
     void filterVertices( const std::function< bool( const QgsPoint & ) > &filter ) override;
@@ -549,7 +551,7 @@ class CORE_EXPORT QgsPoint: public QgsAbstractGeometry
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsPoint *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsPoint *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::Point )
         return static_cast<const QgsPoint *>( geom );

@@ -51,6 +51,26 @@
 #include "cpl_string.h"
 
 // shared icons
+
+QIcon QgsLayerItem::iconForWkbType( QgsWkbTypes::Type type )
+{
+  QgsWkbTypes::GeometryType geomType = QgsWkbTypes::geometryType( QgsWkbTypes::Type( type ) );
+  switch ( geomType )
+  {
+    case QgsWkbTypes::NullGeometry:
+      return iconTable();
+    case QgsWkbTypes::PointGeometry:
+      return iconPoint();
+    case QgsWkbTypes::LineGeometry:
+      return iconLine();
+    case QgsWkbTypes::PolygonGeometry:
+      return iconPolygon();
+    default:
+      break;
+  }
+  return iconDefault();
+}
+
 QIcon QgsLayerItem::iconPoint()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconPointLayer.svg" ) );
@@ -86,6 +106,11 @@ QIcon QgsLayerItem::iconVectorTile()
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconVectorTileLayer.svg" ) );
 }
 
+QIcon QgsLayerItem::iconPointCloud()
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "/mIconPointCloudLayer.svg" ) );
+}
+
 QIcon QgsLayerItem::iconDefault()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconLayer.png" ) );
@@ -104,6 +129,44 @@ QIcon QgsDataCollectionItem::openDirIcon()
 QIcon QgsDataCollectionItem::homeDirIcon()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "mIconFolderHome.svg" ) );
+}
+
+QgsAbstractDatabaseProviderConnection *QgsDataCollectionItem::databaseConnection() const
+{
+  const QString dataProviderKey { QgsApplication::dataItemProviderRegistry()->dataProviderKey( providerKey() ) };
+  QgsProviderMetadata *md { QgsProviderRegistry::instance()->providerMetadata( dataProviderKey ) };
+
+  if ( ! md )
+  {
+    return nullptr;
+  }
+
+  const QString connectionName { name() };
+
+  try
+  {
+    // First try to retrieve the connection by name if this is a stored connection
+    if ( md->findConnection( connectionName ) )
+    {
+      return static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( connectionName ) );
+    }
+
+    // If that fails, try to create a connection from the path, in case this is a
+    // filesystem-based DB (gpkg or spatialite)
+    // The name is useless, we need to get the file path from the data item path
+    const QString databaseFilePath { path().remove( QRegularExpression( R"re([\aZ]{2,}://)re" ) ) };
+
+    if ( QFile::exists( databaseFilePath ) )
+    {
+      return static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( databaseFilePath, {} ) );
+    }
+  }
+  catch ( QgsProviderConnectionException &ex )
+  {
+    // This is expected and it is not an error in case the provider does not implement
+    // the connections API
+  }
+  return nullptr;
 }
 
 QIcon QgsDataCollectionItem::iconDir()
@@ -396,6 +459,11 @@ void QgsDataItem::moveToThread( QThread *targetThread )
     child->moveToThread( targetThread );
   }
   QObject::moveToThread( targetThread );
+}
+
+QgsAbstractDatabaseProviderConnection *QgsDataItem::databaseConnection() const
+{
+  return nullptr;
 }
 
 QIcon QgsDataItem::icon()
@@ -823,6 +891,9 @@ QgsMapLayerType QgsLayerItem::mapLayerType() const
     case QgsLayerItem::Plugin:
       return QgsMapLayerType::PluginLayer;
 
+    case QgsLayerItem::PointCloud:
+      return QgsMapLayerType::PointCloudLayer;
+
     case QgsLayerItem::NoType:
     case QgsLayerItem::Vector:
     case QgsLayerItem::Point:
@@ -870,6 +941,8 @@ QgsLayerItem::LayerType QgsLayerItem::typeFromMapLayer( QgsMapLayer *layer )
       return Plugin;
     case QgsMapLayerType::MeshLayer:
       return Mesh;
+    case QgsMapLayerType::PointCloudLayer:
+      return PointCloud;
     case QgsMapLayerType::VectorTileLayer:
       return VectorTile;
     case QgsMapLayerType::AnnotationLayer:
@@ -904,6 +977,8 @@ QString QgsLayerItem::iconName( QgsLayerItem::LayerType layerType )
       return QStringLiteral( "/mIconRaster.svg" );
     case Mesh:
       return QStringLiteral( "/mIconMeshLayer.svg" );
+    case PointCloud:
+      return QStringLiteral( "/mIconPointCloudLayer.svg" );
     default:
       return QStringLiteral( "/mIconLayer.png" );
   }
@@ -959,6 +1034,7 @@ QgsMimeDataUtils::Uri QgsLayerItem::mimeUri() const
         case Raster:
         case Plugin:
         case Mesh:
+        case PointCloud:
         case VectorTile:
           break;
       }
@@ -971,6 +1047,9 @@ QgsMimeDataUtils::Uri QgsLayerItem::mimeUri() const
       break;
     case QgsMapLayerType::VectorTileLayer:
       u.layerType = QStringLiteral( "vector-tile" );
+      break;
+    case QgsMapLayerType::PointCloudLayer:
+      u.layerType = QStringLiteral( "pointcloud" );
       break;
     case QgsMapLayerType::PluginLayer:
       u.layerType = QStringLiteral( "plugin" );
@@ -1810,6 +1889,27 @@ QgsDatabaseSchemaItem::~QgsDatabaseSchemaItem()
 QIcon QgsDatabaseSchemaItem::iconDataCollection()
 {
   return QgsApplication::getThemeIcon( QStringLiteral( "/mIconDbSchema.svg" ) );
+}
+
+QgsAbstractDatabaseProviderConnection *QgsDatabaseSchemaItem::databaseConnection() const
+{
+  const QString dataProviderKey { QgsApplication::dataItemProviderRegistry()->dataProviderKey( providerKey() ) };
+  QgsProviderMetadata *md { QgsProviderRegistry::instance()->providerMetadata( dataProviderKey ) };
+  if ( ! md )
+  {
+    return nullptr;
+  }
+  const QString connectionName { parent()->name() };
+  try
+  {
+    return static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( connectionName ) );
+  }
+  catch ( QgsProviderConnectionException &ex )
+  {
+    // This is expected and it is not an error in case the provider does not implement
+    // the connections API
+  }
+  return nullptr;
 }
 
 

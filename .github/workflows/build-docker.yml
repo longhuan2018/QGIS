@@ -1,6 +1,11 @@
 name: Build Docker images for current branches
 
 on:
+  push:
+    branches: 
+      - master
+    paths:
+      - .github/workflows/build-docker.yml
   schedule:
     # runs every day
     - cron: '0 0 * * *'
@@ -20,12 +25,12 @@ jobs:
 
     strategy:
       matrix:
-        branch: [master, release-3_10, release-3_14]
+        branch: [master, release-3_16]
 
     steps:
       - name: Cache
         id: cache
-        uses: actions/cache@v2
+        uses: actions/cache@v2.1.4
         with:
           path: ~/.ccache
           key: docker-build-${{ matrix.branch }}
@@ -40,8 +45,8 @@ jobs:
           branch: ${{ matrix.branch }}
         run: |
           export DOCKER_TAG=${branch//master/latest}
-          export DOCKER_BUILD_DEPS_FILE=qgis3-build-deps-focal.dockerfile
-          export DOCKER_DEPS_TAG=${DOCKER_TAG}_focal
+          export DOCKER_BUILD_DEPS_FILE=qgis3-build-deps.dockerfile
+          export DOCKER_DEPS_TAG=${DOCKER_TAG}
 
           echo "branch: ${branch}"
           echo "docker tag: ${DOCKER_TAG}"
@@ -73,7 +78,7 @@ jobs:
           docker run --name qgis_container qgis/qgis:BUILDER /bin/true
           docker cp qgis_container:/QGIS/build_exit_value ./build_exit_value
 
-          if [[ $(cat ./build_exit_value) -ne "OK" ]]; then
+          if [[ $(cat ./build_exit_value) != "OK" ]]; then
             echo "Build failed, not pushing image"
             exit 1
           fi
@@ -111,7 +116,7 @@ jobs:
             "ref": "master",
             "inputs": {"qgis_branch": "__QGIS_VERSION_BRANCH__"}
           }'
-          body=$(sed "s/__QGIS_VERSION_BRANCH__/${TRAVIS_BRANCH}/;" <<< $body)
+          body=$(sed "s/__QGIS_VERSION_BRANCH__/${branch}/;" <<< $body)
           curl -X POST \
             -H "Accept: application/vnd.github.v3+json" \
             -H "Authorization: token ${GH_TOKEN}" \

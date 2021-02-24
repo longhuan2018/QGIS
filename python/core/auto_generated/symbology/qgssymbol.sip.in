@@ -55,6 +55,18 @@ Abstract base class for all rendered symbols.
     typedef QFlags<QgsSymbol::RenderHint> RenderHints;
 
 
+    enum Property
+    {
+      PropertyOpacity,
+    };
+
+    static const QgsPropertiesDefinition &propertyDefinitions();
+%Docstring
+Returns the symbol property definitions.
+
+.. versionadded:: 3.18
+%End
+
     virtual ~QgsSymbol();
 
     static QgsSymbol *defaultSymbol( QgsWkbTypes::GeometryType geomType ) /Factory/;
@@ -354,7 +366,7 @@ Returns a deep copy of this symbol.
 Ownership is transferred to the caller.
 %End
 
-    void toSld( QDomDocument &doc, QDomElement &element, QgsStringMap props ) const;
+    void toSld( QDomDocument &doc, QDomElement &element, QVariantMap props ) const;
 %Docstring
 Converts the symbol to a SLD representation.
 %End
@@ -366,7 +378,7 @@ symbol layer definitions will interpret this in different ways, e.g., a marker s
 may use it to specify the units for the marker size, while a line symbol
 may use it to specify the units for the line width.
 
-:return: output unit, or QgsUnitTypes.RenderUnknownUnit if the symbol contains mixed units
+:return: output unit, or :py:class:`QgsUnitTypes`.RenderUnknownUnit if the symbol contains mixed units
 
 .. seealso:: :py:func:`setOutputUnit`
 %End
@@ -504,11 +516,57 @@ This should include any attributes required by the symbology including
 the ones required by expressions.
 %End
 
+    void setDataDefinedProperty( Property key, const QgsProperty &property );
+%Docstring
+Sets a data defined property for the symbol. Any existing property with the same key
+will be overwritten.
+
+.. seealso:: :py:func:`dataDefinedProperties`
+
+.. seealso:: Property
+
+.. versionadded:: 3.18
+%End
+
+    QgsPropertyCollection &dataDefinedProperties();
+%Docstring
+Returns a reference to the symbol's property collection, used for data defined overrides.
+
+.. seealso:: :py:func:`setDataDefinedProperties`
+
+.. seealso:: Property
+
+.. versionadded:: 3.18
+%End
+
+
+    void setDataDefinedProperties( const QgsPropertyCollection &collection );
+%Docstring
+Sets the symbol's property collection, used for data defined overrides.
+
+:param collection: property collection. Existing properties will be replaced.
+
+.. seealso:: :py:func:`dataDefinedProperties`
+
+.. versionadded:: 3.18
+%End
+
     bool hasDataDefinedProperties() const;
 %Docstring
 Returns whether the symbol utilizes any data defined properties.
 
 .. versionadded:: 2.12
+%End
+
+    bool canCauseArtifactsBetweenAdjacentTiles() const;
+%Docstring
+Returns ``True`` if the symbol rendering can cause visible artifacts across a single feature
+when the feature is rendered as a series of adjacent map tiles each containing a portion of the feature's geometry.
+
+Internally this calls :py:func:`QgsSymbolLayer.canCauseArtifactsBetweenAdjacentTiles()` for all symbol layers in the symbol
+and returns ``True`` if any of the layers returned ``True``.
+
+.. versionadded:: 3.18
 %End
 
  void setLayer( const QgsVectorLayer *layer ) /Deprecated/;
@@ -547,17 +605,17 @@ Returns the symbol render context. Only valid between startRender and stopRender
 
     static QPointF _getPoint( QgsRenderContext &context, const QgsPoint &point );
 %Docstring
-Creates a point in screen coordinates from a QgsPoint in map coordinates
+Creates a point in screen coordinates from a :py:class:`QgsPoint` in map coordinates
 %End
 
     static QPolygonF _getLineString( QgsRenderContext &context, const QgsCurve &curve, bool clipToExtent = true );
 %Docstring
-Creates a line string in screen coordinates from a QgsCurve in map coordinates
+Creates a line string in screen coordinates from a :py:class:`QgsCurve` in map coordinates
 %End
 
     static QPolygonF _getPolygonRing( QgsRenderContext &context, const QgsCurve &curve, bool clipToExtent, bool isExteriorRing = false, bool correctRingOrientation = false );
 %Docstring
-Creates a polygon ring in screen coordinates from a QgsCurve in map coordinates.
+Creates a polygon ring in screen coordinates from a :py:class:`QgsCurve` in map coordinates.
 
 If ``correctRingOrientation`` is ``True`` then the ring will be oriented to match standard ring orientation, e.g.
 clockwise for exterior rings and counter-clockwise for interior rings.
@@ -565,7 +623,7 @@ clockwise for exterior rings and counter-clockwise for interior rings.
 
     static void _getPolygon( QPolygonF &pts, QVector<QPolygonF> &holes, QgsRenderContext &context, const QgsPolygon &polygon, bool clipToExtent = true, bool correctRingOrientation = false );
 %Docstring
-Creates a polygon in screen coordinates from a QgsPolygonXYin map coordinates
+Creates a polygon in screen coordinates from a :py:class:`QgsPolygonXYin` map coordinates
 
 If ``correctRingOrientation`` is ``True`` then the ring will be oriented to match standard ring orientation, e.g.
 clockwise for exterior rings and counter-clockwise for interior rings.
@@ -757,7 +815,7 @@ simple line style will look different if the simple line is rendering a polygon 
 %Docstring
 Fields of the layer. Currently only available in :py:func:`~QgsSymbolRenderContext.startRender` calls
 to allow symbols with data-defined properties prepare the expressions
-(other times :py:func:`~QgsSymbolRenderContext.fields` returns an empty QgsFields object).
+(other times :py:func:`~QgsSymbolRenderContext.fields` returns an empty :py:class:`QgsFields` object).
 
 .. versionadded:: 2.4
 %End
@@ -794,14 +852,14 @@ Sets the part number of current geometry
 %Docstring
 
 .. deprecated::
-   Use the size conversion methods in QgsRenderContext instead.
+   Use the size conversion methods in :py:class:`QgsRenderContext` instead.
 %End
 
  double outputPixelSize( double size ) const /Deprecated/;
 %Docstring
 
 .. deprecated::
-   Use the size conversion methods in QgsRenderContext instead.
+   Use the size conversion methods in :py:class:`QgsRenderContext` instead.
 %End
 
 
@@ -859,7 +917,7 @@ A marker symbol type, for rendering Point and MultiPoint geometries.
 %End
   public:
 
-    static QgsMarkerSymbol *createSimple( const QgsStringMap &properties ) /Factory/;
+    static QgsMarkerSymbol *createSimple( const QVariantMap &properties ) /Factory/;
 %Docstring
 Create a marker symbol with one symbol layer: SimpleMarker with specified properties.
 This is a convenience method for easier creation of marker symbols.
@@ -1106,7 +1164,7 @@ A line symbol type, for rendering LineString and MultiLineString geometries.
 %End
   public:
 
-    static QgsLineSymbol *createSimple( const QgsStringMap &properties ) /Factory/;
+    static QgsLineSymbol *createSimple( const QVariantMap &properties ) /Factory/;
 %Docstring
 Create a line symbol with one symbol layer: SimpleLine with specified properties.
 This is a convenience method for easier creation of line symbols.
@@ -1217,7 +1275,7 @@ A fill symbol type, for rendering Polygon and MultiPolygon geometries.
 %End
   public:
 
-    static QgsFillSymbol *createSimple( const QgsStringMap &properties ) /Factory/;
+    static QgsFillSymbol *createSimple( const QVariantMap &properties ) /Factory/;
 %Docstring
 Create a fill symbol with one symbol layer: SimpleFill with specified properties.
 This is a convenience method for easier creation of fill symbols.

@@ -3,38 +3,16 @@
 #####################################################
 # Don't forget to include output directory, otherwise
 # the UI file won't be wrapped!
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_BINARY_DIR}
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/mesh
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/pal
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/core/effects
-  ${CMAKE_SOURCE_DIR}/src/core/textrenderer
   ${CMAKE_SOURCE_DIR}/src/providers/wms
   ${CMAKE_SOURCE_DIR}/src/providers/postgres
-  ${CMAKE_SOURCE_DIR}/src/providers/arcgisrest
   ${CMAKE_SOURCE_DIR}/src/providers/mdal
   ${CMAKE_SOURCE_DIR}/src/providers/ogr
   ${CMAKE_SOURCE_DIR}/src/test
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
-
-  ${CMAKE_BINARY_DIR}/src/core
 )
 include_directories(SYSTEM
-  ${QT_INCLUDE_DIR}
-  ${GEOS_INCLUDE_DIR}
-  ${GDAL_INCLUDE_DIR}
   ${MDAL_INCLUDE_DIR}
-  ${QCA_INCLUDE_DIR}
-  ${QTKEYCHAIN_INCLUDE_DIR}
   ${POSTGRES_INCLUDE_DIR}
 )
 
@@ -42,7 +20,7 @@ include_directories(SYSTEM
 #qtests in the executable file list as the moc is
 #directly included in the sources
 #and should not be compiled twice. Trying to include
-#them in will cause an error at build time 
+#them in will cause an error at build time
 
 #No relinking and full RPATH for the install tree
 #See: http://www.cmake.org/Wiki/CMake_RPATH_handling#No_relinking_and_full_RPATH_for_the_install_tree
@@ -75,15 +53,6 @@ set_target_properties(qgis_wcsprovidertest PROPERTIES
   COMPILE_FLAGS "-DTEST_SERVER_URL=\\\"${TEST_SERVER_URL}\\\""
 )
 
-if (NOT FORCE_STATIC_PROVIDERS)
-  ADD_QGIS_TEST(arcgisrestutilstest testqgsarcgisrestutils.cpp)
-  target_link_libraries(qgis_arcgisrestutilstest arcgisfeatureserverprovider_a)
-endif()
-
-if(NOT MSVC)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
-endif()
-
 ADD_QGIS_TEST(wmscapabilitiestest
               testqgswmscapabilities.cpp)
 target_link_libraries(qgis_wmscapabilitiestest wmsprovider_a qgis_core)
@@ -104,6 +73,20 @@ target_link_libraries(qgis_postgresconntest postgresprovider_a qgis_core)
 
 if (NOT FORCE_STATIC_PROVIDERS)
   ADD_QGIS_TEST(mdalprovidertest testqgsmdalprovider.cpp)
+endif()
+
+if (WITH_EPT)
+  include_directories(
+  )
+  ADD_QGIS_TEST(eptprovidertest testqgseptprovider.cpp)
+endif()
+
+if (WITH_PDAL)
+  include_directories(
+    ${CMAKE_SOURCE_DIR}/src/providers/pdal
+  )
+  ADD_QGIS_TEST(pdalprovidertest testqgspdalprovider.cpp)
+  target_link_libraries(qgis_pdalprovidertest pdalprovider_a qgis_core)
 endif()
 
 #############################################################

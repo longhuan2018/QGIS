@@ -19,9 +19,6 @@
 
 #include <Qt3DRender/QMaterial>
 
-#include <Qt3DExtras/QDiffuseMapMaterial>
-#include <Qt3DExtras/QTextureMaterial>
-
 #include "qgsmesh3dentity_p.h"
 #include "qgsmeshlayer.h"
 #include "qgsmeshlayer3drenderer.h"
@@ -184,7 +181,7 @@ void QgsMeshTerrainGenerator::updateTriangularMesh()
   {
     QgsCoordinateTransform transform( mCrs, meshLayer()->crs(), mTransformContext );
     meshLayer()->updateTriangularMesh( transform );
-    mTriangularMesh = *meshLayer()->triangularMesh();
+    mTriangularMesh = *meshLayer()->triangularMeshByLodIndex( mSymbol->levelOfDetailIndex() );
   }
 }
 
@@ -196,6 +193,7 @@ QgsMesh3DSymbol *QgsMeshTerrainGenerator::symbol() const
 void QgsMeshTerrainGenerator::setSymbol( QgsMesh3DSymbol *symbol )
 {
   mSymbol.reset( symbol );
+  updateTriangularMesh();
 }
 
 void QgsMeshTerrainGenerator::setCrs( const QgsCoordinateReferenceSystem &crs, const QgsCoordinateTransformContext &context )

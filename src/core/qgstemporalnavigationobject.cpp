@@ -17,6 +17,7 @@
 
 #include "qgstemporalnavigationobject.h"
 #include "qgis.h"
+#include "qgstemporalutils.h"
 
 QgsTemporalNavigationObject::QgsTemporalNavigationObject( QObject *parent )
   : QgsTemporalController( parent )
@@ -75,6 +76,8 @@ QgsExpressionContextScope *QgsTemporalNavigationObject::createExpressionContextS
   scope->setVariable( QStringLiteral( "frame_rate" ), mFramesPerSecond, true );
   scope->setVariable( QStringLiteral( "frame_number" ), mCurrentFrameNumber, true );
   scope->setVariable( QStringLiteral( "frame_duration" ), mFrameDuration, true );
+  scope->setVariable( QStringLiteral( "frame_timestep" ), mFrameDuration.originalDuration(), true );
+  scope->setVariable( QStringLiteral( "frame_timestep_unit" ), mFrameDuration.originalUnit(), true );
   scope->setVariable( QStringLiteral( "animation_start_time" ), mTemporalExtents.begin(), true );
   scope->setVariable( QStringLiteral( "animation_end_time" ), mTemporalExtents.end(), true );
   scope->setVariable( QStringLiteral( "animation_interval" ), mTemporalExtents.end() - mTemporalExtents.begin(), true );
@@ -90,8 +93,8 @@ QgsDateTimeRange QgsTemporalNavigationObject::dateTimeRangeForFrameNumber( long 
 
   const long long nextFrame = frame + 1;
 
-  const QDateTime begin = start.addSecs( frame * mFrameDuration.seconds() );
-  const QDateTime end = start.addSecs( nextFrame * mFrameDuration.seconds() );
+  const QDateTime begin = QgsTemporalUtils::calculateFrameTime( start, frame, mFrameDuration );
+  const QDateTime end = QgsTemporalUtils::calculateFrameTime( start, nextFrame, mFrameDuration );
 
   QDateTime frameStart = begin;
 
@@ -191,15 +194,14 @@ void QgsTemporalNavigationObject::setFrameDuration( QgsInterval frameDuration )
   }
   QgsDateTimeRange oldFrame = dateTimeRangeForFrameNumber( currentFrameNumber() );
   mFrameDuration = frameDuration;
+
   mCurrentFrameNumber = findBestFrameNumberForFrameStart( oldFrame.begin() );
   emit temporalFrameDurationChanged( mFrameDuration );
-
-  // temporarily disable the updateTemporalRange signal, as we'll emit it ourselves at the end of this function...
 
   // forcing an update of our views
   QgsDateTimeRange range = dateTimeRangeForFrameNumber( mCurrentFrameNumber );
 
-  if ( !mBlockUpdateTemporalRangeSignal && mNavigationMode != NavigationOff )
+  if ( !mBlockUpdateTemporalRangeSignal && mNavigationMode == Animated )
     emit updateTemporalRange( range );
 }
 
@@ -308,11 +310,26 @@ QgsTemporalNavigationObject::AnimationState QgsTemporalNavigationObject::animati
   return mPlayBackMode;
 }
 
-long QgsTemporalNavigationObject::findBestFrameNumberForFrameStart( const QDateTime &frameStart ) const
+long long QgsTemporalNavigationObject::findBestFrameNumberForFrameStart( const QDateTime &frameStart ) const
 {
-  long bestFrame = 0;
-  QgsDateTimeRange testFrame = QgsDateTimeRange( frameStart, frameStart ); // creatng an 'instant' Range here
-  for ( long i = 0; i < totalFrameCount(); ++i )
+  long long bestFrame = 0;
+  QgsDateTimeRange testFrame = QgsDateTimeRange( frameStart, frameStart ); // creating an 'instant' Range
+  // Earlier we looped from frame 0 till totalFrameCount() here, but this loop grew potentially gigantic
+  long long roughFrameStart = 0;
+  long long roughFrameEnd = totalFrameCount();
+  // For the smaller step frames we calculate an educated guess, to prevent the loop becoming too
+  // large, freezing the ui (eg having a mTemporalExtents of several months and the user selects milliseconds)
+  if ( mFrameDuration.originalUnit() != QgsUnitTypes::TemporalMonths && mFrameDuration.originalUnit() != QgsUnitTypes::TemporalYears && mFrameDuration.originalUnit() != QgsUnitTypes::TemporalDecades && mFrameDuration.originalUnit() != QgsUnitTypes::TemporalCenturies )
+  {
+    // Only if we receive a valid frameStart, that is within current mTemporalExtents
+    // We tend to receive a framestart of 'now()' upon startup for example
+    if ( mTemporalExtents.contains( frameStart ) )
+    {
+      roughFrameStart = std::floor( ( frameStart - mTemporalExtents.begin() ).seconds() / mFrameDuration.seconds() );
+    }
+    roughFrameEnd = roughFrameStart + 100; // just in case we miss the guess
+  }
+  for ( long long i = roughFrameStart; i < roughFrameEnd; ++i )
   {
     QgsDateTimeRange range = dateTimeRangeForFrameNumber( i );
     if ( range.overlaps( testFrame ) )

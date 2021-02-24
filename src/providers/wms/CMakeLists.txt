@@ -15,39 +15,23 @@ if (WITH_GUI)
     qgswmtsdimensions.cpp
     qgsxyzconnectiondialog.cpp
     qgsxyzsourceselect.cpp
+    qgsxyzsourcewidget.cpp
   )
 endif()
 
-include_directories(
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/geocms/geonode
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/gui
-  ${CMAKE_SOURCE_DIR}/src/gui/auth
-  ${CMAKE_SOURCE_DIR}/src/gui/editorwidgets
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
-
-  ${CMAKE_BINARY_DIR}/src/ui
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/gui
-)
-include_directories(SYSTEM
-  ${GDAL_INCLUDE_DIR}
-  ${EXPAT_INCLUDE_DIR}
-  ${QCA_INCLUDE_DIR}
-  ${QTKEYCHAIN_INCLUDE_DIR}
-)
 
 # static library
 add_library(wmsprovider_a STATIC ${WMS_SRCS})
+
+if (WITH_GUI)
+  add_library(wmsprovider_gui_a STATIC ${WMS_GUI_SRCS})
+
+  add_dependencies(wmsprovider_a ui)
+  add_dependencies(wmsprovider_gui_a ui)
+endif()
+
 target_link_libraries(wmsprovider_a
+  qgis_core
   ${Qt5Xml_LIBRARIES}
   ${Qt5Core_LIBRARIES}
   ${Qt5Svg_LIBRARIES}
@@ -58,8 +42,9 @@ target_link_libraries(wmsprovider_a
 target_compile_definitions(wmsprovider_a PRIVATE "-DQT_NO_FOREACH")
 
 if (WITH_GUI)
-  add_library(wmsprovider_gui_a STATIC ${WMS_GUI_SRCS})
   target_link_libraries(wmsprovider_gui_a
+    qgis_gui
+    wmsprovider_a
     ${Qt5Xml_LIBRARIES}
     ${Qt5Core_LIBRARIES}
     ${Qt5Svg_LIBRARIES}
@@ -70,8 +55,6 @@ if (WITH_GUI)
     ${Qt5Widgets_LIBRARIES}
   )
   target_compile_definitions(wmsprovider_gui_a PRIVATE "-DQT_NO_FOREACH")
-  add_dependencies(wmsprovider_gui_a ui)
-  add_dependencies(wmsprovider_a ui)
 endif()
 
 if (FORCE_STATIC_PROVIDERS)

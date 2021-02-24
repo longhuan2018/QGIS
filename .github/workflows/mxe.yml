@@ -12,6 +12,7 @@ on:
     - 'tests/**'
     - 'ms-windows/**'
     - 'CMakeLists.txt'
+    - '.github/workflows/mxe.yml'
   pull_request:
     branches:
       - master
@@ -23,6 +24,7 @@ on:
     - 'tests/**'
     - 'ms-windows/**'
     - 'CMakeLists.txt'
+    - '.github/workflows/mxe.yml'
 
 jobs:
   build:
@@ -80,7 +82,7 @@ jobs:
         mv qgis-mxe-release-*.zip qgis-mxe-release.zip
 
     - name: Upload build
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2.2.2
       with:
         name: QGIS for Windows 64bit
         path: qgis-mxe-release.zip

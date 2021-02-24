@@ -40,6 +40,7 @@
 #include "qgsstyle.h"
 #include "qgsmeshdataprovidertemporalcapabilities.h"
 #include "qgsmapclippingutils.h"
+#include "qgscolorrampshader.h"
 
 QgsMeshLayerRenderer::QgsMeshLayerRenderer(
   QgsMeshLayer *layer,
@@ -47,6 +48,7 @@ QgsMeshLayerRenderer::QgsMeshLayerRenderer(
   : QgsMapLayerRenderer( layer->id(), &context )
   , mFeedback( new QgsMeshLayerRendererFeedback )
   , mRendererSettings( layer->rendererSettings() )
+  , mLayerOpacity( layer->opacity() )
 {
   // make copies for mesh data
   // cppcheck-suppress assertWithSideEffect
@@ -57,6 +59,8 @@ QgsMeshLayerRenderer::QgsMeshLayerRenderer(
   Q_ASSERT( layer->rendererCache() );
   // cppcheck-suppress assertWithSideEffect
   Q_ASSERT( layer->dataProvider() );
+
+  mReadyToCompose = false;
 
   // copy native mesh
   mNativeMesh = *( layer->nativeMesh() );
@@ -285,6 +289,7 @@ void QgsMeshLayerRenderer::copyVectorDatasetValues( QgsMeshLayer *layer )
 
 bool QgsMeshLayerRenderer::render()
 {
+  mReadyToCompose = false;
   QgsScopedQPainterState painterState( renderContext()->painter() );
   if ( !mClippingRegions.empty() )
   {
@@ -295,10 +300,16 @@ bool QgsMeshLayerRenderer::render()
   }
 
   renderScalarDataset();
+  mReadyToCompose = true;
   renderMesh();
   renderVectorDataset();
 
-  return true;
+  return !renderContext()->renderingStopped();
+}
+
+bool QgsMeshLayerRenderer::forceRasterRender() const
+{
+  return renderContext()->testFlag( QgsRenderContext::UseAdvancedEffects ) && ( !qgsDoubleNear( mLayerOpacity, 1.0 ) );
 }
 
 void QgsMeshLayerRenderer::renderMesh()

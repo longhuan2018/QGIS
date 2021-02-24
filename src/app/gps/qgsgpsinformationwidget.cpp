@@ -912,6 +912,7 @@ void QgsGpsInformationWidget::displayGPSInformation( const QgsGpsInformation &in
     mTxtLatitude->setText( QString::number( info.latitude, 'f', 8 ) );
     mTxtLongitude->setText( QString::number( info.longitude, 'f', 8 ) );
     mTxtAltitude->setText( tr( "%1 m" ).arg( info.elevation, 0, 'f', 3 ) );
+    mTxtAltitudeDiff->setText( tr( "%1 m" ).arg( info.elevation_diff, 0, 'f', 3 ) );
 
     if ( mDateTimeFormat.isEmpty() )
     {
@@ -963,6 +964,16 @@ void QgsGpsInformationWidget::displayGPSInformation( const QgsGpsInformation &in
     {
       mTxtVacc->setEnabled( false );
       mTxtVacc->setText( tr( "Not available" ) );
+    }
+    if ( std::isfinite( info.hvacc ) )
+    {
+      mTxt3Dacc->setEnabled( true );
+      mTxt3Dacc->setText( tr( "%1 m" ).arg( QLocale().toString( info.hvacc, 'f', 3 ) ) );
+    }
+    else
+    {
+      mTxt3Dacc->setEnabled( false );
+      mTxt3Dacc->setText( tr( "Not available" ) );
     }
     mTxtFixMode->setText( info.fixMode == 'A' ? tr( "Automatic" ) : info.fixMode == 'M' ? tr( "Manual" ) : QString() ); // A=automatic 2d/3d, M=manual; allowing for anything else
     mTxtFixType->setText( info.fixType == 3 ? tr( "3D" ) : info.fixType == 2 ? tr( "2D" ) : info.fixType == 1 ? tr( "No fix" ) : QString::number( info.fixType ) ); // 1=no fix, 2=2D, 3=3D; allowing for anything else
@@ -1315,7 +1326,7 @@ void QgsGpsInformationWidget::mBtnCloseFeature_clicked()
         }
         else if ( avoidIntersectionsReturn == 3 )
         {
-          QgisApp::instance()->messageBar()->pushCritical( tr( "Add Feature" ), tr( "An error was reported during intersection removal." ) );
+          QgisApp::instance()->messageBar()->pushCritical( tr( "Add Feature" ), tr( "The feature has been added, but at least one geometry intersected is invalid. These geometries must be manually repaired." ) );
           connectGpsSlot();
           return;
         }

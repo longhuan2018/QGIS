@@ -57,6 +57,7 @@ void QgsRasterLayerRendererFeedback::onNewData()
   QgsRasterIterator iterator( mR->mPipe->last() );
   QgsRasterDrawer drawer( &iterator );
   drawer.draw( mR->renderContext()->painter(), mR->mRasterViewPort, &mR->renderContext()->mapToPixel(), &feedback );
+  mR->mReadyToCompose = true;
   QgsDebugMsgLevel( QStringLiteral( "total raster preview time: %1 ms" ).arg( t.elapsed() ), 3 );
   mLastPreview = QTime::currentTime();
 }
@@ -68,6 +69,7 @@ QgsRasterLayerRenderer::QgsRasterLayerRenderer( QgsRasterLayer *layer, QgsRender
   , mProviderCapabilities( static_cast<QgsRasterDataProvider::Capability>( layer->dataProvider()->capabilities() ) )
   , mFeedback( new QgsRasterLayerRendererFeedback( this ) )
 {
+  mReadyToCompose = false;
   QgsMapToPixel mapToPixel = rendererContext.mapToPixel();
   if ( rendererContext.mapToPixel().mapRotation() )
   {
@@ -231,7 +233,9 @@ QgsRasterLayerRenderer::QgsRasterLayerRenderer( QgsRasterLayer *layer, QgsRender
   if ( rasterRenderer
        && !( rendererContext.flags() & QgsRenderContext::RenderPreviewJob )
        && !( rendererContext.flags() & QgsRenderContext::Render3DMap ) )
+  {
     layer->refreshRendererIfNeeded( rasterRenderer, rendererContext.extent() );
+  }
 
   const QgsRasterLayerTemporalProperties *temporalProperties = qobject_cast< const QgsRasterLayerTemporalProperties * >( layer->temporalProperties() );
   if ( temporalProperties->isActive() && renderContext()->isTemporal() )
@@ -330,12 +334,19 @@ bool QgsRasterLayerRenderer::render()
   }
 
   QgsDebugMsgLevel( QStringLiteral( "total raster draw time (ms):     %1" ).arg( time.elapsed(), 5 ), 4 );
+  mReadyToCompose = true;
 
-  return true;
+  return !mFeedback->isCanceled();
 }
 
 QgsFeedback *QgsRasterLayerRenderer::feedback() const
 {
   return mFeedback;
+}
+
+bool QgsRasterLayerRenderer::forceRasterRender() const
+{
+  // preview of intermediate raster rendering results requires a temporary output image
+  return renderContext()->testFlag( QgsRenderContext::RenderPartialOutput );
 }
 

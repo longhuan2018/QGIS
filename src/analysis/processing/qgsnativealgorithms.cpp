@@ -49,13 +49,18 @@
 #include "qgsalgorithmdifference.h"
 #include "qgsalgorithmdissolve.h"
 #include "qgsalgorithmdrape.h"
+#include "qgsalgorithmdropfields.h"
 #include "qgsalgorithmdropgeometry.h"
 #include "qgsalgorithmdropmzvalues.h"
+#include "qgsalgorithmdxfexport.h"
 #include "qgsalgorithmexecutepostgisquery.h"
 #include "qgsalgorithmexecutespatialitequery.h"
 #include "qgsalgorithmexecutespatialitequeryregistered.h"
+#include "qgsalgorithmexportmesh.h"
+#include "qgsalgorithmexporttospreadsheet.h"
 #include "qgsalgorithmexplode.h"
 #include "qgsalgorithmexplodehstore.h"
+#include "qgsalgorithmexportlayersinformation.h"
 #include "qgsalgorithmextendlines.h"
 #include "qgsalgorithmextentfromlayer.h"
 #include "qgsalgorithmextenttolayer.h"
@@ -89,10 +94,12 @@
 #include "qgsalgorithminterpolatepoint.h"
 #include "qgsalgorithmintersection.h"
 #include "qgsalgorithmkmeansclustering.h"
+#ifndef QT_NO_PRINTER
 #include "qgsalgorithmlayoutatlastoimage.h"
 #include "qgsalgorithmlayoutatlastopdf.h"
 #include "qgsalgorithmlayouttoimage.h"
 #include "qgsalgorithmlayouttopdf.h"
+#endif
 #include "qgsalgorithmlinedensity.h"
 #include "qgsalgorithmlineintersection.h"
 #include "qgsalgorithmlinesubstring.h"
@@ -116,6 +123,7 @@
 #include "qgsalgorithmpointtolayer.h"
 #include "qgsalgorithmpointsalonggeometry.h"
 #include "qgsalgorithmpointslayerfromtable.h"
+#include "qgsalgorithmpointstopaths.h"
 #include "qgsalgorithmpoleofinaccessibility.h"
 #include "qgsalgorithmpolygonize.h"
 #include "qgsalgorithmprojectpointcartesian.h"
@@ -258,6 +266,9 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsCalculateVectorOverlapsAlgorithm() );
   addAlgorithm( new QgsCategorizeUsingStyleAlgorithm() );
   addAlgorithm( new QgsCellStatisticsAlgorithm() );
+  addAlgorithm( new QgsCellStatisticsPercentileAlgorithm() );
+  addAlgorithm( new QgsCellStatisticsPercentRankFromRasterAlgorithm() );
+  addAlgorithm( new QgsCellStatisticsPercentRankFromValueAlgorithm() );
   addAlgorithm( new QgsCentroidAlgorithm() );
   addAlgorithm( new QgsClipAlgorithm() );
   addAlgorithm( new QgsCollectAlgorithm() );
@@ -274,13 +285,21 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsDissolveAlgorithm() );
   addAlgorithm( new QgsDrapeToMAlgorithm() );
   addAlgorithm( new QgsDrapeToZAlgorithm() );
+  addAlgorithm( new QgsDropTableFieldsAlgorithm() );
   addAlgorithm( new QgsDropGeometryAlgorithm() );
   addAlgorithm( new QgsDropMZValuesAlgorithm() );
+  addAlgorithm( new QgsDxfExportAlgorithm() );
   addAlgorithm( new QgsExecutePostgisQueryAlgorithm() );
   addAlgorithm( new QgsExecuteRegisteredSpatialiteQueryAlgorithm() );
   addAlgorithm( new QgsExecuteSpatialiteQueryAlgorithm() );
   addAlgorithm( new QgsExplodeAlgorithm() );
   addAlgorithm( new QgsExplodeHstoreAlgorithm() );
+  addAlgorithm( new QgsExportLayersInformationAlgorithm() );
+  addAlgorithm( new QgsExportMeshVerticesAlgorithm );
+  addAlgorithm( new QgsExportMeshFacesAlgorithm );
+  addAlgorithm( new QgsExportMeshEdgesAlgorithm );
+  addAlgorithm( new QgsExportMeshOnGridAlgorithm );
+  addAlgorithm( new QgsExportToSpreadsheetAlgorithm() );
   addAlgorithm( new QgsExtendLinesAlgorithm() );
   addAlgorithm( new QgsExtentFromLayerAlgorithm() );
   addAlgorithm( new QgsExtentToLayerAlgorithm() );
@@ -323,10 +342,12 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsKMeansClusteringAlgorithm() );
   addAlgorithm( new QgsLayerToBookmarksAlgorithm() );
   addAlgorithm( new QgsLayoutMapExtentToLayerAlgorithm() );
+#ifndef QT_NO_PRINTER
   addAlgorithm( new QgsLayoutAtlasToImageAlgorithm() );
   addAlgorithm( new QgsLayoutAtlasToPdfAlgorithm() );
   addAlgorithm( new QgsLayoutToImageAlgorithm() );
   addAlgorithm( new QgsLayoutToPdfAlgorithm() );
+#endif
   addAlgorithm( new QgsLineDensityAlgorithm() );
   addAlgorithm( new QgsLineIntersectionAlgorithm() );
   addAlgorithm( new QgsLineSubstringAlgorithm() );
@@ -334,6 +355,10 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsMeanCoordinatesAlgorithm() );
   addAlgorithm( new QgsMergeLinesAlgorithm() );
   addAlgorithm( new QgsMergeVectorAlgorithm() );
+  addAlgorithm( new QgsMeshRasterizeAlgorithm );
+  addAlgorithm( new QgsMeshContoursAlgorithm );
+  addAlgorithm( new QgsMeshExportCrossSection );
+  addAlgorithm( new QgsMeshExportTimeSeries );
   addAlgorithm( new QgsMinimumEnclosingCircleAlgorithm() );
   addAlgorithm( new QgsMultipartToSinglepartAlgorithm() );
   addAlgorithm( new QgsMultiRingConstantBufferAlgorithm() );
@@ -350,6 +375,7 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsPointToLayerAlgorithm() );
   addAlgorithm( new QgsPointsAlongGeometryAlgorithm() );
   addAlgorithm( new QgsPointsLayerFromTableAlgorithm() );
+  addAlgorithm( new QgsPointsToPathsAlgorithm() );
   addAlgorithm( new QgsPoleOfInaccessibilityAlgorithm() );
   addAlgorithm( new QgsPolygonizeAlgorithm() );
   addAlgorithm( new QgsProjectPointCartesianAlgorithm() );
@@ -395,6 +421,7 @@ void QgsNativeAlgorithms::loadAlgorithms()
   addAlgorithm( new QgsRenameTableFieldAlgorithm() );
   addAlgorithm( new QgsRepairShapefileAlgorithm() );
   addAlgorithm( new QgsRescaleRasterAlgorithm() );
+  addAlgorithm( new QgsRetainTableFieldsAlgorithm() );
   addAlgorithm( new QgsReverseLineDirectionAlgorithm() );
   addAlgorithm( new QgsRotateFeaturesAlgorithm() );
   addAlgorithm( new QgsRoundRasterValuesAlgorithm() );

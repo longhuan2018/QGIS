@@ -382,8 +382,7 @@ bool QgsGeometry::isMultipart() const
   }
   return QgsWkbTypes::isMultiType( d->geometry->wkbType() );
 }
-
-QgsPointXY QgsGeometry::closestVertex( const QgsPointXY &point, int &atVertex, int &beforeVertex, int &afterVertex, double &sqrDist ) const
+QgsPointXY QgsGeometry::closestVertex( const QgsPointXY &point, int &closestVertexIndex, int &previousVertexIndex, int &nextVertexIndex, double &sqrDist ) const
 {
   if ( !d->geometry )
   {
@@ -405,9 +404,9 @@ QgsPointXY QgsGeometry::closestVertex( const QgsPointXY &point, int &atVertex, i
   QgsVertexId prevVertex;
   QgsVertexId nextVertex;
   d->geometry->adjacentVertices( id, prevVertex, nextVertex );
-  atVertex = vertexNrFromVertexId( id );
-  beforeVertex = vertexNrFromVertexId( prevVertex );
-  afterVertex = vertexNrFromVertexId( nextVertex );
+  closestVertexIndex = vertexNrFromVertexId( id );
+  previousVertexIndex = vertexNrFromVertexId( prevVertex );
+  nextVertexIndex = vertexNrFromVertexId( nextVertex );
   return QgsPointXY( vp.x(), vp.y() );
 }
 
@@ -655,8 +654,8 @@ double QgsGeometry::closestVertexWithContext( const QgsPointXY &point, int &atVe
 
 double QgsGeometry::closestSegmentWithContext( const QgsPointXY &point,
     QgsPointXY &minDistPoint,
-    int &afterVertex,
-    int *leftOf,
+    int &nextVertexIndex,
+    int *leftOrRightOfSegment,
     double epsilon ) const
 {
   if ( !d->geometry )
@@ -667,13 +666,13 @@ double QgsGeometry::closestSegmentWithContext( const QgsPointXY &point,
   QgsPoint segmentPt;
   QgsVertexId vertexAfter;
 
-  double sqrDist = d->geometry->closestSegment( QgsPoint( point ), segmentPt,  vertexAfter, leftOf, epsilon );
+  double sqrDist = d->geometry->closestSegment( QgsPoint( point ), segmentPt,  vertexAfter, leftOrRightOfSegment, epsilon );
   if ( sqrDist < 0 )
     return -1;
 
   minDistPoint.setX( segmentPt.x() );
   minDistPoint.setY( segmentPt.y() );
-  afterVertex = vertexNrFromVertexId( vertexAfter );
+  nextVertexIndex = vertexNrFromVertexId( vertexAfter );
   return sqrDist;
 }
 
@@ -2603,11 +2602,20 @@ int QgsGeometry::avoidIntersections( const QList<QgsVectorLayer *> &avoidInterse
     return 1;
   }
 
-  std::unique_ptr< QgsAbstractGeometry > diffGeom = QgsGeometryEditUtils::avoidIntersections( *( d->geometry ), avoidIntersectionsLayers, ignoreFeatures );
+  QgsWkbTypes::Type geomTypeBeforeModification = wkbType();
+
+  bool haveInvalidGeometry = false;
+  std::unique_ptr< QgsAbstractGeometry > diffGeom = QgsGeometryEditUtils::avoidIntersections( *( d->geometry ), avoidIntersectionsLayers, haveInvalidGeometry, ignoreFeatures );
   if ( diffGeom )
   {
     reset( std::move( diffGeom ) );
   }
+
+  if ( geomTypeBeforeModification != wkbType() )
+    return 2;
+  if ( haveInvalidGeometry )
+    return 4;
+
   return 0;
 }
 

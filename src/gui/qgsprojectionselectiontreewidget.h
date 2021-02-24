@@ -65,7 +65,7 @@ class GUI_EXPORT QgsProjectionSelectionTreeWidget : public QWidget, private Ui::
     void setShowNoProjection( bool show );
 
     /**
-     * Sets whether to show the bounnds preview map.
+     * Sets whether to show the bounds preview map.
      * \see showBoundsMap()
      * \since QGIS 3.0
      */
@@ -161,6 +161,13 @@ class GUI_EXPORT QgsProjectionSelectionTreeWidget : public QWidget, private Ui::
      * \since QGIS 2.14
      */
     void projectionDoubleClicked();
+
+    /**
+     * Emitted when the selection in the tree is changed from a valid selection to an invalid selection, or vice-versa.
+     *
+     * \since QGIS 3.18
+     */
+    void hasValidSelectionChanged( bool isValid );
 
   protected:
     // Used to ensure the projection list view is actually populated

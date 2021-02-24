@@ -129,6 +129,14 @@ class CORE_EXPORT QgsGpsInformation
     double elevation = 0;
 
     /**
+     * Geoidal separation (Diff. between WGS-84 earth ellipsoid and
+     * mean sea level.
+     *
+     * \since QGIS 3.18
+     */
+    double elevation_diff = 0;
+
+    /**
      * Ground speed, in km/h.
      */
     double speed = 0;
@@ -172,11 +180,23 @@ class CORE_EXPORT QgsGpsInformation
     double hacc = std::numeric_limits< double >::quiet_NaN();
     //! Vertical accuracy in meters
     double vacc = std::numeric_limits< double >::quiet_NaN();
+
+    /**
+     * 3D RMS
+     * \since QGIS 3.18
+     */
+    double hvacc = std::numeric_limits< double >::quiet_NaN();
 #else
     //! Horizontal accuracy in meters
     double hacc;
     //! Vertical accuracy in meters
     double vacc;
+
+    /**
+     * 3D RMS
+     * \since QGIS 3.18
+     */
+    double hvacc;
 #endif
 
     /**

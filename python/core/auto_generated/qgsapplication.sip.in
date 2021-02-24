@@ -283,6 +283,13 @@ Returns the path to the icons image directory.
 Returns the path to the srs.db file.
 %End
 
+    static void setSvgPaths( const QStringList &svgPaths );
+%Docstring
+Sets the paths to svg directories and invalidates the svg path list cache.
+
+.. versionadded:: 3.18
+%End
+
     static QStringList svgPaths();
 %Docstring
 Returns the paths to svg directories.
@@ -521,7 +528,7 @@ determines what type of stylesheet is supported by the widget.
 Typically you will use this method by doing:
 QString myStyle = :py:func:`QgsApplication.reportStyleSheet()`;
 textBrowserReport->:py:func:`~QgsApplication.document`->setDefaultStyleSheet(myStyle);
-if you are using a QgsWebView you will need to manually inject
+if you are using a :py:class:`QgsWebView` you will need to manually inject
 the CSS into a head -> script tag instead.
 
 :return: the stylesheet CSS rules.
@@ -674,12 +681,27 @@ Returns the application's renderer registry, used for managing vector layer rend
 %End
 
 
+    static QgsPointCloudRendererRegistry *pointCloudRendererRegistry() /KeepReference/;
+%Docstring
+Returns the application's point cloud renderer registry, used for managing point cloud layer 2D renderers.
+
+.. versionadded:: 3.18
+%End
+
     static QgsDataItemProviderRegistry *dataItemProviderRegistry() /KeepReference/;
 %Docstring
 Returns the application's data item provider registry, which keeps a list of data item
 providers that may add items to the browser tree.
 
 .. versionadded:: 3.0
+%End
+
+    static QgsCoordinateReferenceSystemRegistry *coordinateReferenceSystemRegistry() /KeepReference/;
+%Docstring
+Returns the application's coordinate reference system (CRS) registry, which handles
+known CRS definitions (including user-defined CRSes).
+
+.. versionadded:: 3.18
 %End
 
     static QgsSvgCache *svgCache();
@@ -778,11 +800,12 @@ Returns the application's bookmark manager, used for storing installation-wide b
 .. versionadded:: 3.10
 %End
 
+
     static QgsStyleModel *defaultStyleModel();
 %Docstring
-Returns a shared QgsStyleModel containing the default style library (see :py:func:`QgsStyle.defaultStyle()`).
+Returns a shared :py:class:`QgsStyleModel` containing the default style library (see :py:func:`QgsStyle.defaultStyle()`).
 
-Using this shared model instead of creating a new QgsStyleModel improves performance.
+Using this shared model instead of creating a new :py:class:`QgsStyleModel` improves performance.
 
 .. versionadded:: 3.10
 %End

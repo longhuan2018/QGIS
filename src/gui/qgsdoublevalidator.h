@@ -51,6 +51,8 @@ class GUI_EXPORT QgsDoubleValidator : public QRegularExpressionValidator
      *
      * \param bottom the minimal range limit accepted by the validator
      * \param top the maximal range limit accepted by the validator
+     * \param parent parent object
+     * \param expression custom regular expression
      */
     QgsDoubleValidator( const QRegularExpression &expression, double bottom, double top, QObject *parent );
 
@@ -59,6 +61,7 @@ class GUI_EXPORT QgsDoubleValidator : public QRegularExpressionValidator
      *
      * \param bottom the minimal range limit accepted by the validator
      * \param top the maximal range limit accepted by the validator
+     * \param parent parent object
      */
     QgsDoubleValidator( double bottom, double top, QObject *parent );
 

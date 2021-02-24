@@ -10,7 +10,7 @@ add_test(qgis_defwindowtitle ${CMAKE_SOURCE_DIR}/tests/code_layout/test_defwindo
 add_test(qgis_shellcheck ${CMAKE_SOURCE_DIR}/tests/code_layout/test_shellcheck.sh)
 add_test(qgis_sipify ${CMAKE_SOURCE_DIR}/tests/code_layout/test_sipify.sh)
 add_test(qgis_sip_include ${CMAKE_SOURCE_DIR}/tests/code_layout/test_sip_include.sh)
-add_test(qgis_sip_uptodate ${CMAKE_SOURCE_DIR}/tests/code_layout/test_sipfiles_uptodate.sh)  # spellok
+add_test(qgis_sip_uptodate ${CMAKE_SOURCE_DIR}/tests/code_layout/test_sipfiles.sh)  # spellok
 
 add_test(qgis_doxygen_order ${CMAKE_SOURCE_DIR}/tests/code_layout/test_doxygen_layout.sh)
 

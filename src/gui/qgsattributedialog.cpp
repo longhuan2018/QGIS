@@ -66,17 +66,20 @@ void QgsAttributeDialog::setHighlight( QgsHighlight *h )
 
 void QgsAttributeDialog::accept()
 {
-  bool didSave = mAttributeForm->save();
+  QString error;
+  const bool didSave = mAttributeForm->saveWithDetails( &error );
   if ( didSave )
   {
     QDialog::accept();
   }
   else
   {
+    if ( error.isEmpty() )
+      error = tr( "An unknown error was encountered saving attributes" );
+
     mMessageBar->pushMessage( QString(),
-                              tr( "Your JSON value is invalid and has not been saved" ),
-                              Qgis::MessageLevel::Critical,
-                              5 );
+                              error,
+                              Qgis::MessageLevel::Critical );
   }
 }
 

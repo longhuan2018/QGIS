@@ -104,16 +104,29 @@ class CursorAdapter():
             return
         self._debug("execute called with sql " + self.sql)
         try:
-            self.result = self._toStrResultSet(self.connection.executeSql(self.sql, feedback=self.feedback))
+            result = self.connection.execSql(self.sql, feedback=self.feedback)
+            self._description = []  # reset description
+            self.result = self._toStrResultSet(result.rows())
+            for c in result.columns():
+                self._description.append([
+                    c,  # name
+                    '',  # type_code
+                    -1,  # display_size
+                    -1,  # internal_size
+                    -1,  # precision
+                    None,  # scale
+                    True  # null_ok
+                ])
+
         except QgsProviderConnectionException as e:
+            self._description = None
             raise DbError(e, self.sql)
         self._debug("execute returned " + str(len(self.result)) + " rows")
         self.cursor = 0
 
-        self._description = None  # reset description
-
     @property
     def description(self):
+        """Returns columns description, it should be already set by _execute"""
 
         if self._description is None:
 
@@ -1227,13 +1240,14 @@ class PostGisDBConnector(DBConnector):
         sql_dict = getSqlDictionary()
 
         # get schemas, tables and field names
-        items = []
         sql = u"""SELECT nspname FROM pg_namespace WHERE nspname !~ '^pg_' AND nspname != 'information_schema'
 UNION SELECT relname FROM pg_class WHERE relkind IN ('v', 'r', 'm', 'p')
 UNION SELECT attname FROM pg_attribute WHERE attnum > 0"""
         c = self._execute(None, sql)
-        for row in self._fetchall(c):
-            items.append(row[0])
+        items = [
+            row[0]
+            for row in self._fetchall(c)
+        ]
         self._close_cursor(c)
 
         sql_dict["identifier"] = items

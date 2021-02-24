@@ -84,6 +84,8 @@
         <file>themes/default/algorithms/mAlgorithmBasicStatistics.svg</file>
         <file>themes/default/algorithms/mAlgorithmBuffer.svg</file>
         <file>themes/default/algorithms/mAlgorithmCellStatistics.svg</file>
+        <file>themes/default/algorithms/mAlgorithmCellStatisticsPercentile.svg</file>
+        <file>themes/default/algorithms/mAlgorithmCellStatisticsPercentRank.svg</file>
         <file>themes/default/algorithms/mAlgorithmCentroids.svg</file>
         <file>themes/default/algorithms/mAlgorithmCheckGeometry.svg</file>
         <file>themes/default/algorithms/mAlgorithmClip.svg</file>
@@ -231,6 +233,7 @@
         <file>themes/default/mActionAddOgrLayer.svg</file>
         <file>themes/default/mActionAddOracleLayer.svg</file>
         <file>themes/default/mActionAddPostgisLayer.svg</file>
+        <file>themes/default/mActionAddHanaLayer.svg</file>
         <file>themes/default/mActionAddPart.svg</file>
         <file>themes/default/mActionAddRasterLayer.svg</file>
         <file>themes/default/mActionAddRing.svg</file>
@@ -240,6 +243,7 @@
         <file>themes/default/mActionAddWmsLayer.svg</file>
         <file>themes/default/mActionAddXyzLayer.svg</file>
         <file>themes/default/mActionAddVectorTileLayer.svg</file>
+        <file>themes/default/mActionAddPointCloudLayer.svg</file>
         <file>themes/default/mActionAddGeonodeLayer.svg</file>
         <file>themes/default/mActionAddDelimitedTextLayer.svg</file>
         <file>themes/default/mActionAddVirtualLayer.svg</file>
@@ -397,6 +401,7 @@
         <file>themes/default/mActionSaveEdits.svg</file>
         <file>themes/default/mActionSaveMapAsImage.svg</file>
         <file>themes/default/mActionScaleBar.svg</file>
+	    <file>themes/default/mActionScaleFeature.svg</file>
         <file>themes/default/mActionScriptOpen.svg</file>
         <file>themes/default/mActionSelect.svg</file>
         <file>themes/default/mActionSelectAll.svg</file>
@@ -513,6 +518,7 @@
         <file>themes/default/mIconMssql.svg</file>
         <file>themes/default/mIconNoPyramid.svg</file>
         <file>themes/default/mIconOracle.svg</file>
+        <file>themes/default/mIconHana.svg</file>
         <file>themes/default/mIconOws.svg</file>
         <file>themes/default/mIconPointLayer.svg</file>
         <file>themes/default/mIconPolygonLayer.svg</file>
@@ -537,6 +543,7 @@
         <file>themes/default/mIconTreeView.svg</file>
         <file>themes/default/mIconVector.svg</file>
         <file>themes/default/mIconVectorTileLayer.svg</file>
+        <file>themes/default/mIconPointCloudLayer.svg</file>
         <file>themes/default/mIconVirtualLayer.svg</file>
         <file>themes/default/mIconWcs.svg</file>
         <file>themes/default/mIconWfs.svg</file>
@@ -578,6 +585,7 @@
         <file>themes/default/propertyicons/digitizing.svg</file>
         <file>themes/default/propertyicons/display.svg</file>
         <file>themes/default/propertyicons/editmetadata.svg</file>
+        <file>themes/default/propertyicons/elevationscale.svg</file>
         <file>themes/default/propertyicons/gdal.svg</file>
         <file>themes/default/propertyicons/general.svg</file>
         <file>themes/default/propertyicons/histogram.svg</file>
@@ -630,6 +638,7 @@
         <file>themes/default/rendererHeatmapSymbol.svg</file>
         <file>themes/default/renderer25dSymbol.svg</file>
         <file>themes/default/rendererGrassSymbol.svg</file>
+        <file>themes/default/rendererMergedFeatures.svg</file>
         <file>themes/default/labelingNone.svg</file>
         <file>themes/default/labelingSingle.svg</file>
         <file>themes/default/labelingRuleBased.svg</file>
@@ -642,6 +651,8 @@
         <file>themes/default/stars_empty.svg</file>
         <file>themes/default/stars_full.svg</file>
         <file>themes/default/styleicons/color.svg</file>
+        <file>themes/default/styleicons/singlecolor.svg</file>
+        <file>themes/default/styleicons/pointcloudextent.svg</file>
         <file>themes/default/symbologyAdd.svg</file>
         <file>themes/default/symbologyEdit.svg</file>
         <file>themes/default/symbologyRemove.svg</file>
@@ -857,6 +868,7 @@
         <file>themes/default/mIconModelInput.svg</file>
         <file>themes/default/mIndicatorTemporal.svg</file>
         <file>themes/default/mIndicatorTimeFromProject.svg</file>
+        <file>themes/default/mIndicatorOffline.svg</file>
         <file>themes/default/temporal_navigation/back.svg</file>
         <file>themes/default/temporal_navigation/forward.svg</file>
         <file>themes/default/temporal_navigation/next.svg</file>

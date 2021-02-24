@@ -47,6 +47,8 @@ class QEventLoop;
 
 class QgsMbTiles;
 
+class QgsTileDownloadManagerReply;
+
 /**
  * \ingroup core
  * \brief The loader class takes care of loading raw vector tile data from a tile source.
@@ -109,7 +111,7 @@ class QgsVectorTileLoader : public QObject
     QString mReferer;
 
     //! Running tile requests
-    QList<QNetworkReply *> mReplies;
+    QList<QgsTileDownloadManagerReply *> mReplies;
 
 };
 

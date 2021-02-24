@@ -182,7 +182,7 @@ void QgsProcessingAlgorithmDialogBase::setAlgorithm( QgsProcessingAlgorithm *alg
   const QString warning = algorithm->provider()->warningMessage();
   if ( !warning.isEmpty() )
   {
-    mMessageBar->pushMessage( warning, Qgis::Warning, 0 );
+    mMessageBar->pushMessage( warning, Qgis::Warning );
   }
 }
 

@@ -59,6 +59,7 @@ class QgsRasterLayer;
 class QgsVectorLayer;
 class QgsVectorLayerTools;
 class QgsVectorTileLayer;
+class QgsPointCloudLayer;
 class QgsOptionsWidgetFactory;
 class QgsLocatorFilter;
 class QgsStatusBar;
@@ -68,7 +69,6 @@ class QgsDevToolWidgetFactory;
 class QgsGpsConnection;
 class QgsApplicationExitBlockerInterface;
 class QgsAbstractMapToolHandler;
-
 
 /**
  * \ingroup gui
@@ -475,8 +475,20 @@ class GUI_EXPORT QgisInterface : public QObject
     virtual QAction *actionMeasureArea() = 0;
     //! Returns the native zoom full extent action. Call trigger() on it to zoom to the full extent.
     virtual QAction *actionZoomFullExtent() = 0;
-    //! Returns the native zoom to layer action. Call trigger() on it to zoom to the active layer.
-    virtual QAction *actionZoomToLayer() = 0;
+
+    /**
+     *  Returns the native zoom to layer action. Call trigger() on it to zoom to the active layer.
+     *
+     *  \deprecated Use actionZoomToLayers() instead.
+     */
+    Q_DECL_DEPRECATED virtual QAction *actionZoomToLayer() = 0 SIP_DEPRECATED;
+
+    /**
+     * Returns the native zoom to layers action. Call trigger() on it to zoom to the selected layers.
+     * \since QGIS 3.18
+     */
+    virtual QAction *actionZoomToLayers() = 0;
+
     //! Returns the native zoom to selected action. Call trigger() on it to zoom to the current selection.
     virtual QAction *actionZoomToSelected() = 0;
     //! Returns the native zoom last action. Call trigger() on it to zoom to last.
@@ -512,10 +524,19 @@ class GUI_EXPORT QgisInterface : public QObject
      * \since QGIS 3.14
      */
     virtual QAction *actionAddVectorTileLayer() = 0;
-    //! Returns the native Add ArcGIS FeatureServer action.
+
+    /**
+     * Returns the native Add Point Cloud Layer action.
+     * \since QGIS 3.18
+     */
+    virtual QAction *actionAddPointCloudLayer() = 0;
+
+    //! Returns the native Add ArcGIS REST Server action.
     virtual QAction *actionAddAfsLayer() = 0;
-    //! Returns the native Add ArcGIS MapServer action.
+
+    //! Returns the native Add ArcGIS REST Server action.
     virtual QAction *actionAddAmsLayer() = 0;
+
     virtual QAction *actionCopyLayerStyle() = 0;
     virtual QAction *actionPasteLayerStyle() = 0;
     virtual QAction *actionOpenTable() = 0;
@@ -700,6 +721,12 @@ class GUI_EXPORT QgisInterface : public QObject
      * \since QGIS 3.14
      */
     virtual QgsVectorTileLayer *addVectorTileLayer( const QString &url, const QString &baseName ) = 0;
+
+    /**
+     * Adds a point cloud layer to the current project.
+     * \since QGIS 3.18
+     */
+    virtual QgsPointCloudLayer *addPointCloudLayer( const QString &url, const QString &baseName, const QString &providerKey ) = 0;
 
     //! Adds (opens) a project
     virtual bool addProject( const QString &project ) = 0;

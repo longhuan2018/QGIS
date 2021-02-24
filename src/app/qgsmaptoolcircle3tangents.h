@@ -30,6 +30,10 @@ class APP_EXPORT QgsMapToolCircle3Tangents: public QgsMapToolAddCircle
 
     void cadCanvasReleaseEvent( QgsMapMouseEvent *e ) override;
     void cadCanvasMoveEvent( QgsMapMouseEvent *e ) override;
+    void clean() override;
+  private:
+    //! Snapped points on the segments. Useful to determine which circle to choose in case of there are two parallels
+    QVector<QgsPoint> mPosPoints;
 };
 
 #endif // QGSMAPTOOLCIRCLE3TANGENTS_H

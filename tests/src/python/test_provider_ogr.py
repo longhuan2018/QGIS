@@ -16,15 +16,19 @@ import sys
 import tempfile
 import hashlib
 from datetime import datetime
+import mockedwebserver
 
 from osgeo import gdal, ogr  # NOQA
-from qgis.PyQt.QtCore import QVariant, QByteArray
+from qgis.PyQt.QtCore import QVariant, QByteArray, QTemporaryDir
 from qgis.core import (
     NULL,
+    QgsAuthMethodConfig,
     QgsApplication,
+    QgsCoordinateTransformContext,
     QgsProject,
     QgsField,
     QgsFields,
+    QgsGeometry,
     QgsRectangle,
     QgsProviderRegistry,
     QgsFeature,
@@ -33,6 +37,7 @@ from qgis.core import (
     QgsDataProvider,
     QgsVectorDataProvider,
     QgsVectorLayer,
+    QgsVectorFileWriter,
     QgsWkbTypes,
     QgsNetworkAccessManager
 )
@@ -823,6 +828,78 @@ class PyQgsOGRProvider(unittest.TestCase):
         self.assertTrue(vl.startEditing())
         self.assertTrue(vl.addFeature(feature))
         self.assertFalse(vl.dataProvider().hasErrors())
+
+    @unittest.skipIf(int(gdal.VersionInfo('VERSION_NUM')) < GDAL_COMPUTE_VERSION(3, 2, 0), "GDAL 3.2 required")
+    @unittest.skipIf(ogr.GetDriverByName('OAPIF') is None, "OAPIF driver not available")
+    def testHTTPRequestsOverrider(self):
+        """
+        Test that GDAL curl network requests are redirected through QGIS networking
+        """
+        with mockedwebserver.install_http_server() as port:
+
+            handler = mockedwebserver.SequentialHandler()
+
+            # Check failed network requests
+            # Check that the driver requested Accept header is well propagated
+            handler.add('GET', '/collections/foo', 404, expected_headers={'Accept': 'application/json'})
+            with mockedwebserver.install_http_handler(handler):
+                QgsVectorLayer("OAPIF:http://127.0.0.1:%d/collections/foo" % port, 'test', 'ogr')
+                # Error coming from Qt network stack, not GDAL/CURL one
+                assert 'server replied: Not Found' in gdal.GetLastErrorMsg()
+
+            # Test a nominal case
+            handler = mockedwebserver.SequentialHandler()
+            handler.add('GET', '/collections/foo', 200, {'Content-Type': 'application/json'}, '{ "id": "foo" }')
+            handler.add('GET', '/collections/foo/items?limit=10', 200, {'Content-Type': 'application/geo+json'}, '{ "type": "FeatureCollection", "features": [] }')
+            handler.add('GET', '/collections/foo/items?limit=10', 200, {'Content-Type': 'application/geo+json'}, '{ "type": "FeatureCollection", "features": [] }')
+            handler.add('GET', '/collections/foo/items?limit=10', 200, {'Content-Type': 'application/geo+json'}, '{ "type": "FeatureCollection", "features": [] }')
+            with mockedwebserver.install_http_handler(handler):
+                vl = QgsVectorLayer("OAPIF:http://127.0.0.1:%d/collections/foo" % port, 'test', 'ogr')
+                assert vl.isValid()
+
+            # More complicated test using an anthentication configuration
+            config = QgsAuthMethodConfig()
+            config.setName('Basic')
+            config.setMethod('Basic')
+            config.setConfig('username', 'username')
+            config.setConfig('password', 'password')
+            QgsApplication.authManager().storeAuthenticationConfig(config)
+
+            handler = mockedwebserver.SequentialHandler()
+            # Check that the authcfg gets expanded during the network request !
+            handler.add('GET', '/collections/foo', 404, expected_headers={
+                'Authorization': 'Basic dXNlcm5hbWU6cGFzc3dvcmQ='})
+            with mockedwebserver.install_http_handler(handler):
+                QgsVectorLayer("OAPIF:http://127.0.0.1:%d/collections/foo authcfg='%s'" % (port, config.id()), 'test', 'ogr')
+
+    def testShapefilesWithNoAttributes(self):
+        """Test issue GH #38834"""
+
+        ml = QgsVectorLayer('Point?crs=epsg:4326', 'test', 'memory')
+        self.assertTrue(ml.isValid())
+
+        d = QTemporaryDir()
+        options = QgsVectorFileWriter.SaveVectorOptions()
+        options.driverName = 'ESRI Shapefile'
+        options.layerName = 'writetest'
+        err, _ = QgsVectorFileWriter.writeAsVectorFormatV2(ml, os.path.join(d.path(), 'writetest.shp'), QgsCoordinateTransformContext(), options)
+        self.assertEqual(err, QgsVectorFileWriter.NoError)
+        self.assertTrue(os.path.isfile(os.path.join(d.path(), 'writetest.shp')))
+
+        vl = QgsVectorLayer(os.path.join(d.path(), 'writetest.shp'))
+        self.assertTrue(bool(vl.dataProvider().capabilities() & QgsVectorDataProvider.AddFeatures))
+
+        # Let's try if we can really add features
+        feature = QgsFeature(vl.fields())
+        geom = QgsGeometry.fromWkt('POINT(9 45)')
+        feature.setGeometry(geom)
+        self.assertTrue(vl.startEditing())
+        self.assertTrue(vl.addFeatures([feature]))
+        self.assertTrue(vl.commitChanges())
+        del (vl)
+
+        vl = QgsVectorLayer(os.path.join(d.path(), 'writetest.shp'))
+        self.assertEqual(vl.featureCount(), 1)
 
 
 if __name__ == '__main__':

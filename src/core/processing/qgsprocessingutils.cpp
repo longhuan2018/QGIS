@@ -176,6 +176,8 @@ QgsMapLayer *QgsProcessingUtils::mapLayerFromStore( const QString &string, QgsMa
         return !canUseLayer( qobject_cast< QgsVectorTileLayer * >( layer ) );
       case QgsMapLayerType::AnnotationLayer:
         return true;
+      case QgsMapLayerType::PointCloudLayer:
+        return true;
     }
     return true;
   } ), layers.end() );
@@ -601,6 +603,18 @@ QString QgsProcessingUtils::variantToPythonLiteral( const QVariant &value )
       return parts.join( ',' ).prepend( '{' ).append( '}' );
     }
 
+    case QVariant::DateTime:
+    {
+      const QDateTime dateTime = value.toDateTime();
+      return QStringLiteral( "QDateTime(QDate(%1, %2, %3), QTime(%4, %5, %6))" )
+             .arg( dateTime.date().year() )
+             .arg( dateTime.date().month() )
+             .arg( dateTime.date().day() )
+             .arg( dateTime.time().hour() )
+             .arg( dateTime.time().minute() )
+             .arg( dateTime.time().second() );
+    }
+
     default:
       break;
   }
@@ -832,9 +846,11 @@ QgsFeatureSink *QgsProcessingUtils::createFeatureSink( QString &destination, Qgs
 
         // use destination string as layer name (eg "postgis:..." )
         if ( !layerName.isEmpty() )
+        {
           uri += QStringLiteral( "|layername=%1" ).arg( layerName );
-        // update destination to generated URI
-        destination = uri;
+          // update destination to generated URI
+          destination = uri;
+        }
 
         return new QgsProcessingFeatureSink( exporter.release(), destination, context, true );
       }

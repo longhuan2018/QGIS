@@ -54,6 +54,7 @@ class APP_EXPORT QgsMesh3dSymbolWidget : public QWidget, private Ui::QgsMesh3dPr
 
     void onColorRampShaderMinMaxChanged();
     void onColoringTypeChanged();
+    void onTextureSettingsCollapseStateChanged( bool collapsed );
 
   private:
     double lineEditValue( const QLineEdit *lineEdit ) const;

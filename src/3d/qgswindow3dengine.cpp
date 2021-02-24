@@ -30,7 +30,7 @@ QgsWindow3DEngine::QgsWindow3DEngine( QObject *parent )
   mRoot = new Qt3DCore::QEntity;
   mWindow3D->setRootEntity( mRoot );
 
-  mShadowRenderingFrameGraph = new QgsShadowRenderingFrameGraph( mWindow3D, mWindow3D->camera(), mRoot );
+  mShadowRenderingFrameGraph = new QgsShadowRenderingFrameGraph( mWindow3D, QSize( 1024, 768 ), mWindow3D->camera(), mRoot );
 
   mWindow3D->setActiveFrameGraph( mShadowRenderingFrameGraph->getFrameGraphRoot() );
 
@@ -97,4 +97,14 @@ QSize QgsWindow3DEngine::size() const
 QSurface *QgsWindow3DEngine::surface() const
 {
   return mWindow3D;
+}
+
+void QgsWindow3DEngine::setSize( QSize s )
+{
+  mSize = s;
+
+  mWindow3D->setWidth( mSize.width() );
+  mWindow3D->setHeight( mSize.height() );
+  mShadowRenderingFrameGraph->setSize( mSize );
+  camera()->setAspectRatio( float( mSize.width() ) / float( mSize.height() ) );
 }

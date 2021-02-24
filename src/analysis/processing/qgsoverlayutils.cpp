@@ -69,6 +69,7 @@ static bool sanitizeDifferenceResult( QgsGeometry &geom, QgsWkbTypes::GeometryTy
     geom.convertGeometryCollectionToSubclass( geometryType );
   }
 
+
   // if geomB covers the whole source geometry, we get an empty geometry collection
   if ( geom.isEmpty() )
     return false;

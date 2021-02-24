@@ -175,6 +175,24 @@ If not explicitly set, the unit will default to the :py:func:`~QgsProcessingCont
 .. versionadded:: 3.16
 %End
 
+    QgsDateTimeRange currentTimeRange() const;
+%Docstring
+Returns the current time range to use for temporal operations.
+
+.. seealso:: :py:func:`setCurrentTimeRange`
+
+.. versionadded:: 3.18
+%End
+
+    void setCurrentTimeRange( const QgsDateTimeRange &currentTimeRange );
+%Docstring
+Sets the ``current`` time range to use for temporal operations.
+
+.. seealso:: :py:func:`currentTimeRange`
+
+.. versionadded:: 3.18
+%End
+
     QgsMapLayerStore *temporaryLayerStore();
 %Docstring
 Returns a reference to the layer store used for storing temporary layers during
@@ -330,7 +348,7 @@ Returns the behavior used for checking invalid geometries in input layers.
     void setInvalidGeometryCheck( QgsFeatureRequest::InvalidGeometryCheck check );
 %Docstring
 Sets the behavior used for checking invalid geometries in input layers.
-Settings this to anything but QgsFeatureRequest.GeometryNoCheck will also
+Settings this to anything but :py:class:`QgsFeatureRequest`.GeometryNoCheck will also
 reset the :py:func:`~QgsProcessingContext.invalidGeometryCallback` to a default implementation.
 
 .. seealso:: :py:func:`invalidGeometryCheck`

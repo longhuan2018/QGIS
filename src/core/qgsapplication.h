@@ -63,6 +63,9 @@ class QgsNumericFormatRegistry;
 class QgsConnectionRegistry;
 class QgsScaleBarRendererRegistry;
 class Qgs3DSymbolRegistry;
+class QgsPointCloudRendererRegistry;
+class QgsTileDownloadManager;
+class QgsCoordinateReferenceSystemRegistry;
 
 /**
  * \ingroup core
@@ -314,6 +317,13 @@ class CORE_EXPORT QgsApplication : public QApplication
 
     //! Returns the path to the srs.db file.
     static QString srsDatabaseFilePath();
+
+    /**
+     * Sets the paths to svg directories and invalidates the svg path list cache.
+     *
+     * \since QGIS 3.18
+     */
+    static void setSvgPaths( const QStringList &svgPaths );
 
     //! Returns the paths to svg directories.
     static QStringList svgPaths();
@@ -633,11 +643,25 @@ class CORE_EXPORT QgsApplication : public QApplication
     static QgsRasterRendererRegistry *rasterRendererRegistry() SIP_SKIP;
 
     /**
+     * Returns the application's point cloud renderer registry, used for managing point cloud layer 2D renderers.
+     * \since QGIS 3.18
+     */
+    static QgsPointCloudRendererRegistry *pointCloudRendererRegistry() SIP_KEEPREFERENCE;
+
+    /**
      * Returns the application's data item provider registry, which keeps a list of data item
      * providers that may add items to the browser tree.
      * \since QGIS 3.0
      */
     static QgsDataItemProviderRegistry *dataItemProviderRegistry() SIP_KEEPREFERENCE;
+
+    /**
+     * Returns the application's coordinate reference system (CRS) registry, which handles
+     * known CRS definitions (including user-defined CRSes).
+     *
+     * \since QGIS 3.18
+     */
+    static QgsCoordinateReferenceSystemRegistry *coordinateReferenceSystemRegistry() SIP_KEEPREFERENCE;
 
     /**
      * Returns the application's SVG cache, used for caching SVG images and handling parameter replacement
@@ -722,6 +746,13 @@ class CORE_EXPORT QgsApplication : public QApplication
      * \since QGIS 3.10
      */
     static QgsBookmarkManager *bookmarkManager();
+
+    /**
+     * Returns the application's tile download manager, used for download of map tiles when rendering.
+     * \note not available in Python bindings
+     * \since QGIS 3.18
+     */
+    static QgsTileDownloadManager *tileDownloadManager() SIP_SKIP;
 
     /**
      * Returns a shared QgsStyleModel containing the default style library (see QgsStyle::defaultStyle()).
@@ -963,6 +994,7 @@ class CORE_EXPORT QgsApplication : public QApplication
 
     struct ApplicationMembers
     {
+      QgsCoordinateReferenceSystemRegistry *mCrsRegistry = nullptr;
       Qgs3DRendererRegistry *m3DRendererRegistry = nullptr;
       Qgs3DSymbolRegistry *m3DSymbolRegistry = nullptr;
       QgsActionScopeRegistry *mActionScopeRegistry = nullptr;
@@ -985,6 +1017,7 @@ class CORE_EXPORT QgsApplication : public QApplication
       QgsPageSizeRegistry *mPageSizeRegistry = nullptr;
       QgsRasterRendererRegistry *mRasterRendererRegistry = nullptr;
       QgsRendererRegistry *mRendererRegistry = nullptr;
+      QgsPointCloudRendererRegistry *mPointCloudRendererRegistry = nullptr;
       QgsSvgCache *mSvgCache = nullptr;
       QgsImageCache *mImageCache = nullptr;
       QgsSourceCache *mSourceCache = nullptr;
@@ -995,8 +1028,11 @@ class CORE_EXPORT QgsApplication : public QApplication
       QgsAnnotationItemRegistry *mAnnotationItemRegistry = nullptr;
       QgsUserProfileManager *mUserConfigManager = nullptr;
       QgsBookmarkManager *mBookmarkManager = nullptr;
+      QgsTileDownloadManager *mTileDownloadManager = nullptr;
       QgsStyleModel *mStyleModel = nullptr;
       QString mNullRepresentation;
+      QStringList mSvgPathCache;
+      bool mSvgPathCacheValid = false;
 
       ApplicationMembers();
       ~ApplicationMembers();

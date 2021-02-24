@@ -343,7 +343,7 @@ QMatrix4x4 Qgs3DUtils::stringToMatrix4x4( const QString &str )
   return m;
 }
 
-void Qgs3DUtils::extractPointPositions( QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions )
+void Qgs3DUtils::extractPointPositions( const QgsFeature &f, const Qgs3DMapSettings &map, Qgs3DTypes::AltitudeClamping altClamp, QVector<QVector3D> &positions )
 {
   const QgsAbstractGeometry *g = f.geometry().constGet();
   for ( auto it = g->vertices_begin(); it != g->vertices_end(); ++it )
@@ -370,7 +370,7 @@ void Qgs3DUtils::extractPointPositions( QgsFeature &f, const Qgs3DMapSettings &m
         break;
     }
     positions.append( QVector3D( pt.x() - map.origin().x(), h, -( pt.y() - map.origin().y() ) ) );
-    //qDebug() << positions.last();
+    QgsDebugMsgLevel( QStringLiteral( "%1 %2 %3" ).arg( positions.last().x() ).arg( positions.last().y() ).arg( positions.last().z() ), 2 );
   }
 }
 
@@ -565,4 +565,30 @@ QgsPhongMaterialSettings Qgs3DUtils::phongMaterialFromQt3DComponent( Qt3DExtras:
   settings.setSpecular( material->specular() );
   settings.setShininess( material->shininess() );
   return settings;
+}
+
+QgsRay3D Qgs3DUtils::rayFromScreenPoint( const QPoint &point, const QSize &windowSize, Qt3DRender::QCamera *camera )
+{
+  QVector3D deviceCoords( point.x(), point.y(), 0.0 );
+  // normalized device coordinates
+  QVector3D normDeviceCoords( 2.0 * deviceCoords.x() / windowSize.width() - 1.0f, 1.0f - 2.0 * deviceCoords.y() / windowSize.height(), camera->nearPlane() );
+  // clip coordinates
+  QVector4D rayClip( normDeviceCoords.x(), normDeviceCoords.y(), -1.0, 0.0 );
+
+  QMatrix4x4 invertedProjMatrix = camera->projectionMatrix().inverted();
+  QMatrix4x4 invertedViewMatrix = camera->viewMatrix().inverted();
+
+  // ray direction in view coordinates
+  QVector4D rayDirView = invertedProjMatrix * rayClip;
+  // ray origin in world coordinates
+  QVector4D rayOriginWorld = invertedViewMatrix * QVector4D( 0.0f, 0.0f, 0.0f, 1.0f );
+
+  // ray direction in world coordinates
+  rayDirView.setZ( -1.0f );
+  rayDirView.setW( 0.0f );
+  QVector4D rayDirWorld4D = invertedViewMatrix * rayDirView;
+  QVector3D rayDirWorld( rayDirWorld4D.x(), rayDirWorld4D.y(), rayDirWorld4D.z() );
+  rayDirWorld = rayDirWorld.normalized();
+
+  return QgsRay3D( QVector3D( rayOriginWorld ), rayDirWorld );
 }

@@ -18,7 +18,7 @@ class QgsAnnotationLayer : QgsMapLayer
 Represents a map layer containing a set of georeferenced annotations, e.g. markers, lines, polygons or
 text items.
 
-Annotation layers store a set of QgsAnnotationItem items, which are rendered according to the item's
+Annotation layers store a set of :py:class:`QgsAnnotationItem` items, which are rendered according to the item's
 z-order.
 
 .. versionadded:: 3.16
@@ -91,22 +91,6 @@ Returns a map of items contained in the layer, by unique item ID.
 
 This map contains references to items owned by the layer, and ownership of these remains
 with the layer.
-%End
-
-    void setOpacity( double opacity );
-%Docstring
-Sets the ``opacity`` for the annotation layer, where ``opacity`` is a value between 0 (totally transparent)
-and 1.0 (fully opaque).
-
-.. seealso:: :py:func:`opacity`
-%End
-
-    double opacity() const;
-%Docstring
-Returns the opacity for the annotation layer, where opacity is a value between 0 (totally transparent)
-and 1.0 (fully opaque).
-
-.. seealso:: :py:func:`setOpacity`
 %End
 
     virtual QgsAnnotationLayer *clone() const /Factory/;

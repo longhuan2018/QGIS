@@ -28,6 +28,7 @@ class QPlainTextEdit;
 class QLabel;
 
 class QgisInterface;
+class QgsDoubleSpinBox;
 class QgsGeorefDataPoint;
 class QgsGCPListWidget;
 class QgsMapTool;
@@ -59,11 +60,13 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
 
   protected:
     void closeEvent( QCloseEvent * ) override;
+    void dropEvent( QDropEvent *event ) override;
+    void dragEnterEvent( QDragEnterEvent *event ) override;
 
   private slots:
     // file
     void reset();
-    void openRaster();
+    void openRaster( const QString &fileName = QString() );
     void doGeoreference();
     void generateGDALScript();
     bool getTransformSettings();
@@ -85,7 +88,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
 
     // gcps
     void addPoint( const QgsPointXY &pixelCoords, const QgsPointXY &mapCoords,
-                   bool enable = true, bool finalize = true );
+                   const QgsCoordinateReferenceSystem &crs, bool enable = true, bool finalize = true );
     void deleteDataPoint( QPoint pixelCoords );
     void deleteDataPoint( int index );
     void showCoordDialog( const QgsPointXY &pixelCoords );
@@ -105,6 +108,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void jumpToGCP( uint theGCPIndex );
     void extentsChangedGeorefCanvas();
     void extentsChangedQGisCanvas();
+    void updateCanvasRotation();
 
     // canvas info
     void showMouseCoords( const QgsPointXY &pt );
@@ -120,6 +124,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void extentsChanged(); // Use for need add again Raster (case above)
 
     bool updateGeorefTransform();
+    void invalidateCanvasCoords();
 
   private:
     enum SaveGCPs
@@ -211,6 +216,8 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     QLabel *mCoordsLabel = nullptr;
     QLabel *mTransformParamLabel = nullptr;
     QLabel *mEPSG = nullptr;
+    QLabel *mRotationLabel = nullptr;
+    QgsDoubleSpinBox *mRotationEdit = nullptr;
     unsigned int mMousePrecisionDecimalPlaces;
 
     QString mRasterFileName;
@@ -219,6 +226,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     QString mTranslatedRasterFileName;
     QString mGCPpointsFileName;
     QgsCoordinateReferenceSystem mProjection;
+    QgsCoordinateReferenceSystem mLastGCPProjection;
     QString mPdfOutputFile;
     QString mPdfOutputMapFile;
     QString mSaveGcp;
@@ -255,7 +263,6 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
 
 
     QgsDockWidget *mDock = nullptr;
-    int messageTimeout();
 };
 
 #endif

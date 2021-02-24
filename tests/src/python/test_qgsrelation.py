@@ -212,6 +212,15 @@ class TestQgsRelation(unittest.TestCase):
                     valid = t.relation().isValid()
         self.assertTrue(valid)
 
+    def test_polymorphicRelationId(self):
+        rel = QgsRelation()
+
+        self.assertEqual(rel.polymorphicRelationId(), '')
+
+        rel.setPolymorphicRelationId('poly_rel_id')
+
+        self.assertEqual(rel.polymorphicRelationId(), 'poly_rel_id')
+
     def test_generateId_empty_relation(self):
         rel = QgsRelation()
         # Check that it does not crash

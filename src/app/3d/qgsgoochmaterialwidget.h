@@ -33,6 +33,7 @@ class APP_EXPORT QgsGoochMaterialWidget : public QgsMaterialSettingsWidget, priv
 
     static QgsMaterialSettingsWidget *create();
     void setSettings( const QgsAbstractMaterialSettings *settings, QgsVectorLayer *layer ) override;
+    void setTechnique( QgsMaterialSettingsRenderingTechnique technique ) override;
     QgsAbstractMaterialSettings *settings() override;
 
 };

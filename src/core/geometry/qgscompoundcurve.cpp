@@ -21,6 +21,7 @@
 #include "qgsgeometryutils.h"
 #include "qgslinestring.h"
 #include "qgswkbptr.h"
+#include "qgsfeedback.h"
 
 #include <QJsonObject>
 #include <QPainter>
@@ -386,6 +387,22 @@ bool QgsCompoundCurve::isEmpty() const
       return false;
   }
   return true;
+}
+
+bool QgsCompoundCurve::isValid( QString &error, int flags ) const
+{
+  if ( mCurves.isEmpty() )
+    return true;
+
+  for ( int i = 0; i < mCurves.size() ; ++i )
+  {
+    if ( !mCurves[i]->isValid( error, flags ) )
+    {
+      error = QObject::tr( "Curve[%1]: %2" ).arg( i + 1 ).arg( error );
+      return false;
+    }
+  }
+  return QgsCurve::isValid( error, flags );
 }
 
 QgsLineString *QgsCompoundCurve::curveToLine( double tolerance, SegmentationToleranceType toleranceType ) const
@@ -799,6 +816,27 @@ double QgsCompoundCurve::yAt( int index ) const
   return 0.0;
 }
 
+bool QgsCompoundCurve::transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback )
+{
+  bool res = true;
+  for ( QgsCurve *curve : qgis::as_const( mCurves ) )
+  {
+    if ( !curve->transform( transformer ) )
+    {
+      res = false;
+      break;
+    }
+
+    if ( feedback && feedback->isCanceled() )
+    {
+      res = false;
+      break;
+    }
+  }
+  clearCache();
+  return res;
+}
+
 void QgsCompoundCurve::filterVertices( const std::function<bool ( const QgsPoint & )> &filter )
 {
   for ( QgsCurve *curve : qgis::as_const( mCurves ) )
@@ -1011,4 +1049,3 @@ void QgsCompoundCurve::swapXy()
   }
   clearCache();
 }
-

@@ -624,21 +624,19 @@ class CORE_EXPORT QgsGeometry
      */
     double hausdorffDistanceDensify( const QgsGeometry &geom, double densifyFraction ) const;
 
-    //TODO QGIS 4.0 - rename beforeVertex to previousVertex, afterVertex to nextVertex
-
     /**
      * Returns the vertex closest to the given point, the corresponding vertex index, squared distance snap point / target point
      * and the indices of the vertices before and after the closest vertex.
      * \param point point to search for
-     * \param atVertex will be set to the vertex index of the closest found vertex
-     * \param beforeVertex will be set to the vertex index of the previous vertex from the closest one. Will be set to -1 if
+     * \param closestVertexIndex will be set to the vertex index of the closest found vertex
+     * \param previousVertexIndex will be set to the vertex index of the previous vertex from the closest one. Will be set to -1 if
      * not present.
-     * \param afterVertex will be set to the vertex index of the next vertex after the closest one. Will be set to -1 if
+     * \param nextVertexIndex will be set to the vertex index of the next vertex after the closest one. Will be set to -1 if
      * not present.
      * \param sqrDist will be set to the square distance between the closest vertex and the specified point
      * \returns closest point in geometry. If not found (empty geometry), returns null point and sqrDist is negative.
      */
-    QgsPointXY closestVertex( const QgsPointXY &point, int &atVertex SIP_OUT, int &beforeVertex SIP_OUT, int &afterVertex SIP_OUT, double &sqrDist SIP_OUT ) const;
+    QgsPointXY closestVertex( const QgsPointXY &point, int &closestVertexIndex SIP_OUT, int &previousVertexIndex SIP_OUT, int &nextVertexIndex SIP_OUT, double &sqrDist SIP_OUT ) const;
 
     /**
      * Returns the distance along this geometry from its first vertex to the specified vertex.
@@ -735,7 +733,7 @@ class CORE_EXPORT QgsGeometry
     /**
      * Returns coordinates of a vertex.
      * \param atVertex index of the vertex
-     * \returns Coordinates of the vertex or empty QgsPoint() on error
+     * \returns Coordinates of the vertex or empty QgsPoint on error
      */
     QgsPoint vertexAt( int atVertex ) const;
 
@@ -747,7 +745,7 @@ class CORE_EXPORT QgsGeometry
     double sqrDistToVertexAt( QgsPointXY &point SIP_IN, int atVertex ) const;
 
     /**
-     * Returns the nearest point on this geometry to another geometry.
+     * Returns the nearest (closest) point on this geometry to another geometry.
      * \see shortestLine()
      * \since QGIS 2.14
      */
@@ -777,14 +775,14 @@ class CORE_EXPORT QgsGeometry
      * Searches for the closest segment of geometry to the given point
      * \param point Specifies the point for search
      * \param minDistPoint Receives the nearest point on the segment
-     * \param afterVertex Receives index of the vertex after the closest segment. The vertex
-     * before the closest segment is always afterVertex - 1
-     * \param leftOf Out: Returns if the point lies on the left of left side of the geometry ( < 0 means left, > 0 means right, 0 indicates
+     * \param nextVertexIndex Receives index of the next vertex after the closest segment. The vertex
+     * before the closest segment is always nextVertexIndex - 1
+     * \param leftOrRightOfSegment Out: Returns if the point is located on the left or right side of the geometry ( < 0 means left, > 0 means right, 0 indicates
      * that the test was unsuccessful, e.g. for a point exactly on the line)
      * \param epsilon epsilon for segment snapping
      * \returns The squared Cartesian distance is also returned in sqrDist, negative number on error
      */
-    double closestSegmentWithContext( const QgsPointXY &point, QgsPointXY &minDistPoint SIP_OUT, int &afterVertex SIP_OUT, int *leftOf SIP_OUT = nullptr, double epsilon = DEFAULT_SEGMENT_EPSILON ) const;
+    double closestSegmentWithContext( const QgsPointXY &point, QgsPointXY &minDistPoint SIP_OUT, int &nextVertexIndex SIP_OUT, int *leftOrRightOfSegment SIP_OUT = nullptr, double epsilon = DEFAULT_SEGMENT_EPSILON ) const;
 
     /**
      * Adds a new ring to this geometry. This makes only sense for polygon and multipolygons.
@@ -904,6 +902,7 @@ class CORE_EXPORT QgsGeometry
      * \returns OperationResult a result code: success or reason of failure
      *
      * Example:
+     *
      * \code{.py}
      *  geometry = QgsGeometry.fromWkt('CompoundCurveZ ((2749546.2003820720128715 1262904.45356595050543547 100, 2749557.82053794478997588 1262920.05570670193992555 200))')
      *  split_line = [QgsPoint(2749544.19, 1262914.79), QgsPoint(2749557.64, 1262897.30)]
@@ -2017,7 +2016,7 @@ class CORE_EXPORT QgsGeometry
      * \returns 0 in case of success,
      *          1 if geometry is not of polygon type,
      *          2 if avoid intersection would change the geometry type,
-     *          3 other error during intersection removal
+     *          3 at least one geometry intersected is invalid. The algorithm may not work and return the same geometry as the input. You must fix your intersecting geometries.
      * \since QGIS 1.5
      */
     int avoidIntersections( const QList<QgsVectorLayer *> &avoidIntersectionsLayers,

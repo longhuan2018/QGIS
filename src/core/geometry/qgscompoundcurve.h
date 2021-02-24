@@ -60,6 +60,7 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
     void points( QgsPointSequence &pts SIP_OUT ) const override;
     int numPoints() const override SIP_HOLDGIL;
     bool isEmpty() const override SIP_HOLDGIL;
+    bool isValid( QString &error SIP_OUT, int flags = 0 ) const override;
 
     /**
      * Returns a new line string geometry corresponding to a segmentized approximation
@@ -130,6 +131,8 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
     double xAt( int index ) const override SIP_HOLDGIL;
     double yAt( int index ) const override SIP_HOLDGIL;
 
+    bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = nullptr ) override;
+
 #ifndef SIP_RUN
     void filterVertices( const std::function< bool( const QgsPoint & ) > &filter ) override;
     void transformVertices( const std::function< QgsPoint( const QgsPoint & ) > &transform ) override;
@@ -141,7 +144,7 @@ class CORE_EXPORT QgsCompoundCurve: public QgsCurve
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsCompoundCurve *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsCompoundCurve *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::CompoundCurve )
         return static_cast<const QgsCompoundCurve *>( geom );

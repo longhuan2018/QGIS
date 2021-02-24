@@ -50,13 +50,16 @@
 #include "qgsexception.h"
 #include "qgssettings.h"
 #include "qgsexpressioncontextutils.h"
+#include "qgspointcloudlayer.h"
+#include "qgspointcloudrenderer.h"
+#include "qgspointcloudlayerrenderer.h"
+#include "qgspointcloudlayerelevationproperties.h"
 
 #include <QMouseEvent>
 #include <QCursor>
 #include <QPixmap>
 #include <QStatusBar>
 #include <QVariant>
-#include <QMenu>
 
 QgsMapToolIdentify::QgsMapToolIdentify( QgsMapCanvas *canvas )
   : QgsMapTool( canvas )
@@ -140,6 +143,8 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsMapToolIdentify::identify( const Qg
       emit identifyMessage( tr( "No active layer. To identify features, you must choose an active layer." ) );
       return results;
     }
+    if ( !layer->flags().testFlag( QgsMapLayer::Identifiable ) )
+      return results;
 
     QApplication::setOverrideCursor( Qt::WaitCursor );
 
@@ -229,6 +234,10 @@ bool QgsMapToolIdentify::identifyLayer( QList<IdentifyResult> *results, QgsMapLa
   else if ( layer->type() == QgsMapLayerType::VectorTileLayer && layerType.testFlag( VectorTileLayer ) )
   {
     return identifyVectorTileLayer( results, qobject_cast<QgsVectorTileLayer *>( layer ), geometry, identifyContext );
+  }
+  else if ( layer->type() == QgsMapLayerType::PointCloudLayer && layerType.testFlag( PointCloudLayer ) )
+  {
+    return identifyPointCloudLayer( results, qobject_cast<QgsPointCloudLayer *>( layer ), geometry, identifyContext );
   }
   else
   {
@@ -336,7 +345,7 @@ bool QgsMapToolIdentify::identifyMeshLayer( QList<QgsMapToolIdentify::IdentifyRe
     if ( isTemporal && ( index.group() == activeScalarGroup  || index.group() == activeVectorGroup ) )
       resultName.append( tr( " (active)" ) );
 
-    const IdentifyResult result( qobject_cast<QgsMapLayer *>( layer ),
+    const IdentifyResult result( layer,
                                  resultName,
                                  attribute,
                                  derivedAttributes );
@@ -367,7 +376,7 @@ bool QgsMapToolIdentify::identifyMeshLayer( QList<QgsMapToolIdentify::IdentifyRe
     derivedGeometry.insert( tr( "Point on Edge Y" ), QString::number( pointOnEdge.y() ) );
   }
 
-  const IdentifyResult result( qobject_cast<QgsMapLayer *>( layer ),
+  const IdentifyResult result( layer,
                                tr( "Geometry" ),
                                derivedAttributesForPoint( QgsPoint( point ) ),
                                derivedGeometry );
@@ -412,7 +421,6 @@ bool QgsMapToolIdentify::identifyVectorTileLayer( QList<QgsMapToolIdentify::Iden
 
   int featureCount = 0;
 
-  QgsFeatureList featureList;
   std::unique_ptr<QgsGeometryEngine> selectionGeomPrepared;
 
   // toLayerCoordinates will throw an exception for an 'invalid' point.
@@ -479,7 +487,7 @@ bool QgsMapToolIdentify::identifyVectorTileLayer( QList<QgsMapToolIdentify::Iden
               QMap< QString, QString > derivedAttributes = commonDerivedAttributes;
               derivedAttributes.insert( tr( "Feature ID" ), FID_TO_STRING( f.id() ) );
 
-              results->append( IdentifyResult( qobject_cast<QgsMapLayer *>( layer ), layerName, fFields, f, derivedAttributes ) );
+              results->append( IdentifyResult( layer, layerName, fFields, f, derivedAttributes ) );
 
               featureCount++;
             }
@@ -497,6 +505,23 @@ bool QgsMapToolIdentify::identifyVectorTileLayer( QList<QgsMapToolIdentify::Iden
   }
 
   return featureCount > 0;
+}
+
+bool QgsMapToolIdentify::identifyPointCloudLayer( QList<QgsMapToolIdentify::IdentifyResult> *results, QgsPointCloudLayer *layer, const QgsGeometry &geometry, const QgsIdentifyContext &identifyContext )
+{
+  Q_UNUSED( identifyContext )
+  QgsPointCloudRenderer *renderer = layer->renderer();
+
+  QgsRenderContext context = QgsRenderContext::fromMapSettings( mCanvas->mapSettings() );
+  context.setCoordinateTransform( QgsCoordinateTransform( layer->crs(), mCanvas->mapSettings().destinationCrs(), mCanvas->mapSettings().transformContext() ) );
+
+  const double searchRadiusMapUnits = mOverrideCanvasSearchRadius < 0 ? searchRadiusMU( mCanvas ) : mOverrideCanvasSearchRadius;
+
+  const QVector<QVariantMap> points = renderer->identify( layer, context, geometry, searchRadiusMapUnits );
+
+  fromPointCloudIdentificationToIdentifyResults( layer, points, *results );
+
+  return true;
 }
 
 QMap<QString, QString> QgsMapToolIdentify::derivedAttributesForPoint( const QgsPoint &point )
@@ -1149,3 +1174,35 @@ void QgsMapToolIdentify::formatChanged( QgsRasterLayer *layer )
   }
 }
 
+void QgsMapToolIdentify::fromPointCloudIdentificationToIdentifyResults( QgsPointCloudLayer *layer, const QVector<QVariantMap> &identified, QList<QgsMapToolIdentify::IdentifyResult> &results )
+{
+  int id = 1;
+  const QgsPointCloudLayerElevationProperties *elevationProps = qobject_cast< const QgsPointCloudLayerElevationProperties *>( layer->elevationProperties() );
+  for ( const QVariantMap &pt : identified )
+  {
+    QMap<QString, QString> ptStr;
+    QString classification;
+    for ( auto attrIt = pt.constBegin(); attrIt != pt.constEnd(); ++attrIt )
+    {
+      if ( attrIt.key().compare( QLatin1String( "Z" ), Qt::CaseInsensitive ) == 0
+           && ( !qgsDoubleNear( elevationProps->zScale(), 1 ) || !qgsDoubleNear( elevationProps->zOffset(), 0 ) ) )
+      {
+        // Apply elevation properties
+        ptStr[ tr( "Z (original)" ) ] = attrIt.value().toString();
+        ptStr[ tr( "Z (adjusted)" ) ] = QString::number( attrIt.value().toDouble() * elevationProps->zScale() + elevationProps->zOffset() );
+      }
+      else if ( attrIt.key().compare( QLatin1String( "Classification" ), Qt::CaseInsensitive ) == 0 )
+      {
+        classification = QgsPointCloudDataProvider::translatedLasClassificationCodes().value( attrIt.value().toInt() );
+        ptStr[ attrIt.key() ] = QStringLiteral( "%1 (%2)" ).arg( attrIt.value().toString(), classification );
+      }
+      else
+      {
+        ptStr[attrIt.key()] = attrIt.value().toString();
+      }
+    }
+    QgsMapToolIdentify::IdentifyResult res( layer, classification.isEmpty() ? QString::number( id ) : QStringLiteral( "%1 (%2)" ).arg( id ).arg( classification ), ptStr, QMap<QString, QString>() );
+    results.append( res );
+    ++id;
+  }
+}

@@ -33,6 +33,8 @@ class QgsProviderGuiMetadata;
 class QgsDataItemGuiProvider;
 class QgsSourceSelectProvider;
 class QgsProjectStorageGuiProvider;
+class QgsSubsetStringEditorProvider;
+class QgsProviderSourceWidgetProvider;
 
 /**
  * \ingroup gui
@@ -85,6 +87,20 @@ class GUI_EXPORT QgsProviderGuiRegistry
      * \note Ownership of created project storage gui providers is passed to the caller.
      */
     virtual QList<QgsProjectStorageGuiProvider *> projectStorageGuiProviders( const QString &providerKey ) SIP_FACTORY;
+
+    /**
+     * Returns all subset string editor providers registered in provider with \a providerKey
+     * \note Ownership of providers is passed to the caller.
+     * \since QGIS 3.18
+     */
+    virtual QList<QgsSubsetStringEditorProvider *> subsetStringEditorProviders( const QString &providerKey ) SIP_FACTORY;
+
+    /**
+     * Returns all source widget providers registered in provider with \a providerKey
+     * \note Ownership of providers is passed to the caller.
+     * \since QGIS 3.18
+     */
+    virtual QList<QgsProviderSourceWidgetProvider *> sourceWidgetProviders( const QString &providerKey ) SIP_FACTORY;
 
     //! Type for data provider metadata associative container
     SIP_SKIP typedef std::map<QString, QgsProviderGuiMetadata *> GuiProviders;

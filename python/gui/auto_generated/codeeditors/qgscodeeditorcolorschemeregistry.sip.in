@@ -12,9 +12,9 @@
 class QgsCodeEditorColorSchemeRegistry
 {
 %Docstring
-A registry of color schemes for use in QgsCodeEditor widgets.
+A registry of color schemes for use in :py:class:`QgsCodeEditor` widgets.
 
-QgsCodeEditorColorSchemeRegistry is not usually directly created, but rather accessed through
+:py:class:`QgsCodeEditorColorSchemeRegistry` is not usually directly created, but rather accessed through
 :py:func:`QgsGui.codeEditorColorSchemeRegistry()`.
 
 .. versionadded:: 3.16
@@ -53,7 +53,7 @@ Returns a list of the :py:func:`QgsCodeEditorColorScheme.id()` values for all re
 %Docstring
 Returns the color scheme with matching ``id``.
 
-If the specified scheme \id does not exist then the default scheme will be returned instead.
+If the specified scheme ``id`` does not exist then the default scheme will be returned instead.
 %End
 
 };

@@ -11,6 +11,7 @@
 
 
 
+
 %ModuleHeaderCode
 // fix to allow compilation with sip 4.7 that for some reason
 // doesn't add these includes to the file where the code from
@@ -19,6 +20,7 @@
 #include <qgsmaptoolpan.h>
 #include <qgsmaptoolemitpoint.h>
 #include <qgsmaptoolidentify.h>
+#include <qgsmaptooldigitizefeature.h>
 %End
 
 class QgsMapTool : QObject
@@ -42,6 +44,8 @@ implemented as map tools.
       sipType = sipType_QgsMapToolEmitPoint;
     else if ( dynamic_cast<QgsMapToolIdentify *>( sipCpp ) != NULL )
       sipType = sipType_QgsMapToolIdentify;
+    else if ( dynamic_cast<QgsMapToolDigitizeFeature *>( sipCpp ) != NULL )
+      sipType = sipType_QgsMapToolDigitizeFeature;
     else
       sipType = NULL;
 %End
@@ -212,6 +216,28 @@ The default implementation does nothing.
 .. versionadded:: 3.14
 %End
 
+    virtual bool populateContextMenuWithEvent( QMenu *menu, QgsMapMouseEvent *event );
+%Docstring
+Allows the tool to populate and customize the given ``menu``,
+prior to showing it in response to a right-mouse button click.
+
+``menu`` will be initially populated with a set of default, generic actions.
+Any new actions added to the menu should be correctly parented to ``menu``.
+
+A pointer to the map mouse ``event`` can be provided to allow particular behavior depending on the map tool.
+
+This method can return true to inform the caller that the menu was effectively populated.
+
+The default implementation does nothing and returns false.
+
+.. note::
+
+   The context menu is only shown when the ShowContextMenu flag
+   is present in :py:func:`~QgsMapTool.flags`.
+
+.. versionadded:: 3.18
+%End
+
   signals:
     void messageEmitted( const QString &message, Qgis::MessageLevel = Qgis::Info );
 %Docstring
@@ -237,46 +263,46 @@ signal emitted once the map tool is deactivated
 
     QgsMapTool( QgsMapCanvas *canvas /TransferThis/ );
 %Docstring
-constructor takes map canvas as a parameter
+Constructor takes a map canvas as a parameter.
 %End
 
     QgsPointXY toMapCoordinates( QPoint point );
 %Docstring
-transformation from screen coordinates to map coordinates
+Transforms a ``point`` from screen coordinates to map coordinates.
 %End
 
     QgsPointXY toLayerCoordinates( const QgsMapLayer *layer, QPoint point );
 %Docstring
-transformation from screen coordinates to layer's coordinates
+Transforms a ``point`` from screen coordinates to ``layer`` coordinates.
 %End
 
     QgsPointXY toLayerCoordinates( const QgsMapLayer *layer, const QgsPointXY &point );
 %Docstring
-transformation from map coordinates to layer's coordinates
+Transforms a ``point`` from map coordinates to ``layer`` coordinates.
 %End
 
     QgsPointXY toMapCoordinates( const QgsMapLayer *layer, const QgsPointXY &point );
 %Docstring
-transformation from layer's coordinates to map coordinates (which is different in case reprojection is used)
+Transforms a ``point`` from ``layer`` coordinates to map coordinates (which is different in case reprojection is used).
 %End
 
     QgsPoint toMapCoordinates( const QgsMapLayer *layer, const QgsPoint &point ) /PyName=toMapCoordinatesV2/;
 %Docstring
-transformation from layer's coordinates to map coordinates (which is different in case reprojection is used)
+Transforms a ``point`` from ``layer`` coordinates to map coordinates (which is different in case reprojection is used).
 
 .. note::
 
-   available in Python bindings as toMapCoordinatesV2
+   This method is available in the Python bindings as toMapCoordinatesV2.
 %End
 
     QgsRectangle toLayerCoordinates( const QgsMapLayer *layer, const QgsRectangle &rect );
 %Docstring
-trnasformation of the rect from map coordinates to layer's coordinates
+Transforms a ``rect`` from map coordinates to ``layer`` coordinates.
 %End
 
     QPoint toCanvasCoordinates( const QgsPointXY &point ) const;
 %Docstring
-transformation from map coordinates to screen coordinates
+Transforms a ``point`` from map coordinates to screen coordinates.
 %End
 
 

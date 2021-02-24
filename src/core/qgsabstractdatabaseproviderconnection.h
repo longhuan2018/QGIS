@@ -63,9 +63,138 @@ class CORE_EXPORT QgsAbstractDatabaseProviderConnection : public QgsAbstractProv
       Foreign = 1 << 6,           //!< Foreign data wrapper
     };
 
-    Q_ENUMS( TableFlag )
+    Q_ENUM( TableFlag )
     Q_DECLARE_FLAGS( TableFlags, TableFlag )
     Q_FLAG( TableFlags )
+
+    /**
+     * The QueryResult class represents the result of a query executed by execSql()
+     *
+     * It encapsulates an iterator over the result rows and a list of the column names.
+     *
+     * Rows can be retrieved by iterating over the result with hasNextRow() and nextRow()
+     * or by calling rows() that will internally iterate over the results and return
+     * the whole result list.
+     *
+     *
+     * \since QGIS 3.18
+     */
+    struct CORE_EXPORT QueryResult
+    {
+
+        /**
+         * Returns the column names
+         */
+        QStringList columns() const;
+
+        /**
+         * Returns the result rows by calling the iterator internally and fetching
+         * all the rows, an optional \a feedback can be used to interrupt the fetching loop.
+         *
+         * \note calling this function more than one time is not supported: the second
+         * call will always return an empty list.
+         */
+        QList<QList<QVariant> > rows( QgsFeedback *feedback = nullptr );
+
+        /**
+         * Returns TRUE if there are more rows to fetch
+         *
+         * \see nextRow()
+         * \see rewind()
+         */
+        bool hasNextRow() const;
+
+        /**
+         * Returns the next result row or an empty row if there are no rows left
+         *
+         * \see hasNextRow()
+         * \see rewind()
+         */
+        QList<QVariant> nextRow() const;
+
+        /**
+         * Returns the number of fetched rows
+         *
+         * \see rowCount()
+         */
+        qlonglong fetchedRowCount( ) const;
+
+
+#ifdef SIP_RUN
+        // Python iterator
+        QueryResult *__iter__();
+        % MethodCode
+        sipRes = sipCpp;
+        % End
+
+        SIP_PYOBJECT __next__();
+        % MethodCode
+        QList<QVariant> result;
+        Py_BEGIN_ALLOW_THREADS
+        result = sipCpp->nextRow( );
+        Py_END_ALLOW_THREADS
+        if ( ! result.isEmpty() )
+        {
+          const sipTypeDef *qvariantlist_type = sipFindType( "QList<QVariant>" );
+          sipRes = sipConvertFromNewType( new QList<QVariant>( result ), qvariantlist_type, Py_None );
+        }
+        else
+        {
+          PyErr_SetString( PyExc_StopIteration, "" );
+        }
+        % End
+#endif
+
+///@cond private
+
+        /**
+         * The QueryResultIterator struct is an abstract interface for provider query result iterators.
+         * Providers must implement their own concrete iterator over query results.
+         *
+         */
+        struct CORE_EXPORT QueryResultIterator SIP_SKIP
+        {
+            QVariantList nextRow();
+            bool hasNextRow() const;
+            qlonglong fetchedRowCount();
+            virtual ~QueryResultIterator() = default;
+
+          private:
+
+            virtual QVariantList nextRowPrivate() = 0;
+            virtual bool hasNextRowPrivate() const = 0;
+            mutable qlonglong mFetchedRowCount = 0;
+            mutable QMutex mMutex;
+
+        };
+
+        /**
+         * Appends \a columnName to the list of column names.
+         * \note Not available in Python bindings
+         */
+        void appendColumn( const QString &columnName ) SIP_SKIP;
+
+        /**
+         * Constructs a QueryResult object from an \a iterator
+         * \note Not available in Python bindings
+         */
+        QueryResult( std::shared_ptr<QueryResultIterator> iterator ) SIP_SKIP;
+
+        /**
+         * Default constructor, used to return empty results
+         * \note Not available in Python bindings
+         */
+        QueryResult( ) = default SIP_SKIP;
+
+///@endcond private
+
+      private:
+
+        mutable std::shared_ptr<QueryResultIterator> mResultIterator;
+        QStringList mColumns;
+
+    };
+
 
     /**
      * The TableProperty class represents a database table or view.
@@ -456,9 +585,19 @@ class CORE_EXPORT QgsAbstractDatabaseProviderConnection : public QgsAbstractProv
     /**
      * Executes raw \a sql and returns the (possibly empty) list of results in a multi-dimensional array, optionally \a feedback can be provided.
      * Raises a QgsProviderConnectionException if any errors are encountered.
+     * \see execSql()
      * \throws QgsProviderConnectionException
      */
     virtual QList<QList<QVariant>> executeSql( const QString &sql, QgsFeedback *feedback = nullptr ) const SIP_THROW( QgsProviderConnectionException );
+
+    /**
+     * Executes raw \a sql and returns the (possibly empty) query results, optionally \a feedback can be provided.
+     * Raises a QgsProviderConnectionException if any errors are encountered.
+     * \see executeSql()
+     * \throws QgsProviderConnectionException
+     * \since QGIS 3.18
+     */
+    virtual QueryResult execSql( const QString &sql, QgsFeedback *feedback = nullptr ) const SIP_THROW( QgsProviderConnectionException );
 
     /**
      * Vacuum the database table with given \a schema and \a name (schema is ignored if not supported by the backend).
@@ -552,15 +691,15 @@ class CORE_EXPORT QgsAbstractDatabaseProviderConnection : public QgsAbstractProv
      * Raises a QgsProviderConnectionException if any errors are encountered.
      * \note the default implementation creates a temporary vector layer, providers may
      * choose to override this method for a greater efficiency.
-     * \since QGIS 3.16
      * \throws QgsProviderConnectionException
+     * \since QGIS 3.16
      */
     virtual QgsFields fields( const QString &schema, const QString &table ) const SIP_THROW( QgsProviderConnectionException );
 
     /**
      * Returns a list of native types supported by the connection.
-     * \since QGIS 3.16
      * \throws QgsProviderConnectionException
+     * \since QGIS 3.16
      */
     virtual QList< QgsVectorDataProvider::NativeType > nativeTypes() const SIP_THROW( QgsProviderConnectionException ) = 0;
 

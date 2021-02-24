@@ -166,6 +166,14 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
                      const QgsFeature &feature,
                      const QMap< QString, QString > &derivedAttributes );
 
+    /**
+     * Adds results from point cloud layer
+     * \since QGIS 3.18
+     */
+    void addFeature( QgsPointCloudLayer *layer,
+                     const QString &label,
+                     const QMap< QString, QString > &attributes );
+
     //! Adds feature from identify results
     void addFeature( const QgsMapToolIdentify::IdentifyResult &result );
 
@@ -256,6 +264,8 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
 
     void mActionAutoFeatureForm_toggled( bool checked );
 
+    void mActionHideDerivedAttributes_toggled( bool checked );
+
     void mExpandAction_triggered( bool checked ) { Q_UNUSED( checked ) expandAll(); }
     void mCollapseAction_triggered( bool checked ) { Q_UNUSED( checked ) collapseAll(); }
 
@@ -266,6 +276,8 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
     void printCurrentItem();
 
     void mapLayerActionDestroyed();
+
+    void showHelp();
 
   private:
     QString representValue( QgsVectorLayer *vlayer, const QgsEditorWidgetSetup &setup, const QString &fieldName, const QVariant &value );
@@ -289,6 +301,7 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
     QgsRasterLayer *rasterLayer( QTreeWidgetItem *item );
     QgsMeshLayer *meshLayer( QTreeWidgetItem *item );
     QgsVectorTileLayer *vectorTileLayer( QTreeWidgetItem *item );
+    QgsPointCloudLayer *pointCloudLayer( QTreeWidgetItem *item );
     QTreeWidgetItem *featureItem( QTreeWidgetItem *item );
     QTreeWidgetItem *layerItem( QTreeWidgetItem *item );
     QTreeWidgetItem *layerItem( QObject *layer );
@@ -312,8 +325,6 @@ class APP_EXPORT QgsIdentifyResultsDialog: public QDialog, private Ui::QgsIdenti
     QgsDockWidget *mDock = nullptr;
 
     QVector<QgsIdentifyPlotCurve *> mPlotCurves;
-
-    void showHelp();
 
     QgsMapToolSelectionHandler::SelectionMode mSelectionMode = QgsMapToolSelectionHandler::SelectSimple;
 

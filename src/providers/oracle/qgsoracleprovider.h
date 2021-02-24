@@ -202,6 +202,13 @@ class QgsOracleProvider final: public QgsVectorDataProvider
     static QgsCoordinateReferenceSystem lookupCrs( QgsOracleConn *conn, int srsid );
 
     /**
+     * Insert \a geometryColumn column from table \a tableName in Oracle geometry metadata table with given \a srs coordinate
+     * reference system, using \a conn connection
+     * Throws OracleException if an error occurred.
+     */
+    static void insertGeomMetadata( QgsOracleConn *conn, const QString &tableName, const QString &geometryColumn, const QgsCoordinateReferenceSystem &srs );
+
+    /**
      * Evaluates the given expression string server-side and convert the result to the given type
      */
     QVariant evaluateDefaultExpression( const QString &value, const QVariant::Type &fieldType ) const;
@@ -424,6 +431,14 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
     QList<QgsDataItemProvider *> dataItemProviders() const override;
 
     QgsTransaction *createTransaction( const QString &connString ) override;
+    QMap<QString, QgsAbstractProviderConnection *> connections( bool cached = true ) override;
+    QgsAbstractProviderConnection *createConnection( const QString &name ) override;
+    QgsAbstractProviderConnection *createConnection( const QString &uri, const QVariantMap &configuration ) override;
+    void deleteConnection( const QString &name ) override;
+    void saveConnection( const QgsAbstractProviderConnection *createConnection, const QString &name ) override;
+
+    QVariantMap decodeUri( const QString &uri ) const override;
+    QString encodeUri( const QVariantMap &parts ) const override;
 };
 
 #ifdef HAVE_GUI

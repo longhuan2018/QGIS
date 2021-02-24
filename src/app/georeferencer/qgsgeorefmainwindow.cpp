@@ -85,6 +85,7 @@ QgsGeoreferencerMainWindow::QgsGeoreferencerMainWindow( QWidget *parent, Qt::Win
 {
   setupUi( this );
   QgsGui::instance()->enableAutoGeometryRestore( this );
+  setAcceptDrops( true );
 
   QWidget *centralWidget = this->centralWidget();
   mCentralLayout = new QGridLayout( centralWidget );
@@ -161,10 +162,7 @@ void QgsGeoreferencerMainWindow::closeEvent( QCloseEvent *e )
   switch ( checkNeedGCPSave() )
   {
     case QgsGeoreferencerMainWindow::GCPSAVE:
-      if ( mGCPpointsFileName.isEmpty() )
-        saveGCPsDialog();
-      else
-        saveGCPs();
+      saveGCPsDialog();
       writeSettings();
       clearGCPData();
       removeOldLayer();
@@ -212,7 +210,7 @@ void QgsGeoreferencerMainWindow::reset()
 
 // -------------------------- private slots -------------------------------- //
 // File slots
-void QgsGeoreferencerMainWindow::openRaster()
+void QgsGeoreferencerMainWindow::openRaster( const QString &fileName )
 {
   //  clearLog();
   switch ( checkNeedGCPSave() )
@@ -231,37 +229,41 @@ void QgsGeoreferencerMainWindow::openRaster()
   }
 
   QgsSettings s;
-  QString dir = s.value( QStringLiteral( "/Plugin-GeoReferencer/rasterdirectory" ) ).toString();
-  if ( dir.isEmpty() )
-    dir = '.';
+  if ( fileName.isEmpty() )
+  {
+    QString dir = s.value( QStringLiteral( "/Plugin-GeoReferencer/rasterdirectory" ) ).toString();
+    if ( dir.isEmpty() )
+      dir = '.';
 
-  QString otherFiles = tr( "All other files (*)" );
-  QString lastUsedFilter = s.value( QStringLiteral( "/Plugin-GeoReferencer/lastusedfilter" ), otherFiles ).toString();
+    QString otherFiles = tr( "All other files (*)" );
+    QString lastUsedFilter = s.value( QStringLiteral( "/Plugin-GeoReferencer/lastusedfilter" ), otherFiles ).toString();
 
-  QString filters = QgsProviderRegistry::instance()->fileRasterFilters();
-  filters.prepend( otherFiles + ";;" );
-  filters.chop( otherFiles.size() + 2 );
-  mRasterFileName = QFileDialog::getOpenFileName( this, tr( "Open Raster" ), dir, filters, &lastUsedFilter, QFileDialog::HideNameFilterDetails );
+    QString filters = QgsProviderRegistry::instance()->fileRasterFilters();
+    filters.prepend( otherFiles + QStringLiteral( ";;" ) );
+    filters.chop( otherFiles.size() + 2 );
+    mRasterFileName = QFileDialog::getOpenFileName( this, tr( "Open Raster" ), dir, filters, &lastUsedFilter, QFileDialog::HideNameFilterDetails );
+
+    if ( mRasterFileName.isEmpty() )
+      return;
+
+    s.setValue( QStringLiteral( "/Plugin-GeoReferencer/lastusedfilter" ), lastUsedFilter );
+  }
+  else
+  {
+    mRasterFileName = fileName;
+  }
   mModifiedRasterFileName.clear();
-
-  if ( mRasterFileName.isEmpty() )
-    return;
 
   QString errMsg;
   if ( !QgsRasterLayer::isValidRasterFileName( mRasterFileName, errMsg ) )
   {
-    QString msg = tr( "%1 is not a supported raster data source." ).arg( mRasterFileName );
-
-    if ( !errMsg.isEmpty() )
-      msg += '\n' + errMsg;
-
-    QMessageBox::information( this, tr( "Open Raster" ), msg );
+    mMessageBar->pushMessage( tr( "Open Raster" ), tr( "%1 is not a supported raster data source.%2" ).arg( mRasterFileName,
+                              !errMsg.isEmpty() ? QStringLiteral( " (%1)" ).arg( errMsg ) : QString() ), Qgis::Critical );
     return;
   }
 
   QFileInfo fileInfo( mRasterFileName );
   s.setValue( QStringLiteral( "/Plugin-GeoReferencer/rasterdirectory" ), fileInfo.path() );
-  s.setValue( QStringLiteral( "/Plugin-GeoReferencer/lastusedfilter" ), lastUsedFilter );
 
   mGeorefTransform.selectTransformParametrisation( mTransformParam );
   mGeorefTransform.setRasterChangeCoords( mRasterFileName );
@@ -296,11 +298,54 @@ void QgsGeoreferencerMainWindow::openRaster()
   mWorldFileName = guessWorldFileName( mRasterFileName );
 }
 
+void QgsGeoreferencerMainWindow::dropEvent( QDropEvent *event )
+{
+  // dragging app is locked for the duration of dropEvent. This causes explorer windows to hang
+  // while large projects/layers are loaded. So instead we return from dropEvent as quickly as possible
+  // and do the actual handling of the drop after a very short timeout
+  QTimer *timer = new QTimer( this );
+  timer->setSingleShot( true );
+  timer->setInterval( 50 );
+
+  // get the file list
+  QList<QUrl>::iterator i;
+  QList<QUrl>urls = event->mimeData()->urls();
+  QString file;
+  for ( i = urls.begin(); i != urls.end(); ++i )
+  {
+    QString fileName = i->toLocalFile();
+    // seems that some drag and drop operations include an empty url
+    // so we test for length to make sure we have something
+    if ( !fileName.isEmpty() )
+    {
+      file = fileName;
+      break;
+    }
+  }
+
+  connect( timer, &QTimer::timeout, this, [this, timer, file]
+  {
+    openRaster( file );
+    timer->deleteLater();
+  } );
+
+  event->acceptProposedAction();
+  timer->start();
+}
+
+void QgsGeoreferencerMainWindow::dragEnterEvent( QDragEnterEvent *event )
+{
+  if ( event->mimeData()->hasUrls() )
+  {
+    event->acceptProposedAction();
+  }
+}
+
 void QgsGeoreferencerMainWindow::doGeoreference()
 {
   if ( georeference() )
   {
-    mMessageBar->pushMessage( tr( "Georeference Successful" ), tr( "Raster was successfully georeferenced." ), Qgis::Info, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Georeference Successful" ), tr( "Raster was successfully georeferenced." ), Qgis::Success );
     if ( mLoadInQgis )
     {
       if ( mModifiedRasterFileName.isEmpty() )
@@ -393,7 +438,7 @@ void QgsGeoreferencerMainWindow::generateGDALScript()
     default:
       mMessageBar->pushMessage( tr( "Invalid Transform" ), tr( "GDAL scripting is not supported for %1 transformation." )
                                 .arg( convertTransformEnumToString( mTransformParam ) )
-                                , Qgis::Warning, messageTimeout() );
+                                , Qgis::Critical );
   }
 }
 
@@ -492,12 +537,13 @@ void QgsGeoreferencerMainWindow::linkGeorefToQgis( bool link )
 }
 
 // GCPs slots
-void QgsGeoreferencerMainWindow::addPoint( const QgsPointXY &pixelCoords, const QgsPointXY &mapCoords,
+void QgsGeoreferencerMainWindow::addPoint( const QgsPointXY &pixelCoords, const QgsPointXY &mapCoords, const QgsCoordinateReferenceSystem &crs,
     bool enable, bool finalize )
 {
-  QgsGeorefDataPoint *pnt = new QgsGeorefDataPoint( mCanvas, QgisApp::instance()->mapCanvas(),
-      pixelCoords, mapCoords, enable );
+  QgsGeorefDataPoint *pnt = new QgsGeorefDataPoint( mCanvas, QgisApp::instance()->mapCanvas(), pixelCoords, mapCoords, crs, enable );
   mPoints.append( pnt );
+  if ( !mLastGCPProjection.isValid() || mLastGCPProjection != crs )
+    mLastGCPProjection = QgsCoordinateReferenceSystem( crs );
   mGCPsDirty = true;
   if ( finalize )
   {
@@ -564,7 +610,6 @@ void QgsGeoreferencerMainWindow::movePoint( QPoint p )
   if ( mvPoint )
   {
     mvPoint->moveTo( p, isMapPlugin );
-    mGCPListWidget->updateGCPList();
   }
 
 }
@@ -572,6 +617,7 @@ void QgsGeoreferencerMainWindow::movePoint( QPoint p )
 void QgsGeoreferencerMainWindow::releasePoint( QPoint p )
 {
   Q_UNUSED( p )
+  mGCPListWidget->updateGCPList();
   // Get Map Sender
   if ( sender() == mToolMovePoint )
   {
@@ -585,12 +631,15 @@ void QgsGeoreferencerMainWindow::releasePoint( QPoint p )
 
 void QgsGeoreferencerMainWindow::showCoordDialog( const QgsPointXY &pixelCoords )
 {
+
+  QgsCoordinateReferenceSystem lastProjection = mLastGCPProjection.isValid() ? mLastGCPProjection : mProjection;
   if ( mLayer && !mMapCoordsDialog )
   {
-    mMapCoordsDialog = new QgsMapCoordsDialog( QgisApp::instance()->mapCanvas(), pixelCoords, this );
-    connect( mMapCoordsDialog, &QgsMapCoordsDialog::pointAdded, this,
-    [this]( const QgsPointXY & a, const QgsPointXY & b ) { this->addPoint( a, b ); }
-           );
+    mMapCoordsDialog = new QgsMapCoordsDialog( QgisApp::instance()->mapCanvas(), pixelCoords, lastProjection, this );
+    connect( mMapCoordsDialog, &QgsMapCoordsDialog::pointAdded, this, [ = ]( const QgsPointXY & a, const QgsPointXY & b, const QgsCoordinateReferenceSystem & crs )
+    {
+      addPoint( a, b, crs );
+    } );
     mMapCoordsDialog->show();
   }
 }
@@ -605,11 +654,11 @@ void QgsGeoreferencerMainWindow::loadGCPsDialog()
 
   if ( !loadGCPs() )
   {
-    mMessageBar->pushMessage( tr( "Load GCP Points" ), tr( "Invalid GCP file. File could not be read." ), Qgis::Warning, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Load GCP Points" ), tr( "Invalid GCP file. File could not be read." ), Qgis::Critical );
   }
   else
   {
-    mMessageBar->pushMessage( tr( "Load GCP Points" ), tr( "GCP file successfully loaded." ), Qgis::Info, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Load GCP Points" ), tr( "GCP file successfully loaded." ), Qgis::Success );
   }
 }
 
@@ -617,7 +666,7 @@ void QgsGeoreferencerMainWindow::saveGCPsDialog()
 {
   if ( mPoints.isEmpty() )
   {
-    mMessageBar->pushMessage( tr( "Save GCP Points" ), tr( "No GCP points are available to save." ), Qgis::Warning, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Save GCP Points" ), tr( "No GCP points are available to save." ), Qgis::Warning );
     return;
   }
 
@@ -644,7 +693,7 @@ void QgsGeoreferencerMainWindow::showRasterPropertiesDialog()
   }
   else
   {
-    mMessageBar->pushMessage( tr( "Raster Properties" ), tr( "Please load raster to be georeferenced." ), Qgis::Info, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Raster Properties" ), tr( "Please load raster to be georeferenced." ), Qgis::Warning );
   }
 }
 
@@ -771,6 +820,13 @@ void QgsGeoreferencerMainWindow::extentsChangedQGisCanvas()
   }
 }
 
+void QgsGeoreferencerMainWindow::updateCanvasRotation()
+{
+  double degrees = mRotationEdit->value();
+  mCanvas->setRotation( degrees );
+  mCanvas->refresh();
+}
+
 // Canvas info slots (copy/pasted from QGIS :) )
 void QgsGeoreferencerMainWindow::showMouseCoords( const QgsPointXY &p )
 {
@@ -841,7 +897,7 @@ void QgsGeoreferencerMainWindow::createActions()
   connect( mActionReset, &QAction::triggered, this, &QgsGeoreferencerMainWindow::reset );
 
   mActionOpenRaster->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionAddRasterLayer.svg" ) ) );
-  connect( mActionOpenRaster, &QAction::triggered, this, &QgsGeoreferencerMainWindow::openRaster );
+  connect( mActionOpenRaster, &QAction::triggered, this, [ = ] { openRaster(); } );
 
   mActionStartGeoref->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionStart.svg" ) ) );
   connect( mActionStartGeoref, &QAction::triggered, this, &QgsGeoreferencerMainWindow::doGeoreference );
@@ -940,6 +996,10 @@ void QgsGeoreferencerMainWindow::createMapCanvas()
   mCanvas->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
   mCanvas->setCanvasColor( Qt::white );
   mCanvas->setMinimumWidth( 400 );
+  mCanvas->setCachingEnabled( true );
+  mCanvas->setParallelRenderingEnabled( true );
+  mCanvas->setPreviewJobsEnabled( true );
+
   mCentralLayout->addWidget( mCanvas, 0, 0, 2, 1 );
 
   // set up map tools
@@ -1069,6 +1129,26 @@ QLabel *QgsGeoreferencerMainWindow::createBaseLabelStatus()
 
 void QgsGeoreferencerMainWindow::createStatusBar()
 {
+  // add a widget to show/set current rotation
+  mRotationLabel = createBaseLabelStatus();
+  mRotationLabel->setObjectName( QStringLiteral( "mRotationLabel" ) );
+  mRotationLabel->setText( tr( "Rotation" ) );
+  mRotationLabel->setToolTip( tr( "Current clockwise map rotation in degrees" ) );
+  statusBar()->addPermanentWidget( mRotationLabel, 0 );
+
+  mRotationEdit = new QgsDoubleSpinBox( statusBar() );
+  mRotationEdit->setObjectName( QStringLiteral( "mRotationEdit" ) );
+  mRotationEdit->setClearValue( 0.0 );
+  mRotationEdit->setKeyboardTracking( false );
+  mRotationEdit->setMaximumWidth( 120 );
+  mRotationEdit->setDecimals( 1 );
+  mRotationEdit->setRange( -360.0, 360.0 );
+  mRotationEdit->setWrapping( true );
+  mRotationEdit->setSingleStep( 5.0 );
+  mRotationEdit->setSuffix( tr( " °" ) );
+  mRotationEdit->setToolTip( tr( "Current clockwise map rotation in degrees" ) );
+  statusBar()->addPermanentWidget( mRotationEdit, 0 );
+
   mTransformParamLabel = createBaseLabelStatus();
   mTransformParamLabel->setText( tr( "Transform: " ) + convertTransformEnumToString( mTransformParam ) );
   mTransformParamLabel->setToolTip( tr( "Current transform parametrisation" ) );
@@ -1098,6 +1178,10 @@ void QgsGeoreferencerMainWindow::setupConnections()
 
   // Connect extents changed - Use for need add again Raster
   connect( mCanvas, &QgsMapCanvas::extentsChanged, this, &QgsGeoreferencerMainWindow::extentsChanged );
+
+  // Connect mapCanvas rotation widget
+  connect( mRotationEdit, static_cast < void ( QgsDoubleSpinBox::* )( double ) > ( &QgsDoubleSpinBox::valueChanged ), this, &QgsGeoreferencerMainWindow::updateCanvasRotation );
+  connect( QgisApp::instance()->mapCanvas(), &QgsMapCanvas::destinationCrsChanged, this, &QgsGeoreferencerMainWindow::invalidateCanvasCoords );
 }
 
 void QgsGeoreferencerMainWindow::removeOldLayer()
@@ -1111,6 +1195,7 @@ void QgsGeoreferencerMainWindow::removeOldLayer()
   }
   mCanvas->setLayers( QList<QgsMapLayer *>() );
   mCanvas->clearCache();
+  mRotationEdit->clear();
   mCanvas->refresh();
 }
 
@@ -1190,35 +1275,37 @@ bool QgsGeoreferencerMainWindow::loadGCPs( /*bool verbose*/ )
   QTextStream points( &pointFile );
   QString line = points.readLine();
   int i = 0;
+  QgsCoordinateReferenceSystem proj;
+  if ( line.contains( "#CRS: " ) )
+  {
+    proj = QgsCoordinateReferenceSystem( line.remove( "#CRS: " ) );
+    line = points.readLine();
+  }
+  else
+    proj = QgsProject::instance()->crs();
+
   while ( !points.atEnd() )
   {
     line = points.readLine();
     QStringList ls;
     if ( line.contains( ',' ) ) // in previous format "\t" is delimiter of points in new - ","
-    {
-      // points from new georeferencer
-      ls = line.split( ',' );
-    }
+      ls = line.split( ',' ); // points from new georeferencer
     else
-    {
-      // points from prev georeferencer
-      ls = line.split( '\t' );
-    }
+      ls = line.split( '\t' ); // points from prev georeferencer
 
     if ( ls.count() < 4 )
-    {
       return false;
-    }
 
     QgsPointXY mapCoords( ls.at( 0 ).toDouble(), ls.at( 1 ).toDouble() ); // map x,y
     QgsPointXY pixelCoords( ls.at( 2 ).toDouble(), ls.at( 3 ).toDouble() ); // pixel x,y
-    if ( ls.count() == 5 || ls.count() == 8 )
+
+    if ( ls.count() == 5 )
     {
       bool enable = ls.at( 4 ).toInt();
-      addPoint( pixelCoords, mapCoords, enable, false );
+      addPoint( pixelCoords, mapCoords, proj, enable, false );
     }
     else
-      addPoint( pixelCoords, mapCoords, true, false );
+      addPoint( pixelCoords, mapCoords, proj, true, false );
 
     ++i;
   }
@@ -1242,12 +1329,13 @@ void QgsGeoreferencerMainWindow::saveGCPs()
   if ( pointFile.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
   {
     QTextStream points( &pointFile );
+    points << QStringLiteral( "#CRS: %1" ).arg( mProjection.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) ) << endl;
     points << "mapX,mapY,pixelX,pixelY,enable,dX,dY,residual" << endl;
     for ( QgsGeorefDataPoint *pt : qgis::as_const( mPoints ) )
     {
       points << QStringLiteral( "%1,%2,%3,%4,%5,%6,%7,%8" )
-             .arg( qgsDoubleToString( pt->mapCoords().x() ),
-                   qgsDoubleToString( pt->mapCoords().y() ),
+             .arg( qgsDoubleToString( pt->transCoords().x() ),
+                   qgsDoubleToString( pt->transCoords().y() ),
                    qgsDoubleToString( pt->pixelCoords().x() ),
                    qgsDoubleToString( pt->pixelCoords().y() ) )
              .arg( pt->isEnabled() )
@@ -1261,7 +1349,7 @@ void QgsGeoreferencerMainWindow::saveGCPs()
   }
   else
   {
-    mMessageBar->pushMessage( tr( "Write Error" ), tr( "Could not write to GCP points file %1." ).arg( mGCPpointsFileName ), Qgis::Warning, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Write Error" ), tr( "Could not write to GCP points file %1." ).arg( mGCPpointsFileName ), Qgis::Critical );
     return;
   }
 
@@ -1309,7 +1397,7 @@ bool QgsGeoreferencerMainWindow::georeference()
     double pixelXSize, pixelYSize, rotation;
     if ( !mGeorefTransform.getOriginScaleRotation( origin, pixelXSize, pixelYSize, rotation ) )
     {
-      mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to calculate linear transform parameters." ), Qgis::Warning, messageTimeout() );
+      mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to calculate linear transform parameters." ), Qgis::Critical );
       return false;
     }
 
@@ -1357,7 +1445,7 @@ bool QgsGeoreferencerMainWindow::georeference()
     if ( res == 0 ) // fault to compute GCP transform
     {
       //TODO: be more specific in the error message
-      mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to compute GCP transform: Transform is not solvable." ), Qgis::Warning, messageTimeout() );
+      mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to compute GCP transform: Transform is not solvable." ), Qgis::Critical );
       return false;
     }
     else if ( res == -1 ) // operation canceled
@@ -1392,7 +1480,7 @@ bool QgsGeoreferencerMainWindow::writeWorldFile( const QgsPointXY &origin, doubl
   QFile file( mWorldFileName );
   if ( !file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
   {
-    mMessageBar->pushMessage( tr( "Save World File" ), tr( "Could not write to %1." ).arg( mWorldFileName ), Qgis::Critical, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Save World File" ), tr( "Could not write to %1." ).arg( mWorldFileName ), Qgis::Critical );
     return false;
   }
 
@@ -1724,8 +1812,8 @@ bool QgsGeoreferencerMainWindow::writePDFReportFile( const QString &fileName, co
     {
       currentGCPStrings << tr( "no" );
     }
-    currentGCPStrings << QString::number( ( *gcpIt )->pixelCoords().x(), 'f', 0 ) << QString::number( ( *gcpIt )->pixelCoords().y(), 'f', 0 ) << QString::number( ( *gcpIt )->mapCoords().x(), 'f', 3 )
-                      <<  QString::number( ( *gcpIt )->mapCoords().y(), 'f', 3 ) <<  QString::number( residual.x() ) <<  QString::number( residual.y() ) << QString::number( residualTot );
+    currentGCPStrings << QString::number( ( *gcpIt )->pixelCoords().x(), 'f', 0 ) << QString::number( ( *gcpIt )->pixelCoords().y(), 'f', 0 ) << QString::number( ( *gcpIt )->transCoords().x(), 'f', 3 )
+                      <<  QString::number( ( *gcpIt )->transCoords().y(), 'f', 3 ) <<  QString::number( residual.x() ) <<  QString::number( residual.y() ) << QString::number( residualTot );
     gcpTableContents << currentGCPStrings;
   }
 
@@ -1831,7 +1919,7 @@ QString QgsGeoreferencerMainWindow::generateGDALtranslateCommand( bool generateT
   for ( QgsGeorefDataPoint *pt : qgis::as_const( mPoints ) )
   {
     gdalCommand << QStringLiteral( "-gcp %1 %2 %3 %4" ).arg( pt->pixelCoords().x() ).arg( -pt->pixelCoords().y() )
-                .arg( pt->mapCoords().x() ).arg( pt->mapCoords().y() );
+                .arg( pt->transCoords().x() ).arg( pt->transCoords().y() );
   }
 
   QFileInfo rasterFileInfo( mRasterFileName );
@@ -1896,7 +1984,7 @@ bool QgsGeoreferencerMainWindow::checkReadyGeoref()
 {
   if ( mRasterFileName.isEmpty() )
   {
-    mMessageBar->pushMessage( tr( "No Raster Loaded" ), tr( "Please load raster to be georeferenced." ), Qgis::Warning, messageTimeout() );
+    mMessageBar->pushMessage( tr( "No Raster Loaded" ), tr( "Please load raster to be georeferenced." ), Qgis::Warning );
     return false;
   }
 
@@ -1919,14 +2007,14 @@ bool QgsGeoreferencerMainWindow::checkReadyGeoref()
   {
     mMessageBar->pushMessage( tr( "Not Enough GCPs" ), tr( "%1 transformation requires at least %2 GCPs. Please define more." )
                               .arg( convertTransformEnumToString( mTransformParam ) ).arg( mGeorefTransform.getMinimumGCPCount() )
-                              , Qgis::Warning, messageTimeout() );
+                              , Qgis::Critical );
     return false;
   }
 
   // Update the transform if necessary
   if ( !updateGeorefTransform() )
   {
-    mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to compute GCP transform: Transform is not solvable." ), Qgis::Warning, messageTimeout() );
+    mMessageBar->pushMessage( tr( "Transform Failed" ), tr( "Failed to compute GCP transform: Transform is not solvable." ), Qgis::Critical );
     //    logRequaredGCPs();
     return false;
   }
@@ -1938,7 +2026,7 @@ bool QgsGeoreferencerMainWindow::updateGeorefTransform()
 {
   QVector<QgsPointXY> mapCoords, pixelCoords;
   if ( mGCPListWidget->gcpList() )
-    mGCPListWidget->gcpList()->createGCPVectors( mapCoords, pixelCoords );
+    mGCPListWidget->gcpList()->createGCPVectors( mapCoords, pixelCoords, mProjection );
   else
     return false;
 
@@ -2142,8 +2230,14 @@ void QgsGeoreferencerMainWindow::clearGCPData()
   QgisApp::instance()->mapCanvas()->refresh();
 }
 
-int QgsGeoreferencerMainWindow::messageTimeout()
+void QgsGeoreferencerMainWindow::invalidateCanvasCoords()
 {
-  QgsSettings settings;
-  return settings.value( QStringLiteral( "qgis/messageTimeout" ), 5 ).toInt();
+  int count = mPoints.count();
+  int j = 0;
+  for ( int i = 0; i < count; ++i, ++j )
+  {
+    QgsGeorefDataPoint *p = mPoints.at( i );
+    p->setCanvasCoords( QgsPointXY() );
+    p->updateCoords();
+  }
 }

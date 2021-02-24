@@ -17,6 +17,8 @@
 #include "qgsvectorlayer.h"
 #include "qgsexception.h"
 #include "qgslogger.h"
+#include "qgsfeedback.h"
+
 #include <QVariant>
 #include <QObject>
 
@@ -133,11 +135,18 @@ void QgsAbstractDatabaseProviderConnection::renameSchema( const QString &, const
   checkCapability( Capability::RenameSchema );
 }
 
-QList<QList<QVariant>> QgsAbstractDatabaseProviderConnection::executeSql( const QString &, QgsFeedback * ) const
+QList<QList<QVariant>> QgsAbstractDatabaseProviderConnection::executeSql( const QString &sql, QgsFeedback *feedback ) const
+{
+  return execSql( sql, feedback ).rows();
+}
+
+
+QgsAbstractDatabaseProviderConnection::QueryResult QgsAbstractDatabaseProviderConnection::execSql( const QString &, QgsFeedback * ) const
 {
   checkCapability( Capability::ExecuteSql );
-  return QList<QList<QVariant>>();
+  return QueryResult();
 }
+
 
 void QgsAbstractDatabaseProviderConnection::vacuum( const QString &, const QString & ) const
 {
@@ -427,3 +436,98 @@ void QgsAbstractDatabaseProviderConnection::TableProperty::setSchema( const QStr
   mSchema = schema;
 }
 
+
+///@cond PRIVATE
+
+QStringList QgsAbstractDatabaseProviderConnection::QueryResult::columns() const
+{
+  return mColumns;
+}
+
+QList<QList<QVariant> > QgsAbstractDatabaseProviderConnection::QueryResult::rows( QgsFeedback *feedback )
+{
+
+  QList<QList<QVariant> > rows;
+
+  while ( mResultIterator &&
+          mResultIterator->hasNextRow() &&
+          ( ! feedback || ! feedback->isCanceled() ) )
+  {
+    const QVariantList row( mResultIterator->nextRow() );
+    if ( row.isEmpty() )
+    {
+      break;
+    }
+    else
+    {
+      rows.push_back( row );
+    }
+  }
+  return rows;
+}
+
+QList<QVariant> QgsAbstractDatabaseProviderConnection::QueryResult::nextRow() const
+{
+  if ( ! mResultIterator )
+  {
+    return QList<QVariant>();
+  }
+  return mResultIterator->nextRow();
+}
+
+
+qlonglong QgsAbstractDatabaseProviderConnection::QueryResult::fetchedRowCount() const
+{
+  if ( ! mResultIterator )
+  {
+    return 0;
+  }
+  return mResultIterator->fetchedRowCount();
+}
+
+
+bool QgsAbstractDatabaseProviderConnection::QueryResult::hasNextRow() const
+{
+  if ( ! mResultIterator )
+  {
+    return false;
+  }
+  return mResultIterator->hasNextRow();
+}
+
+void QgsAbstractDatabaseProviderConnection::QueryResult::appendColumn( const QString &columnName )
+{
+  mColumns.push_back( columnName );
+}
+
+
+QgsAbstractDatabaseProviderConnection::QueryResult::QueryResult( std::shared_ptr<QgsAbstractDatabaseProviderConnection::QueryResult::QueryResultIterator> iterator )
+  : mResultIterator( iterator )
+{}
+
+
+QVariantList QgsAbstractDatabaseProviderConnection::QueryResult::QueryResultIterator::nextRow()
+{
+  QMutexLocker lock( &mMutex );
+  const QVariantList row = nextRowPrivate();
+  if ( ! row.isEmpty() )
+  {
+    mFetchedRowCount++;
+  }
+  return row;
+}
+
+bool QgsAbstractDatabaseProviderConnection::QueryResult::QueryResultIterator::hasNextRow() const
+{
+  QMutexLocker lock( &mMutex );
+  return hasNextRowPrivate();
+}
+
+qlonglong QgsAbstractDatabaseProviderConnection::QueryResult::QueryResultIterator::fetchedRowCount()
+{
+  QMutexLocker lock( &mMutex );
+  return mFetchedRowCount;
+}
+
+
+///@endcond private

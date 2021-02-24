@@ -586,6 +586,7 @@ class CORE_EXPORT QgsLineString: public QgsCurve
     QgsLineString *clone() const override SIP_FACTORY;
     void clear() override;
     bool isEmpty() const override SIP_HOLDGIL;
+    bool isValid( QString &error SIP_OUT, int flags = 0 ) const override;
     QgsLineString *snappedToGrid( double hSpacing, double vSpacing, double dSpacing = 0, double mSpacing = 0 ) const override SIP_FACTORY;
     bool removeDuplicateNodes( double epsilon = 4 * std::numeric_limits<double>::epsilon(), bool useZValues = false ) override;
 
@@ -669,6 +670,8 @@ class CORE_EXPORT QgsLineString: public QgsCurve
 
     bool convertTo( QgsWkbTypes::Type type ) override;
 
+    bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = nullptr ) override;
+
 #ifndef SIP_RUN
     void filterVertices( const std::function< bool( const QgsPoint & ) > &filter ) override;
     void transformVertices( const std::function< QgsPoint( const QgsPoint & ) > &transform ) override;
@@ -680,7 +683,7 @@ class CORE_EXPORT QgsLineString: public QgsCurve
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsLineString *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsLineString *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::flatType( geom->wkbType() ) == QgsWkbTypes::LineString )
         return static_cast<const QgsLineString *>( geom );

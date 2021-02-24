@@ -40,6 +40,9 @@ class QgsRasterRendererWidget;
 class QgsRasterHistogramWidget;
 class QgsRasterLayerTemporalPropertiesWidget;
 class QgsWebView;
+class QgsProviderSourceWidget;
+class QgsMapLayerConfigWidgetFactory;
+class QgsMapLayerConfigWidget;
 
 
 /**
@@ -75,6 +78,12 @@ class GUI_EXPORT QgsRasterLayerProperties : public QgsOptionsDialogBase, private
      * \param fl windows flag
      */
     QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *canvas, QWidget *parent = nullptr, Qt::WindowFlags = QgsGuiUtils::ModalDialogFlags );
+
+    /**
+     * Adds a properties page factory to the raster layer properties dialog.
+     * \since QGIS 3.18
+     */
+    void addPropertiesPageFactory( QgsMapLayerConfigWidgetFactory *factory );
 
   protected slots:
     //! \brief auto slot executed when the active page in the main widget stack is changed
@@ -190,6 +199,9 @@ class GUI_EXPORT QgsRasterLayerProperties : public QgsOptionsDialogBase, private
     QAction *mActionLoadMetadata = nullptr;
     QAction *mActionSaveMetadataAs = nullptr;
 
+    //! A list of additional pages provided by plugins
+    QList<QgsMapLayerConfigWidget *> mLayerPropertiesPages;
+
     //! \brief  A constant that signals property not used
     const QString TRSTRING_NOT_SET;
 
@@ -294,6 +306,8 @@ class GUI_EXPORT QgsRasterLayerProperties : public QgsOptionsDialogBase, private
     void sync();
 
     QgsResamplingUtils mResamplingUtils;
+
+    QgsProviderSourceWidget *mSourceWidget = nullptr;
 
     friend class QgsAppScreenShots;
 };

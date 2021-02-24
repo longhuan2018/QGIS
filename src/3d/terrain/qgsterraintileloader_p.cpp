@@ -26,7 +26,11 @@
 #include <Qt3DRender/QTexture>
 
 #include <Qt3DExtras/QTextureMaterial>
+#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
 #include <Qt3DExtras/QDiffuseMapMaterial>
+#else
+#include <Qt3DExtras/QDiffuseSpecularMaterial>
+#endif
 #include <Qt3DExtras/QPhongMaterial>
 
 #include "quantizedmeshterraingenerator.h"
@@ -38,25 +42,20 @@ QgsTerrainTileLoader::QgsTerrainTileLoader( QgsTerrainEntity *terrain, QgsChunkN
   , mTerrain( terrain )
 {
   const Qgs3DMapSettings &map = mTerrain->map3D();
-  int tx, ty, tz;
 #if 0
+  int tx, ty, tz;
   if ( map.terrainGenerator->type() == TerrainGenerator::QuantizedMesh )
   {
     // TODO: sort out - should not be here
     QuantizedMeshTerrainGenerator *generator = static_cast<QuantizedMeshTerrainGenerator *>( map.terrainGenerator.get() );
     generator->quadTreeTileToBaseTile( node->x, node->y, node->z, tx, ty, tz );
   }
-  else
 #endif
-  {
-    tx = node->tileX();
-    ty = node->tileY();
-    tz = node->tileZ();
-  }
 
-  QgsRectangle extentTerrainCrs = map.terrainGenerator()->tilingScheme().tileToExtent( tx, ty, tz );
+  QgsChunkNodeId nodeId = node->tileId();
+  QgsRectangle extentTerrainCrs = map.terrainGenerator()->tilingScheme().tileToExtent( nodeId );
   mExtentMapCrs = terrain->terrainToMapTransform().transformBoundingBox( extentTerrainCrs );
-  mTileDebugText = QStringLiteral( "%1 | %2 | %3" ).arg( tx ).arg( ty ).arg( tz );
+  mTileDebugText = nodeId.text();
 }
 
 void QgsTerrainTileLoader::loadTexture()
@@ -74,9 +73,15 @@ void QgsTerrainTileLoader::createTextureComponent( QgsTerrainTileEntity *entity,
   {
     if ( isShadingEnabled )
     {
+#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
       Qt3DExtras::QDiffuseMapMaterial *diffuseMapMaterial;
       diffuseMapMaterial = new Qt3DExtras::QDiffuseMapMaterial;
       diffuseMapMaterial->setDiffuse( texture );
+#else
+      Qt3DExtras::QDiffuseSpecularMaterial *diffuseMapMaterial = new Qt3DExtras::QDiffuseSpecularMaterial;
+      diffuseMapMaterial->setDiffuse( QVariant::fromValue( texture ) );
+      material = diffuseMapMaterial;
+#endif
       diffuseMapMaterial->setAmbient( shadingMaterial.ambient() );
       diffuseMapMaterial->setSpecular( shadingMaterial.specular() );
       diffuseMapMaterial->setShininess( shadingMaterial.shininess() );

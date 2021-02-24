@@ -400,7 +400,8 @@ void myMessageOutput( QtMsgType type, const QMessageLogContext &, const QString 
        * - QtSVG warnings with regards to lack of implementation beyond Tiny SVG 1.2
        */
       if ( msg.startsWith( QLatin1String( "libpng warning: iCCP: known incorrect sRGB profile" ), Qt::CaseInsensitive ) ||
-           msg.contains( QLatin1String( "Could not add child element to parent element because the types are incorrect" ), Qt::CaseInsensitive ) )
+           msg.contains( QLatin1String( "Could not add child element to parent element because the types are incorrect" ), Qt::CaseInsensitive ) ||
+           msg.contains( QLatin1String( "OpenType support missing for" ), Qt::CaseInsensitive ) )
         break;
 
       myPrint( "Warning: %s\n", msg.toLocal8Bit().constData() );
@@ -1043,31 +1044,30 @@ int main( int argc, char *argv[] )
   {
     // Note: this flag is ka version number so that we can reset it once we change the version.
     // Note2: Is this a good idea can we do it better.
-
-    QgsSettings migSettings;
-    int firstRunVersion = migSettings.value( QStringLiteral( "migration/firstRunVersionFlag" ), 0 ).toInt();
-    bool showWelcome = ( firstRunVersion == 0  || Qgis::versionInt() > firstRunVersion );
-
-    std::unique_ptr< QgsVersionMigration > migration( QgsVersionMigration::canMigrate( 20000, Qgis::versionInt() ) );
-    if ( migration && ( settingsMigrationForce || migration->requiresMigration() ) )
+    // Note3: Updated to only show if we have a migration from QGIS 2 - see https://github.com/qgis/QGIS/pull/38616
+    QString path = QSettings( "QGIS", "QGIS2" ).fileName() ;
+    if ( QFile::exists( path ) )
     {
-      bool runMigration = true;
-      if ( !settingsMigrationForce && showWelcome )
+      QgsSettings migSettings;
+      int firstRunVersion = migSettings.value( QStringLiteral( "migration/firstRunVersionFlag" ), 0 ).toInt();
+      bool showWelcome = ( firstRunVersion == 0  || Qgis::versionInt() > firstRunVersion );
+      std::unique_ptr< QgsVersionMigration > migration( QgsVersionMigration::canMigrate( 20000, Qgis::versionInt() ) );
+      if ( migration && ( settingsMigrationForce || migration->requiresMigration() ) )
       {
-        QgsFirstRunDialog dlg;
-        if ( ! QFile::exists( QSettings( "QGIS", "QGIS2" ).fileName() ) )
+        bool runMigration = true;
+        if ( !settingsMigrationForce && showWelcome )
         {
-          dlg.hideMigration();
+          QgsFirstRunDialog dlg;
+          dlg.exec();
+          runMigration = dlg.migrateSettings();
+          migSettings.setValue( QStringLiteral( "migration/firstRunVersionFlag" ), Qgis::versionInt() );
         }
-        dlg.exec();
-        runMigration = dlg.migrateSettings();
-        migSettings.setValue( QStringLiteral( "migration/firstRunVersionFlag" ), Qgis::versionInt() );
-      }
 
-      if ( runMigration )
-      {
-        QgsDebugMsg( QStringLiteral( "RUNNING MIGRATION" ) );
-        migration->runMigration();
+        if ( runMigration )
+        {
+          QgsDebugMsg( QStringLiteral( "RUNNING MIGRATION" ) );
+          migration->runMigration();
+        }
       }
     }
   }

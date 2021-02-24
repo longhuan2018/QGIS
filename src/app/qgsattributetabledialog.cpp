@@ -202,7 +202,7 @@ QgsAttributeTableDialog::QgsAttributeTableDialog( QgsVectorLayer *layer, QgsAttr
   QgsAttributeTableConfig config = mLayer->attributeTableConfig();
   mMainView->setAttributeTableConfig( config );
 
-  mFeatureFilterWidget->init( mLayer, editorContext, mMainView, QgisApp::instance()->messageBar(), QgisApp::instance()->messageTimeout() );
+  mFeatureFilterWidget->init( mLayer, editorContext, mMainView, QgisApp::instance()->messageBar(), QgsMessageBar::defaultMessageTimeout() );
 
   mActionFeatureActions = new QToolButton();
   mActionFeatureActions->setAutoRaise( false );
@@ -269,11 +269,13 @@ QgsAttributeTableDialog::QgsAttributeTableDialog( QgsVectorLayer *layer, QgsAttr
   mActionFeatureActions->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mAction.svg" ) ) );
 
   // toggle editing
-  bool canChangeAttributes = mLayer->dataProvider()->capabilities() & QgsVectorDataProvider::ChangeAttributeValues;
-  bool canDeleteFeatures = mLayer->dataProvider()->capabilities() & QgsVectorDataProvider::DeleteFeatures;
-  bool canAddAttributes = mLayer->dataProvider()->capabilities() & QgsVectorDataProvider::AddAttributes;
-  bool canDeleteAttributes = mLayer->dataProvider()->capabilities() & QgsVectorDataProvider::DeleteAttributes;
-  bool canAddFeatures = mLayer->dataProvider()->capabilities() & QgsVectorDataProvider::AddFeatures;
+  QgsVectorDataProvider::Capabilities capabilities = mLayer->dataProvider()->capabilities();
+  bool canChangeAttributes = capabilities & QgsVectorDataProvider::ChangeAttributeValues;
+  bool canDeleteFeatures = capabilities & QgsVectorDataProvider::DeleteFeatures;
+  bool canAddAttributes = capabilities & QgsVectorDataProvider::AddAttributes;
+  bool canDeleteAttributes = capabilities & QgsVectorDataProvider::DeleteAttributes;
+  bool canAddFeatures = capabilities & QgsVectorDataProvider::AddFeatures;
+  bool canReload = capabilities & QgsVectorDataProvider::ReloadData;
 
   mActionToggleEditing->blockSignals( true );
   mActionToggleEditing->setCheckable( true );
@@ -296,6 +298,9 @@ QgsAttributeTableDialog::QgsAttributeTableDialog( QgsVectorLayer *layer, QgsAttr
     mToolbar->removeAction( mActionAddFeature );
     mToolbar->removeAction( mActionPasteFeatures );
   }
+
+  if ( !canReload )
+    mToolbar->removeAction( mActionReload );
 
   mMainViewButtonGroup->setId( mTableViewButton, QgsDualView::AttributeTable );
   mMainViewButtonGroup->setId( mAttributeViewButton, QgsDualView::AttributeEditor );
@@ -596,7 +601,7 @@ void QgsAttributeTableDialog::mActionSaveEdits_triggered()
 
 void QgsAttributeTableDialog::mActionReload_triggered()
 {
-  mMainView->masterModel()->layer()->dataProvider()->reloadData();
+  mMainView->masterModel()->layer()->reload();
 }
 
 void QgsAttributeTableDialog::mActionAddFeature_triggered()
@@ -889,7 +894,7 @@ void QgsAttributeTableDialog::mActionRemoveAttribute_triggered()
     }
     else
     {
-      QgisApp::instance()->messageBar()->pushMessage( tr( "Attribute error" ), tr( "The attribute(s) could not be deleted" ), Qgis::Warning, QgisApp::instance()->messageTimeout() );
+      QgisApp::instance()->messageBar()->pushMessage( tr( "Attribute error" ), tr( "The attribute(s) could not be deleted" ), Qgis::Warning );
       mLayer->destroyEditCommand();
     }
     // update model - a field has been added or updated

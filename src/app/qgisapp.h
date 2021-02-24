@@ -80,6 +80,7 @@ class QgsOptions;
 class QgsPluginLayer;
 class QgsPluginLayer;
 class QgsPluginManager;
+class QgsPointCloudLayer;
 class QgsPointXY;
 class QgsPrintLayout;
 class QgsProviderRegistry;
@@ -486,6 +487,7 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     QAction *actionMoveFeature() { return mActionMoveFeature; }
     QAction *actionMoveFeatureCopy() { return mActionMoveFeatureCopy; }
     QAction *actionRotateFeature() { return mActionRotateFeature;}
+    QAction *actionScaleFeature() { return mActionScaleFeature;}
     QAction *actionSplitFeatures() { return mActionSplitFeatures; }
     QAction *actionSplitParts() { return mActionSplitParts; }
     QAction *actionAddRing() { return mActionAddRing; }
@@ -513,6 +515,7 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     QAction *actionMeasureArea() { return mActionMeasureArea; }
     QAction *actionZoomFullExtent() { return mActionZoomFullExtent; }
     QAction *actionZoomToLayer() { return mActionZoomToLayer; }
+    QAction *actionZoomToLayers() { return mActionZoomToLayers; }
     QAction *actionZoomToSelected() { return mActionZoomToSelected; }
     QAction *actionZoomLast() { return mActionZoomLast; }
     QAction *actionZoomNext() { return mActionZoomNext; }
@@ -551,10 +554,10 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     QAction *actionAddWmsLayer() { return mActionAddWmsLayer; }
     QAction *actionAddXyzLayer() { return mActionAddXyzLayer; }
     QAction *actionAddVectorTileLayer() { return mActionAddVectorTileLayer; }
+    QAction *actionAddPointCloudLayer() { return mActionAddPointCloudLayer; }
     QAction *actionAddWcsLayer() { return mActionAddWcsLayer; }
     QAction *actionAddWfsLayer() { return mActionAddWfsLayer; }
     QAction *actionAddAfsLayer() { return mActionAddAfsLayer; }
-    QAction *actionAddAmsLayer() { return mActionAddAmsLayer; }
     QAction *actionCopyLayerStyle() { return mActionCopyStyle; }
     QAction *actionPasteLayerStyle() { return mActionPasteStyle; }
     QAction *actionOpenTable() { return mActionOpenTable; }
@@ -702,9 +705,6 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
      * \returns list of layers in legend order, or empty list
     */
     QList<QgsMapLayer *> editableLayers( bool modified = false ) const;
-
-    //! Gets timeout for timed messages: default of 5 seconds
-    int messageTimeout();
 
     //! emit initializationCompleted signal
     void completeInitialization();
@@ -1159,6 +1159,15 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
      * \since QGIS 3.14
      */
     QgsVectorTileLayer *addVectorTileLayer( const QString &url, const QString &baseName );
+
+    /**
+     * Adds a vector tile layer directly without prompting user for location
+     * The caller must provide information needed for layer construction
+     * using the \a url and \a baseName. The \a baseName parameter is used
+     * in the Map Legend so it should be formed in a meaningful way.
+     * \since QGIS 3.18
+     */
+    QgsPointCloudLayer *addPointCloudLayer( const QString &url, const QString &baseName, const QString &providerKey );
 
     /**
      * \brief overloaded version of the private addLayer method that takes a list of
@@ -1721,6 +1730,15 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     //! Update the label toolbar buttons
     void updateLabelToolButtons();
 
+    //! Returns true if at least one selected layer in layer panel has a selection (returns false if none).
+    bool selectedLayersHaveSelection();
+
+    //! Returns true if at least one selected layer in layer panel is spatial (returns false if none).
+    bool selectedLayersHaveSpatial();
+
+    //! Activates or deactivates actions depending on the selected layers in the layer panel.
+    void activateDeactivateMultipleLayersRelatedActions();
+
     /**
      * Activates or deactivates actions depending on the current maplayer type.
      * Is called from the legend when the current legend item has changed.
@@ -1856,6 +1874,8 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     void moveLabel();
     //! Activates rotate feature tool
     void rotateFeature();
+    //! Activates scale feature tool
+    void scaleFeature();
     //! Activates rotate label tool
     void rotateLabel();
     //! Activates label property tool
@@ -1882,28 +1902,34 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     void disablePreviewMode();
 
     /**
-     * Enable a grayscale preview mode on the map canvas
-     * \since QGIS 2.3
-    */
-    void activateGrayscalePreview();
-
-    /**
      * Enable a monochrome preview mode on the map canvas
      * \since QGIS 2.3
     */
     void activateMonoPreview();
 
     /**
-     * Enable a color blindness (protanope) preview mode on the map canvas
+     * Enable a grayscale preview mode on the map canvas
+     * \since QGIS 2.3
+    */
+    void activateGrayscalePreview();
+
+    /**
+     * Enable a color blindness (protanopia) preview mode on the map canvas
      * \since QGIS 2.3
     */
     void activateProtanopePreview();
 
     /**
-     * Enable a color blindness (deuteranope) preview mode on the map canvas
+     * Enable a color blindness (deuteranopia) preview mode on the map canvas
      * \since QGIS 2.3
     */
     void activateDeuteranopePreview();
+
+    /**
+     * Enable a color blindness (tritanopia) preview mode on the map canvas
+     * \since QGIS 3.18
+    */
+    void activateTritanopePreview();
 
     void toggleFilterLegendByExpression( bool );
     void updateFilterLegend();
@@ -2086,6 +2112,12 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
 
     //! Open a vector tile layer - this is the generic function which takes all parameters
     QgsVectorTileLayer *addVectorTileLayerPrivate( const QString &uri, const QString &baseName, bool guiWarning = true );
+
+    //! Open a point cloud layer - this is the generic function which takes all parameters
+    QgsPointCloudLayer *addPointCloudLayerPrivate( const QString &uri,
+        const QString &baseName,
+        const QString &providerKey,
+        bool guiWarning = true );
 
     bool addVectorLayersPrivate( const QStringList &layerQStringList, const QString &enc, const QString &dataSourceType, bool guiWarning = true );
     QgsVectorLayer *addVectorLayerPrivate( const QString &vectorLayerPath, const QString &baseName, const QString &providerKey, bool guiWarning = true );
@@ -2426,6 +2458,7 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
         QgsMapTool *mShowHideLabels = nullptr;
         QgsMapTool *mMoveLabel = nullptr;
         QgsMapTool *mRotateFeature = nullptr;
+        QgsMapTool *mScaleFeature = nullptr;
         QgsMapTool *mRotateLabel = nullptr;
         QgsMapTool *mChangeLabelProperties = nullptr;
         QgsMapTool *mReverseLine = nullptr ;
@@ -2504,8 +2537,6 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
 
     //! QGIS-internal vector feature clipboard
     QgsClipboard *mInternalClipboard = nullptr;
-    //! Flag to indicate how the project properties dialog was summoned
-    bool mShowProjectionTab = false;
 
     /**
      * String containing supporting vector file formats
@@ -2603,7 +2634,9 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     //! A class that facilitates tracing of features
     QgsMapCanvasTracer *mTracer = nullptr;
 
-    QAction *mActionFilterLegend = nullptr;
+    QToolButton *mFilterLegendToolButton = nullptr;
+    QAction *mFilterLegendByMapContentAction = nullptr;
+    QAction *mFilterLegendToggleShowPrivateLayersAction = nullptr;
     QAction *mActionStyleDock = nullptr;
 
     QgsLegendFilterButton *mLegendExpressionFilterButton = nullptr;
@@ -2684,6 +2717,7 @@ class APP_EXPORT QgisApp : public QMainWindow, public Ui::MainWindow
     QgsScopedDevToolWidgetFactory mStartupProfilerWidgetFactory;
 
     QgsScopedOptionsWidgetFactory mCodeEditorWidgetFactory;
+    QgsScopedOptionsWidgetFactory m3DOptionsWidgetFactory;
 
     class QgsCanvasRefreshBlocker
     {

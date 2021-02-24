@@ -37,7 +37,16 @@ bool QgsServerProjectUtils::owsServiceCapabilities( const QgsProject &project )
 
 QString QgsServerProjectUtils::owsServiceTitle( const QgsProject &project )
 {
-  return project.readEntry( QStringLiteral( "WMSServiceTitle" ), QStringLiteral( "/" ) );
+  QString title = project.readEntry( QStringLiteral( "WMSServiceTitle" ), QStringLiteral( "/" ) );
+  if ( title.isEmpty() )
+  {
+    title = project.title();
+  }
+  if ( title.isEmpty() )
+  {
+    title = QObject::tr( "Untitled" );
+  }
+  return title;
 }
 
 QString QgsServerProjectUtils::owsServiceAbstract( const QgsProject &project )
@@ -161,6 +170,13 @@ bool QgsServerProjectUtils::wmsFeatureInfoAddWktGeometry( const QgsProject &proj
 
   return wktGeom.compare( QLatin1String( "enabled" ), Qt::CaseInsensitive ) == 0
          || wktGeom.compare( QLatin1String( "true" ), Qt::CaseInsensitive ) == 0;
+}
+
+bool QgsServerProjectUtils::wmsFeatureInfoUseAttributeFormSettings( const QgsProject &project )
+{
+  QString useFormSettings = project.readEntry( QStringLiteral( "WMSFeatureInfoUseAttributeFormSettings" ), QStringLiteral( "/" ), "" );
+  return useFormSettings.compare( QLatin1String( "enabled" ), Qt::CaseInsensitive ) == 0
+         || useFormSettings.compare( QLatin1String( "true" ), Qt::CaseInsensitive ) == 0;
 }
 
 bool QgsServerProjectUtils::wmsFeatureInfoSegmentizeWktGeometry( const QgsProject &project )
@@ -372,4 +388,9 @@ QStringList QgsServerProjectUtils::wcsLayerIds( const QgsProject &project )
 QString QgsServerProjectUtils::wmtsServiceUrl( const QgsProject &project )
 {
   return project.readEntry( QStringLiteral( "WMTSUrl" ), QStringLiteral( "/" ), "" );
+}
+
+bool QgsServerProjectUtils::wmsRenderMapTiles( const QgsProject &project )
+{
+  return project.readBoolEntry( QStringLiteral( "RenderMapTile" ), QStringLiteral( "/" ), false );
 }

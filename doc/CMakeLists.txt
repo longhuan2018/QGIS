@@ -63,6 +63,7 @@ if(WITH_APIDOC)
       ${CMAKE_SOURCE_DIR}/src/core/geometry
       ${CMAKE_SOURCE_DIR}/src/core/geocms
       ${CMAKE_SOURCE_DIR}/src/core/geocms/geonode
+      ${CMAKE_SOURCE_DIR}/src/core/geocoding
       ${CMAKE_SOURCE_DIR}/src/core/gps
       ${CMAKE_SOURCE_DIR}/src/core/labeling
       ${CMAKE_SOURCE_DIR}/src/core/layertree
@@ -70,16 +71,21 @@ if(WITH_APIDOC)
       ${CMAKE_SOURCE_DIR}/src/core/locator
       ${CMAKE_SOURCE_DIR}/src/core/metadata
       ${CMAKE_SOURCE_DIR}/src/core/mesh
+      ${CMAKE_SOURCE_DIR}/src/core/network
       ${CMAKE_SOURCE_DIR}/src/core/numericformats
       ${CMAKE_SOURCE_DIR}/src/core/pal
       ${CMAKE_SOURCE_DIR}/src/core/processing
+      ${CMAKE_SOURCE_DIR}/src/core/pointcloud
+      ${CMAKE_SOURCE_DIR}/src/core/project
       ${CMAKE_SOURCE_DIR}/src/core/providers
+      ${CMAKE_SOURCE_DIR}/src/core/providers/arcgis
       ${CMAKE_SOURCE_DIR}/src/core/providers/memory
       ${CMAKE_SOURCE_DIR}/src/core/raster
       ${CMAKE_SOURCE_DIR}/src/core/scalebar
       ${CMAKE_SOURCE_DIR}/src/core/symbology
       ${CMAKE_SOURCE_DIR}/src/core/textrenderer
       ${CMAKE_SOURCE_DIR}/src/core/validity
+      ${CMAKE_SOURCE_DIR}/src/core/vector
       ${CMAKE_SOURCE_DIR}/src/core/vectortile
       ${CMAKE_SOURCE_DIR}/src/gui
       ${CMAKE_SOURCE_DIR}/src/gui/auth
@@ -96,6 +102,7 @@ if(WITH_APIDOC)
       ${CMAKE_SOURCE_DIR}/src/gui/locator
       ${CMAKE_SOURCE_DIR}/src/gui/numericformats
       ${CMAKE_SOURCE_DIR}/src/gui/ogr
+      ${CMAKE_SOURCE_DIR}/src/gui/pointcloud
       ${CMAKE_SOURCE_DIR}/src/gui/processing
       ${CMAKE_SOURCE_DIR}/src/gui/processing/models
       ${CMAKE_SOURCE_DIR}/src/gui/raster
@@ -142,16 +149,24 @@ if(WITH_APIDOC)
 
     string(REPLACE ";" " " DOXYGEN_INPUT "${DOXYGEN_INPUT}")
 
+    # Doxyfile requires comma separated list of patterns for FILE_PATTERNS option
+    string(REPLACE ";" "," DOXYGEN_FILE_PATTERNS "${DOXYGEN_FILE_PATTERNS}")
+
+    if(WERROR)
+      set (DOXYGEN_WARN_AS_ERROR "YES")
+    else()
+      set (DOXYGEN_WARN_AS_ERROR "NO")
+    endif()
     configure_file(${CMAKE_SOURCE_DIR}/cmake_templates/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile @ONLY)
 
-    set (DOXYGEN_ON_DEMAND FALSE CACHE BOOL "Determines whether the QGIS API doxygen documentation should be build on demand only")
+    set (DOXYGEN_ON_DEMAND FALSE CACHE BOOL "Determines whether the QGIS API doxygen documentation should be built on demand through the target apidoc only. If set to false it is added to the target ALL.")
 
     if(DOXYGEN_ON_DEMAND)
-      add_custom_target(apidoc DEPENDS ${QHP_FILES})
+      add_custom_target(apidoc DEPENDS ${QHP_FILES} version)
       install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/api/html/ DESTINATION ${QGIS_DATA_DIR}/doc/api OPTIONAL)
     else()
       install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/api/html/ DESTINATION ${QGIS_DATA_DIR}/doc/api)
-      add_custom_target(apidoc ALL DEPENDS ${QHP_FILES})
+      add_custom_target(apidoc ALL DEPENDS ${QHP_FILES} version)
     endif()
     add_custom_command(
       OUTPUT ${QHP_FILES}

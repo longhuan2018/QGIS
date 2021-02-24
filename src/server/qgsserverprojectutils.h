@@ -68,7 +68,7 @@ namespace QgsServerProjectUtils
   /**
    * Returns the owsService title defined in project.
    * \param project the QGIS project
-   * \returns the owsService title if defined in project.
+   * \returns the owsService title if defined in project with project title as fallback, "Untitled" otherwise.
    */
   SERVER_EXPORT QString owsServiceTitle( const QgsProject &project );
 
@@ -172,6 +172,20 @@ namespace QgsServerProjectUtils
   SERVER_EXPORT int wmsTileBuffer( const QgsProject &project );
 
   /**
+   * Returns TRUE if WMS requests should use the QgsMapSettings::RenderMapTile flag,
+   * so that no visible artifacts are visible between adjacent tiles.
+   *
+   * This flag can slow down rendering considerably, so it is only used if the corresponding
+   * setting is enabled in the project.
+   *
+   * \param project the QGIS project
+   * \returns TRUE if the flag should be used, or FALSE if not.
+   *
+   * \since QGIS 3.18
+   */
+  SERVER_EXPORT bool wmsRenderMapTiles( const QgsProject &project );
+
+  /**
    * Returns the maximum number of atlas features which can be printed in a request
    * \param project the QGIS project
    * \return the number of atlas features
@@ -206,6 +220,13 @@ namespace QgsServerProjectUtils
    * \returns if the geometry is displayed as Well Known Text in GetFeatureInfo request.
    */
   SERVER_EXPORT bool wmsFeatureInfoAddWktGeometry( const QgsProject &project );
+
+  /**
+    * Returns if feature form settings should be considered for the format of the feature info response
+    * \param project the QGIS project
+    * \returns true if the feature form settings shall be considered for the feature info response
+   */
+  SERVER_EXPORT bool wmsFeatureInfoUseAttributeFormSettings( const QgsProject &project );
 
   /**
    * Returns if the geometry has to be segmentize in GetFeatureInfo request.

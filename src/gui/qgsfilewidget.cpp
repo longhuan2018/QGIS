@@ -435,7 +435,7 @@ QString QgsFileWidget::toUrl( const QString &path ) const
   QUrl url = QUrl::fromUserInput( urlStr );
   if ( !url.isValid() || !url.isLocalFile() )
   {
-    QgsDebugMsg( QStringLiteral( "URL: %1 is not valid or not a local file!" ).arg( path ) );
+    QgsDebugMsgLevel( QStringLiteral( "URL: %1 is not valid or not a local file!" ).arg( path ), 2 );
     rep = path;
   }
 
@@ -500,7 +500,7 @@ QString QgsFileDropEdit::acceptableFilePath( QDropEvent *event ) const
   }
 
   QgsMimeDataUtils::UriList lst = QgsMimeDataUtils::decodeUriList( event->mimeData() );
-  for ( const QgsMimeDataUtils::Uri &u : lst )
+  for ( const QgsMimeDataUtils::Uri &u : qgis::as_const( lst ) )
   {
     if ( !rawPaths.contains( u.uri ) )
       rawPaths.append( u.uri );

@@ -34,6 +34,7 @@ set(QGIS_SERVER_SRCS
   qgsserverapicontext.cpp
   qgsserverparameters.cpp
   qgsserverexception.cpp
+  qgsserverfilter.cpp
   qgsserverinterface.cpp
   qgsserverinterfaceimpl.cpp
   qgsserverlogger.cpp
@@ -74,7 +75,6 @@ set (QGIS_SERVER_HDRS
 if (WITH_SERVER_PLUGINS)
   set(QGIS_SERVER_SRCS ${QGIS_SERVER_SRCS}
     qgsserverplugins.cpp
-    qgsserverfilter.cpp
     qgsaccesscontrolfilter.cpp
     qgsaccesscontrol.cpp
     qgsservercachefilter.cpp
@@ -82,47 +82,19 @@ if (WITH_SERVER_PLUGINS)
   )
 endif()
 
-include_directories(SYSTEM
-  ${GDAL_INCLUDE_DIR}
-  ${FCGI_INCLUDE_DIR}
-  ${POSTGRES_INCLUDE_DIR}
-)
-include_directories(
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-include_directories(SYSTEM
-  ${QT_INCLUDE_DIR}
-  ${QGIS_INCLUDE_DIR}
-  ${QCA_INCLUDE_DIR}
-  ${QTKEYCHAIN_INCLUDE_DIR}
-)
-include_directories(
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/auth
-  ${CMAKE_SOURCE_DIR}/src/core/dxf
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/core/effects
-  ${CMAKE_SOURCE_DIR}/src/core/layout
-  ${CMAKE_SOURCE_DIR}/src/core/layertree
-  ${CMAKE_SOURCE_DIR}/src/core/textrenderer
-  ${CMAKE_SOURCE_DIR}/src/analysis/interpolation
-  ${CMAKE_SOURCE_DIR}/src/python
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
 
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/python
-  ${CMAKE_BINARY_DIR}/src/analysis
-  ${CMAKE_BINARY_DIR}/src/server
+include_directories(
 )
 
 add_library(qgis_server SHARED ${QGIS_SERVER_SRCS} ${QGIS_SERVER_HDRS})
+
+target_include_directories(qgis_server SYSTEM PRIVATE
+  ${FCGI_INCLUDE_DIR}
+)
+
+target_include_directories(qgis_server PUBLIC
+  ${CMAKE_BINARY_DIR}/src/server
+)
 
 GENERATE_EXPORT_HEADER(
   qgis_server

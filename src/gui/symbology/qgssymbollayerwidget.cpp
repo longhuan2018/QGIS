@@ -16,6 +16,7 @@
 
 #include "qgssymbollayerwidget.h"
 
+#include "qgsdataitem.h"
 #include "qgslinesymbollayer.h"
 #include "qgsmarkersymbollayer.h"
 #include "qgsfillsymbollayer.h"
@@ -251,14 +252,6 @@ QgsSimpleLineSymbolLayerWidget::QgsSimpleLineSymbolLayerWidget( QgsVectorLayer *
   spinOffset->setClearValue( 0.0 );
   spinPatternOffset->setClearValue( 0.0 );
 
-  if ( vl && vl->geometryType() != QgsWkbTypes::PolygonGeometry )
-  {
-    //draw inside polygon checkbox only makes sense for polygon layers
-    mDrawInsideCheckBox->hide();
-    mRingFilterComboBox->hide();
-    mRingsLabel->hide();
-  }
-
   //make a temporary symbol for the size assistant preview
   mAssistantPreviewSymbol.reset( new QgsLineSymbol() );
 
@@ -378,6 +371,26 @@ void QgsSimpleLineSymbolLayerWidget::setSymbolLayer( QgsSymbolLayer *layer )
 QgsSymbolLayer *QgsSimpleLineSymbolLayerWidget::symbolLayer()
 {
   return mLayer;
+}
+
+void QgsSimpleLineSymbolLayerWidget::setContext( const QgsSymbolWidgetContext &context )
+{
+  QgsSymbolLayerWidget::setContext( context );
+
+  switch ( context.symbolType() )
+  {
+    case QgsSymbol::Marker:
+    case QgsSymbol::Line:
+      //these settings only have an effect when the symbol layers is part of a fill symbol
+      mDrawInsideCheckBox->hide();
+      mRingFilterComboBox->hide();
+      mRingsLabel->hide();
+      break;
+
+    case QgsSymbol::Fill:
+    case QgsSymbol::Hybrid:
+      break;
+  }
 }
 
 void QgsSimpleLineSymbolLayerWidget::penWidthChanged()
@@ -1844,13 +1857,6 @@ QgsMarkerLineSymbolLayerWidget::QgsMarkerLineSymbolLayerWidget( QgsVectorLayer *
 
   spinOffset->setClearValue( 0.0 );
 
-
-  if ( vl && vl->geometryType() != QgsWkbTypes::PolygonGeometry )
-  {
-    mRingFilterComboBox->hide();
-    mRingsLabel->hide();
-  }
-
   mSpinAverageAngleLength->setClearValue( 4.0 );
 
   connect( spinInterval, static_cast < void ( QDoubleSpinBox::* )( double ) > ( &QDoubleSpinBox::valueChanged ), this, &QgsMarkerLineSymbolLayerWidget::setInterval );
@@ -1935,6 +1941,25 @@ void QgsMarkerLineSymbolLayerWidget::setSymbolLayer( QgsSymbolLayer *layer )
 QgsSymbolLayer *QgsMarkerLineSymbolLayerWidget::symbolLayer()
 {
   return mLayer;
+}
+
+void QgsMarkerLineSymbolLayerWidget::setContext( const QgsSymbolWidgetContext &context )
+{
+  QgsSymbolLayerWidget::setContext( context );
+
+  switch ( context.symbolType() )
+  {
+    case QgsSymbol::Marker:
+    case QgsSymbol::Line:
+      //these settings only have an effect when the symbol layers is part of a fill symbol
+      mRingFilterComboBox->hide();
+      mRingsLabel->hide();
+      break;
+
+    case QgsSymbol::Fill:
+    case QgsSymbol::Hybrid:
+      break;
+  }
 }
 
 void QgsMarkerLineSymbolLayerWidget::setInterval( double val )
@@ -2079,13 +2104,6 @@ QgsHashedLineSymbolLayerWidget::QgsHashedLineSymbolLayerWidget( QgsVectorLayer *
 
   spinOffset->setClearValue( 0.0 );
 
-
-  if ( vl && vl->geometryType() != QgsWkbTypes::PolygonGeometry )
-  {
-    mRingFilterComboBox->hide();
-    mRingsLabel->hide();
-  }
-
   mHashRotationSpinBox->setClearValue( 0 );
   mSpinAverageAngleLength->setClearValue( 4.0 );
 
@@ -2178,6 +2196,25 @@ void QgsHashedLineSymbolLayerWidget::setSymbolLayer( QgsSymbolLayer *layer )
 QgsSymbolLayer *QgsHashedLineSymbolLayerWidget::symbolLayer()
 {
   return mLayer;
+}
+
+void QgsHashedLineSymbolLayerWidget::setContext( const QgsSymbolWidgetContext &context )
+{
+  QgsSymbolLayerWidget::setContext( context );
+
+  switch ( context.symbolType() )
+  {
+    case QgsSymbol::Marker:
+    case QgsSymbol::Line:
+      //these settings only have an effect when the symbol layers is part of a fill symbol
+      mRingFilterComboBox->hide();
+      mRingsLabel->hide();
+      break;
+
+    case QgsSymbol::Fill:
+    case QgsSymbol::Hybrid:
+      break;
+  }
 }
 
 void QgsHashedLineSymbolLayerWidget::setInterval( double val )
@@ -2315,8 +2352,10 @@ QgsSvgMarkerSymbolLayerWidget::QgsSvgMarkerSymbolLayerWidget( QgsVectorLayer *vl
 
   setupUi( this );
 
+  mSvgSelectorWidget->setAllowParameters( true );
   mSvgSelectorWidget->sourceLineEdit()->setPropertyOverrideToolButtonVisible( true );
   mSvgSelectorWidget->sourceLineEdit()->setLastPathSettingsKey( QStringLiteral( "/UI/lastSVGMarkerDir" ) );
+  mSvgSelectorWidget->initParametersModel( this, vl );
 
   connect( mSvgSelectorWidget->sourceLineEdit(), &QgsSvgSourceLineEdit::sourceChanged, this, &QgsSvgMarkerSymbolLayerWidget::svgSourceChanged );
   connect( mChangeColorButton, &QgsColorButton::colorChanged, this, &QgsSvgMarkerSymbolLayerWidget::mChangeColorButton_colorChanged );
@@ -2356,7 +2395,7 @@ QgsSvgMarkerSymbolLayerWidget::QgsSvgMarkerSymbolLayerWidget( QgsVectorLayer *vl
   connect( this, &QgsSymbolLayerWidget::changed, this, &QgsSvgMarkerSymbolLayerWidget::updateAssistantSymbol );
 
   connect( mSvgSelectorWidget, &QgsSvgSelectorWidget::svgSelected, this, &QgsSvgMarkerSymbolLayerWidget::setSvgPath );
-
+  connect( mSvgSelectorWidget, &QgsSvgSelectorWidget::svgParametersChanged, this, &QgsSvgMarkerSymbolLayerWidget::setSvgParameters );
 
   //make a temporary symbol for the size assistant preview
   mAssistantPreviewSymbol.reset( new QgsMarkerSymbol() );
@@ -2471,6 +2510,7 @@ void QgsSvgMarkerSymbolLayerWidget::setSymbolLayer( QgsSymbolLayer *layer )
 
   // set values
   mSvgSelectorWidget->setSvgPath( mLayer->path() );
+  mSvgSelectorWidget->setSvgParameters( mLayer->parameters() );
 
   spinWidth->blockSignals( true );
   spinWidth->setValue( mLayer->size() );
@@ -2540,6 +2580,15 @@ void QgsSvgMarkerSymbolLayerWidget::setSvgPath( const QString &name )
 {
   mLayer->setPath( name );
   whileBlocking( mSvgSelectorWidget->sourceLineEdit() )->setSource( name );
+
+  setGuiForSvg( mLayer );
+  emit changed();
+}
+
+void QgsSvgMarkerSymbolLayerWidget::setSvgParameters( const QMap<QString, QgsProperty> &parameters )
+{
+  mLayer->setParameters( parameters );
+  whileBlocking( mSvgSelectorWidget )->setSvgParameters( parameters );
 
   setGuiForSvg( mLayer );
   emit changed();
@@ -2716,6 +2765,7 @@ QgsSVGFillSymbolLayerWidget::QgsSVGFillSymbolLayerWidget( QgsVectorLayer *vl, QW
   mLayer = nullptr;
   setupUi( this );
 
+  mSvgSelectorWidget->setAllowParameters( true );
   mSvgSelectorWidget->sourceLineEdit()->setPropertyOverrideToolButtonVisible( true );
 
   connect( mTextureWidthSpinBox, static_cast < void ( QDoubleSpinBox::* )( double ) > ( &QDoubleSpinBox::valueChanged ), this, &QgsSVGFillSymbolLayerWidget::mTextureWidthSpinBox_valueChanged );
@@ -2742,7 +2792,7 @@ QgsSVGFillSymbolLayerWidget::QgsSVGFillSymbolLayerWidget( QgsVectorLayer *vl, QW
   mStrokeColorDDBtn->registerLinkedWidget( mChangeStrokeColorButton );
 
   connect( mSvgSelectorWidget, &QgsSvgSelectorWidget::svgSelected, this, &QgsSVGFillSymbolLayerWidget::setFile );
-
+  connect( mSvgSelectorWidget, &QgsSvgSelectorWidget::svgParametersChanged, this, &QgsSVGFillSymbolLayerWidget::setSvgParameters );
 }
 
 void QgsSVGFillSymbolLayerWidget::setSymbolLayer( QgsSymbolLayer *layer )
@@ -2833,6 +2883,15 @@ void QgsSVGFillSymbolLayerWidget::setFile( const QString &name )
 {
   mLayer->setSvgFilePath( name );
   whileBlocking( mSvgSelectorWidget->sourceLineEdit() )->setSource( name );
+
+  updateParamGui();
+  emit changed();
+}
+
+void QgsSVGFillSymbolLayerWidget::setSvgParameters( const QMap<QString, QgsProperty> &parameters )
+{
+  mLayer->setParameters( parameters );
+  whileBlocking( mSvgSelectorWidget )->setSvgParameters( parameters );
 
   updateParamGui();
   emit changed();
@@ -4160,9 +4219,9 @@ QgsGeometryGeneratorSymbolLayerWidget::QgsGeometryGeneratorSymbolLayerWidget( Qg
   modificationExpressionSelector->setMultiLine( true );
   modificationExpressionSelector->setLayer( const_cast<QgsVectorLayer *>( vl ) );
   modificationExpressionSelector->registerExpressionContextGenerator( this );
-  cbxGeometryType->addItem( QgsApplication::getThemeIcon( QStringLiteral( "/mIconPolygonLayer.svg" ) ), tr( "Polygon / MultiPolygon" ), QgsSymbol::Fill );
-  cbxGeometryType->addItem( QgsApplication::getThemeIcon( QStringLiteral( "/mIconLineLayer.svg" ) ), tr( "LineString / MultiLineString" ), QgsSymbol::Line );
-  cbxGeometryType->addItem( QgsApplication::getThemeIcon( QStringLiteral( "/mIconPointLayer.svg" ) ), tr( "Point / MultiPoint" ), QgsSymbol::Marker );
+  cbxGeometryType->addItem( QgsLayerItem::iconPolygon(), tr( "Polygon / MultiPolygon" ), QgsSymbol::Fill );
+  cbxGeometryType->addItem( QgsLayerItem::iconLine(), tr( "LineString / MultiLineString" ), QgsSymbol::Line );
+  cbxGeometryType->addItem( QgsLayerItem::iconPoint(), tr( "Point / MultiPoint" ), QgsSymbol::Marker );
   connect( modificationExpressionSelector, &QgsExpressionLineEdit::expressionChanged, this, &QgsGeometryGeneratorSymbolLayerWidget::updateExpression );
   connect( cbxGeometryType, static_cast<void ( QComboBox::* )( int )>( &QComboBox::currentIndexChanged ), this, &QgsGeometryGeneratorSymbolLayerWidget::updateSymbolType );
 }

@@ -401,11 +401,11 @@ QList< QgsSymbolLegendNode * > QgsPropertySizeAssistantWidget::generatePreviews(
   {
     if ( mDefinition.standardTemplate() == QgsPropertyDefinition::Size )
     {
-      tempSymbol.reset( QgsMarkerSymbol::createSimple( QgsStringMap() ) );
+      tempSymbol.reset( QgsMarkerSymbol::createSimple( QVariantMap() ) );
     }
     else if ( mDefinition.standardTemplate() == QgsPropertyDefinition::StrokeWidth )
     {
-      tempSymbol.reset( QgsLineSymbol::createSimple( QgsStringMap() ) );
+      tempSymbol.reset( QgsLineSymbol::createSimple( QVariantMap() ) );
     }
     legendSymbol = tempSymbol.get();
   }
@@ -498,7 +498,7 @@ QList<QgsSymbolLegendNode *> QgsPropertyColorAssistantWidget::generatePreviews( 
 
   if ( !legendSymbol )
   {
-    tempSymbol.reset( QgsMarkerSymbol::createSimple( QgsStringMap() ) );
+    tempSymbol.reset( QgsMarkerSymbol::createSimple( QVariantMap() ) );
     legendSymbol = tempSymbol.get();
   }
   if ( !legendSymbol )
@@ -529,28 +529,52 @@ QgsPropertyGenericNumericAssistantWidget::QgsPropertyGenericNumericAssistantWidg
 
   nullOutputSpinBox->setShowClearButton( false );
 
-  if ( definition.standardTemplate() == QgsPropertyDefinition::Rotation )
+  switch ( definition.standardTemplate() )
   {
-    // tweak dialog for rotation
-    minOutputSpinBox->setMaximum( 360.0 );
-    minOutputSpinBox->setValue( 0.0 );
-    minOutputSpinBox->setShowClearButton( true );
-    minOutputSpinBox->setClearValue( 0.0 );
-    minOutputSpinBox->setSuffix( tr( " °" ) );
-    maxOutputSpinBox->setMaximum( 360.0 );
-    maxOutputSpinBox->setValue( 360.0 );
-    maxOutputSpinBox->setShowClearButton( true );
-    maxOutputSpinBox->setClearValue( 360.0 );
-    maxOutputSpinBox->setSuffix( tr( " °" ) );
-    exponentSpinBox->hide();
-    mExponentLabel->hide();
-    mLabelMinOutput->setText( tr( "Angle from" ) );
-    mLabelNullOutput->setText( tr( "Angle when NULL" ) );
-  }
-  else
-  {
-    minOutputSpinBox->setShowClearButton( false );
-    maxOutputSpinBox->setShowClearButton( false );
+    case QgsPropertyDefinition::Rotation:
+    {
+      // tweak dialog for rotation
+      minOutputSpinBox->setMaximum( 360.0 );
+      minOutputSpinBox->setValue( 0.0 );
+      minOutputSpinBox->setShowClearButton( true );
+      minOutputSpinBox->setClearValue( 0.0 );
+      minOutputSpinBox->setSuffix( tr( " °" ) );
+      maxOutputSpinBox->setMaximum( 360.0 );
+      maxOutputSpinBox->setValue( 360.0 );
+      maxOutputSpinBox->setShowClearButton( true );
+      maxOutputSpinBox->setClearValue( 360.0 );
+      maxOutputSpinBox->setSuffix( tr( " °" ) );
+      exponentSpinBox->hide();
+      mExponentLabel->hide();
+      mLabelMinOutput->setText( tr( "Angle from" ) );
+      mLabelNullOutput->setText( tr( "Angle when NULL" ) );
+      break;
+    }
+
+    case QgsPropertyDefinition::Opacity:
+    {
+      // tweak dialog for opacity
+      minOutputSpinBox->setMaximum( 100.0 );
+      minOutputSpinBox->setValue( 0.0 );
+      minOutputSpinBox->setShowClearButton( true );
+      minOutputSpinBox->setClearValue( 0.0 );
+      minOutputSpinBox->setSuffix( tr( " %" ) );
+      maxOutputSpinBox->setMaximum( 100.0 );
+      maxOutputSpinBox->setValue( 100.0 );
+      maxOutputSpinBox->setShowClearButton( true );
+      maxOutputSpinBox->setClearValue( 100.0 );
+      maxOutputSpinBox->setSuffix( tr( " %" ) );
+      mLabelMinOutput->setText( tr( "Opacity from" ) );
+      mLabelNullOutput->setText( tr( "Opacity when NULL" ) );
+      break;
+    }
+
+    default:
+    {
+      minOutputSpinBox->setShowClearButton( false );
+      maxOutputSpinBox->setShowClearButton( false );
+      break;
+    }
   }
 
   if ( const QgsGenericNumericTransformer *transform = dynamic_cast< const QgsGenericNumericTransformer * >( initialState.transformer() ) )

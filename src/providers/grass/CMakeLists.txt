@@ -3,21 +3,7 @@
 # Build
 
 include_directories(
-  ${CMAKE_SOURCE_DIR}/src/core
-  ${CMAKE_SOURCE_DIR}/src/core/expression
-  ${CMAKE_SOURCE_DIR}/src/core/geometry
-  ${CMAKE_SOURCE_DIR}/src/core/labeling
-  ${CMAKE_SOURCE_DIR}/src/core/metadata
-  ${CMAKE_SOURCE_DIR}/src/core/raster
-  ${CMAKE_SOURCE_DIR}/src/core/symbology
-  ${CMAKE_SOURCE_DIR}/src/gui
-  ${CMAKE_SOURCE_DIR}/src/gui/codeeditors
-  ${CMAKE_SOURCE_DIR}/src/gui/editorwidgets
-  ${CMAKE_SOURCE_DIR}/external
-  ${CMAKE_SOURCE_DIR}/external/nlohmann
 
-  ${CMAKE_BINARY_DIR}/src/core
-  ${CMAKE_BINARY_DIR}/src/gui
   ${CMAKE_BINARY_DIR}/src/providers/grass
   ${CMAKE_CURRENT_BINARY_DIR}
 )
@@ -91,15 +77,23 @@ macro(ADD_GRASSLIB GRASS_BUILD_VERSION)
       set(GRASS_OFF_T_SIZE_DEF "")
     endif()
 
-    set_target_properties(qgisgrass${GRASS_BUILD_VERSION} PROPERTIES
-      CLEAN_DIRECT_OUTPUT 1
-      FRAMEWORK 1
-      FRAMEWORK_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}"
-      MACOSX_FRAMEWORK_INFO_PLIST "${CMAKE_SOURCE_DIR}/mac/framework.info.plist.in"
-      MACOSX_FRAMEWORK_SHORT_VERSION_STRING ${COMPLETE_VERSION}
-      MACOSX_FRAMEWORK_IDENTIFIER org.qgis.qgis3_grass
-      COMPILE_FLAGS "-DGRASS_BASE=\\\"${GRASS_PREFIX}\\\" ${GRASS_OFF_T_SIZE_DEF}"
-    )
+    if(QGIS_MACAPP_FRAMEWORK)
+      set_target_properties(qgisgrass${GRASS_BUILD_VERSION} PROPERTIES
+        CLEAN_DIRECT_OUTPUT 1
+        FRAMEWORK 1
+        FRAMEWORK_VERSION "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}"
+        MACOSX_FRAMEWORK_INFO_PLIST "${CMAKE_SOURCE_DIR}/mac/framework.info.plist.in"
+        MACOSX_FRAMEWORK_SHORT_VERSION_STRING ${COMPLETE_VERSION}
+        MACOSX_FRAMEWORK_IDENTIFIER org.qgis.qgis3_grass
+        COMPILE_FLAGS "-DGRASS_BASE=\\\"${GRASS_PREFIX}\\\" ${GRASS_OFF_T_SIZE_DEF}"
+      )
+    else()
+        set_target_properties(qgisgrass${GRASS_BUILD_VERSION} PROPERTIES
+        CLEAN_DIRECT_OUTPUT 1
+        FRAMEWORK 0
+        COMPILE_FLAGS "-DGRASS_BASE=\\\"${GRASS_PREFIX}\\\" ${GRASS_OFF_T_SIZE_DEF}"
+      )
+    endif()
 
     if (APPLE)
       set_target_properties(qgisgrass${GRASS_BUILD_VERSION} PROPERTIES
@@ -185,8 +179,8 @@ macro(ADD_GRASSLIB GRASS_BUILD_VERSION)
     set_target_properties(grassrasterprovider${GRASS_BUILD_VERSION} PROPERTIES
       COMPILE_FLAGS "-DGRASS_BASE=\\\"${GRASS_PREFIX}\\\""
     )
-    target_link_libraries(grassrasterprovider${GRASS_BUILD_VERSION} 
-      qgisgrass${GRASS_BUILD_VERSION} 
+    target_link_libraries(grassrasterprovider${GRASS_BUILD_VERSION}
+      qgisgrass${GRASS_BUILD_VERSION}
       qgis_core
     )
 

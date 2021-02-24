@@ -80,6 +80,7 @@
 #include "qgsprocessingfeaturesourceoptionswidget.h"
 #include "qgsextentwidget.h"
 #include "qgsrasterbandcombobox.h"
+#include "qgsmeshlayertemporalproperties.h"
 #include "qgsmodelgraphicsscene.h"
 #include "qgsmodelgraphicsview.h"
 #include "qgsmodelcomponentgraphicitem.h"
@@ -89,6 +90,10 @@
 #include "qgsprocessingparameteraggregate.h"
 #include "qgsprocessingparametertininputlayers.h"
 #include "qgsprocessingtininputlayerswidget.h"
+#include "qgsprocessingparameterdxflayers.h"
+#include "qgsprocessingdxflayerswidgetwrapper.h"
+#include "qgsprocessingmeshdatasetwidget.h"
+#include "qgsabstractdatabaseproviderconnection.h"
 
 
 class TestParamType : public QgsProcessingParameterDefinition
@@ -251,6 +256,9 @@ class TestProcessingGui : public QObject
     void testFileOutWrapper();
     void testFolderOutWrapper();
     void testTinInputLayerWrapper();
+    void testDxfLayersWrapper();
+    void testMeshDatasetWrapperLayerInProject();
+    void testMeshDatasetWrapperLayerOutsideProject();
     void testModelGraphicsView();
 
   private:
@@ -3007,6 +3015,28 @@ void TestProcessingGui::testFieldWrapper()
         break;
     }
     delete w;
+
+    // MultipleLayers as parent layer
+    QgsVectorLayer *vl2 = new QgsVectorLayer( QStringLiteral( "LineString?field=bbb:string" ), QStringLiteral( "y" ), QStringLiteral( "memory" ) );
+    p.addMapLayer( vl2 );
+
+    QgsProcessingFieldWidgetWrapper wrapper8( &param, type );
+    wrapper8.registerProcessingContextGenerator( &generator );
+    w = wrapper8.createWrappedWidget( context );
+    layerWrapper.setWidgetValue( QVariantList() << vl->id() << vl2->id(), context );
+    wrapper8.setParentLayerWrapperValue( &layerWrapper );
+
+    switch ( type )
+    {
+      case QgsProcessingGui::Standard:
+      case QgsProcessingGui::Batch:
+        QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() << QStringLiteral( "bbb" ) );
+        break;
+
+      case QgsProcessingGui::Modeler:
+        break;
+    }
+    delete w;
   };
 
   // standard wrapper
@@ -3764,6 +3794,27 @@ void TestProcessingGui::testEnumSelectionPanel()
   QCOMPARE( spy.count(), 3 );
   QCOMPARE( w.value().toList(), QVariantList() );
   QCOMPARE( w.mLineEdit->text(), QStringLiteral( "0 options selected" ) );
+
+  // static strings
+  QgsProcessingParameterEnum enumParam2( QString(), QString(), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), false, true );
+  QgsProcessingEnumPanelWidget w2( nullptr, &enumParam2 );
+  QSignalSpy spy2( &w2, &QgsProcessingEnumPanelWidget::changed );
+
+  QCOMPARE( w2.mLineEdit->text(), QStringLiteral( "0 options selected" ) );
+  w2.setValue( QStringLiteral( "a" ) );
+  QCOMPARE( spy2.count(), 1 );
+  QCOMPARE( w2.value().toList(), QVariantList() << QStringLiteral( "a" ) );
+  QCOMPARE( w2.mLineEdit->text(), QStringLiteral( "1 options selected" ) );
+
+  w2.setValue( QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "a" ) );
+  QCOMPARE( spy2.count(), 2 );
+  QCOMPARE( w2.value().toList(), QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "a" ) );
+  QCOMPARE( w2.mLineEdit->text(), QStringLiteral( "2 options selected" ) );
+
+  w2.setValue( QVariant() );
+  QCOMPARE( spy2.count(), 3 );
+  QCOMPARE( w2.value().toList(), QVariantList() );
+  QCOMPARE( w2.mLineEdit->text(), QStringLiteral( "0 options selected" ) );
 }
 
 void TestProcessingGui::testEnumCheckboxPanel()
@@ -3871,6 +3922,110 @@ void TestProcessingGui::testEnumCheckboxPanel()
   QVERIFY( !panel3.mButtons[ 1 ]->isChecked() );
   QVERIFY( !panel3.mButtons[ 2 ]->isChecked() );
   QCOMPARE( spy3.count(), 9 );
+
+  //single value using static strings
+  QgsProcessingParameterEnum param4( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), false, QVariant(), false, true );
+  QgsProcessingEnumCheckboxPanelWidget panel4( nullptr, &param4 );
+  QSignalSpy spy4( &panel4, &QgsProcessingEnumCheckboxPanelWidget::changed );
+
+  QCOMPARE( panel4.value(), QVariant() );
+  panel4.setValue( QStringLiteral( "c" ) );
+  QCOMPARE( spy4.count(), 1 );
+  QCOMPARE( panel4.value().toString(), QStringLiteral( "c" ) );
+  QVERIFY( !panel4.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel4.mButtons[ 1 ]->isChecked() );
+  QVERIFY( panel4.mButtons[ 2 ]->isChecked() );
+  panel4.setValue( QStringLiteral( "a" ) );
+  QCOMPARE( spy4.count(), 2 );
+  QCOMPARE( panel4.value().toString(), QStringLiteral( "a" ) );
+  QVERIFY( panel4.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel4.mButtons[ 1 ]->isChecked() );
+  QVERIFY( !panel4.mButtons[ 2 ]->isChecked() );
+  panel4.mButtons[1]->setChecked( true );
+  QCOMPARE( spy4.count(), 4 );
+  QCOMPARE( panel4.value().toString(), QStringLiteral( "b" ) );
+  panel4.setValue( QVariantList() << QStringLiteral( "c" ) );
+  QCOMPARE( spy4.count(), 5 );
+  QCOMPARE( panel4.value().toString(), QStringLiteral( "c" ) );
+  QVERIFY( !panel4.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel4.mButtons[ 1 ]->isChecked() );
+  QVERIFY( panel4.mButtons[ 2 ]->isChecked() );
+
+  // multiple value with static strings
+  QgsProcessingParameterEnum param5( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), false, true );
+  QgsProcessingEnumCheckboxPanelWidget panel5( nullptr, &param5 );
+  QSignalSpy spy5( &panel5, &QgsProcessingEnumCheckboxPanelWidget::changed );
+
+  QCOMPARE( panel5.value().toList(), QVariantList() );
+  panel5.setValue( QStringLiteral( "c" ) );
+  QCOMPARE( spy5.count(), 1 );
+  QCOMPARE( panel5.value().toList(), QVariantList() << QStringLiteral( "c" ) );
+  QVERIFY( !panel5.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel5.mButtons[ 1 ]->isChecked() );
+  QVERIFY( panel5.mButtons[ 2 ]->isChecked() );
+  panel5.setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+  QCOMPARE( spy5.count(), 2 );
+  QCOMPARE( panel5.value().toList(), QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+  QVERIFY( panel5.mButtons[ 0 ]->isChecked() );
+  QVERIFY( panel5.mButtons[ 1 ]->isChecked() );
+  QVERIFY( !panel5.mButtons[ 2 ]->isChecked() );
+  panel5.mButtons[0]->setChecked( false );
+  QCOMPARE( spy5.count(), 3 );
+  QCOMPARE( panel5.value().toList(), QVariantList()  << QStringLiteral( "b" ) );
+  panel5.mButtons[2]->setChecked( true );
+  QCOMPARE( spy5.count(), 4 );
+  QCOMPARE( panel5.value().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+  panel5.deselectAll();
+  QCOMPARE( spy5.count(), 5 );
+  QCOMPARE( panel5.value().toList(), QVariantList() );
+  panel5.selectAll();
+  QCOMPARE( spy5.count(), 6 );
+  QCOMPARE( panel5.value().toList(), QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+
+  // multiple value optional with statis strings
+  QgsProcessingParameterEnum param6( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), true, true );
+  QgsProcessingEnumCheckboxPanelWidget panel6( nullptr, &param6 );
+  QSignalSpy spy6( &panel6, &QgsProcessingEnumCheckboxPanelWidget::changed );
+
+  QCOMPARE( panel6.value().toList(), QVariantList() );
+  panel6.setValue( QStringLiteral( "c" ) );
+  QCOMPARE( spy6.count(), 1 );
+  QCOMPARE( panel6.value().toList(), QVariantList() << QStringLiteral( "c" ) );
+  QVERIFY( !panel6.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 1 ]->isChecked() );
+  QVERIFY( panel6.mButtons[ 2 ]->isChecked() );
+  panel6.setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+  QCOMPARE( spy6.count(), 2 );
+  QCOMPARE( panel6.value().toList(), QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+  QVERIFY( panel6.mButtons[ 0 ]->isChecked() );
+  QVERIFY( panel6.mButtons[ 1 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 2 ]->isChecked() );
+  panel6.mButtons[0]->setChecked( false );
+  QCOMPARE( spy6.count(), 3 );
+  QCOMPARE( panel6.value().toList(), QVariantList() << QStringLiteral( "b" ) );
+  panel6.mButtons[2]->setChecked( true );
+  QCOMPARE( spy6.count(), 4 );
+  QCOMPARE( panel6.value().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+  panel6.deselectAll();
+  QCOMPARE( spy6.count(), 5 );
+  QCOMPARE( panel6.value().toList(), QVariantList() );
+  panel6.selectAll();
+  QCOMPARE( spy6.count(), 6 );
+  QCOMPARE( panel6.value().toList(), QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+  panel6.setValue( QVariantList() );
+  QCOMPARE( panel6.value().toList(), QVariantList() );
+  QVERIFY( !panel6.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 1 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 2 ]->isChecked() );
+  QCOMPARE( spy6.count(), 7 );
+  panel6.selectAll();
+  QCOMPARE( spy6.count(), 8 );
+  panel6.setValue( QVariant() );
+  QCOMPARE( panel6.value().toList(), QVariantList() );
+  QVERIFY( !panel6.mButtons[ 0 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 1 ]->isChecked() );
+  QVERIFY( !panel6.mButtons[ 2 ]->isChecked() );
+  QCOMPARE( spy6.count(), 9 );
 }
 
 void TestProcessingGui::testEnumWrapper()
@@ -3940,7 +4095,6 @@ void TestProcessingGui::testEnumWrapper()
     delete w;
 
     // optional
-
     QgsProcessingParameterEnum param2( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), false, QVariant(), true );
     if ( checkboxStyle )
       param2.setMetadata( metadata );
@@ -3992,7 +4146,7 @@ void TestProcessingGui::testEnumWrapper()
 
     delete w;
 
-    // allow multiple
+    // allow multiple, non optional
     QgsProcessingParameterEnum param3( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), false );
     if ( checkboxStyle )
       param3.setMetadata( metadata );
@@ -4040,7 +4194,7 @@ void TestProcessingGui::testEnumWrapper()
     delete w;
 
     // allow multiple, optional
-    QgsProcessingParameterEnum param4( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), false );
+    QgsProcessingParameterEnum param4( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), true );
     if ( checkboxStyle )
       param4.setMetadata( metadata );
 
@@ -4110,6 +4264,219 @@ void TestProcessingGui::testEnumWrapper()
 
     delete w;
 
+    // non optional, single with static strings
+    QgsProcessingParameterEnum param5( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), false, QVariant(), false, true );
+    if ( checkboxStyle )
+      param5.setMetadata( metadata );
+
+    QgsProcessingEnumWidgetWrapper wrapper5( &param5, type );
+
+    w = wrapper5.createWrappedWidget( context );
+
+    QSignalSpy spy5( &wrapper5, &QgsProcessingEnumWidgetWrapper::widgetValueHasChanged );
+    wrapper5.setWidgetValue( QStringLiteral( "b" ), context );
+    QCOMPARE( spy5.count(), 1 );
+    QCOMPARE( wrapper5.widgetValue().toString(), QStringLiteral( "b" ) );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( static_cast< QComboBox * >( wrapper5.wrappedWidget() )->currentIndex(), 1 );
+      QCOMPARE( static_cast< QComboBox * >( wrapper5.wrappedWidget() )->currentText(), QStringLiteral( "b" ) );
+    }
+    else
+    {
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper5.wrappedWidget() )->value().toString(), QStringLiteral( "b" ) );
+    }
+    wrapper5.setWidgetValue( QStringLiteral( "a" ), context );
+    QCOMPARE( spy5.count(), 2 );
+    QCOMPARE( wrapper5.widgetValue().toString(), QStringLiteral( "a" ) );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( static_cast< QComboBox * >( wrapper5.wrappedWidget() )->currentIndex(), 0 );
+      QCOMPARE( static_cast< QComboBox * >( wrapper5.wrappedWidget() )->currentText(), QStringLiteral( "a" ) );
+    }
+    else
+    {
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper5.wrappedWidget() )->value().toString(), QStringLiteral( "a" ) );
+    }
+
+    // check signal
+    if ( !checkboxStyle )
+      static_cast< QComboBox * >( wrapper5.wrappedWidget() )->setCurrentIndex( 2 );
+    else
+      static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper5.wrappedWidget() )->setValue( QStringLiteral( "c" ) );
+    QCOMPARE( spy5.count(), 3 );
+
+    delete w;
+
+    // single, optional with static strings
+    QgsProcessingParameterEnum param6( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), false, QVariant(), true, true );
+    if ( checkboxStyle )
+      param6.setMetadata( metadata );
+
+    QgsProcessingEnumWidgetWrapper wrapper6( &param6, type );
+
+    w = wrapper6.createWrappedWidget( context );
+
+    QSignalSpy spy6( &wrapper6, &QgsProcessingEnumWidgetWrapper::widgetValueHasChanged );
+    wrapper6.setWidgetValue( QStringLiteral( "b" ), context );
+    QCOMPARE( spy6.count(), 1 );
+    QCOMPARE( wrapper6.widgetValue().toString(), QStringLiteral( "b" ) );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentIndex(), 2 );
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentText(), QStringLiteral( "b" ) );
+    }
+    else
+    {
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper6.wrappedWidget() )->value().toString(), QStringLiteral( "b" ) );
+    }
+    wrapper6.setWidgetValue( QStringLiteral( "a" ), context );
+    QCOMPARE( spy6.count(), 2 );
+    QCOMPARE( wrapper6.widgetValue().toString(), QStringLiteral( "a" ) );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentIndex(), 1 );
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentText(), QStringLiteral( "a" ) );
+    }
+    else
+    {
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper6.wrappedWidget() )->value().toString(), QStringLiteral( "a" ) );
+    }
+    wrapper6.setWidgetValue( QVariant(), context );
+    QCOMPARE( spy6.count(), 3 );
+    if ( !checkboxStyle )
+    {
+      QVERIFY( !wrapper6.widgetValue().isValid() );
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentIndex(), 0 );
+      QCOMPARE( static_cast< QComboBox * >( wrapper6.wrappedWidget() )->currentText(), QStringLiteral( "[Not selected]" ) );
+    }
+
+    // check signal
+    if ( !checkboxStyle )
+      static_cast< QComboBox * >( wrapper6.wrappedWidget() )->setCurrentIndex( 2 );
+    else
+      static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper6.wrappedWidget() )->setValue( QStringLiteral( "a" ) );
+    QCOMPARE( spy6.count(), 4 );
+
+    delete w;
+
+    // multiple, non optional with static strings
+    QgsProcessingParameterEnum param7( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), false, true );
+    if ( checkboxStyle )
+      param7.setMetadata( metadata );
+
+    QgsProcessingEnumWidgetWrapper wrapper7( &param7, type );
+
+    w = wrapper7.createWrappedWidget( context );
+
+    QSignalSpy spy7( &wrapper7, &QgsProcessingEnumWidgetWrapper::widgetValueHasChanged );
+    wrapper7.setWidgetValue( QStringLiteral( "b" ), context );
+    QCOMPARE( spy7.count(), 1 );
+    QCOMPARE( wrapper7.widgetValue().toList(), QVariantList() << QStringLiteral( "b" ) );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) );
+    wrapper7.setWidgetValue( QStringLiteral( "a" ), context );
+    QCOMPARE( spy7.count(), 2 );
+    QCOMPARE( wrapper7.widgetValue().toList(), QVariantList() << QStringLiteral( "a" ) );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "a" ) );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "a" ) );
+    wrapper7.setWidgetValue( QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ), context );
+    QCOMPARE( spy7.count(), 3 );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( wrapper7.widgetValue().toList(), QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ) );
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ) );
+    }
+    else
+    {
+      // checkbox style isn't ordered
+      QCOMPARE( wrapper7.widgetValue().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper7.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+    }
+    // check signal
+    if ( !checkboxStyle )
+      static_cast< QgsProcessingEnumPanelWidget * >( wrapper7.wrappedWidget() )->setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+    else
+      static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper7.wrappedWidget() )->setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+
+    QCOMPARE( spy7.count(), 4 );
+
+    delete w;
+
+    // multiple, optional with static strings
+    QgsProcessingParameterEnum param8( QStringLiteral( "enum" ), QStringLiteral( "enum" ), QStringList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) << QStringLiteral( "c" ), true, QVariant(), true, true );
+    if ( checkboxStyle )
+      param8.setMetadata( metadata );
+
+    QgsProcessingEnumWidgetWrapper wrapper8( &param8, type );
+
+    w = wrapper8.createWrappedWidget( context );
+
+    QSignalSpy spy8( &wrapper8, &QgsProcessingEnumWidgetWrapper::widgetValueHasChanged );
+    wrapper8.setWidgetValue( QStringLiteral( "b" ), context );
+    QCOMPARE( spy8.count(), 1 );
+    QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() << QStringLiteral( "b" ) );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) );
+    wrapper8.setWidgetValue( QStringLiteral( "a" ), context );
+    QCOMPARE( spy8.count(), 2 );
+    QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() << QStringLiteral( "a" ) );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "a" ) );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "a" ) );
+    wrapper8.setWidgetValue( QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ), context );
+    QCOMPARE( spy8.count(), 3 );
+    if ( !checkboxStyle )
+    {
+      QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ) );
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "c" ) << QStringLiteral( "b" ) );
+    }
+    else
+    {
+      // checkbox style isn't ordered
+      QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() << QStringLiteral( "b" ) << QStringLiteral( "c" ) );
+    }
+    wrapper8.setWidgetValue( QVariantList(), context );
+    QCOMPARE( spy8.count(), 4 );
+    QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() );
+
+    wrapper8.setWidgetValue( QVariant(), context );
+    QCOMPARE( spy8.count(), 5 );
+    QCOMPARE( wrapper8.widgetValue().toList(), QVariantList() );
+    if ( !checkboxStyle )
+      QCOMPARE( static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() );
+    else
+      QCOMPARE( static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->value().toList(), QVariantList() );
+
+    // check signal
+    if ( !checkboxStyle )
+    {
+      static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+      QCOMPARE( spy8.count(), 6 );
+      static_cast< QgsProcessingEnumPanelWidget * >( wrapper8.wrappedWidget() )->setValue( QVariant() );
+      QCOMPARE( spy8.count(), 7 );
+    }
+    else
+    {
+      static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->setValue( QVariantList() << QStringLiteral( "a" ) << QStringLiteral( "b" ) );
+      QCOMPARE( spy8.count(), 6 );
+      static_cast< QgsProcessingEnumCheckboxPanelWidget * >( wrapper8.wrappedWidget() )->setValue( QVariant() );
+      QCOMPARE( spy8.count(), 7 );
+    }
+
+    delete w;
   };
 
   // standard wrapper
@@ -8867,6 +9234,347 @@ void TestProcessingGui::testTinInputLayerWrapper()
   QVERIFY( definition.checkValueIsAcceptable( value, &context ) );
   QString valueAsPythonString = definition.valueAsPythonString( value, context );
   QCOMPARE( valueAsPythonString, QStringLiteral( "[{'source': 'PointLayerForTin','type': 0,'attributeIndex': -1}]" ) );
+}
+
+void TestProcessingGui::testDxfLayersWrapper()
+{
+  QgsProcessingParameterDxfLayers definition( QStringLiteral( "DXF layers" ) ) ;
+  QgsProcessingDxfLayersWidgetWrapper wrapper;
+
+  std::unique_ptr<QWidget> w( wrapper.createWidget() );
+  QVERIFY( w );
+
+  QSignalSpy spy( &wrapper, &QgsProcessingTinInputLayersWidgetWrapper::widgetValueHasChanged );
+
+  QgsProcessingContext context;
+  QgsProject project;
+  context.setProject( &project );
+  QgsVectorLayer *vectorLayer = new QgsVectorLayer( QStringLiteral( "Point" ),
+      QStringLiteral( "PointLayer" ),
+      QStringLiteral( "memory" ) );
+  project.addMapLayer( vectorLayer );
+
+  QVariantList layerList;
+  QVariantMap layerMap;
+  layerMap["layer"] = "PointLayer";
+  layerMap["attributeIndex"] = -1;
+  layerList.append( layerMap );
+
+  QVERIFY( definition.checkValueIsAcceptable( layerList, &context ) );
+  wrapper.setWidgetValue( layerList, context );
+  QCOMPARE( spy.count(), 1 );
+
+  QVariant value = wrapper.widgetValue();
+
+  QVERIFY( definition.checkValueIsAcceptable( value, &context ) );
+  QString valueAsPythonString = definition.valueAsPythonString( value, context );
+  QCOMPARE( valueAsPythonString, QStringLiteral( "[{'layer': '%1','attributeIndex': -1}]" ).arg( vectorLayer->source() ) );
+}
+
+void TestProcessingGui::testMeshDatasetWrapperLayerInProject()
+{
+  QgsProcessingParameterMeshLayer layerDefinition( QStringLiteral( "layer" ), QStringLiteral( "layer" ) );
+  QgsProcessingMeshLayerWidgetWrapper layerWrapper( &layerDefinition );
+
+  QSet<int> supportedDataType( {QgsMeshDatasetGroupMetadata::DataOnVertices} );
+  QgsProcessingParameterMeshDatasetGroups groupsDefinition( QStringLiteral( "groups" ),
+      QStringLiteral( "groups" ),
+      QStringLiteral( "layer" ),
+      supportedDataType );
+  QgsProcessingMeshDatasetGroupsWidgetWrapper groupsWrapper( &groupsDefinition );
+
+  QgsProcessingParameterMeshDatasetTime timeDefinition( QStringLiteral( "time" ), QStringLiteral( "time" ), QStringLiteral( "layer" ), QStringLiteral( "groups" ) );
+  QgsProcessingMeshDatasetTimeWidgetWrapper timeWrapper( &timeDefinition );
+
+  QList<QgsAbstractProcessingParameterWidgetWrapper *> wrappers;
+  wrappers << &layerWrapper << &groupsWrapper << &timeWrapper;
+
+  QgsProject project;
+  QgsProcessingContext context;
+  context.setProject( &project );
+  QgsProcessingParameterWidgetContext widgetContext;
+  std::unique_ptr<QgsMapCanvas> mapCanvas = qgis::make_unique<QgsMapCanvas>();
+  widgetContext.setMapCanvas( mapCanvas.get() );
+
+  widgetContext.setProject( &project );
+  layerWrapper.setWidgetContext( widgetContext );
+  groupsWrapper.setWidgetContext( widgetContext );
+  timeWrapper.setWidgetContext( widgetContext );
+
+  TestProcessingContextGenerator generator( context );
+  layerWrapper.registerProcessingContextGenerator( &generator );
+  groupsWrapper.registerProcessingContextGenerator( &generator );
+  timeWrapper.registerProcessingContextGenerator( &generator );
+
+  QSignalSpy layerSpy( &layerWrapper, &QgsProcessingMeshLayerWidgetWrapper::widgetValueHasChanged );
+  QSignalSpy groupsSpy( &groupsWrapper, &QgsProcessingMeshDatasetGroupsWidgetWrapper::widgetValueHasChanged );
+  QSignalSpy timeSpy( &timeWrapper, &QgsProcessingMeshDatasetTimeWidgetWrapper::widgetValueHasChanged );
+
+  std::unique_ptr<QWidget> layerWidget( layerWrapper.createWrappedWidget( context ) );
+  std::unique_ptr<QWidget> groupWidget( groupsWrapper.createWrappedWidget( context ) );
+  std::unique_ptr<QWidget> timeWidget( timeWrapper.createWrappedWidget( context ) );
+  QgsProcessingMeshDatasetGroupsWidget *datasetGroupWidget = qobject_cast<QgsProcessingMeshDatasetGroupsWidget *>( groupWidget.get() );
+  QgsProcessingMeshDatasetTimeWidget *datasetTimeWidget = qobject_cast<QgsProcessingMeshDatasetTimeWidget *>( timeWidget.get() );
+
+  QVERIFY( layerWidget );
+  QVERIFY( groupWidget );
+  QVERIFY( datasetGroupWidget );
+  QVERIFY( timeWidget );
+
+  groupsWrapper.postInitialize( wrappers );
+  timeWrapper.postInitialize( wrappers );
+
+  QString dataDir = QString( TEST_DATA_DIR ); //defined in CmakeLists.txt
+  dataDir += "/mesh";
+  QString uri( dataDir + "/quad_and_triangle.2dm" );
+  QString meshLayerName = QStringLiteral( "mesh layer" );
+  QgsMeshLayer *layer = new QgsMeshLayer( uri, meshLayerName, QStringLiteral( "mdal" ) );
+  QVERIFY( layer->isValid() );
+  layer->addDatasets( dataDir + "/quad_and_triangle_vertex_scalar.dat" );
+  layer->addDatasets( dataDir + "/quad_and_triangle_vertex_vector.dat" );
+  layer->addDatasets( dataDir + "/quad_and_triangle_els_face_scalar.dat" );
+  layer->addDatasets( dataDir + "/quad_and_triangle_els_face_vector.dat" );
+  QgsMeshRendererSettings settings = layer->rendererSettings();
+  // 1 dataset on vertices and 1 dataset on faces
+  settings.setActiveScalarDatasetGroup( 1 );
+  settings.setActiveVectorDatasetGroup( 4 );
+  layer->setRendererSettings( settings );
+  QCOMPARE( layer->datasetGroupCount(), 5 );
+
+  layerSpy.clear();
+  groupsSpy.clear();
+  timeSpy.clear();
+
+  // without layer in the project
+  QString meshOutOfProject( dataDir + "/trap_steady_05_3D.nc" );
+  layerWrapper.setWidgetValue( meshOutOfProject, context );
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 1 );
+  QCOMPARE( timeSpy.count(), 1 );
+
+  QVERIFY( datasetTimeWidget->radioButtonDatasetGroupTimeStep->isChecked() );
+
+  QVariantList groups;
+  groups << 0;
+  groupsWrapper.setWidgetValue( groups, context );
+  QVERIFY( groupsDefinition.checkValueIsAcceptable( groupsWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsWrapper.widgetValue() ), QList<int>() << 0 );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "static" ) );
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 2 );
+  QCOMPARE( timeSpy.count(), 3 );
+
+  // with layer in the project
+  layerSpy.clear();
+  groupsSpy.clear();
+  timeSpy.clear();
+
+  project.addMapLayer( layer );
+  static_cast<QgsMeshLayerTemporalProperties *>( layer->temporalProperties() )->setReferenceTime(
+    QDateTime( QDate( 2020, 01, 01 ), QTime( 0, 0, 0 ), Qt::UTC ), layer->dataProvider()->temporalCapabilities() );
+  layerWrapper.setWidgetValue( meshLayerName, context );
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 1 );
+  QCOMPARE( timeSpy.count(), 2 );
+
+  datasetGroupWidget->selectCurrentActiveDatasetGroup();
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 2 );
+  QCOMPARE( timeSpy.count(), 3 );
+
+  QVariant groupsValue = groupsWrapper.widgetValue();
+  QVERIFY( groupsValue.type() == QVariant::List );
+  QVariantList groupsList = groupsValue.toList();
+  QCOMPARE( groupsList.count(), 1 );
+  QCOMPARE( groupsList.at( 0 ).toInt(), 1 );
+  QString pythonString = groupsDefinition.valueAsPythonString( groupsValue, context );
+  QCOMPARE( pythonString, QStringLiteral( "[1]" ) );
+  QVERIFY( groupsDefinition.checkValueIsAcceptable( groupsValue ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsValue ), QList<int>( {1} ) );
+
+  // 2 datasets on vertices
+  settings = layer->rendererSettings();
+  settings.setActiveVectorDatasetGroup( 2 );
+  layer->setRendererSettings( settings );
+  datasetGroupWidget->selectCurrentActiveDatasetGroup();
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 3 );
+  QCOMPARE( timeSpy.count(), 4 );
+
+  pythonString = groupsDefinition.valueAsPythonString( groupsWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "[1,2]" ) );
+  QVERIFY( groupsDefinition.checkValueIsAcceptable( groupsWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsWrapper.widgetValue() ), QList<int>() << 1 << 2 );
+
+  datasetTimeWidget->radioButtonDatasetGroupTimeStep->setChecked( true );
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 3 );
+  QCOMPARE( timeSpy.count(), 4 ); //radioButtonDatasetGroupTimeStep already checked
+
+  QVariant timeValue = timeWrapper.widgetValue();
+  QVERIFY( timeValue.type() == QVariant::Map );
+  QVariantMap timeValueMap = timeValue.toMap();
+  QCOMPARE( timeValueMap[QStringLiteral( "type" )].toString(), QStringLiteral( "dataset-time-step" ) );
+  pythonString = timeDefinition.valueAsPythonString( timeWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "{'type': 'dataset-time-step','value': QgsMeshDatasetIndex(1,0)}" ) );
+  QVERIFY( timeDefinition.checkValueIsAcceptable( timeValue ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeValue ), QStringLiteral( "dataset-time-step" ) );
+  QVERIFY( QgsProcessingParameterMeshDatasetTime::timeValueAsDatasetIndex( timeValue ) == QgsMeshDatasetIndex( 1, 0 ) );
+
+  datasetTimeWidget->radioButtonDefinedDateTime->setChecked( true );
+  QDateTime dateTime = QDateTime( QDate( 2020, 1, 1 ), QTime( 0, 1, 0 ), Qt::UTC );
+  datasetTimeWidget->dateTimeEdit->setDateTime( dateTime );
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 3 );
+  QCOMPARE( timeSpy.count(), 6 );
+  pythonString = timeDefinition.valueAsPythonString( timeWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "{'type': 'defined-date-time','value': QDateTime(QDate(2020, 1, 1), QTime(0, 1, 0))}" ) );
+  QVERIFY( timeDefinition.checkValueIsAcceptable( timeWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "defined-date-time" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::timeValueAsDefinedDateTime( timeWrapper.widgetValue() ), dateTime );
+
+  QVERIFY( !datasetTimeWidget->radioButtonCurrentCanvasTime->isEnabled() );
+  mapCanvas->setTemporalRange( QgsDateTimeRange( QDateTime( QDate( 2021, 1, 1 ), QTime( 0, 3, 0 ), Qt::UTC ), QDateTime( QDate( 2020, 1, 1 ), QTime( 0, 5, 0 ), Qt::UTC ) ) );
+  QVERIFY( datasetTimeWidget->radioButtonCurrentCanvasTime->isEnabled() );
+
+  datasetTimeWidget->radioButtonCurrentCanvasTime->setChecked( true );
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 3 );
+  QCOMPARE( timeSpy.count(), 8 );
+  pythonString = timeDefinition.valueAsPythonString( timeWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "{'type': 'current-context-time'}" ) );
+  QVERIFY( timeDefinition.checkValueIsAcceptable( timeWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "current-context-time" ) );
+
+  // 0 dataset on vertices
+  settings = layer->rendererSettings();
+  settings.setActiveScalarDatasetGroup( -1 );
+  settings.setActiveVectorDatasetGroup( -1 );
+  layer->setRendererSettings( settings );
+  datasetGroupWidget->selectCurrentActiveDatasetGroup();
+  QVERIFY( !datasetTimeWidget->isEnabled() );
+  pythonString = timeDefinition.valueAsPythonString( timeWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "{'type': 'static'}" ) );
+  QVERIFY( timeDefinition.checkValueIsAcceptable( timeWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "static" ) );
+
+  // 1 static dataset on vertices
+  settings = layer->rendererSettings();
+  settings.setActiveScalarDatasetGroup( 0 );
+  settings.setActiveVectorDatasetGroup( -1 );
+  layer->setRendererSettings( settings );
+  datasetGroupWidget->selectCurrentActiveDatasetGroup();
+  QVERIFY( !datasetTimeWidget->isEnabled() );
+  pythonString = timeDefinition.valueAsPythonString( timeWrapper.widgetValue(), context );
+  QCOMPARE( pythonString, QStringLiteral( "{'type': 'static'}" ) );
+  QVERIFY( timeDefinition.checkValueIsAcceptable( timeWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "static" ) );
+}
+
+void TestProcessingGui::testMeshDatasetWrapperLayerOutsideProject()
+{
+  QgsProcessingParameterMeshLayer layerDefinition( QStringLiteral( "layer" ), QStringLiteral( "layer" ) );
+  QgsProcessingMeshLayerWidgetWrapper layerWrapper( &layerDefinition );
+
+  QSet<int> supportedDataType( {QgsMeshDatasetGroupMetadata::DataOnFaces} );
+  QgsProcessingParameterMeshDatasetGroups groupsDefinition( QStringLiteral( "groups" ),
+      QStringLiteral( "groups" ),
+      QStringLiteral( "layer" ),
+      supportedDataType );
+  QgsProcessingMeshDatasetGroupsWidgetWrapper groupsWrapper( &groupsDefinition );
+
+  QgsProcessingParameterMeshDatasetTime timeDefinition( QStringLiteral( "time" ), QStringLiteral( "time" ), QStringLiteral( "layer" ), QStringLiteral( "groups" ) );
+  QgsProcessingMeshDatasetTimeWidgetWrapper timeWrapper( &timeDefinition );
+
+  QList<QgsAbstractProcessingParameterWidgetWrapper *> wrappers;
+  wrappers << &layerWrapper << &groupsWrapper << &timeWrapper;
+
+  QgsProject project;
+  QgsProcessingContext context;
+  context.setProject( &project );
+  QgsProcessingParameterWidgetContext widgetContext;
+  std::unique_ptr<QgsMapCanvas> mapCanvas = qgis::make_unique<QgsMapCanvas>();
+  widgetContext.setMapCanvas( mapCanvas.get() );
+
+  widgetContext.setProject( &project );
+  layerWrapper.setWidgetContext( widgetContext );
+  groupsWrapper.setWidgetContext( widgetContext );
+  timeWrapper.setWidgetContext( widgetContext );
+
+  TestProcessingContextGenerator generator( context );
+  layerWrapper.registerProcessingContextGenerator( &generator );
+  groupsWrapper.registerProcessingContextGenerator( &generator );
+  timeWrapper.registerProcessingContextGenerator( &generator );
+
+  QSignalSpy layerSpy( &layerWrapper, &QgsProcessingMeshLayerWidgetWrapper::widgetValueHasChanged );
+  QSignalSpy groupsSpy( &groupsWrapper, &QgsProcessingMeshDatasetGroupsWidgetWrapper::widgetValueHasChanged );
+  QSignalSpy timeSpy( &timeWrapper, &QgsProcessingMeshDatasetTimeWidgetWrapper::widgetValueHasChanged );
+
+  std::unique_ptr<QWidget> layerWidget( layerWrapper.createWrappedWidget( context ) );
+  std::unique_ptr<QWidget> groupWidget( groupsWrapper.createWrappedWidget( context ) );
+  std::unique_ptr<QWidget> timeWidget( timeWrapper.createWrappedWidget( context ) );
+  QgsProcessingMeshDatasetGroupsWidget *datasetGroupWidget = qobject_cast<QgsProcessingMeshDatasetGroupsWidget *>( groupWidget.get() );
+  QgsProcessingMeshDatasetTimeWidget *datasetTimeWidget = qobject_cast<QgsProcessingMeshDatasetTimeWidget *>( timeWidget.get() );
+
+  QVERIFY( layerWidget );
+  QVERIFY( groupWidget );
+  QVERIFY( datasetGroupWidget );
+  QVERIFY( timeWidget );
+
+  groupsWrapper.postInitialize( wrappers );
+  timeWrapper.postInitialize( wrappers );
+
+  layerSpy.clear();
+  groupsSpy.clear();
+  timeSpy.clear();
+
+  QString dataDir = QString( TEST_DATA_DIR ); //defined in CmakeLists.txt
+  QString meshOutOfProject( dataDir + "/mesh/trap_steady_05_3D.nc" );
+  layerWrapper.setWidgetValue( meshOutOfProject, context );
+
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 1 );
+  QCOMPARE( timeSpy.count(), 1 );
+
+  QVariantList groups;
+  groups << 0;
+  groupsWrapper.setWidgetValue( groups, context );
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 2 );
+  QCOMPARE( timeSpy.count(), 3 );
+  QVERIFY( groupsDefinition.checkValueIsAcceptable( groupsWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsWrapper.widgetValue() ), QList<int>() << 0 );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "static" ) );
+  QVERIFY( !datasetTimeWidget->isEnabled() );
+
+  groups << 11;
+  groupsWrapper.setWidgetValue( groups, context );
+  QCOMPARE( layerSpy.count(), 1 );
+  QCOMPARE( groupsSpy.count(), 3 );
+  QCOMPARE( timeSpy.count(), 5 );
+  QVERIFY( datasetTimeWidget->isEnabled() );
+  QVERIFY( groupsDefinition.checkValueIsAcceptable( groupsWrapper.widgetValue() ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetGroups::valueAsDatasetGroup( groupsWrapper.widgetValue() ), QList<int>() << 0 << 11 );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "dataset-time-step" ) );
+  QVERIFY( QgsProcessingParameterMeshDatasetTime::timeValueAsDatasetIndex( timeWrapper.widgetValue() ) == QgsMeshDatasetIndex( 11, 0 ) );
+
+  QVERIFY( datasetTimeWidget->radioButtonDefinedDateTime->isEnabled() );
+  QVERIFY( !datasetTimeWidget->radioButtonCurrentCanvasTime->isEnabled() );
+
+  datasetTimeWidget->radioButtonDefinedDateTime->setChecked( true );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::valueAsTimeType( timeWrapper.widgetValue() ), QStringLiteral( "defined-date-time" ) );
+  QCOMPARE( QgsProcessingParameterMeshDatasetTime::timeValueAsDefinedDateTime( timeWrapper.widgetValue() ),
+            QDateTime( QDate( 1990, 1, 1 ), QTime( 0, 0, 0 ), Qt::UTC ) );
+
+
+  mapCanvas->setTemporalRange( QgsDateTimeRange( QDateTime( QDate( 2021, 1, 1 ), QTime( 0, 3, 0 ), Qt::UTC ), QDateTime( QDate( 2020, 1, 1 ), QTime( 0, 5, 0 ), Qt::UTC ) ) );
+  QVERIFY( datasetTimeWidget->radioButtonCurrentCanvasTime->isEnabled() );
+
 }
 
 void TestProcessingGui::testModelGraphicsView()

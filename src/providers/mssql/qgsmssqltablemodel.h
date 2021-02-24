@@ -75,6 +75,7 @@ class QgsMssqlTableModel : public QStandardItemModel
       DbtmPkCol,
       DbtmSelectAtId,
       DbtmSql,
+      DbtmView,
       DbtmColumns
     };
 
@@ -82,13 +83,14 @@ class QgsMssqlTableModel : public QStandardItemModel
 
     QString layerURI( const QModelIndex &index, const QString &connInfo, bool useEstimatedMetadata, bool disableInvalidGeometryHandling );
 
-    static QIcon iconForWkbType( QgsWkbTypes::Type type );
-
     static QgsWkbTypes::Type wkbTypeFromMssql( QString dbType );
+
+    void setConnectionName( const QString &connectionName );
 
   private:
     //! Number of tables in the model
     int mTableCount = 0;
+    QString mConnectionName;
 };
 
 #endif

@@ -40,6 +40,8 @@
 #include <QStatusBar>
 
 
+///@cond PRIVATE
+
 QgsMapToolCapture::QgsMapToolCapture( QgsMapCanvas *canvas, QgsAdvancedDigitizingDockWidget *cadDockWidget, CaptureMode mode )
   : QgsMapToolAdvancedDigitizing( canvas, cadDockWidget )
   , mCaptureMode( mode )
@@ -54,6 +56,7 @@ QgsMapToolCapture::QgsMapToolCapture( QgsMapCanvas *canvas, QgsAdvancedDigitizin
 
   QgsVectorLayer::LayerOptions layerOptions;
   layerOptions.skipCrsValidation = true;
+  layerOptions.loadDefaultStyle = false;
   mExtraSnapLayer = new QgsVectorLayer( QStringLiteral( "LineString?crs=" ), QStringLiteral( "extra snap" ), QStringLiteral( "memory" ), layerOptions );
   mExtraSnapLayer->startEditing();
   QgsFeature f;
@@ -459,8 +462,8 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
 {
   QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( mCanvas->currentLayer() );
   QgsVectorLayer *sourceLayer = match.layer();
-  if ( match.isValid() && ( match.hasVertex() || ( QgsProject::instance()->topologicalEditing() && match.hasEdge() ) ) && sourceLayer &&
-       ( sourceLayer->crs() == vlayer->crs() ) )
+  if ( match.isValid() && ( match.hasVertex() || ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) ) ) && sourceLayer )
+
   {
     QgsFeature f;
     QgsFeatureRequest request;
@@ -473,14 +476,41 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
         return 2;
 
       const QgsGeometry geom( f.geometry() );
-      if ( QgsProject::instance()->topologicalEditing() && match.hasEdge() )
+      if ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) )
       {
         QgsVertexId vId2;
         if ( !f.geometry().vertexIdFromVertexNr( match.vertexIndex() + 1, vId2 ) )
           return 2;
         QgsLineString line( geom.constGet()->vertexAt( vId ), geom.constGet()->vertexAt( vId2 ) );
 
-        layerPoint = QgsGeometryUtils::closestPoint( line,  QgsPoint( match.point() ) );
+        QgsPoint pt( match.point() );
+        // Transform point to sourceLayer crs, since vId and vId2 coordinates are in sourceLayer crs
+        if ( sourceLayer->crs() != QgsProject::instance()->crs() )
+        {
+          try
+          {
+            pt.transform( QgsCoordinateTransform( QgsProject::instance()->crs(), sourceLayer->crs(), sourceLayer->transformContext() ) );
+          }
+          catch ( QgsCsException &cse )
+          {
+            Q_UNUSED( cse )
+            QgsDebugMsg( QStringLiteral( "transformation to layer coordinate failed" ) );
+            return 2;
+          }
+        }
+        layerPoint = QgsGeometryUtils::closestPoint( line,  pt );
+        // (re)Transform layerPoint to vlayer crs
+        try
+        {
+          layerPoint.transform( QgsCoordinateTransform( sourceLayer->crs(), vlayer->crs(), vlayer->transformContext() ) );
+        }
+        catch ( QgsCsException &cse )
+        {
+          Q_UNUSED( cse )
+          QgsDebugMsg( QStringLiteral( "transformation to layer coordinate failed" ) );
+          return 2;
+        }
+
       }
       else
       {
@@ -1204,3 +1234,5 @@ QgsCurve *QgsMapToolCaptureRubberBand::createCircularString()
   else
     return curve.release();
 }
+
+///@endcond PRIVATE

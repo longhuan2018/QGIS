@@ -49,7 +49,7 @@ ogr and postgres.
 Means of accessing canonical single instance
 %End
 
-    virtual ~QgsProviderRegistry();
+    ~QgsProviderRegistry();
 
  QString library( const QString &providerKey ) const /Deprecated/;
 %Docstring
@@ -104,11 +104,11 @@ Returns the provider capabilities
 .. versionadded:: 2.6
 
 .. deprecated::
-   QGIS 3.10 (use instead capabilities() method of individual data item provider)
+   QGIS 3.10 (use instead :py:func:`~QgsProviderRegistry.capabilities` method of individual data item provider)
 %End
 
 
-    virtual QgsRasterDataProvider *createRasterDataProvider(
+    QgsRasterDataProvider *createRasterDataProvider(
       const QString &providerKey,
       const QString &uri,
       const QString &format,
@@ -174,7 +174,7 @@ Either the ``parent`` widget must be set or the caller becomes
 responsible for deleting the returned widget.
 
 .. deprecated::
-   QGIS 3.10 - use QgsGui.sourceSelectProviderRegistry()->createDataSourceWidget() instead
+   QGIS 3.10 - use :py:func:`QgsGui.sourceSelectProviderRegistry()`->:py:func:`~QgsProviderRegistry.createDataSourceWidget` instead
 %End
 
     QList< QgsDataItemProvider * > dataItemProviders( const QString &providerKey ) const /Factory/;
@@ -257,7 +257,7 @@ Gets pointer to provider function
          function pointers instead of a library ``None`` will be returned.
 
 .. deprecated::
-   QGIS 3.10 - any provider functionality should be accessed through QgsProviderMetadata
+   QGIS 3.10 - any provider functionality should be accessed through :py:class:`QgsProviderMetadata`
 %End
 
  QLibrary *createProviderLibrary( const QString &providerKey ) const /Factory,Deprecated/;
@@ -282,75 +282,184 @@ Returns list of available providers by their keys
 Returns metadata of the provider or ``None`` if not found
 %End
 
-    virtual QString fileVectorFilters() const;
+    class ProviderCandidateDetails
+{
 %Docstring
-Returns vector file filter string
+
+Contains information pertaining to a candidate provider.
+
+.. versionadded:: 3.18
+%End
+
+%TypeHeaderCode
+#include "qgsproviderregistry.h"
+%End
+      public:
+
+        ProviderCandidateDetails( QgsProviderMetadata *metadata, const QList< QgsMapLayerType > &layerTypes );
+%Docstring
+Constructor for ProviderCandidateDetails, with the specified provider ``metadata`` and valid candidate ``layerTypes``.
+%End
+
+        QgsProviderMetadata *metadata() const;
+%Docstring
+Returns the candidate provider metadata.
+%End
+
+        QList<QgsMapLayerType> layerTypes() const;
+%Docstring
+Returns a list of map layer types which are valid options for opening the
+target using this candidate provider.
+%End
+
+        SIP_PYOBJECT __repr__();
+%MethodCode
+        QString str = QStringLiteral( "<QgsProviderRegistry.ProviderCandidateDetails: %1>" ).arg( sipCpp->metadata()->key() );
+        sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+%End
+
+    };
+
+    QList< QgsProviderRegistry::ProviderCandidateDetails > preferredProvidersForUri( const QString &uri ) const;
+%Docstring
+Returns the details for the preferred provider(s) for opening the specified ``uri``.
+
+The preferred provider is determined by comparing the priority returned by
+:py:func:`QgsProviderMetadata.priorityForUri()` for all registered providers, and selecting
+the provider with the largest non-zero priority.
+
+An empty list may be returned, which indicates that no providers are available which
+returned a non-zero priority for the specified URI.
+
+In the case that multiple providers returned the same priority for the URI then
+all of these providers will be returned.
+
+.. seealso:: :py:func:`shouldDeferUriForOtherProviders`
+
+.. versionadded:: 3.18
+%End
+
+    bool shouldDeferUriForOtherProviders( const QString &uri, const QString &providerKey ) const;
+%Docstring
+Returns ``True`` if the provider with matching ``providerKey`` should defer handling of
+the specified ``uri`` to another provider.
+
+This method tests whether any providers are listed as the preferred provider for ``uri``
+(see :py:func:`~QgsProviderRegistry.preferredProvidersForUri`), and if so tests whether the specified provider is
+included in that preferred providers list. Returns ``True`` only if the specified provider
+is calculated as one of the preferred providers for the URI.
+
+In the case that there is no registered preferred provider for the URI then ``False`` will be
+returned, and the provider must use another metric to determine whether it should
+handle the URI.
+
+.. seealso:: :py:func:`preferredProvidersForUri`
+
+.. versionadded:: 3.18
+%End
+
+    bool uriIsBlocklisted( const QString &uri ) const;
+%Docstring
+Returns ``True`` if the specified ``uri`` is known by any registered provider to be something which should
+be blocklisted from the QGIS interface, e.g. an internal detail only.
+
+Specifically, this method can be utilized by the browser panel to hide noisy internal details
+for URIs which are known to be sidecar files only, such as ".aux.xml" files or ".shp.xml" files,
+or the "ept-build.json" files which sit alongside Entwine "ept.json" point cloud sources.
+
+This method tests whether any of the registered providers return ``True`` for the their
+:py:func:`QgsProviderMetadata.uriIsBlocklisted()` implementation for the specified URI.
+
+.. versionadded:: 3.18
+%End
+
+    QString fileVectorFilters() const;
+%Docstring
+Returns a file filter string for supported vector files.
 
 Returns a string suitable for a QFileDialog of vector file formats
 supported by all data providers.
 
-This walks through all data providers appending calls to their
-fileVectorFilters to a string, which is then returned.
+.. seealso:: :py:func:`fileRasterFilters`
 
-\note
+.. seealso:: :py:func:`fileMeshFilters`
 
-It'd be nice to eventually be raster/vector neutral.
+.. seealso:: :py:func:`filePointCloudFilters`
 %End
 
-    virtual QString fileRasterFilters() const;
+    QString fileRasterFilters() const;
 %Docstring
-Returns raster file filter string
+Returns a file filter string for supported raster files.
 
 Returns a string suitable for a QFileDialog of raster file formats
 supported by all data providers.
 
-This walks through all data providers appending calls to their
-buildSupportedRasterFileFilter to a string, which is then returned.
-
 .. note::
 
    This replaces :py:func:`QgsRasterLayer.buildSupportedRasterFileFilter()`
+
+.. seealso:: :py:func:`fileVectorFilters`
+
+.. seealso:: :py:func:`fileMeshFilters`
+
+.. seealso:: :py:func:`filePointCloudFilters`
 %End
 
-    virtual QString fileMeshFilters() const;
+    QString fileMeshFilters() const;
 %Docstring
-Returns mesh file filter string
+Returns a file filter string for supported mesh files.
 
 Returns a string suitable for a QFileDialog of mesh file formats
 supported by all data providers.
 
-This walks through all data providers appending calls to their
-fileMeshFilters to a string, which is then returned.
-
 .. seealso:: :py:func:`fileMeshDatasetFilters`
+
+.. seealso:: :py:func:`fileRasterFilters`
+
+.. seealso:: :py:func:`fileVectorFilters`
+
+.. seealso:: :py:func:`filePointCloudFilters`
 
 .. versionadded:: 3.6
 %End
 
-    virtual QString fileMeshDatasetFilters() const;
+    QString fileMeshDatasetFilters() const;
 %Docstring
-Returns mesh's dataset file filter string
+Returns a file filter string for supported mesh dataset files.
 
 Returns a string suitable for a QFileDialog of mesh datasets file formats
 supported by all data providers.
-
-This walks through all data providers appending calls to their
-fileMeshFilters to a string, which is then returned.
 
 .. seealso:: :py:func:`fileMeshFilters`
 
 .. versionadded:: 3.6
 %End
 
-    virtual QString databaseDrivers() const;
+    QString filePointCloudFilters() const;
+%Docstring
+Returns a file filter string for supported point clouds.
+
+Returns a string suitable for a QFileDialog of point cloud file formats
+supported by all data providers.
+
+.. seealso:: :py:func:`fileMeshFilters`
+
+.. seealso:: :py:func:`fileRasterFilters`
+
+.. seealso:: :py:func:`fileVectorFilters`
+
+.. versionadded:: 3.18
+%End
+
+    QString databaseDrivers() const;
 %Docstring
 Returns a string containing the available database drivers
 %End
-    virtual QString directoryDrivers() const;
+    QString directoryDrivers() const;
 %Docstring
 Returns a string containing the available directory drivers
 %End
-    virtual QString protocolDrivers() const;
+    QString protocolDrivers() const;
 %Docstring
 Returns a string containing the available protocol drivers
 %End
@@ -359,7 +468,7 @@ Returns a string containing the available protocol drivers
 %Docstring
 
 .. deprecated:: QGIS 3.10
-   - does nothing - use QgsGui.providerGuiRegistry()
+   - does nothing - use :py:func:`QgsGui.providerGuiRegistry()`
 %End
 
     bool registerProvider( QgsProviderMetadata *providerMetadata /Transfer/ );
@@ -370,7 +479,7 @@ register a new vector data provider from its ``providerMetadata``
 
 .. note::
 
-   ownership of the QgsProviderMetadata instance is transferred to the registry
+   ownership of the :py:class:`QgsProviderMetadata` instance is transferred to the registry
 
 .. versionadded:: 3.2
 %End

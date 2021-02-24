@@ -73,6 +73,7 @@
 #include "qgsabstractvaliditycheck.h"
 #include "qgsvaliditycheckcontext.h"
 #include "qgsprojectviewsettings.h"
+#include "qgslayoutlabelwidget.h"
 #include "ui_defaults.h"
 
 #include <QShortcut>
@@ -416,6 +417,40 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   //..and listen out for new item types
   connect( QgsGui::layoutItemGuiRegistry(), &QgsLayoutItemGuiRegistry::typeAdded, this, &QgsLayoutDesignerDialog::itemTypeAdded );
 
+  mDynamicTextMenu = new QMenu( tr( "Add Dynamic Text" ), this );
+
+  connect( mDynamicTextMenu, &QMenu::aboutToShow, this, [ = ]
+  {
+    mDynamicTextMenu->clear();
+    // we need to rebuild this on each show, as the content varies depending on other available items...
+    QgsLayoutLabelWidget::buildInsertDynamicTextMenu( mLayout, mDynamicTextMenu, [ = ]( const QString & expression )
+    {
+      activateNewItemCreationTool( QgsGui::layoutItemGuiRegistry()->metadataIdForItemType( QgsLayoutItemRegistry::LayoutLabel ), false );
+      QVariantMap properties;
+      properties.insert( QStringLiteral( "expression" ), expression );
+      mAddItemTool->setCustomProperties( properties );
+    } );
+  } );
+
+  // not so nice hack to insert dynamic text menu near the label item
+  int index = 0;
+  for ( QAction *action : mItemMenu->actions() )
+  {
+    if ( action->data().isValid() && QgsGui::layoutItemGuiRegistry()->itemMetadata( action->data().toInt() )->type() == QgsLayoutItemRegistry::LayoutLabel )
+    {
+      if ( QAction *before = mItemMenu->actions().value( index + 1 ) )
+      {
+        mItemMenu->insertMenu( before, mDynamicTextMenu );
+      }
+      else
+      {
+        mItemMenu->addMenu( mDynamicTextMenu );
+      }
+      break;
+    }
+    index++;
+  }
+
   QToolButton *orderingToolButton = new QToolButton( this );
   orderingToolButton->setPopupMode( QToolButton::InstantPopup );
   orderingToolButton->setAutoRaise( true );
@@ -552,14 +587,14 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   {
     mView->setPreviewModeEnabled( false );
   } );
-  connect( mActionPreviewModeGrayscale, &QAction::triggered, this, [ = ]
-  {
-    mView->setPreviewMode( QgsPreviewEffect::PreviewGrayscale );
-    mView->setPreviewModeEnabled( true );
-  } );
   connect( mActionPreviewModeMono, &QAction::triggered, this, [ = ]
   {
     mView->setPreviewMode( QgsPreviewEffect::PreviewMono );
+    mView->setPreviewModeEnabled( true );
+  } );
+  connect( mActionPreviewModeGrayscale, &QAction::triggered, this, [ = ]
+  {
+    mView->setPreviewMode( QgsPreviewEffect::PreviewGrayscale );
     mView->setPreviewModeEnabled( true );
   } );
   connect( mActionPreviewProtanope, &QAction::triggered, this, [ = ]
@@ -572,6 +607,11 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
     mView->setPreviewMode( QgsPreviewEffect::PreviewDeuteranope );
     mView->setPreviewModeEnabled( true );
   } );
+  connect( mActionPreviewTritanope, &QAction::triggered, this, [ = ]
+  {
+    mView->setPreviewMode( QgsPreviewEffect::PreviewTritanope );
+    mView->setPreviewModeEnabled( true );
+  } );
   QActionGroup *previewGroup = new QActionGroup( this );
   previewGroup->setExclusive( true );
   mActionPreviewModeOff->setActionGroup( previewGroup );
@@ -579,6 +619,7 @@ QgsLayoutDesignerDialog::QgsLayoutDesignerDialog( QWidget *parent, Qt::WindowFla
   mActionPreviewModeMono->setActionGroup( previewGroup );
   mActionPreviewProtanope->setActionGroup( previewGroup );
   mActionPreviewDeuteranope->setActionGroup( previewGroup );
+  mActionPreviewTritanope->setActionGroup( previewGroup );
 
   connect( mActionSaveAsTemplate, &QAction::triggered, this, &QgsLayoutDesignerDialog::saveAsTemplate );
   connect( mActionLoadFromTemplate, &QAction::triggered, this, &QgsLayoutDesignerDialog::addItemsFromTemplate );
@@ -1498,51 +1539,6 @@ void QgsLayoutDesignerDialog::dropEvent( QDropEvent *event )
   for ( i = urls.begin(); i != urls.end(); ++i )
   {
     QString fileName = i->toLocalFile();
-#ifdef Q_OS_MAC
-    // Mac OS X 10.10, under Qt4.8 ,changes dropped URL format
-    // https://bugreports.qt.io/browse/QTBUG-40449
-    // [pzion 20150805] Work around
-    if ( fileName.startsWith( "/.file/id=" ) )
-    {
-      QgsDebugMsg( QStringLiteral( "Mac dropped URL with /.file/id= (converting)" ) );
-      CFStringRef relCFStringRef =
-        CFStringCreateWithCString(
-          kCFAllocatorDefault,
-          fileName.toUtf8().constData(),
-          kCFStringEncodingUTF8
-        );
-      CFURLRef relCFURL =
-        CFURLCreateWithFileSystemPath(
-          kCFAllocatorDefault,
-          relCFStringRef,
-          kCFURLPOSIXPathStyle,
-          false // isDirectory
-        );
-      CFErrorRef error = 0;
-      CFURLRef absCFURL =
-        CFURLCreateFilePathURL(
-          kCFAllocatorDefault,
-          relCFURL,
-          &error
-        );
-      if ( !error )
-      {
-        static const CFIndex maxAbsPathCStrBufLen = 4096;
-        char absPathCStr[maxAbsPathCStrBufLen];
-        if ( CFURLGetFileSystemRepresentation(
-               absCFURL,
-               true, // resolveAgainstBase
-               reinterpret_cast<UInt8 *>( &absPathCStr[0] ),
-               maxAbsPathCStrBufLen ) )
-        {
-          fileName = QString( absPathCStr );
-        }
-      }
-      CFRelease( absCFURL );
-      CFRelease( relCFURL );
-      CFRelease( relCFStringRef );
-    }
-#endif
     // seems that some drag and drop operations include an empty url
     // so we test for length to make sure we have something
     if ( !fileName.isEmpty() )
@@ -1653,12 +1649,66 @@ void QgsLayoutDesignerDialog::itemTypeAdded( int id )
   if ( itemSubmenu )
     itemSubmenu->addAction( action );
   else
-    mItemMenu->addAction( action );
+  {
+    // a not nice hack to manually place 3d layout map entry in the right place
+    if ( QgsGui::layoutItemGuiRegistry()->itemMetadata( id )->type() == QgsLayoutItemRegistry::Layout3DMap )
+    {
+      // find position of normal add map action
+      int index = 0;
+      for ( QAction *existingAction : mItemMenu->actions() )
+      {
+        if ( existingAction->data().isValid() && QgsGui::layoutItemGuiRegistry()->itemMetadata( existingAction->data().toInt() )->type() == QgsLayoutItemRegistry::LayoutMap )
+        {
+          if ( QAction *before = mItemMenu->actions().value( index + 1 ) )
+          {
+            mItemMenu->insertAction( before, action );
+          }
+          else
+          {
+            mItemMenu->addAction( action );
+          }
+          break;
+        }
+        index++;
+      }
+    }
+    else
+    {
+      mItemMenu->addAction( action );
+    }
+  }
 
   if ( groupButton )
     groupButton->addAction( action );
   else
-    mToolsToolbar->addAction( action );
+  {
+    // a not nice hack to manually place 3d layout map entry in the right place
+    if ( QgsGui::layoutItemGuiRegistry()->itemMetadata( id )->type() == QgsLayoutItemRegistry::Layout3DMap )
+    {
+      // find position of normal add map action
+      int index = 0;
+      for ( QAction *existingAction : mToolsToolbar->actions() )
+      {
+        if ( existingAction->data().isValid() && QgsGui::layoutItemGuiRegistry()->itemMetadata( existingAction->data().toInt() )->type() == QgsLayoutItemRegistry::LayoutMap )
+        {
+          if ( QAction *before = mToolsToolbar->actions().value( index + 1 ) )
+          {
+            mToolsToolbar->insertAction( before, action );
+          }
+          else
+          {
+            mToolsToolbar->addAction( action );
+          }
+          break;
+        }
+        index++;
+      }
+    }
+    else
+    {
+      mToolsToolbar->addAction( action );
+    }
+  }
 
   connect( action, &QAction::triggered, this, [this, id, nodeBased]()
   {
@@ -2061,7 +2111,7 @@ void QgsLayoutDesignerDialog::print()
       }
       mMessageBar->pushMessage( tr( "Print layout" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 
@@ -2673,7 +2723,7 @@ void QgsLayoutDesignerDialog::printAtlas()
       }
       mMessageBar->pushMessage( tr( "Print atlas" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 
@@ -3768,7 +3818,7 @@ void QgsLayoutDesignerDialog::printReport()
       }
       mMessageBar->pushMessage( tr( "Print report" ),
                                 message,
-                                Qgis::Success, 0 );
+                                Qgis::Success );
       break;
     }
 

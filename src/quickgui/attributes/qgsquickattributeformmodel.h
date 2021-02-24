@@ -49,8 +49,14 @@ class QUICK_EXPORT QgsQuickAttributeFormModel : public QSortFilterProxyModel
     //! Whether use tabs layout
     Q_PROPERTY( bool hasTabs READ hasTabs WRITE setHasTabs NOTIFY hasTabsChanged )
 
-    //! Returns TRUE if all constraints defined on fields are satisfied with the current attribute values
-    Q_PROPERTY( bool constraintsValid READ constraintsValid NOTIFY constraintsValidChanged )
+    //! Returns TRUE if all hard constraints defined on fields are satisfied with the current attribute values
+    Q_PROPERTY( bool constraintsHardValid READ constraintsHardValid NOTIFY constraintsHardValidChanged )
+
+    //! Returns TRUE if all soft constraints defined on fields are satisfied with the current attribute values
+    Q_PROPERTY( bool constraintsSoftValid READ constraintsSoftValid NOTIFY constraintsSoftValidChanged )
+
+    //! Returns TRUE if remembering values is allowed
+    Q_PROPERTY( bool rememberValuesAllowed READ rememberValuesAllowed WRITE setRememberValuesAllowed )
 
   public:
 
@@ -69,7 +75,8 @@ class QUICK_EXPORT QgsQuickAttributeFormModel : public QSortFilterProxyModel
       Group, //!< Group
       AttributeEditorElement, //!< Attribute editor element
       CurrentlyVisible, //!< Field visible
-      ConstraintValid, //!< Contraint valid
+      ConstraintSoftValid, //! Constraint soft valid
+      ConstraintHardValid, //! Constraint hard valid
       ConstraintDescription //!< Contraint description
     };
 
@@ -90,8 +97,14 @@ class QUICK_EXPORT QgsQuickAttributeFormModel : public QSortFilterProxyModel
     //! \copydoc QgsQuickAttributeFormModel::attributeModel
     void setAttributeModel( QgsQuickAttributeModel *attributeModel );
 
-    //! \copydoc QgsQuickAttributeFormModel::constraintsValid
-    bool constraintsValid() const;
+    //! \copydoc QgsQuickAttributeFormModel::constraintsHardValid
+    bool constraintsHardValid() const;
+
+    //! \copydoc QgsQuickAttributeFormModel::constraintsSoftValid
+    bool constraintsSoftValid() const;
+
+    //! Whether attribute models remembers or not last entered values
+    bool rememberValuesAllowed() const;
 
     //! Updates QgsFeature based on changes
     Q_INVOKABLE void save();
@@ -102,6 +115,13 @@ class QUICK_EXPORT QgsQuickAttributeFormModel : public QSortFilterProxyModel
     //! Returns attribute value with name
     Q_INVOKABLE QVariant attribute( const QString &name ) const;
 
+    //! Resets the model
+    Q_INVOKABLE void forceClean();
+
+  public slots:
+    //! Allows or forbids attribute model to reuse last entered values
+    void setRememberValuesAllowed( bool rememberValuesAllowed );
+
   signals:
     //! \copydoc QgsQuickAttributeFormModel::attributeModel
     void attributeModelChanged();
@@ -109,8 +129,11 @@ class QUICK_EXPORT QgsQuickAttributeFormModel : public QSortFilterProxyModel
     //! \copydoc QgsQuickAttributeFormModel::hasTabs
     void hasTabsChanged();
 
-    //! \copydoc QgsQuickAttributeFormModel::constraintsValid
-    void constraintsValidChanged();
+    //! \copydoc QgsQuickAttributeFormModel::constraintsHardValid
+    void constraintsHardValidChanged();
+
+    //! \copydoc QgsQuickAttributeFormModel::constraintsSoftValid
+    void constraintsSoftValidChanged();
 
   protected:
     virtual bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override;

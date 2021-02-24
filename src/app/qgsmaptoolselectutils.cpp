@@ -21,8 +21,10 @@ email                : jpalmer at linz dot govt dot nz
 #include "qgsmessagebar.h"
 #include "qgsmapcanvas.h"
 #include "qgsvectorlayer.h"
+#include "qgsvectorlayerfeatureiterator.h"
 #include "qgsfeature.h"
 #include "qgsgeometry.h"
+#include "qgshighlight.h"
 #include "qgsrenderer.h"
 #include "qgsrubberband.h"
 #include "qgsexception.h"
@@ -35,6 +37,8 @@ email                : jpalmer at linz dot govt dot nz
 
 #include <QMouseEvent>
 #include <QApplication>
+#include <QAction>
+#include <QtConcurrent>
 
 QgsVectorLayer *QgsMapToolSelectUtils::getCurrentVectorLayer( QgsMapCanvas *canvas )
 {
@@ -44,8 +48,7 @@ QgsVectorLayer *QgsMapToolSelectUtils::getCurrentVectorLayer( QgsMapCanvas *canv
     QgisApp::instance()->messageBar()->pushMessage(
       QObject::tr( "No active vector layer" ),
       QObject::tr( "To select features, choose a vector layer in the layers panel" ),
-      Qgis::Info,
-      QgisApp::instance()->messageTimeout() );
+      Qgis::Info );
   }
   return vlayer;
 }
@@ -160,28 +163,11 @@ void QgsMapToolSelectUtils::setSelectedFeatures( QgsMapCanvas *canvas, const Qgs
   QApplication::restoreOverrideCursor();
 }
 
-
-QgsFeatureIds QgsMapToolSelectUtils::getMatchingFeatures( QgsMapCanvas *canvas, const QgsGeometry &selectGeometry, bool doContains, bool singleSelect )
+static bool transformSelectGeometry( const QgsGeometry &selectGeometry,  QgsGeometry &selectGeomTrans, const QgsCoordinateTransform &ct )
 {
-  QgsFeatureIds newSelectedFeatures;
-
-  if ( selectGeometry.type() != QgsWkbTypes::PolygonGeometry )
-    return newSelectedFeatures;
-
-  QgsVectorLayer *vlayer = QgsMapToolSelectUtils::getCurrentVectorLayer( canvas );
-  if ( !vlayer )
-    return newSelectedFeatures;
-
-  // toLayerCoordinates will throw an exception for any 'invalid' points in
-  // the rubber band.
-  // For example, if you project a world map onto a globe using EPSG 2163
-  // and then click somewhere off the globe, an exception will be thrown.
-  QgsGeometry selectGeomTrans = selectGeometry;
-
+  selectGeomTrans = selectGeometry;
   try
   {
-    QgsCoordinateTransform ct( canvas->mapSettings().destinationCrs(), vlayer->crs(), QgsProject::instance() );
-
     if ( !ct.isShortCircuited() && selectGeomTrans.type() == QgsWkbTypes::PolygonGeometry )
     {
       // convert add more points to the edges of the rectangle
@@ -213,6 +199,7 @@ QgsFeatureIds QgsMapToolSelectUtils::getMatchingFeatures( QgsMapCanvas *canvas, 
     }
 
     selectGeomTrans.transform( ct );
+    return true;
   }
   catch ( QgsCsException &cse )
   {
@@ -222,10 +209,30 @@ QgsFeatureIds QgsMapToolSelectUtils::getMatchingFeatures( QgsMapCanvas *canvas, 
     QgisApp::instance()->messageBar()->pushMessage(
       QObject::tr( "CRS Exception" ),
       QObject::tr( "Selection extends beyond layer's coordinate system" ),
-      Qgis::Warning,
-      QgisApp::instance()->messageTimeout() );
-    return newSelectedFeatures;
+      Qgis::Warning );
+    return false;
   }
+}
+
+QgsFeatureIds QgsMapToolSelectUtils::getMatchingFeatures( QgsMapCanvas *canvas, const QgsGeometry &selectGeometry, bool doContains, bool singleSelect )
+{
+  QgsFeatureIds newSelectedFeatures;
+
+  if ( selectGeometry.type() != QgsWkbTypes::PolygonGeometry )
+    return newSelectedFeatures;
+
+  QgsVectorLayer *vlayer = QgsMapToolSelectUtils::getCurrentVectorLayer( canvas );
+  if ( !vlayer )
+    return newSelectedFeatures;
+
+  // toLayerCoordinates will throw an exception for any 'invalid' points in
+  // the rubber band.
+  // For example, if you project a world map onto a globe using EPSG 2163
+  // and then click somewhere off the globe, an exception will be thrown.
+  QgsGeometry selectGeomTrans;
+  QgsCoordinateTransform ct( canvas->mapSettings().destinationCrs(), vlayer->crs(), QgsProject::instance() );
+  if ( !transformSelectGeometry( selectGeometry, selectGeomTrans, ct ) )
+    return newSelectedFeatures;
 
   QgsDebugMsgLevel( "Selection layer: " + vlayer->name(), 3 );
   QgsDebugMsgLevel( "Selection polygon: " + selectGeomTrans.asWkt(), 3 );
@@ -360,3 +367,409 @@ QgsFeatureIds QgsMapToolSelectUtils::getMatchingFeatures( QgsMapCanvas *canvas, 
   return newSelectedFeatures;
 }
 
+
+QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::QgsMapToolSelectMenuActions( QgsMapCanvas *canvas,
+    QgsVectorLayer *vectorLayer,
+    QgsVectorLayer::SelectBehavior behavior, QgsGeometry selectionGeometry,
+    QObject *parent ):
+  QObject( parent ),
+  mCanvas( canvas ),
+  mVectorLayer( vectorLayer ),
+  mBehavior( behavior ),
+  mSelectGeometry( selectionGeometry )
+{
+  connect( mVectorLayer, &QgsMapLayer::destroyed, this, &QgsMapToolSelectMenuActions::onLayerDestroyed );
+
+  mFutureWatcher = new QFutureWatcher<QgsFeatureIds>( this );
+  connect( mFutureWatcher, &QFutureWatcher<void>::finished, this, &QgsMapToolSelectMenuActions::onSearchFinished );
+}
+
+
+QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::~QgsMapToolSelectMenuActions()
+{
+  removeHighlight();
+  if ( mJobData )
+    mJobData->isCanceled = true;
+  if ( mFutureWatcher )
+    mFutureWatcher->waitForFinished();
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::populateMenu( QMenu *menu )
+{
+  mActionChooseAll = new QAction( textForChooseAll(), this );
+  menu->addAction( mActionChooseAll );
+  connect( mActionChooseAll, &QAction::triggered, this, &QgsMapToolSelectMenuActions::chooseAllCandidateFeature );
+  mMenuChooseOne = new QMenu( textForChooseOneMenu() );
+  menu->addMenu( mMenuChooseOne );
+  mMenuChooseOne->setEnabled( false );
+
+  startFeatureSearch();
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::startFeatureSearch()
+{
+  QString temporalFilter;
+  if ( mCanvas->mapSettings().isTemporal() )
+  {
+    if ( !mVectorLayer->temporalProperties()->isVisibleInTemporalRange( mCanvas->temporalRange() ) )
+      return;
+
+    QgsVectorLayerTemporalContext temporalContext;
+    temporalContext.setLayer( mVectorLayer );
+    temporalFilter = qobject_cast< const QgsVectorLayerTemporalProperties * >( mVectorLayer->temporalProperties() )->createFilterString( temporalContext, mCanvas->temporalRange() );
+  }
+
+  mJobData = std::make_shared<DataForSearchingJob>();
+  mJobData->isCanceled = false;
+  mJobData->source.reset( new QgsVectorLayerFeatureSource( mVectorLayer ) );
+  mJobData->selectGeometry = mSelectGeometry;
+  mJobData->context = QgsRenderContext::fromMapSettings( mCanvas->mapSettings() );
+  mJobData->filterString = temporalFilter;
+  mJobData->ct = QgsCoordinateTransform( mCanvas->mapSettings().destinationCrs(), mVectorLayer->crs(), mJobData->context.transformContext() );
+  mJobData->featureRenderer.reset( mVectorLayer->renderer()->clone() );
+
+  mJobData->context.expressionContext() << QgsExpressionContextUtils::layerScope( mVectorLayer );
+  mJobData->selectBehavior = mBehavior;
+  if ( mBehavior != QgsVectorLayer::SetSelection )
+    mJobData->existingSelection = mVectorLayer->selectedFeatureIds();
+  QFuture<QgsFeatureIds> future = QtConcurrent::run( search, mJobData );
+  mFutureWatcher->setFuture( future );
+}
+
+QgsFeatureIds QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::search( std::shared_ptr<DataForSearchingJob> data )
+{
+  QgsFeatureIds newSelectedFeatures;
+
+  if ( data->selectGeometry.type() != QgsWkbTypes::PolygonGeometry )
+    return newSelectedFeatures;
+
+  QgsGeometry selectGeomTrans = data->selectGeometry;
+
+  if ( ! transformSelectGeometry( data->selectGeometry, selectGeomTrans, data->ct ) )
+    return newSelectedFeatures;
+
+  // make sure the selection geometry is valid, or intersection tests won't work correctly...
+  if ( !selectGeomTrans.isGeosValid( ) )
+  {
+    // a zero width buffer is safer than calling make valid here!
+    selectGeomTrans = selectGeomTrans.buffer( 0, 1 );
+  }
+
+  std::unique_ptr< QgsGeometryEngine > selectionGeometryEngine( QgsGeometry::createGeometryEngine( selectGeomTrans.constGet() ) );
+  selectionGeometryEngine->setLogErrors( false );
+  selectionGeometryEngine->prepareGeometry();
+
+  std::unique_ptr<QgsFeatureRenderer> r;
+  if ( data->featureRenderer )
+  {
+    r.reset( data->featureRenderer->clone() );
+    r->startRender( data->context, data->source->fields() );
+  }
+
+  QgsFeatureRequest request;
+  request.setFilterRect( selectGeomTrans.boundingBox() );
+  request.setFlags( QgsFeatureRequest::ExactIntersect );
+
+  if ( !data->filterString.isEmpty() )
+    request.setFilterExpression( data->filterString );
+
+  if ( r )
+  {
+    request.setSubsetOfAttributes( r->usedAttributes( data->context ), data->source->fields() );
+    const QString filterExpression = r->filter( data->source->fields() );
+    if ( !filterExpression.isEmpty() )
+    {
+      request.combineFilterExpression( filterExpression );
+    }
+  }
+
+  QgsFeatureIterator fit = data->source->getFeatures( request );
+
+  QgsFeature f;
+
+  while ( fit.nextFeature( f ) && !data->isCanceled )
+  {
+    data->context.expressionContext().setFeature( f );
+    // make sure to only use features that are visible
+    if ( r && !r->willRenderFeature( f, data->context ) )
+      continue;
+
+    QgsGeometry g = f.geometry();
+    QString errorMessage;
+
+    // if we get an error from the intersects check then it indicates that the geometry is invalid and GEOS choked on it.
+    // in this case we consider the bounding box intersection check which has already been performed by the iterator as sufficient and
+    // allow the feature to be selected
+    const bool notIntersects = !selectionGeometryEngine->intersects( g.constGet(), &errorMessage ) &&
+                               ( errorMessage.isEmpty() || /* message will be non empty if geometry g is invalid */
+                                 !selectionGeometryEngine->intersects( g.makeValid().constGet(), &errorMessage ) ); /* second chance for invalid geometries, repair and re-test */
+
+    if ( !errorMessage.isEmpty() )
+    {
+      // intersects relation test still failed, even after trying to make valid!
+      QgsMessageLog::logMessage( QObject::tr( "Error determining selection: %1" ).arg( errorMessage ), QString(), Qgis::Warning );
+    }
+
+    if ( notIntersects )
+      continue;
+
+    newSelectedFeatures.insert( f.id() );
+  }
+
+  if ( r )
+    r->stopRender( data->context );
+  return filterIds( newSelectedFeatures, data->existingSelection, data->selectBehavior );
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::onSearchFinished()
+{
+  if ( mFutureWatcher && !mFutureWatcher->isFinished() )
+    return;
+
+  mAllFeatureIds = mFutureWatcher->result();
+  mActionChooseAll->setText( textForChooseAll( mAllFeatureIds.size() ) );
+  if ( !mAllFeatureIds.isEmpty() )
+    connect( mActionChooseAll, &QAction::hovered, this, &QgsMapToolSelectMenuActions::highlightAllFeatures );
+  else
+    mActionChooseAll->setEnabled( false );
+  if ( mAllFeatureIds.count() > 1 )
+    populateChooseOneMenu( mAllFeatureIds );
+}
+
+
+QString QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::textForChooseAll( qint64 featureCount ) const
+{
+  if ( featureCount == 0 || featureCount == 1 )
+  {
+    switch ( mBehavior )
+    {
+      case QgsVectorLayer::SetSelection:
+        return tr( "Select Feature" );
+        break;
+      case QgsVectorLayer::AddToSelection:
+        return tr( "Add to Selection" );
+        break;
+      case QgsVectorLayer::IntersectSelection:
+        return tr( "Intersect with Selection" );
+        break;
+      case QgsVectorLayer::RemoveFromSelection:
+        return tr( "Remove from Selection" );
+        break;
+    }
+  }
+
+  QString featureCountText;
+  if ( featureCount < 0 )
+    featureCountText = tr( "Searching…" );
+  else
+    featureCountText = QString::number( featureCount );
+
+  switch ( mBehavior )
+  {
+    case QgsVectorLayer::SetSelection:
+      return tr( "Select All (%1)" ).arg( featureCountText );
+      break;
+    case QgsVectorLayer::AddToSelection:
+      return tr( "Add All to Selection (%1)" ).arg( featureCountText );
+      break;
+    case QgsVectorLayer::IntersectSelection:
+      return tr( "Intersect All with Selection (%1)" ).arg( featureCountText );
+      break;
+    case QgsVectorLayer::RemoveFromSelection:
+      return tr( "Remove All from Selection (%1)" ).arg( featureCountText );
+      break;
+  }
+
+  return QString();
+}
+
+QString QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::textForChooseOneMenu() const
+{
+  switch ( mBehavior )
+  {
+    case QgsVectorLayer::SetSelection:
+      return tr( "Select Feature" );
+      break;
+    case QgsVectorLayer::AddToSelection:
+      return tr( "Add Feature to Selection" );
+      break;
+    case QgsVectorLayer::IntersectSelection:
+      return tr( "Intersect Feature with Selection" );
+      break;
+    case QgsVectorLayer::RemoveFromSelection:
+      return tr( "Remove Feature from Selection" );
+      break;
+  }
+
+  return QString();
+}
+
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::populateChooseOneMenu( const QgsFeatureIds &ids )
+{
+  if ( !mVectorLayer )
+    return;
+
+  QgsFeatureIds displayedFeatureIds;
+
+  QgsFeatureIds::ConstIterator it = ids.constBegin();
+  while ( displayedFeatureIds.count() <= 20 && it != ids.constEnd() ) //for now hardcoded, but maybe define a settings for this
+    displayedFeatureIds.insert( *( it++ ) );
+
+  QgsExpressionContext context( QgsExpressionContextUtils::globalProjectLayerScopes( mVectorLayer ) );
+  QgsExpression exp = mVectorLayer->displayExpression();
+  exp.prepare( &context );
+
+  QgsFeatureRequest request = QgsFeatureRequest().setFilterFids( displayedFeatureIds );
+  QgsFeature feat;
+  QgsFeatureIterator featureIt = mVectorLayer->getFeatures( request );
+  while ( featureIt.nextFeature( feat ) )
+  {
+    const QgsFeatureId id = feat.id();
+    context.setFeature( feat );
+
+    QString featureTitle = exp.evaluate( &context ).toString();
+    if ( featureTitle.isEmpty() )
+      featureTitle = tr( "Feature %1" ).arg( FID_TO_STRING( feat.id() ) );
+
+    QAction *featureAction = new QAction( featureTitle, this ) ;
+    connect( featureAction, &QAction::triggered, this, [this, id]() {chooseOneCandidateFeature( id );} );
+    connect( featureAction, &QAction::hovered, this, [this, id]() {this->highlightOneFeature( id );} );
+    mMenuChooseOne->addAction( featureAction );
+  }
+
+  mMenuChooseOne->setEnabled( ids.count() != 0 );
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::chooseOneCandidateFeature( QgsFeatureId id )
+{
+  if ( !mVectorLayer )
+    return;
+
+  QgsFeatureIds ids;
+  ids << id;
+  mVectorLayer->selectByIds( ids, mBehavior );
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::chooseAllCandidateFeature()
+{
+  if ( ! mFutureWatcher )
+    return;
+
+  if ( !mFutureWatcher->isFinished() )
+  {
+    QApplication::setOverrideCursor( Qt::WaitCursor );
+    mFutureWatcher->waitForFinished();
+    QApplication::restoreOverrideCursor();
+    mAllFeatureIds = mFutureWatcher->result();
+  }
+
+  if ( !mAllFeatureIds.empty() )
+    mVectorLayer->selectByIds( mAllFeatureIds, mBehavior );
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::highlightAllFeatures()
+{
+  removeHighlight();
+
+  if ( !mVectorLayer )
+    return;
+
+  if ( !mAllFeatureIds.empty() )
+  {
+    int count = 0;
+    for ( const QgsFeatureId &id : mAllFeatureIds )
+    {
+      QgsFeature feat = mVectorLayer->getFeature( id );
+      QgsGeometry geom = feat.geometry();
+      if ( !geom.isEmpty() )
+      {
+        QgsHighlight *hl = new QgsHighlight( mCanvas, geom, mVectorLayer );
+        styleHighlight( hl );
+        mHighlight.append( hl );
+        count++;
+      }
+      if ( count > 1000 ) //for now hardcoded, but maybe define a settings for this
+        return;
+    }
+  }
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::highlightOneFeature( QgsFeatureId id )
+{
+  removeHighlight();
+
+  if ( !mVectorLayer )
+    return;
+
+  QgsFeature feat = mVectorLayer->getFeature( id );
+  QgsGeometry geom = feat.geometry();
+  if ( !geom.isEmpty() )
+  {
+    QgsHighlight *hl = new QgsHighlight( mCanvas, geom, mVectorLayer );
+    styleHighlight( hl );
+    mHighlight.append( hl );
+  }
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::styleHighlight( QgsHighlight *highlight )
+{
+  QgsSettings settings;
+  QColor color = QColor( settings.value( QStringLiteral( "Map/highlight/color" ), Qgis::DEFAULT_HIGHLIGHT_COLOR.name() ).toString() );
+  int alpha = settings.value( QStringLiteral( "Map/highlight/colorAlpha" ), Qgis::DEFAULT_HIGHLIGHT_COLOR.alpha() ).toInt();
+  double buffer = settings.value( QStringLiteral( "Map/highlight/buffer" ), Qgis::DEFAULT_HIGHLIGHT_BUFFER_MM ).toDouble();
+  double minWidth = settings.value( QStringLiteral( "Map/highlight/minWidth" ), Qgis::DEFAULT_HIGHLIGHT_MIN_WIDTH_MM ).toDouble();
+
+  highlight->setColor( color ); // sets also fill with default alpha
+  color.setAlpha( alpha );
+  highlight->setFillColor( color ); // sets fill with alpha
+  highlight->setBuffer( buffer );
+  highlight->setMinWidth( minWidth );
+}
+
+QgsFeatureIds QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::filterIds( const QgsFeatureIds &ids,
+    const QgsFeatureIds &existingSelection,
+    QgsVectorLayer::SelectBehavior behavior )
+{
+  QgsFeatureIds effectiveFeatureIds = ids;
+  switch ( behavior )
+  {
+    case QgsVectorLayer::SetSelection:
+      break;
+    case QgsVectorLayer::AddToSelection:
+    {
+      for ( QgsFeatureId newSelected : ids )
+      {
+        if ( existingSelection.contains( newSelected ) )
+          effectiveFeatureIds.remove( newSelected );
+      }
+    }
+    break;
+    case QgsVectorLayer::IntersectSelection:
+    case QgsVectorLayer::RemoveFromSelection:
+    {
+      for ( QgsFeatureId newSelected : ids )
+      {
+        if ( !existingSelection.contains( newSelected ) )
+          effectiveFeatureIds.remove( newSelected );
+      }
+    }
+    break;
+  }
+
+  return effectiveFeatureIds;
+}
+
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::onLayerDestroyed()
+{
+  mVectorLayer = nullptr;
+  mJobData->isCanceled = true;
+  removeHighlight();
+}
+
+void QgsMapToolSelectUtils::QgsMapToolSelectMenuActions::removeHighlight()
+{
+  qDeleteAll( mHighlight );
+  mHighlight.clear();
+}

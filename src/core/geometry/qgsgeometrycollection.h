@@ -236,6 +236,8 @@ class CORE_EXPORT QgsGeometryCollection: public QgsAbstractGeometry
     void swapXy() override;
     QgsGeometryCollection *toCurveType() const override SIP_FACTORY;
 
+    bool transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback = nullptr ) override;
+
 #ifndef SIP_RUN
     void filterVertices( const std::function< bool( const QgsPoint & ) > &filter ) override;
     void transformVertices( const std::function< QgsPoint( const QgsPoint & ) > &transform ) override;
@@ -247,7 +249,7 @@ class CORE_EXPORT QgsGeometryCollection: public QgsAbstractGeometry
      * \note Not available in Python. Objects will be automatically be converted to the appropriate target type.
      * \since QGIS 3.0
      */
-    inline const QgsGeometryCollection *cast( const QgsAbstractGeometry *geom ) const
+    inline static const QgsGeometryCollection *cast( const QgsAbstractGeometry *geom )
     {
       if ( geom && QgsWkbTypes::isMultiType( geom->wkbType() ) )
         return static_cast<const QgsGeometryCollection *>( geom );

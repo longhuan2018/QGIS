@@ -344,8 +344,12 @@ class CORE_EXPORT QgsRasterLayer : public QgsMapLayer
                QgsRasterViewPort *myRasterViewPort,
                const QgsMapToPixel *qgsMapToPixel = nullptr );
 
-    //! Returns a list with classification items (Text and color)
-    QgsLegendColorList legendSymbologyItems() const;
+    /**
+     * Returns a list with classification items (Text and color).
+     *
+     * \deprecated use QgsRasterRenderer::createLegendNodes() instead.
+     */
+    Q_DECL_DEPRECATED QgsLegendColorList legendSymbologyItems() const SIP_DEPRECATED;
 
     bool isSpatial() const override { return true; }
 
@@ -378,6 +382,9 @@ class CORE_EXPORT QgsRasterLayer : public QgsMapLayer
      * \see rasterUnitsPerPixelX()
      */
     double rasterUnitsPerPixelY() const;
+
+    void setOpacity( double opacity ) FINAL;
+    double opacity() const FINAL;
 
     /**
      * \brief Set contrast enhancement algorithm
@@ -456,7 +463,7 @@ class CORE_EXPORT QgsRasterLayer : public QgsMapLayer
      * \returns TRUE in case of success
      * \since QGIS 3.6
      */
-    bool writeSld( QDomNode &node, QDomDocument &doc, QString &errorMessage, const QgsStringMap &props = QgsStringMap() ) const;
+    bool writeSld( QDomNode &node, QDomDocument &doc, QString &errorMessage, const QVariantMap &props = QVariantMap() ) const;
 
     /**
      * If the ignoreExtent flag is set, the layer will also render outside the

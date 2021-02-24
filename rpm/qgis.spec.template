@@ -74,6 +74,8 @@ BuildRequires:  gdal-python3
 BuildRequires:  geos-devel
 BuildRequires:  gsl-devel
 BuildRequires:  libspatialite-devel
+BuildRequires:  PDAL
+BuildRequires:  PDAL-devel
 BuildRequires:  proj-devel
 BuildRequires:  spatialindex-devel
 BuildRequires:  grass-devel
@@ -81,7 +83,9 @@ BuildRequires:  grass-devel
 # Other stuff
 BuildRequires:  exiv2-devel
 BuildRequires:  gsl-devel
+BuildRequires:  laszip-devel
 BuildRequires:  libzip-devel
+BuildRequires:  libzstd-devel
 BuildRequires:  postgresql-devel
 BuildRequires:  sqlite-devel
 BuildRequires:  hdf5-devel
@@ -141,6 +145,7 @@ Requires:       gdal
 # Installation of QCA plugins must be explicit
 Requires:       qca-qt5-ossl
 Requires:       gpsbabel
+Requires:       PDAL
 Requires:       qt5-qtcharts
 
 # We don't want to provide private Python extension libs
@@ -248,6 +253,8 @@ gzip ChangeLog
       -D WITH_CUSTOM_WIDGETS:BOOL=TRUE \
       -D BINDINGS_GLOBAL_INSTALL:BOOL=TRUE \
       -D ENABLE_TESTS:BOOL=FALSE \
+      -D WITH_EPT:BOOL=TRUE \
+      -D WITH_PDAL:BOOL=TRUE \
       -D WITH_QSPATIALITE:BOOL=TRUE \
       -D WITH_SERVER:BOOL=TRUE \
       -D WITH_3D:BOOL=TRUE \
@@ -275,34 +282,6 @@ rm -f %{buildroot}%{_libexecdir}/%{name}/admin.sld
 rm -f %{buildroot}%{_datadir}/%{name}/doc/INSTALL*
 
 %find_lang %{name} --with-qt
-
-# TODO: Remove all %%post, %%posttrans and %%postun after F28 EoL
-# Ref: https://fedoraproject.org/wiki/Changes/RemoveObsoleteScriptlets
-%post
-/sbin/ldconfig
-touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
-touch --no-create %{_datadir}/mime/packages &> /dev/null || :
-
-%postun
-/sbin/ldconfig
-if [ $1 -eq 0 ] ; then
-    touch --no-create %{_datadir}/icons/hicolor &>/dev/null
-    gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
-    touch --no-create %{_datadir}/mime/packages &> /dev/null || :
-    update-mime-database %{?fedora:-n} %{_datadir}/mime &> /dev/null || :
-fi
-
-%posttrans
-gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
-update-mime-database %{?fedora:-n} %{_datadir}/mime &> /dev/null || :
-
-%post grass -p /sbin/ldconfig
-
-%postun grass -p /sbin/ldconfig
-
-%post -n python3-qgis -p /sbin/ldconfig
-
-%postun -n python3-qgis -p /sbin/ldconfig
 
 %files -f %{name}.lang
 %doc BUGS NEWS.md Exception_to_GPL_for_Qt.txt ChangeLog.gz

@@ -30,6 +30,8 @@ class QDomElement;
 class QPainter;
 class QgsRasterTransparency;
 class QgsStyleEntityVisitorInterface;
+class QgsLayerTreeModelLegendNode;
+class QgsLayerTreeLayer;
 
 /**
  * \ingroup core
@@ -116,8 +118,24 @@ class CORE_EXPORT QgsRasterRenderer : public QgsRasterInterface
     void setAlphaBand( int band ) { mAlphaBand = band; }
     int alphaBand() const { return mAlphaBand; }
 
-    //! Gets symbology items if provided by renderer
-    virtual void legendSymbologyItems( QList< QPair< QString, QColor > > &symbolItems SIP_OUT ) const { Q_UNUSED( symbolItems ) }
+    /**
+     * Returns symbology items if provided by renderer.
+     *
+     * \see createLegendNodes()
+     */
+    virtual QList< QPair< QString, QColor > > legendSymbologyItems() const;
+
+    /**
+     * Creates a set of legend nodes representing the renderer.
+     *
+     * The default implementation calls legendSymbologyItems() and creates corresponding legend nodes for each returned
+     * symbology item.
+     *
+     * Subclasses can override this to return more legend nodes which better represent the renderer.
+     *
+     * \since QGIS 3.18
+     */
+    virtual QList<QgsLayerTreeModelLegendNode *> createLegendNodes( QgsLayerTreeLayer *nodeLayer ) SIP_FACTORY;
 
     //! Sets base class members from xml. Usually called from create() methods of subclasses
     void readXml( const QDomElement &rendererElem ) override;
@@ -142,7 +160,7 @@ class CORE_EXPORT QgsRasterRenderer : public QgsRasterInterface
      * Used from subclasses to create SLD Rule elements following SLD v1.0 specs
      * \since QGIS 3.6
     */
-    virtual void toSld( QDomDocument &doc, QDomElement &element, const QgsStringMap &props = QgsStringMap() ) const;
+    virtual void toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props = QVariantMap() ) const;
 
     /**
      * Accepts the specified symbology \a visitor, causing it to visit all symbols associated
