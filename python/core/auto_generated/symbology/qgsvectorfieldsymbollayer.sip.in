@@ -70,8 +70,6 @@ Creates the symbol layer
 
     virtual bool usesMapUnits() const;
 
-    virtual bool usesMapUnits() const;
-
 
     virtual void toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const;
 

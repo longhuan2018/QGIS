@@ -153,6 +153,10 @@ add_executable(qgis_mapserver qgis_mapserver.cpp ${QGIS_SERVER_TESTRCCS})
 target_link_libraries(qgis_mapserv.fcgi qgis_server)
 target_link_libraries(qgis_mapserver qgis_server)
 
+target_include_directories(qgis_mapserv.fcgi SYSTEM PRIVATE
+  ${FCGI_INCLUDE_DIR}
+)
+
 # clang-tidy
 if(CLANG_TIDY_EXE)
   set_target_properties(

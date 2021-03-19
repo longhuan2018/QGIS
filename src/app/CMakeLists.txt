@@ -658,6 +658,7 @@ target_include_directories(qgis_app PUBLIC
 
   ${CMAKE_SOURCE_DIR}/src/app
   ${CMAKE_SOURCE_DIR}/src/app/decorations
+  ${CMAKE_SOURCE_DIR}/src/app/devtools
   ${CMAKE_SOURCE_DIR}/src/app/devtools/networklogger
   ${CMAKE_SOURCE_DIR}/src/app/labeling
   ${CMAKE_SOURCE_DIR}/src/app/layout
@@ -671,8 +672,10 @@ target_include_directories(qgis_app PUBLIC
   ${CMAKE_SOURCE_DIR}/src/plugins
   ${CMAKE_SOURCE_DIR}/src/python
   ${CMAKE_SOURCE_DIR}/src/native
+  ${CMAKE_SOURCE_DIR}/src/app/options
 
   ${CMAKE_BINARY_DIR}/src/app
+  options
 )
 
 if (WITH_3D)
@@ -795,6 +798,7 @@ if (POSTGRES_FOUND)
 endif()
 
 if (HAVE_PDAL)
+  target_compile_definitions(qgis_app PRIVATE "-DWIN32_LEAN_AND_MEAN")
   target_link_libraries(qgis_app
     ${PDAL_LIBRARIES}
   )

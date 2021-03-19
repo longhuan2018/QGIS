@@ -575,8 +575,6 @@ Used internally when reading/writing symbols.
 
     virtual bool usesMapUnits() const;
 
-    virtual bool usesMapUnits() const;
-
 
     virtual QgsSvgMarkerSymbolLayer *clone() const /Factory/;
 
@@ -946,8 +944,6 @@ Creates a new QgsFontMarkerSymbolLayer from an SLD XML ``element``.
 
 
     virtual void writeSldMarker( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const;
-
-    virtual bool usesMapUnits() const;
 
     virtual bool usesMapUnits() const;
 

@@ -529,6 +529,7 @@ extern "C"
 #else
 #include <windows.h>
 #include <dbghelp.h>
+#include <shellapi.h>
 #endif
 
 class QTreeWidgetItem;
@@ -4415,7 +4416,7 @@ void QgisApp::createCanvasTools()
   mMapTools.mRotateFeature = new QgsMapToolRotateFeature( mMapCanvas );
   if(mActionRotateFeature) mMapTools.mRotateFeature->setAction( mActionRotateFeature );
   mMapTools.mScaleFeature = new QgsMapToolScaleFeature( mMapCanvas );
-  if(mScaleFeature) mMapTools.mScaleFeature->setAction( mActionScaleFeature );
+  if(mActionScaleFeature) mMapTools.mScaleFeature->setAction( mActionScaleFeature );
   mMapTools.mOffsetCurve = new QgsMapToolOffsetCurve( mMapCanvas );
   if(mActionOffsetCurve) mMapTools.mOffsetCurve->setAction( mActionOffsetCurve );
   mMapTools.mReshapeFeatures = new QgsMapToolReshape( mMapCanvas );
@@ -4465,16 +4466,16 @@ void QgisApp::createCanvasTools()
   mMapTools.mTrimExtendFeature = new QgsMapToolTrimExtendFeature( mMapCanvas );
   if(mActionTrimExtendFeature) mMapTools.mTrimExtendFeature->setAction( mActionTrimExtendFeature );
 
-  mMapTools.mPinLabels = new QgsMapToolPinLabels( mMapCanvas );
+  mMapTools.mPinLabels = new QgsMapToolPinLabels( mMapCanvas, mAdvancedDigitizingDockWidget);
   if(mActionPinLabels) mMapTools.mPinLabels->setAction( mActionPinLabels );
-  mMapTools.mShowHideLabels = new QgsMapToolShowHideLabels( mMapCanvas );
+  mMapTools.mShowHideLabels = new QgsMapToolShowHideLabels( mMapCanvas, mAdvancedDigitizingDockWidget);
   if(mActionShowHideLabels) mMapTools.mShowHideLabels->setAction( mActionShowHideLabels );
-  mMapTools.mMoveLabel = new QgsMapToolMoveLabel( mMapCanvas );
+  mMapTools.mMoveLabel = new QgsMapToolMoveLabel( mMapCanvas, mAdvancedDigitizingDockWidget);
   if(mActionMoveLabel) mMapTools.mMoveLabel->setAction( mActionMoveLabel );
 
-  mMapTools.mRotateLabel = new QgsMapToolRotateLabel( mMapCanvas );
+  mMapTools.mRotateLabel = new QgsMapToolRotateLabel( mMapCanvas, mAdvancedDigitizingDockWidget);
   if(mActionRotateLabel) mMapTools.mRotateLabel->setAction( mActionRotateLabel );
-  mMapTools.mChangeLabelProperties = new QgsMapToolChangeLabelProperties( mMapCanvas );
+  mMapTools.mChangeLabelProperties = new QgsMapToolChangeLabelProperties( mMapCanvas, mAdvancedDigitizingDockWidget);
   if(mActionChangeLabelProperties) mMapTools.mChangeLabelProperties->setAction( mActionChangeLabelProperties );
 //ensure that non edit tool is initialized or we will get crashes in some situations
   mNonEditMapTool = mMapTools.mPan;
@@ -14693,7 +14694,6 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 
   if ( !layer )
   {
-    if(menuSelect) menuSelect->setEnabled( false );
     if(mActionSelectFeatures) mActionSelectFeatures->setEnabled( false );
     if(mActionSelectPolygon) mActionSelectPolygon->setEnabled( false );
     if(mActionSelectFreehand) mActionSelectFreehand->setEnabled( false );
@@ -14742,7 +14742,7 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
     if(mActionMoveFeature) mActionMoveFeature->setEnabled( false );
     if(mActionMoveFeatureCopy) mActionMoveFeatureCopy->setEnabled( false );
     if(mActionRotateFeature) mActionRotateFeature->setEnabled( false );
-    mActionScaleFeature->setEnabled( false );
+    if(mActionScaleFeature) mActionScaleFeature->setEnabled( false );
     if(mActionOffsetCurve) mActionOffsetCurve->setEnabled( false );
     if(mActionVertexTool) mActionVertexTool->setEnabled( false );
     if(mActionVertexToolActiveLayer) mActionVertexToolActiveLayer->setEnabled( false );
@@ -14802,8 +14802,6 @@ void QgisApp::activateDeactivateLayerRelatedActions( QgsMapLayer *layer )
 
     return;
   }
-
-  if(menuSelect) menuSelect->setEnabled( true );
 
   if(mActionLayerProperties) mActionLayerProperties->setEnabled( QgsProject::instance()->layerIsEmbedded( layer->id() ).isEmpty() );
   if(mActionAddToOverview) mActionAddToOverview->setEnabled( true );

@@ -1062,6 +1062,7 @@ set(QGIS_CORE_HDRS
   qgstransactiongroup.h
   qgstranslationcontext.h
   qgsunittypes.h
+  qgsuserprofile.h
   qgsuserprofilemanager.h
   qgsvector.h
   qgsvector3d.h
