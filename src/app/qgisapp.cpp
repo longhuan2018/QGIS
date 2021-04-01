@@ -973,23 +973,23 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
     startProfile(tr("Welcome page"));
     mWelcomePage = new QgsWelcomePage(skipVersionCheck);
     connect(mWelcomePage, &QgsWelcomePage::projectRemoved, this, [this](int row)
-      {
-        mRecentProjects.removeAt(row);
-        saveRecentProjects();
-        updateRecentProjectPaths();
-      });
+    {
+      mRecentProjects.removeAt(row);
+      saveRecentProjects();
+      updateRecentProjectPaths();
+    });
     connect(mWelcomePage, &QgsWelcomePage::projectPinned, this, [this](int row)
-      {
-        mRecentProjects.at(row).pin = true;
-        saveRecentProjects();
-        updateRecentProjectPaths();
-      });
+    {
+      mRecentProjects.at(row).pin = true;
+      saveRecentProjects();
+      updateRecentProjectPaths();
+    });
     connect(mWelcomePage, &QgsWelcomePage::projectUnpinned, this, [this](int row)
-      {
-        mRecentProjects.at(row).pin = false;
-        saveRecentProjects();
-        updateRecentProjectPaths();
-      });
+    {
+      mRecentProjects.at(row).pin = false;
+      saveRecentProjects();
+      updateRecentProjectPaths();
+    });
     endProfile();
   }
 
@@ -1004,15 +1004,18 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
 
   mCentralContainer->setCurrentIndex((mProjOpen || !mWelcomePage) ? 0 : 1);
 
-  startProfile(tr("User input dock"));
-  // User Input Dock Widget
-  mUserInputDockWidget = new QgsUserInputWidget(mMapCanvas);
-  mUserInputDockWidget->setObjectName(QStringLiteral("UserInputDockWidget"));
-  mUserInputDockWidget->setAnchorWidget(mMapCanvas);
-  mUserInputDockWidget->setAnchorWidgetPoint(QgsFloatingWidget::TopRight);
-  mUserInputDockWidget->setAnchorPoint(QgsFloatingWidget::TopRight);
+  if (settings.value(QStringLiteral("qgis/enableCreateUserInput"), true).toBool())
+  {
+    startProfile(tr("User input dock"));
+    // User Input Dock Widget
+    mUserInputDockWidget = new QgsUserInputWidget(mMapCanvas);
+    mUserInputDockWidget->setObjectName(QStringLiteral("UserInputDockWidget"));
+    mUserInputDockWidget->setAnchorWidget(mMapCanvas);
+    mUserInputDockWidget->setAnchorWidgetPoint(QgsFloatingWidget::TopRight);
+    mUserInputDockWidget->setAnchorPoint(QgsFloatingWidget::TopRight);
 
-  endProfile();
+    endProfile();
+  }
 
   //set the focus to the map canvas
   mMapCanvas->setFocus();
@@ -1023,18 +1026,21 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   endProfile();
 
   // create undo widget
-  startProfile(tr("Undo dock"));
-  mUndoDock = new QgsDockWidget(tr("Undo/Redo"), this);
-  QShortcut* showUndoDock = new QShortcut(QKeySequence(tr("Ctrl+5")), this);
-  connect(showUndoDock, &QShortcut::activated, mUndoDock, &QgsDockWidget::toggleUserVisible);
-  showUndoDock->setObjectName(QStringLiteral("ShowUndoPanel"));
-  showUndoDock->setWhatsThis(tr("Show Undo/Redo Panel"));
+  if (settings.value(QStringLiteral("qgis/enableCreateUndo"), true).toBool())
+  {
+    startProfile(tr("Undo dock"));
+    mUndoDock = new QgsDockWidget(tr("Undo/Redo"), this);
+    QShortcut* showUndoDock = new QShortcut(QKeySequence(tr("Ctrl+5")), this);
+    connect(showUndoDock, &QShortcut::activated, mUndoDock, &QgsDockWidget::toggleUserVisible);
+    showUndoDock->setObjectName(QStringLiteral("ShowUndoPanel"));
+    showUndoDock->setWhatsThis(tr("Show Undo/Redo Panel"));
 
-  mUndoWidget = new QgsUndoWidget(mUndoDock, mMapCanvas);
-  mUndoWidget->setObjectName(QStringLiteral("Undo"));
-  mUndoDock->setWidget(mUndoWidget);
-  mUndoDock->setObjectName(QStringLiteral("undo/redo dock"));
-  endProfile();
+    mUndoWidget = new QgsUndoWidget(mUndoDock, mMapCanvas);
+    mUndoWidget->setObjectName(QStringLiteral("Undo"));
+    mUndoDock->setWidget(mUndoWidget);
+    mUndoDock->setObjectName(QStringLiteral("undo/redo dock"));
+    endProfile();
+  }
 
   // Advanced Digitizing dock
   startProfile(tr("Advanced digitize panel"));
@@ -1050,31 +1056,37 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   endProfile();
 
   // Statistical Summary dock
-  startProfile(tr("Statistics dock"));
-  mStatisticalSummaryDockWidget = new QgsStatisticalSummaryDockWidget(this);
-  mStatisticalSummaryDockWidget->setObjectName(QStringLiteral("StatisticalSummaryDockWidget"));
+  if (settings.value(QStringLiteral("qgis/enableCreateStatistics"), true).toBool())
+  {
+    startProfile(tr("Statistics dock"));
+    mStatisticalSummaryDockWidget = new QgsStatisticalSummaryDockWidget(this);
+    mStatisticalSummaryDockWidget->setObjectName(QStringLiteral("StatisticalSummaryDockWidget"));
 
-  QShortcut* showStatsDock = new QShortcut(QKeySequence(tr("Ctrl+6")), this);
-  connect(showStatsDock, &QShortcut::activated, mStatisticalSummaryDockWidget, &QgsDockWidget::toggleUserVisible);
-  showStatsDock->setObjectName(QStringLiteral("ShowStatisticsPanel"));
-  showStatsDock->setWhatsThis(tr("Show Statistics Panel"));
+    QShortcut* showStatsDock = new QShortcut(QKeySequence(tr("Ctrl+6")), this);
+    connect(showStatsDock, &QShortcut::activated, mStatisticalSummaryDockWidget, &QgsDockWidget::toggleUserVisible);
+    showStatsDock->setObjectName(QStringLiteral("ShowStatisticsPanel"));
+    showStatsDock->setWhatsThis(tr("Show Statistics Panel"));
 
-  endProfile();
+    endProfile();
+  }
 
   // Bookmarks dock
-  startProfile(tr("Bookmarks widget"));
-  mBookMarksDockWidget = new QgsBookmarks(this);
-  mBookMarksDockWidget->setObjectName(QStringLiteral("BookmarksDockWidget"));
+  if (settings.value(QStringLiteral("qgis/enableCreateBookMarks"), true).toBool())
+  {
+    startProfile(tr("Bookmarks widget"));
+    mBookMarksDockWidget = new QgsBookmarks(this);
+    mBookMarksDockWidget->setObjectName(QStringLiteral("BookmarksDockWidget"));
 
-  QShortcut* showBookmarksDock = new QShortcut(QKeySequence(tr("Ctrl+7")), this);
-  connect(showBookmarksDock, &QShortcut::activated, mBookMarksDockWidget, &QgsDockWidget::toggleUserVisible);
-  showBookmarksDock->setObjectName(QStringLiteral("ShowBookmarksPanel"));
-  showBookmarksDock->setWhatsThis(tr("Show Bookmarks Panel"));
-  if (mActionShowBookmarkManager) mBookMarksDockWidget->setToggleVisibilityAction(mActionShowBookmarkManager);
+    QShortcut* showBookmarksDock = new QShortcut(QKeySequence(tr("Ctrl+7")), this);
+    connect(showBookmarksDock, &QShortcut::activated, mBookMarksDockWidget, &QgsDockWidget::toggleUserVisible);
+    showBookmarksDock->setObjectName(QStringLiteral("ShowBookmarksPanel"));
+    showBookmarksDock->setWhatsThis(tr("Show Bookmarks Panel"));
+    if (mActionShowBookmarkManager) mBookMarksDockWidget->setToggleVisibilityAction(mActionShowBookmarkManager);
 
-  if (mActionShowBookmarks) connect(mActionShowBookmarks, &QAction::triggered, this, [=] { showBookmarks(); });
+    if (mActionShowBookmarks) connect(mActionShowBookmarks, &QAction::triggered, this, [=] { showBookmarks(); });
 
-  endProfile();
+    endProfile();
+  }
 
   startProfile(tr("Snapping utilities"));
   mSnappingUtils = new QgsMapCanvasSnappingUtils(mMapCanvas, this);
@@ -1146,43 +1158,49 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   mPluginManager = new QgsPluginManager(this, restorePlugins);
   endProfile();
 
-  addDockWidget(Qt::LeftDockWidgetArea, mUndoDock);
-  mUndoDock->hide();
+  if(mUndoDock) addDockWidget(Qt::LeftDockWidgetArea, mUndoDock);
+  if(mUndoDock) mUndoDock->hide();
 
-  startProfile(tr("Layer style dock"));
-  mMapStylingDock = new QgsDockWidget(this);
-  mMapStylingDock->setWindowTitle(tr("Layer Styling"));
-  mMapStylingDock->setObjectName(QStringLiteral("LayerStyling"));
-  QShortcut* showStylingDock = new QShortcut(QKeySequence(tr("Ctrl+3")), this);
-  connect(showStylingDock, &QShortcut::activated, mMapStylingDock, &QgsDockWidget::toggleUserVisible);
-  showStylingDock->setObjectName(QStringLiteral("ShowLayerStylingPanel"));
-  showStylingDock->setWhatsThis(tr("Show Style Panel"));
+  if (settings.value(QStringLiteral("qgis/enableCreateMapStyling"), true).toBool())
+  {
+    startProfile(tr("Layer style dock"));
+    mMapStylingDock = new QgsDockWidget(this);
+    mMapStylingDock->setWindowTitle(tr("Layer Styling"));
+    mMapStylingDock->setObjectName(QStringLiteral("LayerStyling"));
+    QShortcut* showStylingDock = new QShortcut(QKeySequence(tr("Ctrl+3")), this);
+    connect(showStylingDock, &QShortcut::activated, mMapStylingDock, &QgsDockWidget::toggleUserVisible);
+    showStylingDock->setObjectName(QStringLiteral("ShowLayerStylingPanel"));
+    showStylingDock->setWhatsThis(tr("Show Style Panel"));
 
-  mMapStyleWidget = new QgsLayerStylingWidget(mMapCanvas, mInfoBar, mMapLayerPanelFactories);
-  mMapStylingDock->setWidget(mMapStyleWidget);
-  connect(mMapStyleWidget, &QgsLayerStylingWidget::styleChanged, this, &QgisApp::updateLabelToolButtons);
-  if (mActionStyleDock) connect(mMapStylingDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked);
+    mMapStyleWidget = new QgsLayerStylingWidget(mMapCanvas, mInfoBar, mMapLayerPanelFactories);
+    mMapStylingDock->setWidget(mMapStyleWidget);
+    connect(mMapStyleWidget, &QgsLayerStylingWidget::styleChanged, this, &QgisApp::updateLabelToolButtons);
+    if (mActionStyleDock) connect(mMapStylingDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked);
 
-  addDockWidget(Qt::RightDockWidgetArea, mMapStylingDock);
-  mMapStylingDock->hide();
-  endProfile();
+    addDockWidget(Qt::RightDockWidgetArea, mMapStylingDock);
+    mMapStylingDock->hide();
+    endProfile();
+  }
 
-  startProfile(tr("Developer tools dock"));
-  mDevToolsDock = new QgsDockWidget(this);
-  mDevToolsDock->setWindowTitle(tr("Debugging/Development Tools"));
-  mDevToolsDock->setObjectName(QStringLiteral("DevTools"));
-  QShortcut* showDevToolsDock = new QShortcut(QKeySequence(tr("F12")), this);
-  connect(showDevToolsDock, &QShortcut::activated, mDevToolsDock, &QgsDockWidget::toggleUserVisible);
-  showDevToolsDock->setObjectName(QStringLiteral("ShowDevToolsPanel"));
-  showDevToolsDock->setWhatsThis(tr("Show Debugging/Development Tools"));
+  if (settings.value(QStringLiteral("qgis/enableCreateDevTools"), true).toBool())
+  {
+    startProfile(tr("Developer tools dock"));
+    mDevToolsDock = new QgsDockWidget(this);
+    mDevToolsDock->setWindowTitle(tr("Debugging/Development Tools"));
+    mDevToolsDock->setObjectName(QStringLiteral("DevTools"));
+    QShortcut* showDevToolsDock = new QShortcut(QKeySequence(tr("F12")), this);
+    connect(showDevToolsDock, &QShortcut::activated, mDevToolsDock, &QgsDockWidget::toggleUserVisible);
+    showDevToolsDock->setObjectName(QStringLiteral("ShowDevToolsPanel"));
+    showDevToolsDock->setWhatsThis(tr("Show Debugging/Development Tools"));
 
-  mDevToolsWidget = new QgsDevToolsPanelWidget(mDevToolFactories);
-  mDevToolsDock->setWidget(mDevToolsWidget);
-  //  connect( mDevToolsDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked );
+    mDevToolsWidget = new QgsDevToolsPanelWidget(mDevToolFactories);
+    mDevToolsDock->setWidget(mDevToolsWidget);
+    //  connect( mDevToolsDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked );
 
-  addDockWidget(Qt::RightDockWidgetArea, mDevToolsDock);
-  mDevToolsDock->hide();
-  endProfile();
+    addDockWidget(Qt::RightDockWidgetArea, mDevToolsDock);
+    mDevToolsDock->hide();
+    endProfile();
+  }
 
   startProfile(tr("Snapping dialog"));
   mSnappingDialog = new QgsSnappingWidget(QgsProject::instance(), mMapCanvas, this);
@@ -1212,17 +1230,23 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   endProfile();
 
   mBrowserModel = new QgsBrowserGuiModel(this);
-  mBrowserWidget = new QgsBrowserDockWidget(tr("Browser"), mBrowserModel, this);
-  mBrowserWidget->setObjectName(QStringLiteral("Browser"));
-  mBrowserWidget->setMessageBar(mInfoBar);
+  if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget"), true).toBool())
+  {
+    mBrowserWidget = new QgsBrowserDockWidget(tr("Browser"), mBrowserModel, this);
+    mBrowserWidget->setObjectName(QStringLiteral("Browser"));
+    mBrowserWidget->setMessageBar(mInfoBar);
+  }
 
-  mTemporalControllerWidget = new QgsTemporalControllerDockWidget(tr("Temporal Controller"), this);
-  mTemporalControllerWidget->setObjectName(QStringLiteral("Temporal Controller"));
-  addDockWidget(Qt::TopDockWidgetArea, mTemporalControllerWidget);
-  mTemporalControllerWidget->hide();
-  if (mActionTemporalController) mTemporalControllerWidget->setToggleVisibilityAction(mActionTemporalController);
+  if (settings.value(QStringLiteral("qgis/enableCreateTemporalController"), true).toBool())
+  {
+    mTemporalControllerWidget = new QgsTemporalControllerDockWidget(tr("Temporal Controller"), this);
+    mTemporalControllerWidget->setObjectName(QStringLiteral("Temporal Controller"));
+    addDockWidget(Qt::TopDockWidgetArea, mTemporalControllerWidget);
+    mTemporalControllerWidget->hide();
+    if (mActionTemporalController) mTemporalControllerWidget->setToggleVisibilityAction(mActionTemporalController);
 
-  mMapCanvas->setTemporalController(mTemporalControllerWidget->temporalController());
+    mMapCanvas->setTemporalController(mTemporalControllerWidget->temporalController());
+  }
 
   QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsAppDirectoryItemGuiProvider());
   QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsProjectHomeItemGuiProvider());
@@ -1234,70 +1258,79 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsFieldItemGuiProvider());
   QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsDatabaseItemGuiProvider());
 
-  QShortcut* showBrowserDock = new QShortcut(QKeySequence(tr("Ctrl+2")), this);
-  connect(showBrowserDock, &QShortcut::activated, mBrowserWidget, &QgsDockWidget::toggleUserVisible);
-  showBrowserDock->setObjectName(QStringLiteral("ShowBrowserPanel"));
-  showBrowserDock->setWhatsThis(tr("Show Browser Panel"));
+  if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget"), true).toBool())
+  {
+    QShortcut* showBrowserDock = new QShortcut(QKeySequence(tr("Ctrl+2")), this);
+    connect(showBrowserDock, &QShortcut::activated, mBrowserWidget, &QgsDockWidget::toggleUserVisible);
+    showBrowserDock->setObjectName(QStringLiteral("ShowBrowserPanel"));
+    showBrowserDock->setWhatsThis(tr("Show Browser Panel"));
 
-  addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget);
-  mBrowserWidget->hide();
-  // Only connect the first widget: the model is shared, there is no need to refresh multiple times.
-  connect(this, &QgisApp::connectionsChanged, mBrowserWidget, [=]
+    addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget);
+    mBrowserWidget->hide();
+    // Only connect the first widget: the model is shared, there is no need to refresh multiple times.
+    connect(this, &QgisApp::connectionsChanged, mBrowserWidget, [=]
     {
       if (!mBlockBrowser1Refresh && !mBlockBrowser2Refresh)
         mBrowserWidget->refresh();
     });
-  connect(mBrowserWidget, &QgsBrowserDockWidget::connectionsChanged, this, [=]
+    connect(mBrowserWidget, &QgsBrowserDockWidget::connectionsChanged, this, [=]
     {
       mBlockBrowser1Refresh++;
       emit connectionsChanged();
       mBlockBrowser1Refresh--;
     });
-  connect(mBrowserWidget, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
-  connect(mBrowserWidget, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+    connect(mBrowserWidget, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
+    connect(mBrowserWidget, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+  }
 
-  mBrowserWidget2 = new QgsBrowserDockWidget(tr("Browser (2)"), mBrowserModel, this);
-  mBrowserWidget2->setObjectName(QStringLiteral("Browser2"));
-  addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget2);
-  mBrowserWidget2->hide();
-  connect(mBrowserWidget2, &QgsBrowserDockWidget::connectionsChanged, this, [=]
+  if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget2"), true).toBool())
+  {
+    mBrowserWidget2 = new QgsBrowserDockWidget(tr("Browser (2)"), mBrowserModel, this);
+    mBrowserWidget2->setObjectName(QStringLiteral("Browser2"));
+    addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget2);
+    mBrowserWidget2->hide();
+    connect(mBrowserWidget2, &QgsBrowserDockWidget::connectionsChanged, this, [=]
     {
       mBlockBrowser2Refresh++;
       emit connectionsChanged();
       mBlockBrowser2Refresh--;
     });
-  connect(mBrowserWidget2, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
-  connect(mBrowserWidget2, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+    connect(mBrowserWidget2, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
+    connect(mBrowserWidget2, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+  }
 
   addDockWidget(Qt::LeftDockWidgetArea, mAdvancedDigitizingDockWidget);
   mAdvancedDigitizingDockWidget->hide();
 
-  addDockWidget(Qt::LeftDockWidgetArea, mStatisticalSummaryDockWidget);
-  mStatisticalSummaryDockWidget->hide();
+  if(mStatisticalSummaryDockWidget) addDockWidget(Qt::LeftDockWidgetArea, mStatisticalSummaryDockWidget);
+  if(mStatisticalSummaryDockWidget) mStatisticalSummaryDockWidget->hide();
 
-  addDockWidget(Qt::LeftDockWidgetArea, mBookMarksDockWidget);
-  mBookMarksDockWidget->hide();
+  if(mBookMarksDockWidget) addDockWidget(Qt::LeftDockWidgetArea, mBookMarksDockWidget);
+  if(mBookMarksDockWidget) mBookMarksDockWidget->hide();
 
   // create the GPS tool on starting QGIS - this is like the browser
-  mpGpsWidget = new QgsGpsInformationWidget(mMapCanvas);
-  QgsPanelWidgetStack* gpsStack = new QgsPanelWidgetStack();
-  gpsStack->setMainPanel(mpGpsWidget);
-  mpGpsWidget->setDockMode(true);
-  //create the dock widget
-  mpGpsDock = new QgsDockWidget(tr("GPS Information"), this);
+  if (settings.value(QStringLiteral("qgis/enableCreateGpsWidget"), true).toBool())
+  {
+    mpGpsWidget = new QgsGpsInformationWidget(mMapCanvas);
+    QgsPanelWidgetStack* gpsStack = new QgsPanelWidgetStack();
+    gpsStack->setMainPanel(mpGpsWidget);
+    mpGpsWidget->setDockMode(true);
+    //create the dock widget
+    mpGpsDock = new QgsDockWidget(tr("GPS Information"), this);
 
-  QShortcut* showGpsDock = new QShortcut(QKeySequence(tr("Ctrl+0")), this);
-  connect(showGpsDock, &QShortcut::activated, mpGpsDock, &QgsDockWidget::toggleUserVisible);
-  showGpsDock->setObjectName(QStringLiteral("ShowGpsPanel"));
-  showGpsDock->setWhatsThis(tr("Show GPS Information Panel"));
+    QShortcut* showGpsDock = new QShortcut(QKeySequence(tr("Ctrl+0")), this);
+    connect(showGpsDock, &QShortcut::activated, mpGpsDock, &QgsDockWidget::toggleUserVisible);
+    showGpsDock->setObjectName(QStringLiteral("ShowGpsPanel"));
+    showGpsDock->setWhatsThis(tr("Show GPS Information Panel"));
 
-  mpGpsDock->setObjectName(QStringLiteral("GPSInformation"));
-  mpGpsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-  addDockWidget(Qt::LeftDockWidgetArea, mpGpsDock);
-  // add to the Panel submenu
-  // now add our widget to the dock - ownership of the widget is passed to the dock
-  mpGpsDock->setWidget(gpsStack);
-  mpGpsDock->hide();
+    mpGpsDock->setObjectName(QStringLiteral("GPSInformation"));
+    mpGpsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
+    addDockWidget(Qt::LeftDockWidgetArea, mpGpsDock);
+    // add to the Panel submenu
+    // now add our widget to the dock - ownership of the widget is passed to the dock
+    mpGpsDock->setWidget(gpsStack);
+    mpGpsDock->hide();
+  }
 
   mLastMapToolMessage = nullptr;
 
@@ -1404,8 +1437,8 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   QgsApplication::dataItemProviderRegistry()->addProvider(new QgsProjectDataItemProvider());
 
   // now when all data item providers are registered, customize both browsers
-  QgsCustomization::instance()->updateBrowserWidget(mBrowserWidget);
-  QgsCustomization::instance()->updateBrowserWidget(mBrowserWidget2);
+  if(mBrowserWidget) QgsCustomization::instance()->updateBrowserWidget(mBrowserWidget);
+  if(mBrowserWidget2) QgsCustomization::instance()->updateBrowserWidget(mBrowserWidget2);
 
   // Create the plugin registry and load plugins
   // load any plugins that were running in the last session
@@ -1607,7 +1640,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
     QgsApplication::applicationName(),
     QgsApplication::organizationName(),
     Qgis::version());
-  connect(QgsGui::instance()->nativePlatformInterface(), &QgsNative::usbStorageNotification, mBrowserModel, &QgsBrowserModel::refreshDrives);
+  if(mBrowserModel) connect(QgsGui::instance()->nativePlatformInterface(), &QgsNative::usbStorageNotification, mBrowserModel, &QgsBrowserModel::refreshDrives);
 
   // setup application progress reports from task manager
   connect(QgsApplication::taskManager(), &QgsTaskManager::taskAdded, this, []
@@ -2423,6 +2456,7 @@ void QgisApp::resolveVectorLayerWeakRelations( QgsVectorLayer *vectorLayer )
 
 void QgisApp::dataSourceManager( const QString &pageName )
 {
+  if (!mBrowserModel) return;
   if ( ! mDataSourceManagerDialog )
   {
     mDataSourceManagerDialog = new QgsDataSourceManagerDialog( mBrowserModel, this, mapCanvas() );
@@ -2644,8 +2678,8 @@ void QgisApp::createActions()
 
   // Edit Menu Items
 
-  if(mActionUndo) connect( mActionUndo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::undo );
-  if(mActionRedo) connect( mActionRedo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::redo );
+  if(mActionUndo && mUndoWidget) connect( mActionUndo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::undo );
+  if(mActionRedo && mUndoWidget) connect( mActionRedo, &QAction::triggered, mUndoWidget, &QgsUndoWidget::redo );
   if(mActionCutFeatures) connect( mActionCutFeatures, &QAction::triggered, this, [ = ] { cutSelectionToClipboard(); } );
   if(mActionCopyFeatures) connect( mActionCopyFeatures, &QAction::triggered, this, [ = ] { copySelectionToClipboard(); } );
   if(mActionPasteFeatures) connect( mActionPasteFeatures, &QAction::triggered, this, [ = ] { pasteFromClipboard(); } );
@@ -8552,7 +8586,7 @@ void QgisApp::labeling()
   }
 
   mapStyleDock( true );
-  mMapStyleWidget->setCurrentPage( QgsLayerStylingWidget::VectorLabeling );
+  if(mMapStyleWidget) mMapStyleWidget->setCurrentPage( QgsLayerStylingWidget::VectorLabeling );
 }
 
 void QgisApp::setMapStyleDockLayer( QgsMapLayer *layer )
@@ -8562,18 +8596,18 @@ void QgisApp::setMapStyleDockLayer( QgsMapLayer *layer )
     return;
   }
 
-  mMapStyleWidget->setEnabled( true );
+  if (mMapStyleWidget) mMapStyleWidget->setEnabled( true );
   // We don't set the layer if the dock isn't open mainly to save
   // the extra work if it's not needed
-  if ( mMapStylingDock->isVisible() )
+  if (mMapStylingDock && mMapStylingDock->isVisible() )
   {
-    mMapStyleWidget->setLayer( layer );
+    if (mMapStyleWidget) mMapStyleWidget->setLayer( layer );
   }
 }
 
 void QgisApp::mapStyleDock( bool enabled )
 {
-  mMapStylingDock->setUserVisible( enabled );
+  if(mMapStylingDock) mMapStylingDock->setUserVisible( enabled );
   setMapStyleDockLayer( activeLayer() );
 }
 
@@ -12730,7 +12764,7 @@ void QgisApp::registerDevToolFactory( QgsDevToolWidgetFactory *factory )
 
 void QgisApp::unregisterDevToolFactory( QgsDevToolWidgetFactory *factory )
 {
-  mDevToolsWidget->removeToolFactory( factory );
+  if(mDevToolsWidget) mDevToolsWidget->removeToolFactory( factory );
   mDevToolFactories.removeAll( factory );
 }
 
@@ -13182,7 +13216,7 @@ Qgs3DMapCanvasDockWidget *QgisApp::createNew3DMapCanvasDock( const QString &name
   map3DWidget->setWindowTitle( name );
   map3DWidget->mapCanvas3D()->setObjectName( name );
   map3DWidget->setMainCanvas( mMapCanvas );
-  map3DWidget->mapCanvas3D()->setTemporalController( mTemporalControllerWidget->temporalController() );
+  if(mTemporalControllerWidget) map3DWidget->mapCanvas3D()->setTemporalController( mTemporalControllerWidget->temporalController() );
   return map3DWidget;
 #else
   Q_UNUSED( name )
@@ -16013,13 +16047,13 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
         meshLayerPropertiesDialog.addPropertiesPageFactory( factory );
       }
 
-      mMapStyleWidget->blockUpdates( true );
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( true );
       if ( meshLayerPropertiesDialog.exec() )
       {
         activateDeactivateLayerRelatedActions( mapLayer );
-        mMapStyleWidget->updateCurrentWidgetLayer();
+        if (mMapStyleWidget) mMapStyleWidget->updateCurrentWidgetLayer();
       }
-      mMapStyleWidget->blockUpdates( false ); // delete since dialog cannot be reused without updating code
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( false ); // delete since dialog cannot be reused without updating code
       break;
     }
 
@@ -16052,13 +16086,13 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
       else
         vectorLayerPropertiesDialog->restoreLastPage();
 
-      mMapStyleWidget->blockUpdates( true );
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( true );
       if ( vectorLayerPropertiesDialog->exec() )
       {
         activateDeactivateLayerRelatedActions( mapLayer );
-        mMapStyleWidget->updateCurrentWidgetLayer();
+        if (mMapStyleWidget) mMapStyleWidget->updateCurrentWidgetLayer();
       }
-      mMapStyleWidget->blockUpdates( false );
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( false );
 
       delete vectorLayerPropertiesDialog; // delete since dialog cannot be reused without updating code
       break;
@@ -16070,13 +16104,13 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
       if ( !page.isEmpty() )
         vectorTileLayerPropertiesDialog.setCurrentPage( page );
 
-      mMapStyleWidget->blockUpdates( true );
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( true );
       if ( vectorTileLayerPropertiesDialog.exec() )
       {
         activateDeactivateLayerRelatedActions( mapLayer );
-        mMapStyleWidget->updateCurrentWidgetLayer();
+        if (mMapStyleWidget) mMapStyleWidget->updateCurrentWidgetLayer();
       }
-      mMapStyleWidget->blockUpdates( false ); // delete since dialog cannot be reused without updating code
+      if (mMapStyleWidget) mMapStyleWidget->blockUpdates( false ); // delete since dialog cannot be reused without updating code
       break;
     }
 
