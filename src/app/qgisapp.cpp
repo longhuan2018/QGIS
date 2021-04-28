@@ -549,22 +549,11 @@ static void setTitleBarText_( QWidget &qgisApp )
   {
     caption = QgsProject::instance()->title();
   }
-  if ( !caption.isEmpty() )
-  {
-    caption += QStringLiteral( " %1 " ).arg( QChar( 0x2014 ) );
-  }
+
   if ( QgsProject::instance()->isDirty() )
     caption.prepend( '*' );
 
-  caption += QgisApp::instance()->mCaption;
-
-  if ( QgisApp::instance()->userProfileManager()->allProfiles().count() > 1 )
-  {
-    // add current profile (if it's not the default one)
-    QgsUserProfile *profile = QgisApp::instance()->userProfileManager()->userProfile();
-    if ( profile->name() != QLatin1String( "default" ) )
-      caption += QStringLiteral( " [%1]" ).arg( profile->name() );
-  }
+  caption = QgisApp::instance()->mCaption + QLatin1String(" - ") + caption;
 
   qgisApp.setWindowTitle( caption );
 }
@@ -858,6 +847,7 @@ QgisApp::QgisApp( QSplashScreen *splash, bool restorePlugins, bool skipVersionCh
 
 bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersionCheck, const QString& rootProfileLocation, const QString& activeProfile)
 {
+  mCaption = caption;
   QgsRuntimeProfiler* profiler = QgsApplication::profiler();
 
   startProfile(tr("Create user profile manager"));
@@ -1553,7 +1543,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   QgsStyle::defaultStyle();
   endProfile();
 
-  if (mSplash) mSplash->showMessage(tr("QGIS Ready!"), Qt::AlignHCenter | Qt::AlignBottom);
+  if (mSplash) mSplash->showMessage(mCaption + tr("QGIS Ready!"), Qt::AlignHCenter | Qt::AlignBottom);
 
   QgsMessageLog::logMessage(QgsApplication::showSettings(), QString(), Qgis::Info);
 
