@@ -1042,8 +1042,8 @@ QUrl QgsWmsProvider::createRequestUrlWMS( const QgsRectangle &viewExtent, int pi
   {
     if ( mActiveSubLayerVisibility.constFind( *it ).value() )
     {
-      visibleLayers += *it;
-      visibleStyles += *it2;
+      visibleLayers += QUrl::toPercentEncoding( *it );
+      visibleStyles += QUrl::toPercentEncoding( *it2 );
     }
 
     ++it2;
@@ -2015,7 +2015,8 @@ int QgsWmsProvider::capabilities() const
   // See: https://github.com/qgis/QGIS/issues/34813
   if ( !( mSettings.mTiled && mSettings.mXyz && dataSourceUri().contains( QStringLiteral( "openstreetmap.org" ) ) ) )
   {
-    capability |= Capability::Prefetch;
+    // March 2021: *never* prefetch tile based layers, see: https://github.com/qgis/QGIS/pull/41953
+    // capability |= Capability::Prefetch;
   }
 
   QgsDebugMsgLevel( QStringLiteral( "capability = %1" ).arg( capability ), 2 );
@@ -3724,7 +3725,15 @@ QUrl QgsWmsProvider::getLegendGraphicFullURL( double scale, const QgsRectangle &
 {
   bool useContextualWMSLegend = mSettings.mEnableContextualLegend;
 
-  QString lurl = getLegendGraphicUrl();
+  QString lurl;
+  if ( mSettings.mIgnoreGetMapUrl )
+  {
+    lurl = mSettings.mBaseUrl;
+  }
+  else
+  {
+    lurl = getLegendGraphicUrl();
+  }
 
   if ( lurl.isEmpty() )
   {
