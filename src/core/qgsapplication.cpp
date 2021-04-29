@@ -20,6 +20,7 @@
 #include "qgsexception.h"
 #include "qgsgeometry.h"
 #include "qgsannotationitemregistry.h"
+#include "qgslayout.h"
 #include "qgslayoutitemregistry.h"
 #include "qgslogger.h"
 #include "qgsproject.h"
@@ -43,6 +44,7 @@
 #include "qgsrasterrendererregistry.h"
 #include "qgsrendererregistry.h"
 #include "qgspointcloudrendererregistry.h"
+#include "qgscoordinatereferencesystemregistry.h"
 #include "qgssymbollayerregistry.h"
 #include "qgssymbollayerutils.h"
 #include "qgscalloutsregistry.h"
@@ -51,6 +53,8 @@
 #include "qgsmessagelog.h"
 #include "qgsannotationregistry.h"
 #include "qgssettings.h"
+#include "qgssettingsregistrycore.h"
+#include "qgstiledownloadmanager.h"
 #include "qgsunittypes.h"
 #include "qgsuserprofile.h"
 #include "qgsuserprofilemanager.h"
@@ -79,7 +83,9 @@
 
 #include "layout/qgspagesizeregistry.h"
 
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
 #include <QDesktopWidget>
+#endif
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -93,6 +99,14 @@
 #include <QThreadPool>
 #include <QLocale>
 #include <QStyle>
+#include <QLibraryInfo>
+#include <QStandardPaths>
+#include <QRegularExpression>
+#include <QTextStream>
+#include <QScreen>
+#if QT_VERSION >= QT_VERSION_CHECK(5, 14, 0)
+#include <QRecursiveMutex>
+#endif
 
 #ifndef Q_OS_WIN
 #include <netinet/in.h>
@@ -114,10 +128,9 @@
 #include <ogr_api.h>
 #include <cpl_conv.h> // for setting gdal options
 #include <sqlite3.h>
+#include <mutex>
 
-#if PROJ_VERSION_MAJOR>=6
 #include <proj.h>
-#endif
 
 
 #define CONN_POOL_MAX_CONCURRENT_CONNS      4
@@ -221,39 +234,46 @@ void QgsApplication::init( QString profileFolder )
 
   *sProfilePath() = profileFolder;
 
-  qRegisterMetaType<QgsGeometry::Error>( "QgsGeometry::Error" );
-  qRegisterMetaType<QgsProcessingFeatureSourceDefinition>( "QgsProcessingFeatureSourceDefinition" );
-  qRegisterMetaType<QgsProcessingOutputLayerDefinition>( "QgsProcessingOutputLayerDefinition" );
-  qRegisterMetaType<QgsUnitTypes::LayoutUnit>( "QgsUnitTypes::LayoutUnit" );
-  qRegisterMetaType<QgsFeatureId>( "QgsFeatureId" );
-  qRegisterMetaType<QgsFeatureIds>( "QgsFeatureIds" );
-  qRegisterMetaType<QgsProperty>( "QgsProperty" );
-  qRegisterMetaType<QgsFeatureStoreList>( "QgsFeatureStoreList" );
-  qRegisterMetaType<Qgis::MessageLevel>( "Qgis::MessageLevel" );
-  qRegisterMetaType<QgsReferencedRectangle>( "QgsReferencedRectangle" );
-  qRegisterMetaType<QgsReferencedPointXY>( "QgsReferencedPointXY" );
-  qRegisterMetaType<QgsReferencedGeometry>( "QgsReferencedGeometry" );
-  qRegisterMetaType<QgsLayoutRenderContext::Flags>( "QgsLayoutRenderContext::Flags" );
-  qRegisterMetaType<QgsStyle::StyleEntity>( "QgsStyle::StyleEntity" );
-  qRegisterMetaType<QgsCoordinateReferenceSystem>( "QgsCoordinateReferenceSystem" );
-  qRegisterMetaType<QgsAuthManager::MessageLevel>( "QgsAuthManager::MessageLevel" );
-  qRegisterMetaType<QgsNetworkRequestParameters>( "QgsNetworkRequestParameters" );
-  qRegisterMetaType<QgsNetworkReplyContent>( "QgsNetworkReplyContent" );
-  qRegisterMetaType<QgsGeometry>( "QgsGeometry" );
-  qRegisterMetaType<QgsDatumTransform::GridDetails>( "QgsDatumTransform::GridDetails" );
-  qRegisterMetaType<QgsDatumTransform::TransformDetails>( "QgsDatumTransform::TransformDetails" );
-  qRegisterMetaType<QgsNewsFeedParser::Entry>( "QgsNewsFeedParser::Entry" );
-  qRegisterMetaType<QgsRectangle>( "QgsRectangle" );
-  qRegisterMetaType<QgsLocatorResult>( "QgsLocatorResult" );
-  qRegisterMetaType<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
-  qRegisterMetaTypeStreamOperators<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
-  qRegisterMetaType<QgsRemappingSinkDefinition>( "QgsRemappingSinkDefinition" );
-  qRegisterMetaType<QgsProcessingModelChildDependency>( "QgsProcessingModelChildDependency" );
-  qRegisterMetaType<QgsTextFormat>( "QgsTextFormat" );
-  QMetaType::registerComparators<QgsProcessingModelChildDependency>();
-  QMetaType::registerEqualsComparator<QgsProcessingFeatureSourceDefinition>();
-  QMetaType::registerEqualsComparator<QgsProperty>();
-  qRegisterMetaType<QPainter::CompositionMode>( "QPainter::CompositionMode" );
+  static std::once_flag sMetaTypesRegistered;
+  std::call_once( sMetaTypesRegistered, []
+  {
+    qRegisterMetaType<QgsGeometry::Error>( "QgsGeometry::Error" );
+    qRegisterMetaType<QgsProcessingFeatureSourceDefinition>( "QgsProcessingFeatureSourceDefinition" );
+    qRegisterMetaType<QgsProcessingOutputLayerDefinition>( "QgsProcessingOutputLayerDefinition" );
+    qRegisterMetaType<QgsUnitTypes::LayoutUnit>( "QgsUnitTypes::LayoutUnit" );
+    qRegisterMetaType<QgsFeatureId>( "QgsFeatureId" );
+    qRegisterMetaType<QgsFeatureIds>( "QgsFeatureIds" );
+    qRegisterMetaType<QgsProperty>( "QgsProperty" );
+    qRegisterMetaType<QgsFeatureStoreList>( "QgsFeatureStoreList" );
+    qRegisterMetaType<Qgis::MessageLevel>( "Qgis::MessageLevel" );
+    qRegisterMetaType<QgsReferencedRectangle>( "QgsReferencedRectangle" );
+    qRegisterMetaType<QgsReferencedPointXY>( "QgsReferencedPointXY" );
+    qRegisterMetaType<QgsReferencedGeometry>( "QgsReferencedGeometry" );
+    qRegisterMetaType<QgsLayoutRenderContext::Flags>( "QgsLayoutRenderContext::Flags" );
+    qRegisterMetaType<QgsStyle::StyleEntity>( "QgsStyle::StyleEntity" );
+    qRegisterMetaType<QgsCoordinateReferenceSystem>( "QgsCoordinateReferenceSystem" );
+    qRegisterMetaType<QgsAuthManager::MessageLevel>( "QgsAuthManager::MessageLevel" );
+    qRegisterMetaType<QgsNetworkRequestParameters>( "QgsNetworkRequestParameters" );
+    qRegisterMetaType<QgsNetworkReplyContent>( "QgsNetworkReplyContent" );
+    qRegisterMetaType<QgsGeometry>( "QgsGeometry" );
+    qRegisterMetaType<QgsDatumTransform::GridDetails>( "QgsDatumTransform::GridDetails" );
+    qRegisterMetaType<QgsDatumTransform::TransformDetails>( "QgsDatumTransform::TransformDetails" );
+    qRegisterMetaType<QgsNewsFeedParser::Entry>( "QgsNewsFeedParser::Entry" );
+    qRegisterMetaType<QgsRectangle>( "QgsRectangle" );
+    qRegisterMetaType<QgsLocatorResult>( "QgsLocatorResult" );
+    qRegisterMetaType<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
+    qRegisterMetaTypeStreamOperators<QgsProcessingModelChildParameterSource>( "QgsProcessingModelChildParameterSource" );
+    qRegisterMetaType<QgsRemappingSinkDefinition>( "QgsRemappingSinkDefinition" );
+    qRegisterMetaType<QgsProcessingModelChildDependency>( "QgsProcessingModelChildDependency" );
+    qRegisterMetaType<QgsTextFormat>( "QgsTextFormat" );
+    QMetaType::registerComparators<QgsProcessingModelChildDependency>();
+    QMetaType::registerEqualsComparator<QgsProcessingFeatureSourceDefinition>();
+    QMetaType::registerEqualsComparator<QgsProperty>();
+    QMetaType::registerEqualsComparator<QgsDateTimeRange>();
+    QMetaType::registerEqualsComparator<QgsDateRange>();
+    qRegisterMetaType<QPainter::CompositionMode>( "QPainter::CompositionMode" );
+    qRegisterMetaType<QgsDateTimeRange>( "QgsDateTimeRange" );
+  } );
 
   ( void ) resolvePkgPath();
 
@@ -339,7 +359,6 @@ void QgsApplication::init( QString profileFolder )
   }
   *sSystemEnvVars() = systemEnvVarMap;
 
-#if PROJ_VERSION_MAJOR>=6
   // append local user-writable folder as a proj search path
   QStringList currentProjSearchPaths = QgsProjUtils::searchPaths();
   currentProjSearchPaths.append( qgisSettingsDirPath() + QStringLiteral( "proj" ) );
@@ -363,7 +382,6 @@ void QgsApplication::init( QString profileFolder )
     CPLFree( newPaths[i] );
   }
   delete [] newPaths;
-#endif // PROJ_VERSION_MAJOR>=6
 
   // allow Qt to search for Qt plugins (e.g. sqldrivers) in our plugin directory
   QCoreApplication::addLibraryPath( pluginPath() );
@@ -879,7 +897,7 @@ void QgsApplication::setUITheme( const QString &themeName )
   {
     // apply OS-specific UI scale factor to stylesheet's em values
     int index = 0;
-    QRegularExpression regex( QStringLiteral( "(?<=[\\s:])([0-9\\.]+)(?=em)" ) );
+    const static QRegularExpression regex( QStringLiteral( "(?<=[\\s:])([0-9\\.]+)(?=em)" ) );
     QRegularExpressionMatch match = regex.match( styledata, index );
     while ( match.hasMatch() )
     {
@@ -1024,19 +1042,11 @@ QString QgsApplication::srsDatabaseFilePath()
 {
   if ( ABISYM( mRunningFromBuildDir ) )
   {
-#if PROJ_VERSION_MAJOR>=6
     QString tempCopy = QDir::tempPath() + "/srs6.db";
-#else
-    QString tempCopy = QDir::tempPath() + "/srs.db";
-#endif
 
     if ( !QFile( tempCopy ).exists() )
     {
-#if PROJ_VERSION_MAJOR>=6
       QFile f( buildSourcePath() + "/resources/srs6.db" );
-#else
-      QFile f( buildSourcePath() + "/resources/srs.db" );
-#endif
       if ( !f.copy( tempCopy ) )
       {
         qFatal( "Could not create temporary copy" );
@@ -1082,7 +1092,7 @@ QStringList QgsApplication::svgPaths()
       if ( !paths.contains( path ) )
         paths.append( path );
     }
-    for ( const QString &path : qgis::as_const( *sDefaultSvgPaths() ) )
+    for ( const QString &path : std::as_const( *sDefaultSvgPaths() ) )
     {
       if ( !paths.contains( path ) )
         paths.append( path );
@@ -1097,10 +1107,7 @@ QStringList QgsApplication::layoutTemplatePaths()
 {
   //local directories to search when looking for an template with a given basename
   //defined by user in options dialog
-  QgsSettings settings;
-  QStringList pathList = settings.value( QStringLiteral( "Layout/searchPathsForTemplates" ), QVariant(), QgsSettings::Core ).toStringList();
-
-  return pathList;
+  return QgsLayout::settingsSearchPathForTemplates.value();
 }
 
 QMap<QString, QString> QgsApplication::systemEnvVars()
@@ -1115,7 +1122,8 @@ QString QgsApplication::userStylePath()
 
 QRegExp QgsApplication::shortNameRegExp()
 {
-  return QRegExp( "^[A-Za-z][A-Za-z0-9\\._-]*" );
+  const thread_local QRegExp regexp( QStringLiteral( "^[A-Za-z][A-Za-z0-9\\._-]*" ) );
+  return regexp;
 }
 
 QString QgsApplication::userLoginName()
@@ -1402,7 +1410,7 @@ QString QgsApplication::reportStyleSheet( QgsApplication::StyleSheetType styleSh
                             "body{"
                             "  background: white;"
                             "  color: black;"
-                            "  font-family: 'Lato', 'Ubuntu', 'Lucida Grande', 'Segoe UI', 'Arial', sans-serif;"
+                            "  font-family: 'Lato', 'Open Sans', 'Lucida Grande', 'Segoe UI', 'Arial', sans-serif;"
                             "  width: 100%;"
                             "}"
                             "h1{  background-color: #F6F6F6;"
@@ -1852,8 +1860,16 @@ int QgsApplication::scaleIconSize( int standardSize, bool applyDevicePixelRatio 
   QFontMetrics fm( ( QFont() ) );
   const double scale = 1.1 * standardSize / 24;
   int scaledIconSize = static_cast< int >( std::floor( std::max( Qgis::UI_SCALE_FACTOR * fm.height() * scale, static_cast< double >( standardSize ) ) ) );
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
   if ( applyDevicePixelRatio && QApplication::desktop() )
     scaledIconSize *= QApplication::desktop()->devicePixelRatio();
+#else
+  if ( applyDevicePixelRatio )
+  {
+    if ( QWidget *activeWindow = QApplication::activeWindow() )
+      scaledIconSize *= ( activeWindow->screen() ? QApplication::activeWindow()->screen()->devicePixelRatio() : 1 );
+  }
+#endif
   return scaledIconSize;
 }
 
@@ -2159,6 +2175,11 @@ QgsTaskManager *QgsApplication::taskManager()
   return members()->mTaskManager;
 }
 
+QgsSettingsRegistryCore *QgsApplication::settingsRegistryCore()
+{
+  return members()->mSettingsRegistryCore;
+}
+
 QgsColorSchemeRegistry *QgsApplication::colorSchemeRegistry()
 {
   return members()->mColorSchemeRegistry;
@@ -2202,6 +2223,11 @@ QgsDataItemProviderRegistry *QgsApplication::dataItemProviderRegistry()
       sDataItemProviderRegistry = new QgsDataItemProviderRegistry();
     return sDataItemProviderRegistry;
   }
+}
+
+QgsCoordinateReferenceSystemRegistry *QgsApplication::coordinateReferenceSystemRegistry()
+{
+  return members()->mCrsRegistry;
 }
 
 QgsSvgCache *QgsApplication::svgCache()
@@ -2267,6 +2293,11 @@ QgsClassificationMethodRegistry *QgsApplication::classificationMethodRegistry()
 QgsBookmarkManager *QgsApplication::bookmarkManager()
 {
   return members()->mBookmarkManager;
+}
+
+QgsTileDownloadManager *QgsApplication::tileDownloadManager()
+{
+  return members()->mTileDownloadManager;
 }
 
 QgsStyleModel *QgsApplication::defaultStyleModel()
@@ -2338,10 +2369,16 @@ QgsApplication::ApplicationMembers::ApplicationMembers()
 {
   // don't use initializer lists or scoped pointers - as more objects are added here we
   // will need to be careful with the order of creation/destruction
+  mSettingsRegistryCore = new QgsSettingsRegistryCore();
   mLocalizedDataPathRegistry = new QgsLocalizedDataPathRegistry();
   mMessageLog = new QgsMessageLog();
   QgsRuntimeProfiler *profiler = QgsRuntimeProfiler::threadLocalInstance();
 
+  {
+    profiler->start( tr( "Setup coordinate reference system registry" ) );
+    mCrsRegistry = new QgsCoordinateReferenceSystemRegistry();
+    profiler->end();
+  }
   {
     profiler->start( tr( "Create connection registry" ) );
     mConnectionRegistry = new QgsConnectionRegistry();
@@ -2486,6 +2523,11 @@ QgsApplication::ApplicationMembers::ApplicationMembers()
     profiler->end();
   }
   {
+    profiler->start( tr( "Setup tile download manager" ) );
+    mTileDownloadManager = new QgsTileDownloadManager();
+    profiler->end();
+  }
+  {
     profiler->start( tr( "Setup scalebar registry" ) );
     mScaleBarRendererRegistry = new QgsScaleBarRendererRegistry();
     profiler->end();
@@ -2495,6 +2537,7 @@ QgsApplication::ApplicationMembers::ApplicationMembers()
 QgsApplication::ApplicationMembers::~ApplicationMembers()
 {
   delete mStyleModel;
+  delete mTileDownloadManager;
   delete mScaleBarRendererRegistry;
   delete mValidityCheckRegistry;
   delete mActionScopeRegistry;
@@ -2527,6 +2570,8 @@ QgsApplication::ApplicationMembers::~ApplicationMembers()
   delete mBookmarkManager;
   delete mConnectionRegistry;
   delete mLocalizedDataPathRegistry;
+  delete mCrsRegistry;
+  delete mSettingsRegistryCore;
 }
 
 QgsApplication::ApplicationMembers *QgsApplication::members()
@@ -2537,7 +2582,11 @@ QgsApplication::ApplicationMembers *QgsApplication::members()
   }
   else
   {
+#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
     static QMutex sMemberMutex( QMutex::Recursive );
+#else
+    static QRecursiveMutex sMemberMutex;
+#endif
     QMutexLocker lock( &sMemberMutex );
     if ( !sApplicationMembers )
       sApplicationMembers = new ApplicationMembers();

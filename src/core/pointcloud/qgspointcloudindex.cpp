@@ -25,6 +25,8 @@
 #include <QTime>
 #include <QtDebug>
 
+#include "qgstiledownloadmanager.h"
+
 IndexedPointCloudNode::IndexedPointCloudNode():
   mD( -1 ),
   mX( 0 ),
@@ -39,9 +41,9 @@ IndexedPointCloudNode::IndexedPointCloudNode( int _d, int _x, int _y, int _z ):
   mZ( _z )
 {}
 
-bool IndexedPointCloudNode::operator==( const IndexedPointCloudNode &other ) const
+IndexedPointCloudNode IndexedPointCloudNode::parentNode() const
 {
-  return mD == other.d() && mX == other.x() && mY == other.y() && mZ == other.z();
+  return IndexedPointCloudNode( mD - 1, mX / 2, mY / 2, mZ / 2 );
 }
 
 IndexedPointCloudNode IndexedPointCloudNode::fromString( const QString &str )
@@ -54,7 +56,7 @@ IndexedPointCloudNode IndexedPointCloudNode::fromString( const QString &str )
 
 QString IndexedPointCloudNode::toString() const
 {
-  return QString( "%1-%2-%3-%4" ).arg( mD ).arg( mX ).arg( mY ).arg( mZ );
+  return QStringLiteral( "%1-%2-%3-%4" ).arg( mD ).arg( mX ).arg( mY ).arg( mZ );
 }
 
 int IndexedPointCloudNode::d() const
@@ -77,7 +79,7 @@ int IndexedPointCloudNode::z() const
   return mZ;
 }
 
-uint qHash( const IndexedPointCloudNode &id )
+uint qHash( IndexedPointCloudNode id )
 {
   return id.d() + id.x() + id.y() + id.z();
 }
@@ -145,7 +147,6 @@ QgsDoubleRange QgsPointCloudDataBounds::zRange( const QgsVector3D &offset, const
 }
 
 ///@endcond
-
 
 //
 // QgsPointCloudIndex
@@ -232,4 +233,11 @@ void QgsPointCloudIndex::setAttributes( const QgsPointCloudAttributeCollection &
 int QgsPointCloudIndex::span() const
 {
   return mSpan;
+}
+
+int QgsPointCloudIndex::nodePointCount( const IndexedPointCloudNode &n )
+{
+  if ( !mHierarchy.contains( n ) )
+    return -1;
+  return mHierarchy[n];
 }

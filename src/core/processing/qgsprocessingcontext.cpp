@@ -18,6 +18,7 @@
 #include "qgsprocessingcontext.h"
 #include "qgsprocessingutils.h"
 #include "qgsproviderregistry.h"
+#include "qgsmaplayerlistutils.h"
 #include "qgssettings.h"
 
 QgsProcessingContext::QgsProcessingContext()
@@ -126,6 +127,16 @@ QgsMapLayer *QgsProcessingContext::getMapLayer( const QString &identifier )
 QgsMapLayer *QgsProcessingContext::takeResultLayer( const QString &id )
 {
   return tempLayerStore.takeMapLayer( tempLayerStore.mapLayer( id ) );
+}
+
+QgsProcessingContext::LogLevel QgsProcessingContext::logLevel() const
+{
+  return mLogLevel;
+}
+
+void QgsProcessingContext::setLogLevel( LogLevel level )
+{
+  mLogLevel = level;
 }
 
 QgsDateTimeRange QgsProcessingContext::currentTimeRange() const

@@ -25,6 +25,7 @@
 #include "qgsconfig.h"
 #include "qgstranslationcontext.h"
 
+class QgsSettingsRegistryCore;
 class Qgs3DRendererRegistry;
 class QgsActionScopeRegistry;
 class QgsAnnotationItemRegistry;
@@ -64,22 +65,23 @@ class QgsConnectionRegistry;
 class QgsScaleBarRendererRegistry;
 class Qgs3DSymbolRegistry;
 class QgsPointCloudRendererRegistry;
+class QgsTileDownloadManager;
+class QgsCoordinateReferenceSystemRegistry;
 
 /**
  * \ingroup core
- * Extends QApplication to provide access to QGIS specific resources such
+ * \brief Extends QApplication to provide access to QGIS specific resources such
  * as theme paths, database paths etc.
  *
  * This is a subclass of QApplication and should be instantiated in place of
-  QApplication. Most methods are static in keeping with the design of QApplication.
-
-  This class hides platform-specific path information and provides
-  a portable way of referencing specific files and directories.
-  Ideally, hard-coded paths should appear only here and not in other modules
-  so that platform-conditional code is minimized and paths are easier
-  to change due to centralization.
+ * QApplication. Most methods are static in keeping with the design of QApplication.
+ *
+ * This class hides platform-specific path information and provides
+ * a portable way of referencing specific files and directories.
+ * Ideally, hard-coded paths should appear only here and not in other modules
+ * so that platform-conditional code is minimized and paths are easier
+ * to change due to centralization.
  */
-
 class CORE_EXPORT QgsApplication : public QApplication
 {
 
@@ -282,7 +284,7 @@ class CORE_EXPORT QgsApplication : public QApplication
     static QString translatorsFilePath();
 
     /**
-      Returns the path to the licence file.
+     * Returns the path to the licence file.
      */
     static QString licenceFilePath();
 
@@ -616,6 +618,12 @@ class CORE_EXPORT QgsApplication : public QApplication
     static QgsTaskManager *taskManager();
 
     /**
+     * Returns the application's settings registry, used for managing application settings.
+     * \since QGIS 3.20
+     */
+    static QgsSettingsRegistryCore *settingsRegistryCore() SIP_KEEPREFERENCE;
+
+    /**
      * Returns the application's color scheme registry, used for managing color schemes.
      * \since QGIS 3.0
      */
@@ -652,6 +660,14 @@ class CORE_EXPORT QgsApplication : public QApplication
      * \since QGIS 3.0
      */
     static QgsDataItemProviderRegistry *dataItemProviderRegistry() SIP_KEEPREFERENCE;
+
+    /**
+     * Returns the application's coordinate reference system (CRS) registry, which handles
+     * known CRS definitions (including user-defined CRSes).
+     *
+     * \since QGIS 3.18
+     */
+    static QgsCoordinateReferenceSystemRegistry *coordinateReferenceSystemRegistry() SIP_KEEPREFERENCE;
 
     /**
      * Returns the application's SVG cache, used for caching SVG images and handling parameter replacement
@@ -736,6 +752,13 @@ class CORE_EXPORT QgsApplication : public QApplication
      * \since QGIS 3.10
      */
     static QgsBookmarkManager *bookmarkManager();
+
+    /**
+     * Returns the application's tile download manager, used for download of map tiles when rendering.
+     * \note not available in Python bindings
+     * \since QGIS 3.18
+     */
+    static QgsTileDownloadManager *tileDownloadManager() SIP_SKIP;
 
     /**
      * Returns a shared QgsStyleModel containing the default style library (see QgsStyle::defaultStyle()).
@@ -977,6 +1000,8 @@ class CORE_EXPORT QgsApplication : public QApplication
 
     struct ApplicationMembers
     {
+      QgsSettingsRegistryCore *mSettingsRegistryCore = nullptr;
+      QgsCoordinateReferenceSystemRegistry *mCrsRegistry = nullptr;
       Qgs3DRendererRegistry *m3DRendererRegistry = nullptr;
       Qgs3DSymbolRegistry *m3DSymbolRegistry = nullptr;
       QgsActionScopeRegistry *mActionScopeRegistry = nullptr;
@@ -1010,6 +1035,7 @@ class CORE_EXPORT QgsApplication : public QApplication
       QgsAnnotationItemRegistry *mAnnotationItemRegistry = nullptr;
       QgsUserProfileManager *mUserConfigManager = nullptr;
       QgsBookmarkManager *mBookmarkManager = nullptr;
+      QgsTileDownloadManager *mTileDownloadManager = nullptr;
       QgsStyleModel *mStyleModel = nullptr;
       QString mNullRepresentation;
       QStringList mSvgPathCache;

@@ -102,7 +102,7 @@ struct QgsGeometryPrivate;
 
 /**
  * \ingroup core
- * A geometry is the spatial representation of a feature.
+ * \brief A geometry is the spatial representation of a feature.
  *
  * QgsGeometry acts as a generic container for geometry objects. QgsGeometry objects are implicitly shared,
  * so making copies of geometries is inexpensive. The geometry container class can also be stored inside
@@ -388,6 +388,21 @@ class CORE_EXPORT QgsGeometry
      * \since QGIS 3.0
      */
     bool isSimple() const;
+
+    /**
+     * Returns TRUE if the geometry is a polygon that is almost an axis-parallel rectangle.
+     *
+     * The \a maximumDeviation argument specifes the maximum angle (in degrees) that the polygon edges
+     * are allowed to deviate from axis parallel lines.
+     *
+     * By default the check will permit polygons with more than 4 edges, so long as the overall shape of
+     * the polygon is an axis-parallel rectangle (i.e. it is tolerant to rectangles with additional vertices
+     * added along the rectangle sides). If \a simpleRectanglesOnly is set to TRUE then the method will
+     * only return TRUE if the geometry is a simple rectangle consisting of 4 edges.
+     *
+     * \since QGIS 3.20
+     */
+    bool isAxisParallelRectangle( double maximumDeviation, bool simpleRectanglesOnly = false ) const;
 
     /**
      * Returns the planar, 2-dimensional area of the geometry.
@@ -733,7 +748,7 @@ class CORE_EXPORT QgsGeometry
     /**
      * Returns coordinates of a vertex.
      * \param atVertex index of the vertex
-     * \returns Coordinates of the vertex or empty QgsPoint() on error
+     * \returns Coordinates of the vertex or empty QgsPoint on error
      */
     QgsPoint vertexAt( int atVertex ) const;
 
@@ -902,6 +917,7 @@ class CORE_EXPORT QgsGeometry
      * \returns OperationResult a result code: success or reason of failure
      *
      * Example:
+     *
      * \code{.py}
      *  geometry = QgsGeometry.fromWkt('CompoundCurveZ ((2749546.2003820720128715 1262904.45356595050543547 100, 2749557.82053794478997588 1262920.05570670193992555 200))')
      *  split_line = [QgsPoint(2749544.19, 1262914.79), QgsPoint(2749557.64, 1262897.30)]
@@ -2015,7 +2031,7 @@ class CORE_EXPORT QgsGeometry
      * \returns 0 in case of success,
      *          1 if geometry is not of polygon type,
      *          2 if avoid intersection would change the geometry type,
-     *          3 other error during intersection removal
+     *          3 at least one geometry intersected is invalid. The algorithm may not work and return the same geometry as the input. You must fix your intersecting geometries.
      * \since QGIS 1.5
      */
     int avoidIntersections( const QList<QgsVectorLayer *> &avoidIntersectionsLayers,
@@ -2035,7 +2051,9 @@ class CORE_EXPORT QgsGeometry
      *
      * \returns new valid QgsGeometry or null geometry on error
      *
-     * \note Ported from PostGIS ST_MakeValid() and it should return equivalent results.
+     * \note For QGIS builds using GEOS library versions older than 3.8 this method calls
+     * an internal fork of PostGIS' ST_MakeValid() function. For builds based on GEOS 3.8 or
+     * later this method calls the GEOS MakeValid method directly.
      *
      * \since QGIS 3.0
      */
@@ -2052,6 +2070,7 @@ class CORE_EXPORT QgsGeometry
 
     /**
      * \ingroup core
+     * \brief A geometry error.
      */
     class CORE_EXPORT Error
     {
@@ -2122,6 +2141,17 @@ class CORE_EXPORT QgsGeometry
      * \since QGIS 1.5
      */
     void validateGeometry( QVector<QgsGeometry::Error> &errors SIP_OUT, ValidationMethod method = ValidatorQgisInternal, QgsGeometry::ValidityFlags flags = QgsGeometry::ValidityFlags() ) const;
+
+    /**
+     * Reorganizes the geometry into a normalized form (or "canonical" form).
+     *
+     * Polygon rings will be rearranged so that their starting vertex is the lower left and ring orientation follows the
+     * right hand rule, collections are ordered by geometry type, and other normalization techniques are applied. The
+     * resultant geometry will be geometrically equivalent to the original geometry.
+     *
+     * \since QGIS 3.20
+     */
+    void normalize();
 
     /**
      * Compute the unary union on a list of \a geometries. May be faster than an iterative union on a set of geometries.
@@ -2487,7 +2517,6 @@ class CORE_EXPORT QgsGeometry
      */
     void reset( std::unique_ptr< QgsAbstractGeometry > newGeometry );
 
-    static void convertToPolyline( const QgsPointSequence &input, QgsPolylineXY &output );
     static void convertPolygon( const QgsPolygon &input, QgsPolygonXY &output );
 
     //! Try to convert the geometry to a point

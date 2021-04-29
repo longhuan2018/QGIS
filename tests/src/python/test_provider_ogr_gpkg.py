@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """QGIS Unit tests for the OGR/GPKG provider.
 
+From build dir, run:
+ctest -R PyQgsOGRProviderGpkg -V
+
 .. note:: This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
@@ -93,6 +96,10 @@ class TestPyQgsOGRProviderGpkgConformance(unittest.TestCase, ProviderTestCase):
     @classmethod
     def tearDownClass(cls):
         """Run after all tests"""
+        del(cls.vl)
+        del(cls.vl_poly)
+        del(cls.check_constraint)
+        del(cls.unique_not_null_constraints)
         for dirname in cls.dirs_to_cleanup:
             shutil.rmtree(dirname, True)
 
@@ -328,6 +335,7 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         ds = None
 
         vl = QgsVectorLayer('{}'.format(tmpfile), 'test', 'ogr')
+        self.assertEqual(1, vl.dataProvider().subLayerCount())
         self.assertEqual(vl.dataProvider().subLayers(),
                          [QgsDataProvider.SUBLAYER_SEPARATOR.join(['0', 'test', '0', 'CurvePolygon', 'geom', ''])])
         f = QgsFeature()
@@ -404,7 +412,6 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
     def testBug15351_commit_closeIter_closeProvider(self):
         self.internalTestBug15351('commit_closeIter_closeProvider')
 
-    @unittest.skipIf(int(gdal.VersionInfo('VERSION_NUM')) < GDAL_COMPUTE_VERSION(2, 1, 2), 'GDAL 2.1.2 required')
     def testGeopackageExtentUpdate(self):
         ''' test https://github.com/qgis/QGIS/issues/23209 '''
         tmpfile = os.path.join(self.basetestpath, 'testGeopackageExtentUpdate.gpkg')
@@ -683,6 +690,7 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         # Check that layers_style table is not list in subLayers()
         vl = QgsVectorLayer(tmpfile, 'test', 'ogr')
         sublayers = vl.dataProvider().subLayers()
+        self.assertEqual(2, vl.dataProvider().subLayerCount())
         self.assertEqual(len(sublayers), 2, sublayers)
 
     def testDisablewalForSqlite3(self):
@@ -960,6 +968,7 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         f = None
 
         vl = QgsVectorLayer(u'{}'.format(tmpfile), u'layer', u'ogr')
+        self.assertEqual(1, vl.dataProvider().subLayerCount())
         self.assertEqual(vl.dataProvider().subLayers(),
                          [QgsDataProvider.SUBLAYER_SEPARATOR.join(['0', 'layer1:', '1', 'Point', 'geom:', ''])])
 
@@ -1032,6 +1041,7 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         ds = None
 
         vl2 = QgsVectorLayer(u'{}'.format(tmpfile), 'test', u'ogr')
+        self.assertEqual(2, vl2.dataProvider().subLayerCount())
         vl2.subLayers()
         self.assertEqual(vl2.dataProvider().subLayers(),
                          [QgsDataProvider.SUBLAYER_SEPARATOR.join(['0', 'test', '0', 'Point', 'geom', '']),
@@ -1484,9 +1494,6 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         del vl2_external
 
     def testJson(self):
-        if int(gdal.VersionInfo('VERSION_NUM')) < GDAL_COMPUTE_VERSION(2, 4, 0):
-            return
-
         tmpfile = os.path.join(self.basetestpath, 'test_json.gpkg')
         testdata_path = unitTestDataPath('provider')
         shutil.copy(os.path.join(unitTestDataPath('provider'), 'test_json.gpkg'), tmpfile)
@@ -1783,7 +1790,6 @@ class TestPyQgsOGRProviderGpkg(unittest.TestCase):
         self.assertFalse(vl1_1.isEditable())
         self.assertFalse(vl1_2.isEditable())
 
-    @unittest.skipIf(int(gdal.VersionInfo('VERSION_NUM')) < GDAL_COMPUTE_VERSION(2, 3, 0), "GDAL 2.3 required")
     def testTransactionGroupIterator(self):
         """Test issue GH #39178: the bug is that this test hangs
         forever in an endless loop"""
