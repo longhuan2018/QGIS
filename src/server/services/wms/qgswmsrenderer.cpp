@@ -391,7 +391,7 @@ namespace QgsWms
             {
               filterString.append( " AND " );
             }
-            filterString.append( QString( "\"%1\" = %2" ).arg( pkAttributeNames.at( j ) ).arg( atlasPk.at( currentAtlasPk ) ) );
+            filterString.append( QString( "\"%1\" = %2" ).arg( pkAttributeNames.at( j ), atlasPk.at( currentAtlasPk ) ) );
             ++currentAtlasPk;
           }
 
@@ -423,6 +423,14 @@ namespace QgsWms
 
     // configure layout
     configurePrintLayout( layout.get(), mapSettings, atlas );
+
+#ifdef HAVE_SERVER_PYTHON_PLUGINS
+    QgsFeatureFilterProviderGroup filters;
+    mContext.accessControl()->resolveFilterFeatures( mapSettings.layers() );
+    filters.addProvider( mContext.accessControl() );
+    QgsLayoutRenderContext &layoutRendererContext = layout->renderContext();
+    layoutRendererContext.setFeatureFilterProvider( &filters );
+#endif
 
     // Get the temporary output file
     const QgsWmsParameters::Format format = mWmsParameters.format();
@@ -476,7 +484,7 @@ namespace QgsWms
       {
         bool ok;
         double _dpi = mWmsParameters.dpi().toDouble( &ok );
-        if ( ! ok )
+        if ( ok )
           dpi = _dpi;
       }
       exportSettings.dpi = dpi;
@@ -497,6 +505,10 @@ namespace QgsWms
         {
           QgsLayoutExporter atlasPngExport( atlas->layout() );
           atlasPngExport.exportToImage( tempOutputFile.fileName(), exportSettings );
+        }
+        else
+        {
+          throw QgsServiceException( QStringLiteral( "Bad request" ), QStringLiteral( "Atlas error: empty atlas." ), QString(), 400 );
         }
       }
       else
@@ -553,6 +565,7 @@ namespace QgsWms
 
   bool QgsRenderer::configurePrintLayout( QgsPrintLayout *c, const QgsMapSettings &mapSettings, bool atlasPrint )
   {
+
     c->renderContext().setSelectionColor( mapSettings.selectionColor() );
     // Maps are configured first
     QList<QgsLayoutItemMap *> maps;
@@ -862,9 +875,54 @@ namespace QgsWms
       dxfLayers.append( QgsDxfExport::DxfLayer( vlayer, layerAttribute ) );
     }
 
+    //map extent
+    QgsRectangle mapExtent = mWmsParameters.bboxAsRectangle();
+
+    QString crs = mWmsParameters.crs();
+    if ( crs.compare( QStringLiteral( "CRS:84" ), Qt::CaseInsensitive ) == 0 )
+    {
+      crs = QStringLiteral( "EPSG:4326" );
+      mapExtent.invert();
+    }
+    else if ( crs.isEmpty() )
+    {
+      crs = QStringLiteral( "EPSG:4326" );
+    }
+
+    QgsCoordinateReferenceSystem outputCRS = QgsCoordinateReferenceSystem::fromOgcWmsCrs( crs );
+
+    if ( !outputCRS.isValid() )
+    {
+      QgsServiceException::ExceptionCode code;
+      QgsWmsParameter parameter;
+
+      if ( mWmsParameters.versionAsNumber() >= QgsProjectVersion( 1, 3, 0 ) )
+      {
+        code = QgsServiceException::OGC_InvalidCRS;
+        parameter = mWmsParameters[ QgsWmsParameter::CRS ];
+      }
+      else
+      {
+        code = QgsServiceException::OGC_InvalidSRS;
+        parameter = mWmsParameters[ QgsWmsParameter::SRS ];
+      }
+
+      throw QgsBadRequestException( code, parameter );
+    }
+
+    //then set destinationCrs
+
+    // Change x- and y- of BBOX for WMS 1.3.0 if axis inverted
+    if ( mWmsParameters.versionAsNumber() >= QgsProjectVersion( 1, 3, 0 ) && outputCRS.hasAxisInverted() )
+    {
+      mapExtent.invert();
+    }
+
+
     // add layers to dxf
     std::unique_ptr<QgsDxfExport> dxf = qgis::make_unique<QgsDxfExport>();
-    dxf->setExtent( mWmsParameters.bboxAsRectangle() );
+    dxf->setExtent( mapExtent );
+    dxf->setDestinationCrs( outputCRS );
     dxf->addLayers( dxfLayers );
     dxf->setLayerTitleAsName( mWmsParameters.dxfUseLayerTitleAsName() );
     dxf->setSymbologyExport( mWmsParameters.dxfMode() );
@@ -1035,7 +1093,9 @@ namespace QgsWms
     }
 
     mapSettings.setOutputSize( QSize( paintDevice->width(), paintDevice->height() ) );
-    mapSettings.setOutputDpi( paintDevice->logicalDpiX() );
+    // Recalculate from input DPI: do not take the (integer) value from paint device
+    // because it loose precision!
+    mapSettings.setOutputDpi( mContext.dotsPerMm() * 25.4 );
 
     //map extent
     QgsRectangle mapExtent = mWmsParameters.bboxAsRectangle();
@@ -1128,7 +1188,7 @@ namespace QgsWms
   QDomDocument QgsRenderer::featureInfoDocument( QList<QgsMapLayer *> &layers, const QgsMapSettings &mapSettings,
       const QImage *outputImage, const QString &version ) const
   {
-    const QStringList queryLayers = mContext.flattenedQueryLayers( );
+    const QStringList queryLayers = mContext.flattenedQueryLayers( mContext.parameters().queryLayersNickname() );
 
     bool ijDefined = ( !mWmsParameters.i().isEmpty() && !mWmsParameters.j().isEmpty() );
 
@@ -2372,7 +2432,7 @@ namespace QgsWms
     if ( layer && layer->dataProvider() )
       fid = QgsServerFeatureId::getServerFid( *feat, layer->dataProvider()->pkAttributeIndexes() );
     else
-      fid = feat->id();
+      fid = FID_TO_STRING( feat->id() );
 
     typeNameElement.setAttribute( QStringLiteral( "fid" ), QStringLiteral( "%1.%2" ).arg( typeName, fid ) );
 
@@ -3130,7 +3190,7 @@ namespace QgsWms
       if ( !( *mapIt )->renderingErrors().isEmpty() )
       {
         const QgsMapRendererJob::Error e = ( *mapIt )->renderingErrors().at( 0 );
-        throw QgsException( QStringLiteral( "Rendering error : '%1' in layer %2" ).arg( e.message ).arg( e.layerID ) );
+        throw QgsException( QStringLiteral( "Rendering error : '%1' in layer %2" ).arg( e.message, e.layerID ) );
       }
     }
   }
@@ -3150,6 +3210,10 @@ namespace QgsWms
 
       if ( mContext.isExternalLayer( param.mNickname ) )
       {
+        if ( mContext.testFlag( QgsWmsRenderContext::UseOpacity ) )
+        {
+          setLayerOpacity( layer, param.mOpacity );
+        }
         continue;
       }
 

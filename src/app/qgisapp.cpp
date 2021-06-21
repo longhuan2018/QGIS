@@ -848,23 +848,23 @@ QgisApp::QgisApp( QSplashScreen *splash, bool restorePlugins, bool skipVersionCh
 bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersionCheck, const QString& rootProfileLocation, const QString& activeProfile)
 {
   mCaption = caption;
-  QgsRuntimeProfiler* profiler = QgsApplication::profiler();
+  QgsRuntimeProfiler *profiler = QgsApplication::profiler();
 
-  startProfile(tr("Create user profile manager"));
-  mUserProfileManager = new QgsUserProfileManager(QString(), this);
-  mUserProfileManager->setRootLocation(rootProfileLocation);
-  mUserProfileManager->setActiveUserProfile(activeProfile);
-  mUserProfileManager->setNewProfileNotificationEnabled(true);
-  connect(mUserProfileManager, &QgsUserProfileManager::profilesChanged, this, &QgisApp::refreshProfileMenu);
+  startProfile( tr( "Create user profile manager" ) );
+  mUserProfileManager = new QgsUserProfileManager( QString(), this );
+  mUserProfileManager->setRootLocation( rootProfileLocation );
+  mUserProfileManager->setActiveUserProfile( activeProfile );
+  mUserProfileManager->setNewProfileNotificationEnabled( true );
+  connect( mUserProfileManager, &QgsUserProfileManager::profilesChanged, this, &QgisApp::refreshProfileMenu );
   endProfile();
 
   // start the network logger early, we want all requests logged!
-  startProfile(tr("Create network logger"));
-  mNetworkLogger = new QgsNetworkLogger(QgsNetworkAccessManager::instance(), this);
+  startProfile( tr( "Create network logger" ) );
+  mNetworkLogger = new QgsNetworkLogger( QgsNetworkAccessManager::instance(), this );
   endProfile();
 
   // load GUI: actions, menus, toolbars
-  startProfile(tr("Setting up UI"));
+  startProfile( tr( "Setting up UI" ) );
 
   // because mActionToggleMapOnly can hide the menu (thereby disabling menu actions),
   //  we attach the following actions to the MainWindow too (to be able to come back)
@@ -873,23 +873,23 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   if (mActionToggleMapOnly) this->addAction(mActionToggleMapOnly);
   endProfile();
 
-  setDockOptions(dockOptions() | QMainWindow::GroupedDragging);
+  setDockOptions( dockOptions() | QMainWindow::GroupedDragging );
 
   //////////
 
-  startProfile(tr("Checking user database"));
+  startProfile( tr( "Checking user database" ) );
   if (mSplash) mSplash->showMessage(tr("Checking database"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
   // Do this early on before anyone else opens it and prevents us copying it
   QString dbError;
-  if (!QgsApplication::createDatabase(&dbError))
+  if ( !QgsApplication::createDatabase( &dbError ) )
   {
-    QMessageBox::critical(this, tr("Private qgis.db"), dbError);
+    QMessageBox::critical( this, tr( "Private qgis.db" ), dbError );
   }
   endProfile();
 
   // Create the themes folder for the user
-  startProfile(tr("Creating theme folder"));
+  startProfile( tr( "Creating theme folder" ) );
   QgsApplication::createThemeFolder();
   endProfile();
 
@@ -900,7 +900,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   qApp->processEvents();
 
   QgsApplication::initQgis();
-  if (!QgsApplication::authManager()->isDisabled())
+  if ( !QgsApplication::authManager()->isDisabled() )
   {
     // Most of the auth initialization is now done inside initQgis, no need to profile here
     masterPasswordSetup();
@@ -909,243 +909,243 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   QgsSettings settings;
 
 
-  startProfile(tr("Building style sheet"));
+  startProfile( tr( "Building style sheet" ) );
   // set up stylesheet builder and apply saved or default style options
-  mStyleSheetBuilder = new QgisAppStyleSheet(this);
-  connect(mStyleSheetBuilder, &QgisAppStyleSheet::appStyleSheetChanged,
-    this, &QgisApp::setAppStyleSheet);
+  mStyleSheetBuilder = new QgisAppStyleSheet( this );
+  connect( mStyleSheetBuilder, &QgisAppStyleSheet::appStyleSheetChanged,
+           this, &QgisApp::setAppStyleSheet );
   endProfile();
 
-  QWidget* centralWidget = this->centralWidget();
-  QGridLayout* centralLayout = new QGridLayout(centralWidget);
-  centralWidget->setLayout(centralLayout);
-  centralLayout->setContentsMargins(0, 0, 0, 0);
+  QWidget *centralWidget = this->centralWidget();
+  QGridLayout *centralLayout = new QGridLayout( centralWidget );
+  centralWidget->setLayout( centralLayout );
+  centralLayout->setContentsMargins( 0, 0, 0, 0 );
 
   // "theMapCanvas" used to find this canonical instance later
-  startProfile(tr("Creating map canvas"));
-  mMapCanvas = new QgsMapCanvas(centralWidget);
-  mMapCanvas->setObjectName(QStringLiteral("theMapCanvas"));
+  startProfile( tr( "Creating map canvas" ) );
+  mMapCanvas = new QgsMapCanvas( centralWidget );
+  mMapCanvas->setObjectName( QStringLiteral( "theMapCanvas" ) );
 
   // before anything, let's freeze canvas redraws
   QgsCanvasRefreshBlocker refreshBlocker;
 
-  connect(mMapCanvas, &QgsMapCanvas::messageEmitted, this, &QgisApp::displayMessage);
+  connect( mMapCanvas, &QgsMapCanvas::messageEmitted, this, &QgisApp::displayMessage );
 
-  if (settings.value(QStringLiteral("qgis/main_canvas_preview_jobs")).isNull())
+  if ( settings.value( QStringLiteral( "qgis/main_canvas_preview_jobs" ) ).isNull() )
   {
     // So that it appears in advanced settings
-    settings.setValue(QStringLiteral("qgis/main_canvas_preview_jobs"), true);
+    settings.setValue( QStringLiteral( "qgis/main_canvas_preview_jobs" ), true );
   }
-  mMapCanvas->setPreviewJobsEnabled(settings.value(QStringLiteral("qgis/main_canvas_preview_jobs"), true).toBool());
+  mMapCanvas->setPreviewJobsEnabled( settings.value( QStringLiteral( "qgis/main_canvas_preview_jobs" ), true ).toBool() );
 
   // set canvas color right away
-  int myRed = settings.value(QStringLiteral("qgis/default_canvas_color_red"), 255).toInt();
-  int myGreen = settings.value(QStringLiteral("qgis/default_canvas_color_green"), 255).toInt();
-  int myBlue = settings.value(QStringLiteral("qgis/default_canvas_color_blue"), 255).toInt();
-  mMapCanvas->setCanvasColor(QColor(myRed, myGreen, myBlue));
+  int myRed = settings.value( QStringLiteral( "qgis/default_canvas_color_red" ), 255 ).toInt();
+  int myGreen = settings.value( QStringLiteral( "qgis/default_canvas_color_green" ), 255 ).toInt();
+  int myBlue = settings.value( QStringLiteral( "qgis/default_canvas_color_blue" ), 255 ).toInt();
+  mMapCanvas->setCanvasColor( QColor( myRed, myGreen, myBlue ) );
 
   // set project linked to main canvas
-  mMapCanvas->setProject(QgsProject::instance());
+  mMapCanvas->setProject( QgsProject::instance() );
   endProfile();
 
   // what type of project to auto-open
-  mProjOpen = settings.value(QStringLiteral("qgis/projOpenAtLaunch"), 0).toInt();
+  mProjOpen = settings.value( QStringLiteral( "qgis/projOpenAtLaunch" ), 0 ).toInt();
 
   // a bar to warn the user with non-blocking messages
-  startProfile(tr("Message bar"));
-  mInfoBar = new QgsMessageBar(centralWidget);
-  mInfoBar->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Fixed);
-  centralLayout->addWidget(mInfoBar, 0, 0, 1, 1);
+  startProfile( tr( "Message bar" ) );
+  mInfoBar = new QgsMessageBar( centralWidget );
+  mInfoBar->setSizePolicy( QSizePolicy::Minimum, QSizePolicy::Fixed );
+  centralLayout->addWidget( mInfoBar, 0, 0, 1, 1 );
   endProfile();
 
   if (settings.value(QStringLiteral("qgis/enableWelcomePage"), true).toBool())
   {
-    startProfile(tr("Welcome page"));
-    mWelcomePage = new QgsWelcomePage(skipVersionCheck);
-    connect(mWelcomePage, &QgsWelcomePage::projectRemoved, this, [this](int row)
-    {
-      mRecentProjects.removeAt(row);
-      saveRecentProjects();
-      updateRecentProjectPaths();
-    });
-    connect(mWelcomePage, &QgsWelcomePage::projectPinned, this, [this](int row)
-    {
-      mRecentProjects.at(row).pin = true;
-      saveRecentProjects();
-      updateRecentProjectPaths();
-    });
-    connect(mWelcomePage, &QgsWelcomePage::projectUnpinned, this, [this](int row)
-    {
-      mRecentProjects.at(row).pin = false;
-      saveRecentProjects();
-      updateRecentProjectPaths();
-    });
-    endProfile();
+  startProfile( tr( "Welcome page" ) );
+  mWelcomePage = new QgsWelcomePage( skipVersionCheck );
+  connect( mWelcomePage, &QgsWelcomePage::projectRemoved, this, [ this ]( int row )
+  {
+    mRecentProjects.removeAt( row );
+    saveRecentProjects();
+    updateRecentProjectPaths();
+  } );
+  connect( mWelcomePage, &QgsWelcomePage::projectPinned, this, [ this ]( int row )
+  {
+    mRecentProjects.at( row ).pin = true;
+    saveRecentProjects();
+    updateRecentProjectPaths();
+  } );
+  connect( mWelcomePage, &QgsWelcomePage::projectUnpinned, this, [ this ]( int row )
+  {
+    mRecentProjects.at( row ).pin = false;
+    saveRecentProjects();
+    updateRecentProjectPaths();
+  } );
+  endProfile();
   }
 
   mCentralContainer = new QStackedWidget;
-  mCentralContainer->insertWidget(0, mMapCanvas);
+  mCentralContainer->insertWidget( 0, mMapCanvas );
   if (mWelcomePage) mCentralContainer->insertWidget(1, mWelcomePage);
 
-  centralLayout->addWidget(mCentralContainer, 0, 0, 2, 1);
+  centralLayout->addWidget( mCentralContainer, 0, 0, 2, 1 );
   mInfoBar->raise();
 
-  connect(mMapCanvas, &QgsMapCanvas::layersChanged, this, &QgisApp::showMapCanvas);
+  connect( mMapCanvas, &QgsMapCanvas::layersChanged, this, &QgisApp::showMapCanvas );
 
   mCentralContainer->setCurrentIndex((mProjOpen || !mWelcomePage) ? 0 : 1);
 
   if (settings.value(QStringLiteral("qgis/enableCreateUserInput"), true).toBool())
   {
-    startProfile(tr("User input dock"));
-    // User Input Dock Widget
-    mUserInputDockWidget = new QgsUserInputWidget(mMapCanvas);
-    mUserInputDockWidget->setObjectName(QStringLiteral("UserInputDockWidget"));
-    mUserInputDockWidget->setAnchorWidget(mMapCanvas);
-    mUserInputDockWidget->setAnchorWidgetPoint(QgsFloatingWidget::TopRight);
-    mUserInputDockWidget->setAnchorPoint(QgsFloatingWidget::TopRight);
+  startProfile( tr( "User input dock" ) );
+  // User Input Dock Widget
+  mUserInputDockWidget = new QgsUserInputWidget( mMapCanvas );
+  mUserInputDockWidget->setObjectName( QStringLiteral( "UserInputDockWidget" ) );
+  mUserInputDockWidget->setAnchorWidget( mMapCanvas );
+  mUserInputDockWidget->setAnchorWidgetPoint( QgsFloatingWidget::TopRight );
+  mUserInputDockWidget->setAnchorPoint( QgsFloatingWidget::TopRight );
 
-    endProfile();
+  endProfile();
   }
 
   //set the focus to the map canvas
   mMapCanvas->setFocus();
 
-  startProfile(tr("Layer tree"));
-  mLayerTreeView = new QgsLayerTreeView(this);
-  mLayerTreeView->setObjectName(QStringLiteral("theLayerTreeView")); // "theLayerTreeView" used to find this canonical instance later
+  startProfile( tr( "Layer tree" ) );
+  mLayerTreeView = new QgsLayerTreeView( this );
+  mLayerTreeView->setObjectName( QStringLiteral( "theLayerTreeView" ) ); // "theLayerTreeView" used to find this canonical instance later
   endProfile();
 
   // create undo widget
   if (settings.value(QStringLiteral("qgis/enableCreateUndo"), true).toBool())
   {
-    startProfile(tr("Undo dock"));
-    mUndoDock = new QgsDockWidget(tr("Undo/Redo"), this);
-    QShortcut* showUndoDock = new QShortcut(QKeySequence(tr("Ctrl+5")), this);
-    connect(showUndoDock, &QShortcut::activated, mUndoDock, &QgsDockWidget::toggleUserVisible);
-    showUndoDock->setObjectName(QStringLiteral("ShowUndoPanel"));
-    showUndoDock->setWhatsThis(tr("Show Undo/Redo Panel"));
+  startProfile( tr( "Undo dock" ) );
+  mUndoDock = new QgsDockWidget( tr( "Undo/Redo" ), this );
+  QShortcut *showUndoDock = new QShortcut( QKeySequence( tr( "Ctrl+5" ) ), this );
+  connect( showUndoDock, &QShortcut::activated, mUndoDock, &QgsDockWidget::toggleUserVisible );
+  showUndoDock->setObjectName( QStringLiteral( "ShowUndoPanel" ) );
+  showUndoDock->setWhatsThis( tr( "Show Undo/Redo Panel" ) );
 
-    mUndoWidget = new QgsUndoWidget(mUndoDock, mMapCanvas);
-    mUndoWidget->setObjectName(QStringLiteral("Undo"));
-    mUndoDock->setWidget(mUndoWidget);
-    mUndoDock->setObjectName(QStringLiteral("undo/redo dock"));
-    endProfile();
+  mUndoWidget = new QgsUndoWidget( mUndoDock, mMapCanvas );
+  mUndoWidget->setObjectName( QStringLiteral( "Undo" ) );
+  mUndoDock->setWidget( mUndoWidget );
+  mUndoDock->setObjectName( QStringLiteral( "undo/redo dock" ) );
+  endProfile();
   }
 
   // Advanced Digitizing dock
-  startProfile(tr("Advanced digitize panel"));
-  mAdvancedDigitizingDockWidget = new QgsAdvancedDigitizingDockWidget(mMapCanvas, this);
-  mAdvancedDigitizingDockWidget->setWindowTitle(tr("Advanced Digitizing"));
-  mAdvancedDigitizingDockWidget->setObjectName(QStringLiteral("AdvancedDigitizingTools"));
+  startProfile( tr( "Advanced digitize panel" ) );
+  mAdvancedDigitizingDockWidget = new QgsAdvancedDigitizingDockWidget( mMapCanvas, this );
+  mAdvancedDigitizingDockWidget->setWindowTitle( tr( "Advanced Digitizing" ) );
+  mAdvancedDigitizingDockWidget->setObjectName( QStringLiteral( "AdvancedDigitizingTools" ) );
 
-  QShortcut* showAdvancedDigitizingDock = new QShortcut(QKeySequence(tr("Ctrl+4")), this);
-  connect(showAdvancedDigitizingDock, &QShortcut::activated, mAdvancedDigitizingDockWidget, &QgsDockWidget::toggleUserVisible);
-  showAdvancedDigitizingDock->setObjectName(QStringLiteral("ShowAdvancedDigitizingPanel"));
-  showAdvancedDigitizingDock->setWhatsThis(tr("Show Advanced Digitizing Panel"));
+  QShortcut *showAdvancedDigitizingDock = new QShortcut( QKeySequence( tr( "Ctrl+4" ) ), this );
+  connect( showAdvancedDigitizingDock, &QShortcut::activated, mAdvancedDigitizingDockWidget, &QgsDockWidget::toggleUserVisible );
+  showAdvancedDigitizingDock->setObjectName( QStringLiteral( "ShowAdvancedDigitizingPanel" ) );
+  showAdvancedDigitizingDock->setWhatsThis( tr( "Show Advanced Digitizing Panel" ) );
 
   endProfile();
 
   // Statistical Summary dock
   if (settings.value(QStringLiteral("qgis/enableCreateStatistics"), true).toBool())
   {
-    startProfile(tr("Statistics dock"));
-    mStatisticalSummaryDockWidget = new QgsStatisticalSummaryDockWidget(this);
-    mStatisticalSummaryDockWidget->setObjectName(QStringLiteral("StatisticalSummaryDockWidget"));
+  startProfile( tr( "Statistics dock" ) );
+  mStatisticalSummaryDockWidget = new QgsStatisticalSummaryDockWidget( this );
+  mStatisticalSummaryDockWidget->setObjectName( QStringLiteral( "StatisticalSummaryDockWidget" ) );
 
-    QShortcut* showStatsDock = new QShortcut(QKeySequence(tr("Ctrl+6")), this);
-    connect(showStatsDock, &QShortcut::activated, mStatisticalSummaryDockWidget, &QgsDockWidget::toggleUserVisible);
-    showStatsDock->setObjectName(QStringLiteral("ShowStatisticsPanel"));
-    showStatsDock->setWhatsThis(tr("Show Statistics Panel"));
+  QShortcut *showStatsDock = new QShortcut( QKeySequence( tr( "Ctrl+6" ) ), this );
+  connect( showStatsDock, &QShortcut::activated, mStatisticalSummaryDockWidget, &QgsDockWidget::toggleUserVisible );
+  showStatsDock->setObjectName( QStringLiteral( "ShowStatisticsPanel" ) );
+  showStatsDock->setWhatsThis( tr( "Show Statistics Panel" ) );
 
-    endProfile();
+  endProfile();
   }
 
   // Bookmarks dock
   if (settings.value(QStringLiteral("qgis/enableCreateBookMarks"), true).toBool())
   {
-    startProfile(tr("Bookmarks widget"));
-    mBookMarksDockWidget = new QgsBookmarks(this);
-    mBookMarksDockWidget->setObjectName(QStringLiteral("BookmarksDockWidget"));
+  startProfile( tr( "Bookmarks widget" ) );
+  mBookMarksDockWidget = new QgsBookmarks( this );
+  mBookMarksDockWidget->setObjectName( QStringLiteral( "BookmarksDockWidget" ) );
 
-    QShortcut* showBookmarksDock = new QShortcut(QKeySequence(tr("Ctrl+7")), this);
-    connect(showBookmarksDock, &QShortcut::activated, mBookMarksDockWidget, &QgsDockWidget::toggleUserVisible);
-    showBookmarksDock->setObjectName(QStringLiteral("ShowBookmarksPanel"));
-    showBookmarksDock->setWhatsThis(tr("Show Bookmarks Panel"));
+  QShortcut *showBookmarksDock = new QShortcut( QKeySequence( tr( "Ctrl+7" ) ), this );
+  connect( showBookmarksDock, &QShortcut::activated, mBookMarksDockWidget, &QgsDockWidget::toggleUserVisible );
+  showBookmarksDock->setObjectName( QStringLiteral( "ShowBookmarksPanel" ) );
+  showBookmarksDock->setWhatsThis( tr( "Show Bookmarks Panel" ) );
     if (mActionShowBookmarkManager) mBookMarksDockWidget->setToggleVisibilityAction(mActionShowBookmarkManager);
 
     if (mActionShowBookmarks) connect(mActionShowBookmarks, &QAction::triggered, this, [=] { showBookmarks(); });
 
-    endProfile();
+  endProfile();
   }
 
-  startProfile(tr("Snapping utilities"));
-  mSnappingUtils = new QgsMapCanvasSnappingUtils(mMapCanvas, this);
-  mMapCanvas->setSnappingUtils(mSnappingUtils);
-  connect(QgsProject::instance(), &QgsProject::snappingConfigChanged, mSnappingUtils, &QgsSnappingUtils::setConfig);
-  connect(QgsProject::instance(), &QgsProject::collectAttachedFiles, this, &QgisApp::generateProjectAttachedFiles);
+  startProfile( tr( "Snapping utilities" ) );
+  mSnappingUtils = new QgsMapCanvasSnappingUtils( mMapCanvas, this );
+  mMapCanvas->setSnappingUtils( mSnappingUtils );
+  connect( QgsProject::instance(), &QgsProject::snappingConfigChanged, mSnappingUtils, &QgsSnappingUtils::setConfig );
+  connect( QgsProject::instance(), &QgsProject::collectAttachedFiles, this, &QgisApp::generateProjectAttachedFiles );
 
   endProfile();
 
   if (settings.value(QStringLiteral("qgis/enableCreateMenus"), true).toBool())
-    functionProfile(&QgisApp::createMenus, this, QStringLiteral("Create menus"));
-  functionProfile(&QgisApp::createActions, this, QStringLiteral("Create actions"));
-  functionProfile(&QgisApp::createActionGroups, this, QStringLiteral("Create action group"));
+  functionProfile( &QgisApp::createMenus, this, QStringLiteral( "Create menus" ) );
+  functionProfile( &QgisApp::createActions, this, QStringLiteral( "Create actions" ) );
+  functionProfile( &QgisApp::createActionGroups, this, QStringLiteral( "Create action group" ) );
   if (settings.value(QStringLiteral("qgis/enableCreateToolBars"), true).toBool())
-    functionProfile(&QgisApp::createToolBars, this, QStringLiteral("Toolbars"));
-  functionProfile(&QgisApp::createStatusBar, this, QStringLiteral("Status bar"));
-  functionProfile(&QgisApp::createCanvasTools, this, QStringLiteral("Create canvas tools"));
+  functionProfile( &QgisApp::createToolBars, this, QStringLiteral( "Toolbars" ) );
+  functionProfile( &QgisApp::createStatusBar, this, QStringLiteral( "Status bar" ) );
+  functionProfile( &QgisApp::createCanvasTools, this, QStringLiteral( "Create canvas tools" ) );
 
-  applyDefaultSettingsToCanvas(mMapCanvas);
+  applyDefaultSettingsToCanvas( mMapCanvas );
 
-  functionProfile(&QgisApp::initLayerTreeView, this, QStringLiteral("Initialize layer tree view"));
-  functionProfile(&QgisApp::createOverview, this, QStringLiteral("Create overview"));
-  functionProfile(&QgisApp::createMapTips, this, QStringLiteral("Create map tips"));
-  functionProfile(&QgisApp::createDecorations, this, QStringLiteral("Create decorations"));
-  functionProfile(&QgisApp::readSettings, this, QStringLiteral("Read settings"));
-  functionProfile(&QgisApp::updateProjectFromTemplates, this, QStringLiteral("Update project from templates"));
-  functionProfile(&QgisApp::legendLayerSelectionChanged, this, QStringLiteral("Legend layer selection changed"));
-  functionProfile(&QgisApp::init3D, this, QStringLiteral("Initialize 3D support"));
-  functionProfile(&QgisApp::initNativeProcessing, this, QStringLiteral("Initialize native processing"));
-  functionProfile(&QgisApp::initLayouts, this, QStringLiteral("Initialize layouts support"));
+  functionProfile( &QgisApp::initLayerTreeView, this, QStringLiteral( "Initialize layer tree view" ) );
+  functionProfile( &QgisApp::createOverview, this, QStringLiteral( "Create overview" ) );
+  functionProfile( &QgisApp::createMapTips, this, QStringLiteral( "Create map tips" ) );
+  functionProfile( &QgisApp::createDecorations, this, QStringLiteral( "Create decorations" ) );
+  functionProfile( &QgisApp::readSettings, this, QStringLiteral( "Read settings" ) );
+  functionProfile( &QgisApp::updateProjectFromTemplates, this, QStringLiteral( "Update project from templates" ) );
+  functionProfile( &QgisApp::legendLayerSelectionChanged, this, QStringLiteral( "Legend layer selection changed" ) );
+  functionProfile( &QgisApp::init3D, this, QStringLiteral( "Initialize 3D support" ) );
+  functionProfile( &QgisApp::initNativeProcessing, this, QStringLiteral( "Initialize native processing" ) );
+  functionProfile( &QgisApp::initLayouts, this, QStringLiteral( "Initialize layouts support" ) );
 
-  startProfile(tr("Geometry validation"));
+  startProfile( tr( "Geometry validation" ) );
 
-  mGeometryValidationService = qgis::make_unique<QgsGeometryValidationService>(QgsProject::instance());
-  mGeometryValidationService->setMessageBar(mInfoBar);
-  mGeometryValidationDock = new QgsGeometryValidationDock(tr("Geometry Validation"), mMapCanvas, this);
+  mGeometryValidationService = qgis::make_unique<QgsGeometryValidationService>( QgsProject::instance() );
+  mGeometryValidationService->setMessageBar( mInfoBar );
+  mGeometryValidationDock = new QgsGeometryValidationDock( tr( "Geometry Validation" ), mMapCanvas, this );
   mGeometryValidationDock->hide();
-  mGeometryValidationModel = new QgsGeometryValidationModel(mGeometryValidationService.get(), mGeometryValidationDock);
-  connect(this, &QgisApp::activeLayerChanged, mGeometryValidationModel, [this](QgsMapLayer* layer)
-    {
-      mGeometryValidationModel->setCurrentLayer(qobject_cast<QgsVectorLayer*>(layer));
-    });
-  mGeometryValidationDock->setGeometryValidationModel(mGeometryValidationModel);
-  mGeometryValidationDock->setGeometryValidationService(mGeometryValidationService.get());
+  mGeometryValidationModel = new QgsGeometryValidationModel( mGeometryValidationService.get(), mGeometryValidationDock );
+  connect( this, &QgisApp::activeLayerChanged, mGeometryValidationModel, [this]( QgsMapLayer * layer )
+  {
+    mGeometryValidationModel->setCurrentLayer( qobject_cast<QgsVectorLayer *>( layer ) );
+  } );
+  mGeometryValidationDock->setGeometryValidationModel( mGeometryValidationModel );
+  mGeometryValidationDock->setGeometryValidationService( mGeometryValidationService.get() );
   endProfile();
 
-  QgsApplication::annotationRegistry()->addAnnotationType(QgsAnnotationMetadata(QStringLiteral("FormAnnotationItem"), &QgsFormAnnotation::create));
-  connect(QgsProject::instance()->annotationManager(), &QgsAnnotationManager::annotationAdded, this, &QgisApp::annotationCreated);
+  QgsApplication::annotationRegistry()->addAnnotationType( QgsAnnotationMetadata( QStringLiteral( "FormAnnotationItem" ), &QgsFormAnnotation::create ) );
+  connect( QgsProject::instance()->annotationManager(), &QgsAnnotationManager::annotationAdded, this, &QgisApp::annotationCreated );
 
   mSaveRollbackInProgress = false;
 
-  QString templateDirName = settings.value(QStringLiteral("qgis/projectTemplateDir"),
-    QString(QgsApplication::qgisSettingsDirPath() + "project_templates")).toString();
-  if (!QFileInfo::exists(templateDirName))
+  QString templateDirName = settings.value( QStringLiteral( "qgis/projectTemplateDir" ),
+                            QString( QgsApplication::qgisSettingsDirPath() + "project_templates" ) ).toString();
+  if ( !QFileInfo::exists( templateDirName ) )
   {
     // create default template directory
-    if (!QDir().mkdir(QgsApplication::qgisSettingsDirPath() + "project_templates"))
+    if ( !QDir().mkdir( QgsApplication::qgisSettingsDirPath() + "project_templates" ) )
       templateDirName.clear();
   }
-  if (!templateDirName.isEmpty()) // template directory exists, so watch it!
+  if ( !templateDirName.isEmpty() ) // template directory exists, so watch it!
   {
-    QFileSystemWatcher* projectsTemplateWatcher = new QFileSystemWatcher(this);
-    projectsTemplateWatcher->addPath(templateDirName);
-    connect(projectsTemplateWatcher, &QFileSystemWatcher::directoryChanged, this, [this] { updateProjectFromTemplates(); });
+    QFileSystemWatcher *projectsTemplateWatcher = new QFileSystemWatcher( this );
+    projectsTemplateWatcher->addPath( templateDirName );
+    connect( projectsTemplateWatcher, &QFileSystemWatcher::directoryChanged, this, [this] { updateProjectFromTemplates(); } );
   }
 
   // initialize the plugin manager
-  startProfile(tr("Plugin manager"));
-  mPluginManager = new QgsPluginManager(this, restorePlugins);
+  startProfile( tr( "Plugin manager" ) );
+  mPluginManager = new QgsPluginManager( this, restorePlugins );
   endProfile();
 
   if(mUndoDock) addDockWidget(Qt::LeftDockWidgetArea, mUndoDock);
@@ -1153,143 +1153,143 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
 
   if (settings.value(QStringLiteral("qgis/enableCreateMapStyling"), true).toBool())
   {
-    startProfile(tr("Layer style dock"));
-    mMapStylingDock = new QgsDockWidget(this);
-    mMapStylingDock->setWindowTitle(tr("Layer Styling"));
-    mMapStylingDock->setObjectName(QStringLiteral("LayerStyling"));
-    QShortcut* showStylingDock = new QShortcut(QKeySequence(tr("Ctrl+3")), this);
-    connect(showStylingDock, &QShortcut::activated, mMapStylingDock, &QgsDockWidget::toggleUserVisible);
-    showStylingDock->setObjectName(QStringLiteral("ShowLayerStylingPanel"));
-    showStylingDock->setWhatsThis(tr("Show Style Panel"));
+  startProfile( tr( "Layer style dock" ) );
+  mMapStylingDock = new QgsDockWidget( this );
+  mMapStylingDock->setWindowTitle( tr( "Layer Styling" ) );
+  mMapStylingDock->setObjectName( QStringLiteral( "LayerStyling" ) );
+  QShortcut *showStylingDock = new QShortcut( QKeySequence( tr( "Ctrl+3" ) ), this );
+  connect( showStylingDock, &QShortcut::activated, mMapStylingDock, &QgsDockWidget::toggleUserVisible );
+  showStylingDock->setObjectName( QStringLiteral( "ShowLayerStylingPanel" ) );
+  showStylingDock->setWhatsThis( tr( "Show Style Panel" ) );
 
-    mMapStyleWidget = new QgsLayerStylingWidget(mMapCanvas, mInfoBar, mMapLayerPanelFactories);
-    mMapStylingDock->setWidget(mMapStyleWidget);
-    connect(mMapStyleWidget, &QgsLayerStylingWidget::styleChanged, this, &QgisApp::updateLabelToolButtons);
+  mMapStyleWidget = new QgsLayerStylingWidget( mMapCanvas, mInfoBar, mMapLayerPanelFactories );
+  mMapStylingDock->setWidget( mMapStyleWidget );
+  connect( mMapStyleWidget, &QgsLayerStylingWidget::styleChanged, this, &QgisApp::updateLabelToolButtons );
     if (mActionStyleDock) connect(mMapStylingDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked);
 
-    addDockWidget(Qt::RightDockWidgetArea, mMapStylingDock);
-    mMapStylingDock->hide();
-    endProfile();
+  addDockWidget( Qt::RightDockWidgetArea, mMapStylingDock );
+  mMapStylingDock->hide();
+  endProfile();
   }
 
   if (settings.value(QStringLiteral("qgis/enableCreateDevTools"), true).toBool())
   {
-    startProfile(tr("Developer tools dock"));
-    mDevToolsDock = new QgsDockWidget(this);
-    mDevToolsDock->setWindowTitle(tr("Debugging/Development Tools"));
-    mDevToolsDock->setObjectName(QStringLiteral("DevTools"));
-    QShortcut* showDevToolsDock = new QShortcut(QKeySequence(tr("F12")), this);
-    connect(showDevToolsDock, &QShortcut::activated, mDevToolsDock, &QgsDockWidget::toggleUserVisible);
-    showDevToolsDock->setObjectName(QStringLiteral("ShowDevToolsPanel"));
-    showDevToolsDock->setWhatsThis(tr("Show Debugging/Development Tools"));
+  startProfile( tr( "Developer tools dock" ) );
+  mDevToolsDock = new QgsDockWidget( this );
+  mDevToolsDock->setWindowTitle( tr( "Debugging/Development Tools" ) );
+  mDevToolsDock->setObjectName( QStringLiteral( "DevTools" ) );
+  QShortcut *showDevToolsDock = new QShortcut( QKeySequence( tr( "F12" ) ), this );
+  connect( showDevToolsDock, &QShortcut::activated, mDevToolsDock, &QgsDockWidget::toggleUserVisible );
+  showDevToolsDock->setObjectName( QStringLiteral( "ShowDevToolsPanel" ) );
+  showDevToolsDock->setWhatsThis( tr( "Show Debugging/Development Tools" ) );
 
-    mDevToolsWidget = new QgsDevToolsPanelWidget(mDevToolFactories);
-    mDevToolsDock->setWidget(mDevToolsWidget);
-    //  connect( mDevToolsDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked );
+  mDevToolsWidget = new QgsDevToolsPanelWidget( mDevToolFactories );
+  mDevToolsDock->setWidget( mDevToolsWidget );
+//  connect( mDevToolsDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked );
 
-    addDockWidget(Qt::RightDockWidgetArea, mDevToolsDock);
-    mDevToolsDock->hide();
-    endProfile();
+  addDockWidget( Qt::RightDockWidgetArea, mDevToolsDock );
+  mDevToolsDock->hide();
+  endProfile();
   }
 
-  startProfile(tr("Snapping dialog"));
-  mSnappingDialog = new QgsSnappingWidget(QgsProject::instance(), mMapCanvas, this);
-  connect(mSnappingDialog, &QgsSnappingWidget::snappingConfigChanged, QgsProject::instance(), [=] { QgsProject::instance()->setSnappingConfig(mSnappingDialog->config()); });
-  QString mainSnappingWidgetMode = QgsSettings().value(QStringLiteral("/qgis/mainSnappingWidgetMode"), "dialog").toString();
-  if (mainSnappingWidgetMode == QLatin1String("dock"))
+  startProfile( tr( "Snapping dialog" ) );
+  mSnappingDialog = new QgsSnappingWidget( QgsProject::instance(), mMapCanvas, this );
+  connect( mSnappingDialog, &QgsSnappingWidget::snappingConfigChanged, QgsProject::instance(), [ = ] { QgsProject::instance()->setSnappingConfig( mSnappingDialog->config() ); } );
+  QString mainSnappingWidgetMode = QgsSettings().value( QStringLiteral( "/qgis/mainSnappingWidgetMode" ), "dialog" ).toString();
+  if ( mainSnappingWidgetMode == QLatin1String( "dock" ) )
   {
-    QgsDockWidget* dock = new QgsDockWidget(tr("Snapping and Digitizing Options"), QgisApp::instance());
-    dock->setAllowedAreas(Qt::AllDockWidgetAreas);
-    dock->setWidget(mSnappingDialog);
-    dock->setObjectName(QStringLiteral("Snapping and Digitizing Options"));
-    addDockWidget(Qt::LeftDockWidgetArea, dock);
+    QgsDockWidget *dock = new QgsDockWidget( tr( "Snapping and Digitizing Options" ), QgisApp::instance() );
+    dock->setAllowedAreas( Qt::AllDockWidgetAreas );
+    dock->setWidget( mSnappingDialog );
+    dock->setObjectName( QStringLiteral( "Snapping and Digitizing Options" ) );
+    addDockWidget( Qt::LeftDockWidgetArea, dock );
     mSnappingDialogContainer = dock;
     dock->hide();
   }
   else
   {
-    QDialog* dialog = new QDialog(this, Qt::Tool);
-    dialog->setObjectName(QStringLiteral("snappingSettings"));
-    dialog->setWindowTitle(tr("Project Snapping Settings"));
-    QgsGui::instance()->enableAutoGeometryRestore(dialog);
-    QVBoxLayout* layout = new QVBoxLayout(dialog);
-    layout->addWidget(mSnappingDialog);
-    layout->setContentsMargins(0, 0, 0, 0);
+    QDialog *dialog = new QDialog( this, Qt::Tool );
+    dialog->setObjectName( QStringLiteral( "snappingSettings" ) );
+    dialog->setWindowTitle( tr( "Project Snapping Settings" ) );
+    QgsGui::instance()->enableAutoGeometryRestore( dialog );
+    QVBoxLayout *layout = new QVBoxLayout( dialog );
+    layout->addWidget( mSnappingDialog );
+    layout->setContentsMargins( 0, 0, 0, 0 );
     mSnappingDialogContainer = dialog;
   }
   endProfile();
 
-  mBrowserModel = new QgsBrowserGuiModel(this);
+  mBrowserModel = new QgsBrowserGuiModel( this );
   if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget"), true).toBool())
   {
-    mBrowserWidget = new QgsBrowserDockWidget(tr("Browser"), mBrowserModel, this);
-    mBrowserWidget->setObjectName(QStringLiteral("Browser"));
-    mBrowserWidget->setMessageBar(mInfoBar);
+  mBrowserWidget = new QgsBrowserDockWidget( tr( "Browser" ), mBrowserModel, this );
+  mBrowserWidget->setObjectName( QStringLiteral( "Browser" ) );
+  mBrowserWidget->setMessageBar( mInfoBar );
   }
 
   if (settings.value(QStringLiteral("qgis/enableCreateTemporalController"), true).toBool())
   {
-    mTemporalControllerWidget = new QgsTemporalControllerDockWidget(tr("Temporal Controller"), this);
-    mTemporalControllerWidget->setObjectName(QStringLiteral("Temporal Controller"));
-    addDockWidget(Qt::TopDockWidgetArea, mTemporalControllerWidget);
-    mTemporalControllerWidget->hide();
+  mTemporalControllerWidget = new QgsTemporalControllerDockWidget( tr( "Temporal Controller" ), this );
+  mTemporalControllerWidget->setObjectName( QStringLiteral( "Temporal Controller" ) );
+  addDockWidget( Qt::TopDockWidgetArea, mTemporalControllerWidget );
+  mTemporalControllerWidget->hide();
     if (mActionTemporalController) mTemporalControllerWidget->setToggleVisibilityAction(mActionTemporalController);
 
-    mMapCanvas->setTemporalController(mTemporalControllerWidget->temporalController());
+  mMapCanvas->setTemporalController( mTemporalControllerWidget->temporalController() );
   }
 
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsAppDirectoryItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsProjectHomeItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsProjectItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsFavoritesItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsLayerItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsBookmarksItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsFieldsItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsFieldItemGuiProvider());
-  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider(new QgsDatabaseItemGuiProvider());
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsAppDirectoryItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsProjectHomeItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsProjectItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsFavoritesItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsLayerItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsBookmarksItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsFieldsItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsFieldItemGuiProvider() );
+  QgsGui::instance()->dataItemGuiProviderRegistry()->addProvider( new QgsDatabaseItemGuiProvider() );
 
   if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget"), true).toBool())
   {
-    QShortcut* showBrowserDock = new QShortcut(QKeySequence(tr("Ctrl+2")), this);
-    connect(showBrowserDock, &QShortcut::activated, mBrowserWidget, &QgsDockWidget::toggleUserVisible);
-    showBrowserDock->setObjectName(QStringLiteral("ShowBrowserPanel"));
-    showBrowserDock->setWhatsThis(tr("Show Browser Panel"));
+  QShortcut *showBrowserDock = new QShortcut( QKeySequence( tr( "Ctrl+2" ) ), this );
+  connect( showBrowserDock, &QShortcut::activated, mBrowserWidget, &QgsDockWidget::toggleUserVisible );
+  showBrowserDock->setObjectName( QStringLiteral( "ShowBrowserPanel" ) );
+  showBrowserDock->setWhatsThis( tr( "Show Browser Panel" ) );
 
-    addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget);
-    mBrowserWidget->hide();
-    // Only connect the first widget: the model is shared, there is no need to refresh multiple times.
-    connect(this, &QgisApp::connectionsChanged, mBrowserWidget, [=]
-    {
-      if (!mBlockBrowser1Refresh && !mBlockBrowser2Refresh)
-        mBrowserWidget->refresh();
-    });
-    connect(mBrowserWidget, &QgsBrowserDockWidget::connectionsChanged, this, [=]
-    {
-      mBlockBrowser1Refresh++;
-      emit connectionsChanged();
-      mBlockBrowser1Refresh--;
-    });
-    connect(mBrowserWidget, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
-    connect(mBrowserWidget, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+  addDockWidget( Qt::LeftDockWidgetArea, mBrowserWidget );
+  mBrowserWidget->hide();
+  // Only connect the first widget: the model is shared, there is no need to refresh multiple times.
+  connect( this, &QgisApp::connectionsChanged, mBrowserWidget, [ = ]
+  {
+    if ( !mBlockBrowser1Refresh && !mBlockBrowser2Refresh )
+      mBrowserWidget->refresh();
+  } );
+  connect( mBrowserWidget, &QgsBrowserDockWidget::connectionsChanged, this, [ = ]
+  {
+    mBlockBrowser1Refresh++;
+    emit connectionsChanged();
+    mBlockBrowser1Refresh--;
+  } );
+  connect( mBrowserWidget, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile );
+  connect( mBrowserWidget, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList );
   }
 
   if (settings.value(QStringLiteral("qgis/enableCreateBrowserWidget2"), true).toBool())
   {
-    mBrowserWidget2 = new QgsBrowserDockWidget(tr("Browser (2)"), mBrowserModel, this);
-    mBrowserWidget2->setObjectName(QStringLiteral("Browser2"));
-    addDockWidget(Qt::LeftDockWidgetArea, mBrowserWidget2);
-    mBrowserWidget2->hide();
-    connect(mBrowserWidget2, &QgsBrowserDockWidget::connectionsChanged, this, [=]
-    {
-      mBlockBrowser2Refresh++;
-      emit connectionsChanged();
-      mBlockBrowser2Refresh--;
-    });
-    connect(mBrowserWidget2, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile);
-    connect(mBrowserWidget2, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList);
+  mBrowserWidget2 = new QgsBrowserDockWidget( tr( "Browser (2)" ), mBrowserModel, this );
+  mBrowserWidget2->setObjectName( QStringLiteral( "Browser2" ) );
+  addDockWidget( Qt::LeftDockWidgetArea, mBrowserWidget2 );
+  mBrowserWidget2->hide();
+  connect( mBrowserWidget2, &QgsBrowserDockWidget::connectionsChanged, this, [ = ]
+  {
+    mBlockBrowser2Refresh++;
+    emit connectionsChanged();
+    mBlockBrowser2Refresh--;
+  } );
+  connect( mBrowserWidget2, &QgsBrowserDockWidget::openFile, this, &QgisApp::openFile );
+  connect( mBrowserWidget2, &QgsBrowserDockWidget::handleDropUriList, this, &QgisApp::handleDropUriList );
   }
 
-  addDockWidget(Qt::LeftDockWidgetArea, mAdvancedDigitizingDockWidget);
+  addDockWidget( Qt::LeftDockWidgetArea, mAdvancedDigitizingDockWidget );
   mAdvancedDigitizingDockWidget->hide();
 
   if(mStatisticalSummaryDockWidget) addDockWidget(Qt::LeftDockWidgetArea, mStatisticalSummaryDockWidget);
@@ -1301,86 +1301,86 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   // create the GPS tool on starting QGIS - this is like the browser
   if (settings.value(QStringLiteral("qgis/enableCreateGpsWidget"), true).toBool())
   {
-    mpGpsWidget = new QgsGpsInformationWidget(mMapCanvas);
-    QgsPanelWidgetStack* gpsStack = new QgsPanelWidgetStack();
-    gpsStack->setMainPanel(mpGpsWidget);
-    mpGpsWidget->setDockMode(true);
-    //create the dock widget
-    mpGpsDock = new QgsDockWidget(tr("GPS Information"), this);
+  mpGpsWidget = new QgsGpsInformationWidget( mMapCanvas );
+  QgsPanelWidgetStack *gpsStack = new QgsPanelWidgetStack();
+  gpsStack->setMainPanel( mpGpsWidget );
+  mpGpsWidget->setDockMode( true );
+  //create the dock widget
+  mpGpsDock = new QgsDockWidget( tr( "GPS Information" ), this );
 
-    QShortcut* showGpsDock = new QShortcut(QKeySequence(tr("Ctrl+0")), this);
-    connect(showGpsDock, &QShortcut::activated, mpGpsDock, &QgsDockWidget::toggleUserVisible);
-    showGpsDock->setObjectName(QStringLiteral("ShowGpsPanel"));
-    showGpsDock->setWhatsThis(tr("Show GPS Information Panel"));
+  QShortcut *showGpsDock = new QShortcut( QKeySequence( tr( "Ctrl+0" ) ), this );
+  connect( showGpsDock, &QShortcut::activated, mpGpsDock, &QgsDockWidget::toggleUserVisible );
+  showGpsDock->setObjectName( QStringLiteral( "ShowGpsPanel" ) );
+  showGpsDock->setWhatsThis( tr( "Show GPS Information Panel" ) );
 
-    mpGpsDock->setObjectName(QStringLiteral("GPSInformation"));
-    mpGpsDock->setAllowedAreas(Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea);
-    addDockWidget(Qt::LeftDockWidgetArea, mpGpsDock);
-    // add to the Panel submenu
-    // now add our widget to the dock - ownership of the widget is passed to the dock
-    mpGpsDock->setWidget(gpsStack);
-    mpGpsDock->hide();
+  mpGpsDock->setObjectName( QStringLiteral( "GPSInformation" ) );
+  mpGpsDock->setAllowedAreas( Qt::LeftDockWidgetArea | Qt::RightDockWidgetArea );
+  addDockWidget( Qt::LeftDockWidgetArea, mpGpsDock );
+  // add to the Panel submenu
+  // now add our widget to the dock - ownership of the widget is passed to the dock
+  mpGpsDock->setWidget( gpsStack );
+  mpGpsDock->hide();
   }
 
   mLastMapToolMessage = nullptr;
 
-  mLogViewer = new QgsMessageLogViewer(this);
+  mLogViewer = new QgsMessageLogViewer( this );
 
-  mLogDock = new QgsDockWidget(tr("Log Messages"), this);
-  mLogDock->setObjectName(QStringLiteral("MessageLog"));
-  mLogDock->setAllowedAreas(Qt::AllDockWidgetAreas);
-  addDockWidget(Qt::BottomDockWidgetArea, mLogDock);
-  mLogDock->setWidget(mLogViewer);
+  mLogDock = new QgsDockWidget( tr( "Log Messages" ), this );
+  mLogDock->setObjectName( QStringLiteral( "MessageLog" ) );
+  mLogDock->setAllowedAreas( Qt::AllDockWidgetAreas );
+  addDockWidget( Qt::BottomDockWidgetArea, mLogDock );
+  mLogDock->setWidget( mLogViewer );
   mLogDock->hide();
-  connect(mMessageButton, &QAbstractButton::toggled, mLogDock, &QgsDockWidget::setUserVisible);
-  connect(mLogDock, &QgsDockWidget::visibilityChanged, mMessageButton, &QAbstractButton::setChecked);
-  connect(QgsApplication::messageLog(), static_cast <void (QgsMessageLog::*)(bool)>(&QgsMessageLog::messageReceived), this, &QgisApp::toggleLogMessageIcon);
-  connect(mMessageButton, &QAbstractButton::toggled, this, &QgisApp::toggleLogMessageIcon);
+  connect( mMessageButton, &QAbstractButton::toggled, mLogDock, &QgsDockWidget::setUserVisible );
+  connect( mLogDock, &QgsDockWidget::visibilityChanged, mMessageButton, &QAbstractButton::setChecked );
+  connect( QgsApplication::messageLog(), static_cast < void ( QgsMessageLog::* )( bool ) >( &QgsMessageLog::messageReceived ), this, &QgisApp::toggleLogMessageIcon );
+  connect( mMessageButton, &QAbstractButton::toggled, this, &QgisApp::toggleLogMessageIcon );
   mVectorLayerTools = new QgsGuiVectorLayerTools();
 
   // Init the editor widget types
-  QgsGui::editorWidgetRegistry()->initEditors(mMapCanvas, mInfoBar);
+  QgsGui::editorWidgetRegistry()->initEditors( mMapCanvas, mInfoBar );
 
   mInternalClipboard = new QgsClipboard; // create clipboard
-  connect(mInternalClipboard, &QgsClipboard::changed, this, &QgisApp::clipboardChanged);
-  mQgisInterface = new QgisAppInterface(this); // create the interface
+  connect( mInternalClipboard, &QgsClipboard::changed, this, &QgisApp::clipboardChanged );
+  mQgisInterface = new QgisAppInterface( this ); // create the interface
 
 #ifdef Q_OS_MAC
   // action for Window menu (create before generating WindowTitleChange event))
-  mWindowAction = new QAction(this);
-  connect(mWindowAction, SIGNAL(triggered()), this, SLOT(activate()));
+  mWindowAction = new QAction( this );
+  connect( mWindowAction, SIGNAL( triggered() ), this, SLOT( activate() ) );
 
   // add this window to Window menu
-  addWindow(mWindowAction);
+  addWindow( mWindowAction );
 #endif
 
-  registerMapLayerPropertiesFactory(new QgsVectorLayerDigitizingPropertiesFactory(this));
+  registerMapLayerPropertiesFactory( new QgsVectorLayerDigitizingPropertiesFactory( this ) );
 #ifdef HAVE_3D
-  registerMapLayerPropertiesFactory(new QgsVectorLayer3DRendererWidgetFactory(this));
-  registerMapLayerPropertiesFactory(new QgsMeshLayer3DRendererWidgetFactory(this));
+  registerMapLayerPropertiesFactory( new QgsVectorLayer3DRendererWidgetFactory( this ) );
+  registerMapLayerPropertiesFactory( new QgsMeshLayer3DRendererWidgetFactory( this ) );
 #endif
 
-  activateDeactivateLayerRelatedActions(nullptr); // after members were created
+  activateDeactivateLayerRelatedActions( nullptr ); // after members were created
 
-  connect(QgsGui::mapLayerActionRegistry(), &QgsMapLayerActionRegistry::changed, this, &QgisApp::refreshActionFeatureAction);
+  connect( QgsGui::mapLayerActionRegistry(), &QgsMapLayerActionRegistry::changed, this, &QgisApp::refreshActionFeatureAction );
 
   // set application's caption
-  setWindowTitle(caption);
+  setWindowTitle( caption );
 
   // QgsMessageLog::logMessage( tr( "QGIS starting…" ), QString(), Qgis::Info );
 
-  connect(QgsProject::instance(), &QgsProject::isDirtyChanged, this, [=] { setTitleBarText_(*this); });
+  connect( QgsProject::instance(), &QgsProject::isDirtyChanged, this, [ = ] { setTitleBarText_( *this ); } );
 
   // set QGIS specific srs validation
-  connect(this, &QgisApp::customCrsValidation,
-    this, &QgisApp::validateCrs);
-  QgsCoordinateReferenceSystem::setCustomCrsValidation(customSrsValidation_);
+  connect( this, &QgisApp::customCrsValidation,
+           this, &QgisApp::validateCrs );
+  QgsCoordinateReferenceSystem::setCustomCrsValidation( customSrsValidation_ );
 
   // set graphical message output
-  QgsMessageOutput::setMessageOutputCreator(messageOutputViewer_);
+  QgsMessageOutput::setMessageOutputCreator( messageOutputViewer_ );
 
   // set graphical credential requester
-  new QgsCredentialDialog(this);
+  new QgsCredentialDialog( this );
 
   if (mLocatorWidget) mLocatorWidget->setMapCanvas(mMapCanvas);
   if (mLocatorWidget) connect(mLocatorWidget, &QgsLocatorWidget::configTriggered, this, [=] { showOptionsDialog(this, QStringLiteral("mOptionsLocatorSettings")); });
@@ -1397,34 +1397,34 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
 
 #ifdef HAVE_OPENCL
   // Setup the default OpenCL programs source path, this my be overridden later by main.cpp startup
-  QgsOpenClUtils::setSourcePath(QDir(QgsApplication::pkgDataPath()).absoluteFilePath(QStringLiteral("resources/opencl_programs")));
+  QgsOpenClUtils::setSourcePath( QDir( QgsApplication::pkgDataPath() ).absoluteFilePath( QStringLiteral( "resources/opencl_programs" ) ) );
 #endif
 
 
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsBookmarksDataItemProvider());
-  registerCustomDropHandler(new QgsBookmarkDropHandler());
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsQlrDataItemProvider());
-  registerCustomDropHandler(new QgsQlrDropHandler());
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsQptDataItemProvider());
-  registerCustomDropHandler(new QgsQptDropHandler());
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsStyleXmlDataItemProvider());
-  registerCustomDropHandler(new QgsStyleXmlDropHandler());
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsHtmlDataItemProvider());
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsBookmarksDataItemProvider() );
+  registerCustomDropHandler( new QgsBookmarkDropHandler() );
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsQlrDataItemProvider() );
+  registerCustomDropHandler( new QgsQlrDropHandler() );
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsQptDataItemProvider() );
+  registerCustomDropHandler( new QgsQptDropHandler() );
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsStyleXmlDataItemProvider() );
+  registerCustomDropHandler( new QgsStyleXmlDropHandler() );
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsHtmlDataItemProvider() );
 
   // set handler for missing layers (will be owned by QgsProject)
   mAppBadLayersHandler = new QgsHandleBadLayersHandler();
-  QgsProject::instance()->setBadLayerHandler(mAppBadLayersHandler);
+  QgsProject::instance()->setBadLayerHandler( mAppBadLayersHandler );
 
   if (mSplash) mSplash->showMessage(tr("Starting Python"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
   loadPythonSupport();
 
 #ifdef WITH_BINDINGS
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsPyDataItemProvider());
-  registerCustomDropHandler(new QgsPyDropHandler());
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsPyDataItemProvider() );
+  registerCustomDropHandler( new QgsPyDropHandler() );
 #endif
 
-  QgsApplication::dataItemProviderRegistry()->addProvider(new QgsProjectDataItemProvider());
+  QgsApplication::dataItemProviderRegistry()->addProvider( new QgsProjectDataItemProvider() );
 
   // now when all data item providers are registered, customize both browsers
   if(mBrowserWidget) QgsCustomization::instance()->updateBrowserWidget(mBrowserWidget);
@@ -1434,37 +1434,37 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   // load any plugins that were running in the last session
   if (mSplash) mSplash->showMessage(tr("Restoring loaded plugins"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
-  QgsPluginRegistry::instance()->setQgisInterface(mQgisInterface);
+  QgsPluginRegistry::instance()->setQgisInterface( mQgisInterface );
 
-  if (restorePlugins)
+  if ( restorePlugins )
   {
     // Restoring of plugins can be disabled with --noplugins command line option
     // because some plugins may cause QGIS to crash during startup
-    QgsPluginRegistry::instance()->restoreSessionPlugins(QgsApplication::pluginPath());
+    QgsPluginRegistry::instance()->restoreSessionPlugins( QgsApplication::pluginPath() );
 
     // Also restore plugins from user specified plugin directories
-    QString myPaths = settings.value(QStringLiteral("plugins/searchPathsForPlugins"), "").toString();
-    if (!myPaths.isEmpty())
+    QString myPaths = settings.value( QStringLiteral( "plugins/searchPathsForPlugins" ), "" ).toString();
+    if ( !myPaths.isEmpty() )
     {
-      QStringList myPathList = myPaths.split('|');
-      QgsPluginRegistry::instance()->restoreSessionPlugins(myPathList);
+      QStringList myPathList = myPaths.split( '|' );
+      QgsPluginRegistry::instance()->restoreSessionPlugins( myPathList );
     }
   }
 
 #ifdef WITH_BINDINGS
-  if (mPythonUtils && mPythonUtils->isEnabled())
+  if ( mPythonUtils && mPythonUtils->isEnabled() )
   {
-    startProfile(tr("Plugin installer"));
+    startProfile( tr( "Plugin installer" ) );
     // initialize the plugin installer to start fetching repositories in background
-    QgsPythonRunner::run(QStringLiteral("import pyplugin_installer"));
-    QgsPythonRunner::run(QStringLiteral("pyplugin_installer.initPluginInstaller()"));
+    QgsPythonRunner::run( QStringLiteral( "import pyplugin_installer" ) );
+    QgsPythonRunner::run( QStringLiteral( "pyplugin_installer.initPluginInstaller()" ) );
     // enable Python in the Plugin Manager and pass the PythonUtils to it
-    mPluginManager->setPythonUtils(mPythonUtils);
+    mPluginManager->setPythonUtils( mPythonUtils );
     // add Python Console options
     initPythonConsoleOptions();
     endProfile();
   }
-  else if (mActionShowPythonDialog)
+  else if ( mActionShowPythonDialog )
 #endif
   {
     // python is disabled so get rid of the action for python console
@@ -1476,31 +1476,31 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   // Update recent project list (as possible custom project storages are now registered by plugins)
   if (mSplash) mSplash->showMessage(tr("Updating recent project paths"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
-  startProfile(tr("Update recent project paths"));
+  startProfile( tr( "Update recent project paths" ) );
   updateRecentProjectPaths();
   if (mWelcomePage) mWelcomePage->setRecentProjects(mRecentProjects);
   endProfile();
 
   // Set icon size of toolbars
-  if (settings.contains(QStringLiteral("/qgis/iconSize")))
+  if ( settings.contains( QStringLiteral( "/qgis/iconSize" ) ) )
   {
-    int size = settings.value(QStringLiteral("/qgis/iconSize")).toInt();
-    if (size < 16)
+    int size = settings.value( QStringLiteral( "/qgis/iconSize" ) ).toInt();
+    if ( size < 16 )
       size = QGIS_ICON_SIZE;
-    setIconSizes(size);
+    setIconSizes( size );
   }
   else
   {
     // first run, guess a good icon size
     int size = chooseReasonableDefaultIconSize();
-    settings.setValue(QStringLiteral("/qgis/iconSize"), size);
-    setIconSizes(size);
+    settings.setValue( QStringLiteral( "/qgis/iconSize" ), size );
+    setIconSizes( size );
   }
 
-  QgsApplication::validityCheckRegistry()->addCheck(new QgsLayoutScaleBarValidityCheck());
-  QgsApplication::validityCheckRegistry()->addCheck(new QgsLayoutNorthArrowValidityCheck());
-  QgsApplication::validityCheckRegistry()->addCheck(new QgsLayoutOverviewValidityCheck());
-  QgsApplication::validityCheckRegistry()->addCheck(new QgsLayoutPictureSourceValidityCheck());
+  QgsApplication::validityCheckRegistry()->addCheck( new QgsLayoutScaleBarValidityCheck() );
+  QgsApplication::validityCheckRegistry()->addCheck( new QgsLayoutNorthArrowValidityCheck() );
+  QgsApplication::validityCheckRegistry()->addCheck( new QgsLayoutOverviewValidityCheck() );
+  QgsApplication::validityCheckRegistry()->addCheck( new QgsLayoutPictureSourceValidityCheck() );
 
   if (mSplash) mSplash->showMessage(tr("Initializing file filters"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
@@ -1513,12 +1513,12 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   // Set the background color for toolbox and overview as they default to
   // white instead of the window color
   QPalette myPalette = toolBox->palette();
-  myPalette.setColor(QPalette::Button, myPalette.window().color());
-  toolBox->setPalette(myPalette);
+  myPalette.setColor( QPalette::Button, myPalette.window().color() );
+  toolBox->setPalette( myPalette );
   //do the same for legend control
   myPalette = toolBox->palette();
-  myPalette.setColor(QPalette::Button, myPalette.window().color());
-  mMapLegend->setPalette(myPalette);
+  myPalette.setColor( QPalette::Button, myPalette.window().color() );
+  mMapLegend->setPalette( myPalette );
   //and for overview control this is done in createOverView method
 #endif
   // Do this last in the ctor to ensure that all members are instantiated properly
@@ -1529,148 +1529,148 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   //
   if (mSplash) mSplash->showMessage(tr("Restoring window state"), Qt::AlignHCenter | Qt::AlignBottom);
   qApp->processEvents();
-  startProfile(tr("Restore window state"));
+  startProfile( tr( "Restore window state" ) );
   restoreWindowState();
   endProfile();
 
   // do main window customization - after window state has been restored, before the window is shown
-  startProfile(tr("Update customization on main window"));
-  QgsCustomization::instance()->updateMainWindow(mToolbarMenu);
+  startProfile( tr( "Update customization on main window" ) );
+  QgsCustomization::instance()->updateMainWindow( mToolbarMenu );
   endProfile();
 
   if (mSplash) mSplash->showMessage(tr("Populate saved styles"), Qt::AlignHCenter | Qt::AlignBottom);
-  startProfile(tr("Populate saved styles"));
+  startProfile( tr( "Populate saved styles" ) );
   QgsStyle::defaultStyle();
   endProfile();
 
   if (mSplash) mSplash->showMessage(mCaption + tr("QGIS Ready!"), Qt::AlignHCenter | Qt::AlignBottom);
 
-  QgsMessageLog::logMessage(QgsApplication::showSettings(), QString(), Qgis::Info);
+  QgsMessageLog::logMessage( QgsApplication::showSettings(), QString(), Qgis::Info );
 
   //QgsMessageLog::logMessage( tr( "QGIS Ready!" ), QString(), Qgis::Info );
 
   mMapTipsVisible = false;
   // This turns on the map tip if they where active in the last session
-  if (settings.value(QStringLiteral("qgis/enableMapTips"), false).toBool())
+  if ( settings.value( QStringLiteral( "qgis/enableMapTips" ), false ).toBool() )
   {
-    toggleMapTips(true);
+    toggleMapTips( true );
   }
 
   mPythonMacrosEnabled = false;
 
   // setup drag drop
-  setAcceptDrops(true);
+  setAcceptDrops( true );
 
   mFullScreenMode = false;
   mPrevScreenModeMaximized = false;
-  startProfile(tr("Show main window"));
+  startProfile( tr( "Show main window" ) );
   show();
   qApp->processEvents();
   endProfile();
 
-  QgsGui::setWindowManager(new QgsAppWindowManager());
+  QgsGui::setWindowManager( new QgsAppWindowManager() );
 
   mMapCanvas->clearExtentHistory(); // reset zoomnext/zoomlast
 
-  QShortcut* zoomInShortCut = new QShortcut(QKeySequence(tr("Ctrl++")), this);
-  connect(zoomInShortCut, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomIn);
-  zoomInShortCut->setObjectName(QStringLiteral("ZoomInToCanvas"));
-  zoomInShortCut->setWhatsThis(tr("Zoom in to canvas"));
-  zoomInShortCut->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionZoomIn.svg")));
+  QShortcut *zoomInShortCut = new QShortcut( QKeySequence( tr( "Ctrl++" ) ), this );
+  connect( zoomInShortCut, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomIn );
+  zoomInShortCut->setObjectName( QStringLiteral( "ZoomInToCanvas" ) );
+  zoomInShortCut->setWhatsThis( tr( "Zoom in to canvas" ) );
+  zoomInShortCut->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
 
-  QShortcut* zoomShortCut2 = new QShortcut(QKeySequence(tr("Ctrl+=")), this);
-  connect(zoomShortCut2, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomIn);
-  zoomShortCut2->setObjectName(QStringLiteral("ZoomInToCanvas2"));
-  zoomShortCut2->setWhatsThis(tr("Zoom in to canvas (secondary)"));
-  zoomShortCut2->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionZoomIn.svg")));
+  QShortcut *zoomShortCut2 = new QShortcut( QKeySequence( tr( "Ctrl+=" ) ), this );
+  connect( zoomShortCut2, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomIn );
+  zoomShortCut2->setObjectName( QStringLiteral( "ZoomInToCanvas2" ) );
+  zoomShortCut2->setWhatsThis( tr( "Zoom in to canvas (secondary)" ) );
+  zoomShortCut2->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
 
-  QShortcut* zoomOutShortCut = new QShortcut(QKeySequence(tr("Ctrl+-")), this);
-  connect(zoomOutShortCut, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomOut);
-  zoomOutShortCut->setObjectName(QStringLiteral("ZoomOutOfCanvas"));
-  zoomOutShortCut->setWhatsThis(tr("Zoom out of canvas"));
-  zoomOutShortCut->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionZoomOut.svg")));
+  QShortcut *zoomOutShortCut = new QShortcut( QKeySequence( tr( "Ctrl+-" ) ), this );
+  connect( zoomOutShortCut, &QShortcut::activated, mMapCanvas, &QgsMapCanvas::zoomOut );
+  zoomOutShortCut->setObjectName( QStringLiteral( "ZoomOutOfCanvas" ) );
+  zoomOutShortCut->setWhatsThis( tr( "Zoom out of canvas" ) );
+  zoomOutShortCut->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomOut.svg" ) ) );
 
   //also make ctrl+alt+= a shortcut to switch to zoom in map tool
-  QShortcut* zoomInToolShortCut = new QShortcut(QKeySequence(tr("Ctrl+Alt+=")), this);
-  connect(zoomInToolShortCut, &QShortcut::activated, this, &QgisApp::zoomIn);
-  zoomInToolShortCut->setObjectName(QStringLiteral("ZoomIn2"));
-  zoomInToolShortCut->setWhatsThis(tr("Zoom in (secondary)"));
-  zoomInToolShortCut->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionZoomIn.svg")));
+  QShortcut *zoomInToolShortCut = new QShortcut( QKeySequence( tr( "Ctrl+Alt+=" ) ), this );
+  connect( zoomInToolShortCut, &QShortcut::activated, this, &QgisApp::zoomIn );
+  zoomInToolShortCut->setObjectName( QStringLiteral( "ZoomIn2" ) );
+  zoomInToolShortCut->setWhatsThis( tr( "Zoom in (secondary)" ) );
+  zoomInToolShortCut->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
 
-  QShortcut* attributeTableSelected = new QShortcut(QKeySequence(tr("Shift+F6")), this);
-  attributeTableSelected->setObjectName(QStringLiteral("attributeTableSelectedFeatures"));
-  attributeTableSelected->setWhatsThis(tr("Open Attribute Table (Selected Features)"));
-  attributeTableSelected->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionOpenTable.svg")));
-  connect(attributeTableSelected, &QShortcut::activated, this, [=]
-    {
-      attributeTable(QgsAttributeTableFilterModel::ShowSelected);
-    });
+  QShortcut *attributeTableSelected = new QShortcut( QKeySequence( tr( "Shift+F6" ) ), this );
+  attributeTableSelected->setObjectName( QStringLiteral( "attributeTableSelectedFeatures" ) );
+  attributeTableSelected->setWhatsThis( tr( "Open Attribute Table (Selected Features)" ) );
+  attributeTableSelected->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionOpenTable.svg" ) ) );
+  connect( attributeTableSelected, &QShortcut::activated, this, [ = ]
+  {
+    attributeTable( QgsAttributeTableFilterModel::ShowSelected );
+  } );
 
-  QShortcut* attributeTableVisible = new QShortcut(QKeySequence(tr("Ctrl+F6")), this);
-  attributeTableVisible->setObjectName(QStringLiteral("attributeTableVisibleFeatures"));
-  attributeTableVisible->setWhatsThis(tr("Open Attribute Table (Visible Features)"));
-  attributeTableVisible->setProperty("Icon", QgsApplication::getThemeIcon(QStringLiteral("/mActionOpenTable.svg")));
-  connect(attributeTableVisible, &QShortcut::activated, this, [=]
-    {
-      attributeTable(QgsAttributeTableFilterModel::ShowVisible);
-    });
+  QShortcut *attributeTableVisible = new QShortcut( QKeySequence( tr( "Ctrl+F6" ) ), this );
+  attributeTableVisible->setObjectName( QStringLiteral( "attributeTableVisibleFeatures" ) );
+  attributeTableVisible->setWhatsThis( tr( "Open Attribute Table (Visible Features)" ) );
+  attributeTableVisible->setProperty( "Icon", QgsApplication::getThemeIcon( QStringLiteral( "/mActionOpenTable.svg" ) ) );
+  connect( attributeTableVisible, &QShortcut::activated, this, [ = ]
+  {
+    attributeTable( QgsAttributeTableFilterModel::ShowVisible );
+  } );
 
-  QShortcut* shortcutTracing = new QShortcut(QKeySequence(tr("Ctrl+Shift+.")), this);
-  connect(shortcutTracing, &QShortcut::activated, this, &QgisApp::toggleEventTracing);
+  QShortcut *shortcutTracing = new QShortcut( QKeySequence( tr( "Ctrl+Shift+." ) ), this );
+  connect( shortcutTracing, &QShortcut::activated, this, &QgisApp::toggleEventTracing );
 
-  if (!QTouchDevice::devices().isEmpty())
+  if ( ! QTouchDevice::devices().isEmpty() )
   {
     //add reacting to long click in touch
-    grabGesture(Qt::TapAndHoldGesture);
+    grabGesture( Qt::TapAndHoldGesture );
   }
 
-  connect(QgsApplication::taskManager(), &QgsTaskManager::statusChanged, this, &QgisApp::onTaskCompleteShowNotify);
+  connect( QgsApplication::taskManager(), &QgsTaskManager::statusChanged, this, &QgisApp::onTaskCompleteShowNotify );
 
-  QgsGui::instance()->nativePlatformInterface()->initializeMainWindow(windowHandle(),
-    QgsApplication::applicationName(),
-    QgsApplication::organizationName(),
-    Qgis::version());
+  QgsGui::instance()->nativePlatformInterface()->initializeMainWindow( windowHandle(),
+      QgsApplication::applicationName(),
+      QgsApplication::organizationName(),
+      Qgis::version() );
   if(mBrowserModel) connect(QgsGui::instance()->nativePlatformInterface(), &QgsNative::usbStorageNotification, mBrowserModel, &QgsBrowserModel::refreshDrives);
 
   // setup application progress reports from task manager
-  connect(QgsApplication::taskManager(), &QgsTaskManager::taskAdded, this, []
-    {
-      QgsGui::instance()->nativePlatformInterface()->showUndefinedApplicationProgress();
-    });
-  connect(QgsApplication::taskManager(), &QgsTaskManager::finalTaskProgressChanged, this, [](double val)
-    {
-      QgsGui::instance()->nativePlatformInterface()->setApplicationProgress(val);
-    });
-  connect(QgsApplication::taskManager(), &QgsTaskManager::allTasksFinished, this, []
-    {
-      QgsGui::instance()->nativePlatformInterface()->hideApplicationProgress();
-    });
-  connect(QgsApplication::taskManager(), &QgsTaskManager::countActiveTasksChanged, this, [](int count)
-    {
-      QgsGui::instance()->nativePlatformInterface()->setApplicationBadgeCount(count);
-    });
+  connect( QgsApplication::taskManager(), &QgsTaskManager::taskAdded, this, []
+  {
+    QgsGui::instance()->nativePlatformInterface()->showUndefinedApplicationProgress();
+  } );
+  connect( QgsApplication::taskManager(), &QgsTaskManager::finalTaskProgressChanged, this, []( double val )
+  {
+    QgsGui::instance()->nativePlatformInterface()->setApplicationProgress( val );
+  } );
+  connect( QgsApplication::taskManager(), &QgsTaskManager::allTasksFinished, this, []
+  {
+    QgsGui::instance()->nativePlatformInterface()->hideApplicationProgress();
+  } );
+  connect( QgsApplication::taskManager(), &QgsTaskManager::countActiveTasksChanged, this, []( int count )
+  {
+    QgsGui::instance()->nativePlatformInterface()->setApplicationBadgeCount( count );
+  } );
 
-  (void)new QgsAppMissingGridHandler(this);
+  ( void )new QgsAppMissingGridHandler( this );
 
   // supposedly all actions have been added, now register them to the shortcut manager
-  QgsGui::shortcutsManager()->registerAllChildren(this);
+  QgsGui::shortcutsManager()->registerAllChildren( this );
   if(mSnappingWidget) QgsGui::shortcutsManager()->registerAllChildren(mSnappingWidget);
 
   // register additional action
-  auto registerShortcuts = [=](const QString& sequence, const QString& objectName, const QString& whatsThis)
+  auto registerShortcuts = [ = ]( const QString & sequence, const QString & objectName, const QString & whatsThis )
   {
-    QShortcut* sc = new QShortcut(QKeySequence(sequence), this);
-    sc->setContext(Qt::ApplicationShortcut);
-    sc->setObjectName(objectName);
-    sc->setWhatsThis(whatsThis);
-    QgsGui::shortcutsManager()->registerShortcut(sc, sequence);
+    QShortcut *sc = new QShortcut( QKeySequence( sequence ), this );
+    sc->setContext( Qt::ApplicationShortcut );
+    sc->setObjectName( objectName );
+    sc->setWhatsThis( whatsThis );
+    QgsGui::shortcutsManager()->registerShortcut( sc, sequence );
   };
-  registerShortcuts(QStringLiteral("Ctrl+Alt+{"), QStringLiteral("mAttributeTableFirstEditedFeature"), tr("Edit first feature in attribute table"));
-  registerShortcuts(QStringLiteral("Ctrl+Alt+["), QStringLiteral("mAttributeTablePreviousEditedFeature"), tr("Edit previous feature in attribute table"));
-  registerShortcuts(QStringLiteral("Ctrl+Alt+]"), QStringLiteral("mAttributeTableNextEditedFeature"), tr("Edit next feature in attribute table"));
-  registerShortcuts(QStringLiteral("Ctrl+Alt+}"), QStringLiteral("mAttributeTableLastEditedFeature"), tr("Edit last feature in attribute table"));
+  registerShortcuts( QStringLiteral( "Ctrl+Alt+{" ), QStringLiteral( "mAttributeTableFirstEditedFeature" ), tr( "Edit first feature in attribute table" ) );
+  registerShortcuts( QStringLiteral( "Ctrl+Alt+[" ), QStringLiteral( "mAttributeTablePreviousEditedFeature" ), tr( "Edit previous feature in attribute table" ) );
+  registerShortcuts( QStringLiteral( "Ctrl+Alt+]" ), QStringLiteral( "mAttributeTableNextEditedFeature" ), tr( "Edit next feature in attribute table" ) );
+  registerShortcuts( QStringLiteral( "Ctrl+Alt+}" ), QStringLiteral( "mAttributeTableLastEditedFeature" ), tr( "Edit last feature in attribute table" ) );
 
-  QgsGui::providerGuiRegistry()->registerGuis(this);
+  QgsGui::providerGuiRegistry()->registerGuis( this );
 
   setupLayoutManagerConnections();
 
@@ -1682,69 +1682,69 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
 
   if (mPanelMenu)
   {
-    QList<QAction*> actions = mPanelMenu->actions();
-    std::sort(actions.begin(), actions.end(), cmpByText_);
-    mPanelMenu->insertActions(nullptr, actions);
+  QList<QAction *> actions = mPanelMenu->actions();
+  std::sort( actions.begin(), actions.end(), cmpByText_ );
+  mPanelMenu->insertActions( nullptr, actions );
   }
 
-  mBearingNumericFormat.reset(QgsLocalDefaultSettings::bearingFormat());
+  mBearingNumericFormat.reset( QgsLocalDefaultSettings::bearingFormat() );
 
-  mNetworkLoggerWidgetFactory.reset(qgis::make_unique< QgsNetworkLoggerWidgetFactory >(mNetworkLogger));
+  mNetworkLoggerWidgetFactory.reset( qgis::make_unique< QgsNetworkLoggerWidgetFactory >( mNetworkLogger ) );
 
   // update windows
   qApp->processEvents();
 
   // notify user if authentication system is disabled
-  (void)QgsAuthGuiUtils::isDisabled(messageBar());
+  ( void )QgsAuthGuiUtils::isDisabled( messageBar() );
 
-  startProfile(tr("New project"));
+  startProfile( tr( "New project" ) );
   fileNewBlank(); // prepare empty project, also skips any default templates from loading
   updateCrsStatusBar();
   endProfile();
 
   // request notification of FileOpen events (double clicking a file icon in Mac OS X Finder)
   // should come after fileNewBlank to ensure project is properly set up to receive any data source files
-  QgsApplication::setFileOpenEventReceiver(this);
+  QgsApplication::setFileOpenEventReceiver( this );
 
 #ifdef ANDROID
   toggleFullScreen();
 #endif
 
-  mStartupProfilerWidgetFactory.reset(qgis::make_unique< QgsProfilerWidgetFactory >(profiler));
+  mStartupProfilerWidgetFactory.reset( qgis::make_unique< QgsProfilerWidgetFactory >( profiler ) );
 
   if (mActionRevertProject)
   {
-    auto toggleRevert = [=]
-    {
-      mActionRevertProject->setEnabled(QgsProject::instance()->isDirty() && !QgsProject::instance()->fileName().isEmpty());
-    };
-    connect(QgsProject::instance(), &QgsProject::isDirtyChanged, mActionRevertProject, toggleRevert);
-    connect(QgsProject::instance(), &QgsProject::fileNameChanged, mActionRevertProject, toggleRevert);
+  auto toggleRevert = [ = ]
+  {
+    mActionRevertProject->setEnabled( QgsProject::instance()->isDirty() &&!QgsProject::instance()->fileName().isEmpty() );
+  };
+  connect( QgsProject::instance(), &QgsProject::isDirtyChanged, mActionRevertProject, toggleRevert );
+  connect( QgsProject::instance(), &QgsProject::fileNameChanged, mActionRevertProject, toggleRevert );
   }
 
-  connect(QgsProject::instance()->displaySettings(), &QgsProjectDisplaySettings::bearingFormatChanged, this, [=]
-    {
-      mBearingNumericFormat.reset(QgsProject::instance()->displaySettings()->bearingFormat()->clone());
-    });
-  connect(mMapCanvas, &QgsMapCanvas::panDistanceBearingChanged, this, &QgisApp::showPanMessage);
+  connect( QgsProject::instance()->displaySettings(), &QgsProjectDisplaySettings::bearingFormatChanged, this, [ = ]
+  {
+    mBearingNumericFormat.reset( QgsProject::instance()->displaySettings()->bearingFormat()->clone() );
+  } );
+  connect( mMapCanvas, &QgsMapCanvas::panDistanceBearingChanged, this, &QgisApp::showPanMessage );
 
   // the most important part of the initialization: make sure that people can play puzzle if they need
   if (settings.value(QStringLiteral("qgis/enablePuzzleWidget"), true).toBool())
   {
-    QgsPuzzleWidget* puzzleWidget = new QgsPuzzleWidget(mMapCanvas);
+  QgsPuzzleWidget *puzzleWidget = new QgsPuzzleWidget( mMapCanvas );
     mCentralContainer->insertWidget(mWelcomePage ? 2 : 1, puzzleWidget);
-    connect(mCoordsEdit, &QgsStatusBarCoordinatesWidget::weAreBored, this, [this, puzzleWidget]
-      {
-        if (puzzleWidget->letsGetThePartyStarted())
+  connect( mCoordsEdit, &QgsStatusBarCoordinatesWidget::weAreBored, this, [ this, puzzleWidget ]
+  {
+    if ( puzzleWidget->letsGetThePartyStarted() )
           mCentralContainer->setCurrentIndex(mWelcomePage ? 2 : 1);
-      });
-    connect(puzzleWidget, &QgsPuzzleWidget::done, this, [this]
-      {
-        mCentralContainer->setCurrentIndex(0);
-      });
+  } );
+  connect( puzzleWidget, &QgsPuzzleWidget::done, this, [ this ]
+  {
+    mCentralContainer->setCurrentIndex( 0 );
+  } );
   }
 
-  mCodeEditorWidgetFactory.reset(qgis::make_unique< QgsCodeEditorOptionsFactory >());
+  mCodeEditorWidgetFactory.reset( qgis::make_unique< QgsCodeEditorOptionsFactory >() );
 
   return true;
 }
@@ -6156,7 +6156,11 @@ QList<QgsMapLayer *> QgisApp::askUserForOGRSublayers( QgsVectorLayer *&parentLay
   chooseSublayersDialog.populateLayerTable( list );
 
   if ( !chooseSublayersDialog.exec() )
+  {
+    delete parentLayer;
+    parentLayer = nullptr;
     return result;
+  }
 
   const bool addToGroup = chooseSublayersDialog.addToGroupCheckbox();
 
@@ -8663,7 +8667,7 @@ void QgisApp::fieldCalculator()
 void QgisApp::attributeTable( QgsAttributeTableFilterModel::FilterMode filter )
 {
   QgsVectorLayer *myLayer = qobject_cast<QgsVectorLayer *>( activeLayer() );
-  if ( !myLayer )
+  if ( !myLayer || !myLayer->dataProvider() )
   {
     return;
   }
@@ -8935,7 +8939,7 @@ void QgisApp::saveStyleFile( QgsMapLayer *layer )
     layer = activeLayer();
   }
 
-  if ( !layer )
+  if ( !layer || !layer->dataProvider() )
     return;
 
   switch ( layer->type() )
@@ -10434,7 +10438,7 @@ void QgisApp::pasteFromClipboard( QgsMapLayer *destinationLayer )
   int nTotalFeatures = features.count();
   QgsExpressionContext context = pasteVectorLayer->createExpressionContext();
 
-  QgsFeatureList compatibleFeatures( QgsVectorLayerUtils::makeFeaturesCompatible( features, pasteVectorLayer ) );
+  QgsFeatureList compatibleFeatures( QgsVectorLayerUtils::makeFeaturesCompatible( features, pasteVectorLayer, QgsFeatureSink::RegeneratePrimaryKey ) );
   QgsVectorLayerUtils::QgsFeaturesDataList newFeaturesDataList;
   newFeaturesDataList.reserve( compatibleFeatures.size() );
 
@@ -16009,6 +16013,8 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
       QgsRasterLayerProperties *rasterLayerPropertiesDialog = new QgsRasterLayerProperties( mapLayer, mMapCanvas, this );
       if ( !page.isEmpty() )
         rasterLayerPropertiesDialog->setCurrentPage( page );
+      else
+        rasterLayerPropertiesDialog->restoreLastPage();
 
       // Cannot use exec here due to raster transparency map tool:
       // in order to pass focus to the canvas, the dialog needs to
@@ -16036,6 +16042,11 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
       {
         meshLayerPropertiesDialog.addPropertiesPageFactory( factory );
       }
+
+      if ( !page.isEmpty() )
+        meshLayerPropertiesDialog.setCurrentPage( page );
+      else
+        meshLayerPropertiesDialog.restoreLastPage();
 
       if (mMapStyleWidget) mMapStyleWidget->blockUpdates( true );
       if ( meshLayerPropertiesDialog.exec() )
@@ -16093,6 +16104,8 @@ void QgisApp::showLayerProperties( QgsMapLayer *mapLayer, const QString &page )
       QgsVectorTileLayerProperties vectorTileLayerPropertiesDialog( qobject_cast<QgsVectorTileLayer *>( mapLayer ), mMapCanvas, visibleMessageBar(), this );
       if ( !page.isEmpty() )
         vectorTileLayerPropertiesDialog.setCurrentPage( page );
+      else
+        vectorTileLayerPropertiesDialog.restoreLastPage();
 
       if (mMapStyleWidget) mMapStyleWidget->blockUpdates( true );
       if ( vectorTileLayerPropertiesDialog.exec() )

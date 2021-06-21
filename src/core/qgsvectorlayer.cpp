@@ -269,7 +269,8 @@ QgsVectorLayer *QgsVectorLayer::clone() const
       layer->addJoin( join );
   }
 
-  layer->setProviderEncoding( dataProvider()->encoding() );
+  if ( mDataProvider )
+    layer->setProviderEncoding( mDataProvider->encoding() );
   layer->setDisplayExpression( displayExpression() );
   layer->setMapTipTemplate( mapTipTemplate() );
   layer->setReadOnly( isReadOnly() );
@@ -838,7 +839,7 @@ QgsRectangle QgsVectorLayer::extent() const
   if ( !isSpatial() )
     return rect;
 
-  if ( !mValidExtent && mLazyExtent && mDataProvider && !mDataProvider->hasMetadata() && mReadExtentFromXml && !mXmlExtent.isNull() )
+  if ( !mValidExtent && mLazyExtent && mReadExtentFromXml && !mXmlExtent.isNull() )
   {
     mExtent = mXmlExtent;
     mValidExtent = true;
@@ -1066,7 +1067,7 @@ bool QgsVectorLayer::updateFeature( QgsFeature &updatedFeature, bool skipDefault
 
     for ( int attr = 0; attr < fa.count(); ++attr )
     {
-      if ( fa.at( attr ) != ca.at( attr ) )
+      if ( !qgsVariantEqual( fa.at( attr ), ca.at( attr ) ) )
       {
         if ( changeAttributeValue( updatedFeature.id(), attr, fa.at( attr ), ca.at( attr ), true ) )
         {
