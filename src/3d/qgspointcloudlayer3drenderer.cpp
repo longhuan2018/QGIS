@@ -27,20 +27,14 @@
 #include "qgspointcloud3dsymbol.h"
 #include "qgspointcloudlayerelevationproperties.h"
 
-#include "qgis.h"
-
 QgsPointCloud3DRenderContext::QgsPointCloud3DRenderContext( const Qgs3DMapSettings &map, const QgsCoordinateTransform &coordinateTransform, std::unique_ptr<QgsPointCloud3DSymbol> symbol, double zValueScale, double zValueFixedOffset )
   : Qgs3DRenderContext( map )
   , mSymbol( std::move( symbol ) )
   , mZValueScale( zValueScale )
   , mZValueFixedOffset( zValueFixedOffset )
   , mCoordinateTransform( coordinateTransform )
+  , mFeedback( new QgsFeedback )
 {
-  auto callback = []()->bool
-  {
-    return false;
-  };
-  mIsCanceledCallback = callback;
 }
 
 void QgsPointCloud3DRenderContext::setAttributes( const QgsPointCloudAttributeCollection &attributes )
@@ -61,7 +55,7 @@ void QgsPointCloud3DRenderContext::setFilteredOutCategories( const QgsPointCloud
 QSet<int> QgsPointCloud3DRenderContext::getFilteredOutValues() const
 {
   QSet<int> filteredOut;
-  for ( QgsPointCloudCategory category : mFilteredOutCategories )
+  for ( const QgsPointCloudCategory &category : mFilteredOutCategories )
     filteredOut.insert( category.value() );
   return filteredOut;
 }
@@ -70,6 +64,18 @@ void QgsPointCloud3DRenderContext::setCoordinateTransform( const QgsCoordinateTr
 {
   mCoordinateTransform = coordinateTransform;
 }
+
+bool QgsPointCloud3DRenderContext::isCanceled() const
+{
+  return mFeedback->isCanceled();
+}
+
+void QgsPointCloud3DRenderContext::cancelRendering() const
+{
+  mFeedback->cancel();
+}
+// ---------
+
 
 QgsPointCloudLayer3DRendererMetadata::QgsPointCloudLayer3DRendererMetadata()
   : Qgs3DRendererAbstractMetadata( QStringLiteral( "pointcloud" ) )
@@ -127,7 +133,7 @@ Qt3DCore::QEntity *QgsPointCloudLayer3DRenderer::createEntity( const Qgs3DMapSet
   if ( !mSymbol )
     return nullptr;
 
-  QgsCoordinateTransform coordinateTransform( pcl->crs(), map.crs(), map.transformContext() );
+  const QgsCoordinateTransform coordinateTransform( pcl->crs(), map.crs(), map.transformContext() );
 
   return new QgsPointCloudLayerChunkedEntity( pcl->dataProvider()->index(), map, coordinateTransform, dynamic_cast<QgsPointCloud3DSymbol *>( mSymbol->clone() ), maximumScreenError(), showBoundingBoxes(),
          static_cast< const QgsPointCloudLayerElevationProperties * >( pcl->elevationProperties() )->zScale(),
@@ -163,7 +169,7 @@ void QgsPointCloudLayer3DRenderer::readXml( const QDomElement &elem, const QgsRe
 {
   mLayerRef = QgsMapLayerRef( elem.attribute( QStringLiteral( "layer" ) ) );
 
-  QDomElement elemSymbol = elem.firstChildElement( QStringLiteral( "symbol" ) );
+  const QDomElement elemSymbol = elem.firstChildElement( QStringLiteral( "symbol" ) );
 
   const QString symbolType = elemSymbol.attribute( QStringLiteral( "type" ) );
   mShowBoundingBoxes = elem.attribute( QStringLiteral( "show-bounding-boxes" ), QStringLiteral( "0" ) ).toInt();

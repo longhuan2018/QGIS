@@ -31,34 +31,17 @@
 #include "qgsvectorlayer.h"
 #include "qgsproviderregistry.h"
 #include "qgsmeshlayer.h"
+#include "qgspluginlayer.h"
 #include "qgsreferencedgeometry.h"
 #include "qgsrasterfilewriter.h"
 #include "qgsvectortilelayer.h"
+#include "qgspointcloudlayer.h"
 #include <QRegularExpression>
 #include <QUuid>
 
 QList<QgsRasterLayer *> QgsProcessingUtils::compatibleRasterLayers( QgsProject *project, bool sort )
 {
-  if ( !project )
-    return QList<QgsRasterLayer *>();
-
-  QList<QgsRasterLayer *> layers;
-
-  const auto rasterLayers = project->layers<QgsRasterLayer *>();
-  for ( QgsRasterLayer *l : rasterLayers )
-  {
-    if ( canUseLayer( l ) )
-      layers << l;
-  }
-
-  if ( sort )
-  {
-    std::sort( layers.begin(), layers.end(), []( const QgsRasterLayer * a, const QgsRasterLayer * b ) -> bool
-    {
-      return QString::localeAwareCompare( a->name(), b->name() ) < 0;
-    } );
-  }
-  return layers;
+  return compatibleMapLayers< QgsRasterLayer >( project, sort );
 }
 
 QList<QgsVectorLayer *> QgsProcessingUtils::compatibleVectorLayers( QgsProject *project, const QList<int> &geometryTypes, bool sort )
@@ -86,12 +69,27 @@ QList<QgsVectorLayer *> QgsProcessingUtils::compatibleVectorLayers( QgsProject *
 
 QList<QgsMeshLayer *> QgsProcessingUtils::compatibleMeshLayers( QgsProject *project, bool sort )
 {
-  if ( !project )
-    return QList<QgsMeshLayer *>();
+  return compatibleMapLayers< QgsMeshLayer >( project, sort );
+}
 
-  QList<QgsMeshLayer *> layers;
-  const auto meshLayers = project->layers<QgsMeshLayer *>();
-  for ( QgsMeshLayer *l : meshLayers )
+QList<QgsPluginLayer *> QgsProcessingUtils::compatiblePluginLayers( QgsProject *project, bool sort )
+{
+  return compatibleMapLayers< QgsPluginLayer >( project, sort );
+}
+
+QList<QgsPointCloudLayer *> QgsProcessingUtils::compatiblePointCloudLayers( QgsProject *project, bool sort )
+{
+  return compatibleMapLayers< QgsPointCloudLayer >( project, sort );
+}
+
+template<typename T> QList<T *> QgsProcessingUtils::compatibleMapLayers( QgsProject *project, bool sort )
+{
+  if ( !project )
+    return QList<T *>();
+
+  QList<T *> layers;
+  const auto projectLayers = project->layers<T *>();
+  for ( T *l : projectLayers )
   {
     if ( canUseLayer( l ) )
       layers << l;
@@ -99,7 +97,7 @@ QList<QgsMeshLayer *> QgsProcessingUtils::compatibleMeshLayers( QgsProject *proj
 
   if ( sort )
   {
-    std::sort( layers.begin(), layers.end(), []( const QgsMeshLayer * a, const QgsMeshLayer * b ) -> bool
+    std::sort( layers.begin(), layers.end(), []( const T * a, const T * b ) -> bool
     {
       return QString::localeAwareCompare( a->name(), b->name() ) < 0;
     } );
@@ -114,7 +112,7 @@ QList<QgsMapLayer *> QgsProcessingUtils::compatibleLayers( QgsProject *project, 
 
   QList<QgsMapLayer *> layers;
 
-  const auto rasterLayers = compatibleRasterLayers( project, false );
+  const auto rasterLayers = compatibleMapLayers< QgsRasterLayer >( project, false );
   for ( QgsRasterLayer *rl : rasterLayers )
     layers << rl;
 
@@ -122,9 +120,17 @@ QList<QgsMapLayer *> QgsProcessingUtils::compatibleLayers( QgsProject *project, 
   for ( QgsVectorLayer *vl : vectorLayers )
     layers << vl;
 
-  const auto meshLayers = compatibleMeshLayers( project, false );
-  for ( QgsMeshLayer *vl : meshLayers )
-    layers << vl;
+  const auto meshLayers = compatibleMapLayers< QgsMeshLayer >( project, false );
+  for ( QgsMeshLayer *ml : meshLayers )
+    layers << ml;
+
+  const auto pointCloudLayers = compatibleMapLayers< QgsPointCloudLayer >( project, false );
+  for ( QgsPointCloudLayer *pcl : pointCloudLayers )
+    layers << pcl;
+
+  const auto pluginLayers = compatibleMapLayers< QgsPluginLayer >( project, false );
+  for ( QgsPluginLayer *pl : pluginLayers )
+    layers << pl;
 
   if ( sort )
   {
@@ -179,7 +185,7 @@ QgsMapLayer *QgsProcessingUtils::mapLayerFromStore( const QString &string, QgsMa
       case QgsMapLayerType::AnnotationLayer:
         return true;
       case QgsMapLayerType::PointCloudLayer:
-        return true;
+        return !canUseLayer( qobject_cast< QgsPointCloudLayer * >( layer ) );
     }
     return true;
   } ), layers.end() );
@@ -199,6 +205,9 @@ QgsMapLayer *QgsProcessingUtils::mapLayerFromStore( const QString &string, QgsMa
 
       case LayerHint::Mesh:
         return l->type() == QgsMapLayerType::MeshLayer;
+
+      case LayerHint::PointCloud:
+        return l->type() == QgsMapLayerType::PointCloudLayer;
     }
     return true;
   };
@@ -231,7 +240,7 @@ QgsMapLayer *QgsProcessingUtils::loadMapLayerFromString( const QString &string, 
 
   QString name;
   // for disk based sources, we use the filename to determine a layer name
-  if ( !useProvider || ( provider == QLatin1String( "ogr" ) || provider == QLatin1String( "gdal" ) || provider == QLatin1String( "mdal" ) ) )
+  if ( !useProvider || ( provider == QLatin1String( "ogr" ) || provider == QLatin1String( "gdal" ) || provider == QLatin1String( "mdal" ) || provider == QLatin1String( "pdal" ) || provider == QLatin1String( "ept" ) ) )
   {
     QStringList components = uri.split( '|' );
     if ( components.isEmpty() )
@@ -312,6 +321,25 @@ QgsMapLayer *QgsProcessingUtils::loadMapLayerFromString( const QString &string, 
     if ( meshLayer->isValid() )
     {
       return meshLayer.release();
+    }
+  }
+  if ( typeHint == LayerHint::UnknownType || typeHint == LayerHint::PointCloud )
+  {
+    QgsPointCloudLayer::LayerOptions pointCloudOptions;
+    pointCloudOptions.skipCrsValidation = true;
+
+    std::unique_ptr< QgsPointCloudLayer > pointCloudLayer;
+    if ( useProvider )
+    {
+      pointCloudLayer = std::make_unique< QgsPointCloudLayer >( uri, name, provider, pointCloudOptions );
+    }
+    else
+    {
+      pointCloudLayer = std::make_unique< QgsPointCloudLayer >( uri, name, QStringLiteral( "pointcloud" ), pointCloudOptions );
+    }
+    if ( pointCloudLayer->isValid() )
+    {
+      return pointCloudLayer.release();
     }
   }
   return nullptr;
@@ -493,12 +521,22 @@ bool QgsProcessingUtils::canUseLayer( const QgsMeshLayer *layer )
   return layer && layer->dataProvider();
 }
 
+bool QgsProcessingUtils::canUseLayer( const QgsPluginLayer *layer )
+{
+  return layer && layer->isValid();
+}
+
 bool QgsProcessingUtils::canUseLayer( const QgsVectorTileLayer *layer )
 {
   return layer && layer->isValid();
 }
 
 bool QgsProcessingUtils::canUseLayer( const QgsRasterLayer *layer )
+{
+  return layer && layer->isValid();
+}
+
+bool QgsProcessingUtils::canUseLayer( const QgsPointCloudLayer *layer )
 {
   return layer && layer->isValid();
 }
@@ -841,7 +879,7 @@ QgsFeatureSink *QgsProcessingUtils::createFeatureSink( QString &destination, Qgs
       {
         //create empty layer
         std::unique_ptr< QgsVectorLayerExporter > exporter = std::make_unique<QgsVectorLayerExporter>( uri, providerKey, newFields, geometryType, crs, true, options, sinkFlags );
-        if ( exporter->errorCode() )
+        if ( exporter->errorCode() != Qgis::VectorExportResult::Success )
         {
           throw QgsProcessingException( QObject::tr( "Could not create layer %1: %2" ).arg( destination, exporter->errorMessage() ) );
         }
@@ -954,7 +992,7 @@ QString QgsProcessingUtils::tempFolder()
   static QString sFolder;
   static QMutex sMutex;
   QMutexLocker locker( &sMutex );
-  const QString basePath = QgsSettings().value( QStringLiteral( "Processing/Configuration/TEMP_PATH2" ) ).toString();
+  const QString basePath = QgsProcessing::settingsTempPath.value();
   if ( basePath.isEmpty() )
   {
     // default setting -- automatically create a temp folder
@@ -1000,37 +1038,45 @@ QString QgsProcessingUtils::formatHelpMapAsHtml( const QVariantMap &map, const Q
     return QString();
   };
 
-  QString s = QObject::tr( "<html><body><h2>Algorithm description</h2>\n" );
-  s += QStringLiteral( "<p>" ) + getText( QStringLiteral( "ALG_DESC" ) ) + QStringLiteral( "</p>\n" );
+  QString s;
+  s += QStringLiteral( "<html><body><p>" ) + getText( QStringLiteral( "ALG_DESC" ) ) + QStringLiteral( "</p>\n" );
 
   QString inputs;
-
   const auto parameterDefinitions = algorithm->parameterDefinitions();
   for ( const QgsProcessingParameterDefinition *def : parameterDefinitions )
   {
-    inputs += QStringLiteral( "<h3>" ) + def->description() + QStringLiteral( "</h3>\n" );
-    inputs += QStringLiteral( "<p>" ) + getText( def->name() ) + QStringLiteral( "</p>\n" );
+    if ( def->flags() & QgsProcessingParameterDefinition::FlagHidden || def->isDestination() )
+      continue;
+
+    if ( !getText( def->name() ).isEmpty() )
+    {
+      inputs += QStringLiteral( "<h3>" ) + def->description() + QStringLiteral( "</h3>\n" );
+      inputs += QStringLiteral( "<p>" ) + getText( def->name() ) + QStringLiteral( "</p>\n" );
+    }
   }
   if ( !inputs.isEmpty() )
-    s += QObject::tr( "<h2>Input parameters</h2>\n" ) + inputs;
+    s += QStringLiteral( "<h2>" ) + QObject::tr( "Input parameters" ) + QStringLiteral( "</h2>\n" ) + inputs;
 
   QString outputs;
   const auto outputDefinitions = algorithm->outputDefinitions();
   for ( const QgsProcessingOutputDefinition *def : outputDefinitions )
   {
-    outputs += QStringLiteral( "<h3>" ) + def->description() + QStringLiteral( "</h3>\n" );
-    outputs += QStringLiteral( "<p>" ) + getText( def->name() ) + QStringLiteral( "</p>\n" );
+    if ( !getText( def->name() ).isEmpty() )
+    {
+      outputs += QStringLiteral( "<h3>" ) + def->description() + QStringLiteral( "</h3>\n" );
+      outputs += QStringLiteral( "<p>" ) + getText( def->name() ) + QStringLiteral( "</p>\n" );
+    }
   }
   if ( !outputs.isEmpty() )
-    s += QObject::tr( "<h2>Outputs</h2>\n" ) + outputs;
+    s += QStringLiteral( "<h2>" ) + QObject::tr( "Outputs" ) + QStringLiteral( "</h2>\n" ) + outputs;
 
   s += QLatin1String( "<br>" );
   if ( !map.value( QStringLiteral( "ALG_CREATOR" ) ).toString().isEmpty() )
-    s += QObject::tr( "<p align=\"right\">Algorithm author: %1</p>" ).arg( getText( QStringLiteral( "ALG_CREATOR" ) ) );
+    s += QStringLiteral( "<p align=\"right\">" ) + QObject::tr( "Algorithm author:" ) + QStringLiteral( " " ) + getText( QStringLiteral( "ALG_CREATOR" ) ) + QStringLiteral( "</p>" );
   if ( !map.value( QStringLiteral( "ALG_HELP_CREATOR" ) ).toString().isEmpty() )
-    s += QObject::tr( "<p align=\"right\">Help author: %1</p>" ).arg( getText( QStringLiteral( "ALG_HELP_CREATOR" ) ) );
+    s += QStringLiteral( "<p align=\"right\">" ) + QObject::tr( "Help author:" ) + QStringLiteral( " " ) + getText( QStringLiteral( "ALG_HELP_CREATOR" ) ) + QStringLiteral( "</p>" );
   if ( !map.value( QStringLiteral( "ALG_VERSION" ) ).toString().isEmpty() )
-    s += QObject::tr( "<p align=\"right\">Algorithm version: %1</p>" ).arg( getText( QStringLiteral( "ALG_VERSION" ) ) );
+    s += QStringLiteral( "<p align=\"right\">" ) + QObject::tr( "Algorithm version:" ) + QStringLiteral( " " ) + getText( QStringLiteral( "ALG_VERSION" ) ) + QStringLiteral( "</p>" );
 
   s += QLatin1String( "</body></html>" );
   return s;
@@ -1211,8 +1257,7 @@ QgsFields QgsProcessingUtils::indicesToFields( const QList<int> &indices, const 
 
 QString QgsProcessingUtils::defaultVectorExtension()
 {
-  QgsSettings settings;
-  const int setting = settings.value( QStringLiteral( "Processing/Configuration/DefaultOutputVectorLayerExt" ), -1 ).toInt();
+  const int setting = QgsProcessing::settingsDefaultOutputVectorLayerExt.value();
   if ( setting == -1 )
     return QStringLiteral( "gpkg" );
   return QgsVectorFileWriter::supportedFormatExtensions().value( setting, QStringLiteral( "gpkg" ) );
@@ -1220,8 +1265,7 @@ QString QgsProcessingUtils::defaultVectorExtension()
 
 QString QgsProcessingUtils::defaultRasterExtension()
 {
-  QgsSettings settings;
-  const int setting = settings.value( QStringLiteral( "Processing/Configuration/DefaultOutputRasterLayerExt" ), -1 ).toInt();
+  const int setting = QgsProcessing::settingsDefaultOutputRasterLayerExt.value();
   if ( setting == -1 )
     return QStringLiteral( "tif" );
   return QgsRasterFileWriter::supportedFormatExtensions().value( setting, QStringLiteral( "tif" ) );
@@ -1313,12 +1357,12 @@ QgsWkbTypes::Type QgsProcessingFeatureSource::wkbType() const
   return mSource->wkbType();
 }
 
-long QgsProcessingFeatureSource::featureCount() const
+long long QgsProcessingFeatureSource::featureCount() const
 {
   if ( mFeatureLimit == -1 )
     return mSource->featureCount();
   else
-    return std::min( mFeatureLimit, static_cast< long long >( mSource->featureCount() ) );
+    return std::min( mFeatureLimit, mSource->featureCount() );
 }
 
 QString QgsProcessingFeatureSource::sourceName() const

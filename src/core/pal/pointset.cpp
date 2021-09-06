@@ -164,9 +164,15 @@ void PointSet::invalidateGeos()
   GEOSContextHandle_t geosctxt = QgsGeos::getGEOSHandler();
   if ( mOwnsGeom ) // delete old geometry if we own it
     GEOSGeom_destroy_r( geosctxt, mGeos );
-  GEOSPreparedGeom_destroy_r( geosctxt, mPreparedGeom );
   mOwnsGeom = false;
   mGeos = nullptr;
+
+  if ( mPreparedGeom )
+  {
+    GEOSPreparedGeom_destroy_r( geosctxt, mPreparedGeom );
+    mPreparedGeom = nullptr;
+  }
+
   if ( mGeosPreparedBoundary )
   {
     GEOSPreparedGeom_destroy_r( geosctxt, mGeosPreparedBoundary );
@@ -184,7 +190,6 @@ void PointSet::invalidateGeos()
     mMultipartGeos = nullptr;
   }
 
-  mPreparedGeom = nullptr;
   mLength = -1;
   mArea = -1;
 }
@@ -271,7 +276,7 @@ bool PointSet::containsPoint( double x, double y ) const
     GEOSCoordSeq_setY_r( geosctxt, seq, 0, y );
     geos::unique_ptr point( GEOSGeom_createPoint_r( geosctxt, seq ) );
 #endif
-    bool result = ( GEOSPreparedContainsProperly_r( geosctxt, preparedGeom(), point.get() ) == 1 );
+    const bool result = ( GEOSPreparedContainsProperly_r( geosctxt, preparedGeom(), point.get() ) == 1 );
 
     return result;
   }
@@ -331,10 +336,10 @@ QLinkedList<PointSet *> PointSet::splitPolygons( PointSet *inputShape, double la
     for ( std::size_t ihs = 0; ihs < shape->convexHull.size(); ihs++ )
     {
       // ihs->ihn => cHull'seg
-      std::size_t ihn = ( ihs + 1 ) % shape->convexHull.size();
+      const std::size_t ihn = ( ihs + 1 ) % shape->convexHull.size();
 
-      int ips = shape->convexHull[ihs];
-      int ipn = ( ips + 1 ) % nbp;
+      const int ips = shape->convexHull[ihs];
+      const int ipn = ( ips + 1 ) % nbp;
       if ( ipn != shape->convexHull[ihn] ) // next point on shape is not the next point on cHull => there is a hole here !
       {
         double bestcp = 0;
@@ -342,9 +347,9 @@ QLinkedList<PointSet *> PointSet::splitPolygons( PointSet *inputShape, double la
         // lookup for the deepest point in the hole
         for ( int i = ips; i != shape->convexHull[ihn]; i = ( i + 1 ) % nbp )
         {
-          double cp = std::fabs( GeomFunction::cross_product( x[shape->convexHull[ihs]], y[shape->convexHull[ihs]],
-                                 x[shape->convexHull[ihn]], y[shape->convexHull[ihn]],
-                                 x[i], y[i] ) );
+          const double cp = std::fabs( GeomFunction::cross_product( x[shape->convexHull[ihs]], y[shape->convexHull[ihs]],
+                                       x[shape->convexHull[ihn]], y[shape->convexHull[ihn]],
+                                       x[i], y[i] ) );
           if ( cp - bestcp > EPSILON )
           {
             bestcp = cp;
@@ -478,7 +483,7 @@ QLinkedList<PointSet *> PointSet::splitPolygons( PointSet *inputShape, double la
       }  // for point which are not in hole
 
       // we will cut the shapeu in two new shapes, one from [retainedPoint] to [newPoint] and one form [newPoint] to [retainedPoint]
-      int imin = retainedPt;
+      const int imin = retainedPt;
       int imax = ( ( ( fps < retainedPt && fpe < retainedPt ) || ( fps > retainedPt && fpe > retainedPt ) ) ? std::min( fps, fpe ) : std::max( fps, fpe ) );
 
       int nbPtSh1, nbPtSh2; // how many points in new shapes ?
@@ -540,6 +545,82 @@ QLinkedList<PointSet *> PointSet::splitPolygons( PointSet *inputShape, double la
   return outputShapes;
 }
 
+void PointSet::offsetCurveByDistance( double distance )
+{
+  if ( !mGeos )
+    createGeosGeom();
+
+  if ( !mGeos || type != GEOS_LINESTRING )
+    return;
+
+  GEOSContextHandle_t geosctxt = QgsGeos::getGEOSHandler();
+  GEOSGeometry *newGeos;
+  try
+  {
+    newGeos = GEOSOffsetCurve_r( geosctxt, mGeos, distance, 0, GEOSBUF_JOIN_MITRE, 2 );
+    if ( !newGeos )
+      return;
+
+    // happens sometime, if the offset curve self-intersects
+    if ( GEOSGeomTypeId_r( geosctxt, newGeos ) == GEOS_MULTILINESTRING )
+    {
+      // we keep the longest part
+      const int nParts = GEOSGetNumGeometries_r( geosctxt, newGeos );
+      double maximumLength = -1;
+      const GEOSGeometry *longestPart = nullptr;
+      for ( int i = 0; i < nParts; ++i )
+      {
+        const GEOSGeometry *part = GEOSGetGeometryN_r( geosctxt, newGeos, i );
+        double partLength = -1;
+        if ( GEOSLength_r( geosctxt, part, &partLength ) == 1 )
+        {
+          if ( partLength > maximumLength )
+          {
+            maximumLength = partLength;
+            longestPart = part;
+          }
+        }
+      }
+
+      if ( !longestPart )
+      {
+        // something is really wrong!
+        GEOSGeom_destroy_r( geosctxt, newGeos );
+        return;
+      }
+
+      geos::unique_ptr longestPartClone( GEOSGeom_clone_r( geosctxt, longestPart ) );
+      GEOSGeom_destroy_r( geosctxt, newGeos );
+      newGeos = longestPartClone.release();
+    }
+
+    const int newNbPoints = GEOSGeomGetNumPoints_r( geosctxt, newGeos );
+    const GEOSCoordSequence *coordSeq = GEOSGeom_getCoordSeq_r( geosctxt, newGeos );
+    std::vector< double > newX;
+    std::vector< double > newY;
+    newX.resize( newNbPoints );
+    newY.resize( newNbPoints );
+    for ( int i = 0; i < newNbPoints; i++ )
+    {
+      GEOSCoordSeq_getX_r( geosctxt, coordSeq, i, &newX[i] );
+      GEOSCoordSeq_getY_r( geosctxt, coordSeq, i, &newY[i] );
+    }
+    nbPoints = newNbPoints;
+    x = newX;
+    y = newY;
+  }
+  catch ( GEOSException &e )
+  {
+    qWarning( "GEOS exception: %s", e.what() );
+    QgsMessageLog::logMessage( QObject::tr( "Exception: %1" ).arg( e.what() ), QObject::tr( "GEOS" ) );
+    return;
+  }
+
+  invalidateGeos();
+  mGeos = newGeos;
+  mOwnsGeom = true;
+}
+
 void PointSet::extendLineByDistance( double startDistance, double endDistance, double smoothDistance )
 {
   if ( nbPoints < 2 )
@@ -558,13 +639,13 @@ void PointSet::extendLineByDistance( double startDistance, double endDistance, d
     double lastY = y0;
     for ( int i = 1; i < nbPoints; ++i )
     {
-      double thisX = x[i];
-      double thisY = y[i];
+      const double thisX = x[i];
+      const double thisY = y[i];
       const double thisSegmentLength = std::sqrt( ( thisX - lastX ) * ( thisX - lastX ) + ( thisY - lastY ) * ( thisY - lastY ) );
       distanceConsumed += thisSegmentLength;
       if ( distanceConsumed >= smoothDistance )
       {
-        double c = ( distanceConsumed - smoothDistance ) / thisSegmentLength;
+        const double c = ( distanceConsumed - smoothDistance ) / thisSegmentLength;
         x1 = lastX + c * ( thisX - lastX );
         y1 = lastY + c * ( thisY - lastY );
         break;
@@ -583,8 +664,8 @@ void PointSet::extendLineByDistance( double startDistance, double endDistance, d
 
   if ( endDistance > 0 )
   {
-    double xend0 = x[nbPoints - 1];
-    double yend0 = y[nbPoints - 1];
+    const double xend0 = x[nbPoints - 1];
+    const double yend0 = y[nbPoints - 1];
     double xend1 = x[nbPoints - 2];
     double yend1 = y[nbPoints - 2];
 
@@ -594,13 +675,13 @@ void PointSet::extendLineByDistance( double startDistance, double endDistance, d
     double lastY = y0;
     for ( int i = nbPoints - 2; i >= 0; --i )
     {
-      double thisX = x[i];
-      double thisY = y[i];
+      const double thisX = x[i];
+      const double thisY = y[i];
       const double thisSegmentLength = std::sqrt( ( thisX - lastX ) * ( thisX - lastX ) + ( thisY - lastY ) * ( thisY - lastY ) );
       distanceConsumed += thisSegmentLength;
       if ( distanceConsumed >= smoothDistance )
       {
-        double c = ( distanceConsumed - smoothDistance ) / thisSegmentLength;
+        const double c = ( distanceConsumed - smoothDistance ) / thisSegmentLength;
         xend1 = lastX + c * ( thisX - lastX );
         yend1 = lastY + c * ( thisY - lastY );
         break;
@@ -788,7 +869,7 @@ double PointSet::minDistanceToPoint( double px, double py, double *rx, double *r
     GEOSCoordSeq_setY_r( geosctxt, coord, 0, py );
     geos::unique_ptr geosPt( GEOSGeom_createPoint_r( geosctxt, coord ) );
 #endif
-    int type = GEOSGeomTypeId_r( geosctxt, mGeos );
+    const int type = GEOSGeomTypeId_r( geosctxt, mGeos );
     const GEOSGeometry *extRing = nullptr;
 #if GEOS_VERSION_MAJOR>3 || GEOS_VERSION_MINOR>=9
     const GEOSPreparedGeometry *preparedExtRing = nullptr;
@@ -815,7 +896,7 @@ double PointSet::minDistanceToPoint( double px, double py, double *rx, double *r
     }
 
 #if GEOS_VERSION_MAJOR>3 || ( GEOS_VERSION_MAJOR == 3 && GEOS_VERSION_MINOR>=9 )
-    geos::coord_sequence_unique_ptr nearestCoord( GEOSPreparedNearestPoints_r( geosctxt, preparedExtRing, geosPt.get() ) );
+    const geos::coord_sequence_unique_ptr nearestCoord( GEOSPreparedNearestPoints_r( geosctxt, preparedExtRing, geosPt.get() ) );
 #else
     geos::coord_sequence_unique_ptr nearestCoord( GEOSNearestPoints_r( geosctxt, extRing, geosPt.get() ) );
 #endif
@@ -907,12 +988,12 @@ void PointSet::getCentroid( double &px, double &py, bool forceInside ) const
 
 bool PointSet::boundingBoxIntersects( const PointSet *other ) const
 {
-  double x1 = ( xmin > other->xmin ? xmin : other->xmin );
-  double x2 = ( xmax < other->xmax ? xmax : other->xmax );
+  const double x1 = ( xmin > other->xmin ? xmin : other->xmin );
+  const double x2 = ( xmax < other->xmax ? xmax : other->xmax );
   if ( x1 > x2 )
     return false;
-  double y1 = ( ymin > other->ymin ? ymin : other->ymin );
-  double y2 = ( ymax < other->ymax ? ymax : other->ymax );
+  const double y1 = ( ymin > other->ymin ? ymin : other->ymin );
+  const double y2 = ( ymax < other->ymax ? ymax : other->ymax );
   return y1 <= y2;
 }
 
@@ -1048,4 +1129,23 @@ QString PointSet::toWkt() const
     QgsMessageLog::logMessage( QObject::tr( "Exception: %1" ).arg( e.what() ), QObject::tr( "GEOS" ) );
     return QString();
   }
+}
+
+std::tuple< std::vector< double >, double > PointSet::edgeDistances() const
+{
+  std::vector< double > distances( nbPoints );
+  double totalDistance = 0;
+  double oldX = -1.0, oldY = -1.0;
+  for ( int i = 0; i < nbPoints; i++ )
+  {
+    if ( i == 0 )
+      distances[i] = 0;
+    else
+      distances[i] = std::sqrt( std::pow( oldX - x[i], 2 ) + std::pow( oldY - y[i], 2 ) );
+
+    oldX = x[i];
+    oldY = y[i];
+    totalDistance += distances[i];
+  }
+  return std::make_tuple( std::move( distances ), totalDistance );
 }

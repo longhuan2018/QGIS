@@ -76,7 +76,7 @@ void QgsMapToolChangeLabelProperties::canvasPressEvent( QgsMapMouseEvent *e )
   if ( !mCurrentLabel.layer->isEditable() )
   {
     QgsPalIndexes indexes;
-    bool newAuxiliaryLayer = createAuxiliaryFields( indexes, false );
+    const bool newAuxiliaryLayer = createAuxiliaryFields( indexes, false );
 
     if ( !newAuxiliaryLayer && !mCurrentLabel.layer->auxiliaryLayer() )
     {
@@ -111,6 +111,7 @@ void QgsMapToolChangeLabelProperties::canvasReleaseEvent( QgsMapMouseEvent *e )
                               labeltext,
                               mCurrentLabel.pos.isPinned,
                               mCurrentLabel.settings,
+                              mCanvas,
                               nullptr );
     d.setMapCanvas( canvas() );
 

@@ -127,6 +127,7 @@ class CORE_EXPORT QgsAbstractMetadataBase
        */
       QString country;
 
+      // TODO c++20 - replace with = default
       bool operator==( const QgsAbstractMetadataBase::Address &other ) const;
     };
 
@@ -188,6 +189,7 @@ class CORE_EXPORT QgsAbstractMetadataBase
        */
       QString role;
 
+      // TODO c++20 - replace with = default
       bool operator==( const QgsAbstractMetadataBase::Contact &other ) const;
     };
 
@@ -252,6 +254,7 @@ class CORE_EXPORT QgsAbstractMetadataBase
        */
       QString size;
 
+      // TODO c++20 - replace with = default
       bool operator==( const QgsAbstractMetadataBase::Link &other ) const;
     };
 
@@ -523,6 +526,15 @@ class CORE_EXPORT QgsAbstractMetadataBase
      * class method in order to write common metadata properties.
      */
     virtual bool writeMetadataXml( QDomElement &metadataElement, QDomDocument &document ) const;
+
+    /**
+     * Combines the metadata from this object with the metadata from an \a other object.
+     *
+     * Any existing values in this object will be overwritten by non-empty values from \a other.
+     *
+     * \since QGIS 3.20
+     */
+    virtual void combine( const QgsAbstractMetadataBase *other );
 
   protected:
 

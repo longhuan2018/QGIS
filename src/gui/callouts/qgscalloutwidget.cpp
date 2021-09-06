@@ -21,6 +21,8 @@
 #include "qgsnewauxiliaryfielddialog.h"
 #include "qgsnewauxiliarylayerdialog.h"
 #include "qgsauxiliarystorage.h"
+#include "qgslinesymbol.h"
+#include "qgsfillsymbol.h"
 
 QgsExpressionContext QgsCalloutWidget::createExpressionContext() const
 {
@@ -91,8 +93,8 @@ void QgsCalloutWidget::createAuxiliaryField()
     return;
 
   QgsPropertyOverrideButton *button = qobject_cast<QgsPropertyOverrideButton *>( sender() );
-  QgsCallout::Property key = static_cast<  QgsCallout::Property >( button->propertyKey() );
-  QgsPropertyDefinition def = QgsCallout::propertyDefinitions()[key];
+  const QgsCallout::Property key = static_cast<  QgsCallout::Property >( button->propertyKey() );
+  const QgsPropertyDefinition def = QgsCallout::propertyDefinitions()[key];
 
   // create property in auxiliary storage if necessary
   if ( !mVectorLayer->auxiliaryLayer()->exists( def ) )
@@ -115,7 +117,7 @@ void QgsCalloutWidget::createAuxiliaryField()
 void QgsCalloutWidget::updateDataDefinedProperty()
 {
   QgsPropertyOverrideButton *button = qobject_cast<QgsPropertyOverrideButton *>( sender() );
-  QgsCallout::Property key = static_cast<  QgsCallout::Property >( button->propertyKey() );
+  const QgsCallout::Property key = static_cast<  QgsCallout::Property >( button->propertyKey() );
   callout()->dataDefinedProperties().setProperty( key, button->toProperty() );
   emit changed();
 }
@@ -132,7 +134,7 @@ QgsSimpleLineCalloutWidget::QgsSimpleLineCalloutWidget( QgsVectorLayer *vl, QWid
   setupUi( this );
 
   // Callout options - to move to custom widgets when multiple callout styles exist
-  mCalloutLineStyleButton->setSymbolType( QgsSymbol::Line );
+  mCalloutLineStyleButton->setSymbolType( Qgis::SymbolType::Line );
   mCalloutLineStyleButton->setDialogTitle( tr( "Callout Symbol" ) );
   mCalloutLineStyleButton->registerExpressionContextGenerator( this );
 
@@ -230,7 +232,7 @@ void QgsSimpleLineCalloutWidget::setCallout( QgsCallout *callout )
 
 void QgsSimpleLineCalloutWidget::setGeometryType( QgsWkbTypes::GeometryType type )
 {
-  bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
+  const bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
   mAnchorPointLbl->setEnabled( isPolygon );
   mAnchorPointLbl->setVisible( isPolygon );
   mAnchorPointComboBox->setEnabled( isPolygon );
@@ -335,7 +337,7 @@ QgsCurvedLineCalloutWidget::QgsCurvedLineCalloutWidget( QgsVectorLayer *vl, QWid
   setupUi( this );
 
   // Callout options - to move to custom widgets when multiple callout styles exist
-  mCalloutLineStyleButton->setSymbolType( QgsSymbol::Line );
+  mCalloutLineStyleButton->setSymbolType( Qgis::SymbolType::Line );
   mCalloutLineStyleButton->setDialogTitle( tr( "Callout Symbol" ) );
   mCalloutLineStyleButton->registerExpressionContextGenerator( this );
 
@@ -457,7 +459,7 @@ void QgsCurvedLineCalloutWidget::setCallout( QgsCallout *callout )
 
 void QgsCurvedLineCalloutWidget::setGeometryType( QgsWkbTypes::GeometryType type )
 {
-  bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
+  const bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
   mAnchorPointLbl->setEnabled( isPolygon );
   mAnchorPointLbl->setVisible( isPolygon );
   mAnchorPointComboBox->setEnabled( isPolygon );
@@ -551,7 +553,7 @@ QgsBalloonCalloutWidget::QgsBalloonCalloutWidget( QgsVectorLayer *vl, QWidget *p
   setupUi( this );
 
   // Callout options - to move to custom widgets when multiple callout styles exist
-  mCalloutFillStyleButton->setSymbolType( QgsSymbol::Fill );
+  mCalloutFillStyleButton->setSymbolType( Qgis::SymbolType::Fill );
   mCalloutFillStyleButton->setDialogTitle( tr( "Balloon Symbol" ) );
   mCalloutFillStyleButton->registerExpressionContextGenerator( this );
 
@@ -697,7 +699,7 @@ void QgsBalloonCalloutWidget::setCallout( QgsCallout *callout )
 
 void QgsBalloonCalloutWidget::setGeometryType( QgsWkbTypes::GeometryType type )
 {
-  bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
+  const bool isPolygon = type == QgsWkbTypes::PolygonGeometry;
   mAnchorPointLbl->setEnabled( isPolygon );
   mAnchorPointLbl->setVisible( isPolygon );
   mAnchorPointComboBox->setEnabled( isPolygon );

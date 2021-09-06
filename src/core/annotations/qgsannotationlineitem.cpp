@@ -18,6 +18,8 @@
 #include "qgsannotationlineitem.h"
 #include "qgssymbol.h"
 #include "qgssymbollayerutils.h"
+#include "qgslinesymbol.h"
+#include "qgsannotationitemnode.h"
 
 QgsAnnotationLineItem::QgsAnnotationLineItem( QgsCurve *curve )
   : QgsAnnotationItem()
@@ -77,6 +79,16 @@ bool QgsAnnotationLineItem::writeXml( QDomElement &element, QDomDocument &docume
   element.appendChild( QgsSymbolLayerUtils::saveSymbol( QStringLiteral( "lineSymbol" ), mSymbol.get(), document, context ) );
 
   return true;
+}
+
+QList<QgsAnnotationItemNode> QgsAnnotationLineItem::nodes() const
+{
+  QList< QgsAnnotationItemNode > res;
+  for ( auto it = mCurve->vertices_begin(); it != mCurve->vertices_end(); ++it )
+  {
+    res.append( QgsAnnotationItemNode( QgsPointXY( ( *it ).x(), ( *it ).y() ), Qgis::AnnotationItemNodeType::VertexHandle ) );
+  }
+  return res;
 }
 
 QgsAnnotationLineItem *QgsAnnotationLineItem::create()

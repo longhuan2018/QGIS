@@ -79,6 +79,7 @@ class QgsPointCloudLayer;
 class QgsPointXY;
 class QgsPrintLayout;
 class QgsProviderRegistry;
+class QgsProviderSublayerDetails;
 class QgsPythonUtils;
 class QgsRasterLayer;
 class QgsRectangle;
@@ -170,6 +171,7 @@ class QgsNetworkLoggerWidgetFactory;
 #include "qgsmasterlayoutinterface.h"
 #include "qgsmaptoolselect.h"
 #include "ogr/qgsvectorlayersaveasdialog.h"
+#include "qgis.h"
 #include "ui_qgisapp.h"
 #include "qgis_app.h"
 #include "qgsvectorlayerref.h"
@@ -209,13 +211,6 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
 
     QgisApp( QgisApp const & ) = delete;
     QgisApp &operator=( QgisApp const & ) = delete;
-
-    /**
-     * Open a raster layer for the given file
-     * \returns FALSE if unable to open a raster layer for rasterFile
-     * \note This is essentially a simplified version of the above
-     */
-    QgsRasterLayer *addRasterLayer( const QString &rasterFile, const QString &baseName, bool guiWarning = true );
 
     /**
      * Returns and adjusted uri for the layer based on current and available CRS as well as the last selected image format
@@ -309,7 +304,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     //! Open the message log dock widget
     void openMessageLog();
 
-    //! Adds a widget to the user input tool bar.
+    //! Adds a widget to the user input tool bar
     void addUserInputWidget( QWidget *widget );
 
     //! Sets theme (icons)
@@ -539,18 +534,30 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
 
     QAction *actionDataSourceManager() { return mActionDataSourceManager; }
     QAction *actionNewVectorLayer() { return mActionNewVectorLayer; }
+#ifdef HAVE_SPATIALITE
     QAction *actionNewSpatialLiteLayer() { return mActionNewSpatiaLiteLayer; }
+#else
+    QAction *actionNewSpatialLiteLayer() { return nullptr; }
+#endif
     QAction *actionEmbedLayers() { return mActionEmbedLayers; }
     QAction *actionAddOgrLayer() { return mActionAddOgrLayer; }
     QAction *actionAddRasterLayer() { return mActionAddRasterLayer; }
     QAction *actionAddPgLayer() { return mActionAddPgLayer; }
+#ifdef HAVE_SPATIALITE
     QAction *actionAddSpatiaLiteLayer() { return mActionAddSpatiaLiteLayer; }
+#else
+    QAction *actionAddSpatiaLiteLayer() { return nullptr; }
+#endif
     QAction *actionAddWmsLayer() { return mActionAddWmsLayer; }
     QAction *actionAddXyzLayer() { return mActionAddXyzLayer; }
     QAction *actionAddVectorTileLayer() { return mActionAddVectorTileLayer; }
     QAction *actionAddPointCloudLayer() { return mActionAddPointCloudLayer; }
     QAction *actionAddWcsLayer() { return mActionAddWcsLayer; }
+#ifdef HAVE_SPATIALITE
     QAction *actionAddWfsLayer() { return mActionAddWfsLayer; }
+#else
+    QAction *actionAddWfsLayer() { return nullptr; }
+#endif
     QAction *actionAddAfsLayer() { return mActionAddAfsLayer; }
     QAction *actionCopyLayerStyle() { return mActionCopyStyle; }
     QAction *actionPasteLayerStyle() { return mActionPasteStyle; }
@@ -664,6 +671,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QToolBar *helpToolBar() { return mHelpToolBar; }
     QToolBar *rasterToolBar() { return mRasterToolBar; }
     QToolBar *vectorToolBar() { return mVectorToolBar; }
+    QToolBar *meshToolBar() {return mMeshToolBar;}
     QToolBar *databaseToolBar() { return mDatabaseToolBar; }
     QToolBar *webToolBar() { return mWebToolBar; }
 
@@ -698,7 +706,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * \param modified whether to return only layers that have been modified
      * \returns list of layers in legend order, or empty list
     */
-    QList<QgsMapLayer *> editableLayers( bool modified = false ) const;
+    QList<QgsMapLayer *> editableLayers( bool modified = false, bool ignoreLayersWhichCannotBeToggled = false ) const;
 
     //! emit initializationCompleted signal
     void completeInitialization();
@@ -1019,7 +1027,6 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
 
     //! copies features to internal clipboard
     void copyFeatures( QgsFeatureStore &featureStore );
-    QList<QgsMapLayer *> loadGDALSublayers( const QString &uri, const QStringList &list );
 
     //! Deletes the selected attributes for the currently selected vector layer
     void deleteSelected( QgsMapLayer *layer = nullptr, QWidget *parent = nullptr, bool checkFeaturesVisible = false );
@@ -1123,7 +1130,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * parameter is used in the Map Legend so it should be formed in a meaningful
      * way.
      */
-    QgsRasterLayer *addRasterLayer( QString const &uri, QString const &baseName, QString const &providerKey );
+    QgsRasterLayer *addRasterLayer( QString const &uri, QString const &baseName, QString const &providerKey = QLatin1String( "gdal" ) );
 
     /**
      * Add a vector layer directly without prompting user for location
@@ -1133,7 +1140,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * parameter is used in the Map Legend so it should be formed in a meaningful
      * way.
      */
-    QgsVectorLayer *addVectorLayer( const QString &vectorLayerPath, const QString &baseName, const QString &providerKey );
+    QgsVectorLayer *addVectorLayer( const QString &vectorLayerPath, const QString &baseName, const QString &providerKey = QLatin1String( "ogr" ) );
 
     /**
      * Adds a mesh layer directly without prompting user for location
@@ -1178,7 +1185,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * user with a dialog.
      * \returns TRUE if successfully added layer(s)
      */
-    bool addRasterLayers( const QStringList &layerQStringList, bool guiWarning = true );
+    bool addRasterLayers( const QStringList &files, bool guiWarning = true );
 
     //! Open a plugin layer using its provider
     QgsPluginLayer *addPluginLayer( const QString &uri, const QString &baseName, const QString &providerKey );
@@ -1195,7 +1202,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * Settings pages section
      */
     //! Gets map of option pages
-    QMap<QString, int> optionsPagesMap();
+    QMap<QString, QString> optionsPagesMap();
     //! Gets map of project property pages
     QMap< QString, QString > projectPropertiesPagesMap();
     //! Gets map of setting pages
@@ -1267,6 +1274,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QgsAttributeEditorContext createAttributeEditorContext();
 
   protected:
+    void showEvent( QShowEvent *event ) override;
 
     //! Handle state changes (WindowTitleChange)
     void changeEvent( QEvent *event ) override;
@@ -1294,8 +1302,6 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     void transactionGroupCommitError( const QString &error );
 
     void onSnappingConfigChanged();
-
-    void generateProjectAttachedFiles( QgsStringMap &files );
 
     /**
      * Triggers validation of the specified \a crs.
@@ -1561,10 +1567,18 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     void newVectorLayer();
     //! Create a new memory layer
     void newMemoryLayer();
+#ifdef HAVE_SPATIALITE
     //! Create a new empty SpatiaLite layer
     void newSpatialiteLayer();
+#endif
     //! Create a new empty GeoPackage layer
     void newGeoPackageLayer();
+
+    //! Create a new empty mesh layer
+    void newMeshLayer();
+
+    //! Create a new empty GPX layer
+    void newGpxLayer();
 
     //! Create a new print layout
     void newPrintLayout();
@@ -1739,12 +1753,6 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     */
     void activateDeactivateLayerRelatedActions( QgsMapLayer *layer );
 
-    /**
-     * \brief Open one or more raster layers and add to the map
-     *  Will prompt user for file names using a file selection dialog
-     */
-    void addRasterLayer();
-
     void selectionChanged( QgsMapLayer *layer );
 
     void extentChanged();
@@ -1754,7 +1762,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
 
     void selectionModeChanged( QgsMapToolSelect::Mode mode );
 
-    void displayMapToolMessage( const QString &message, Qgis::MessageLevel level = Qgis::Info );
+    void displayMapToolMessage( const QString &message, Qgis::MessageLevel level = Qgis::MessageLevel::Info );
     void displayMessage( const QString &title, const QString &message, Qgis::MessageLevel level );
     void removeMapToolMessage();
     void updateMouseCoordinatePrecision();
@@ -2068,46 +2076,19 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * This method will open a dialog so the user can select GDAL sublayers to load
      * \returns TRUE if any items were loaded
      */
-    bool askUserForZipItemLayers( const QString &path );
+    bool askUserForZipItemLayers( const QString &path, const QList< QgsMapLayerType > &acceptableTypes );
 
-    /**
-     * This method will open a dialog so the user can select GDAL sublayers to load,
-     * and then returns a list of these layers.
-     */
-    QList< QgsMapLayer * > askUserForGDALSublayers( QgsRasterLayer *layer );
+    enum class SublayerHandling
+    {
+      AskUser,
+      LoadAll,
+      AbortLoading
+    };
+    SublayerHandling shouldAskUserForSublayers( const QList< QgsProviderSublayerDetails > &layers, bool hasNonLayerItems = false ) const;
 
-    /**
-     * This method will verify if a GDAL layer contains sublayers
-     */
-    bool shouldAskUserForGDALSublayers( QgsRasterLayer *layer );
+    QList< QgsMapLayer * > addSublayers( const QList< QgsProviderSublayerDetails> &layers, const QString &baseName, const QString &groupName );
 
-    /**
-     * This method will open a dialog so the user can select OGR sublayers to load,
-     * and then returns a list of these layers. It will destroy the passed layer
-     * in the process
-     */
-    QList< QgsMapLayer * > askUserForOGRSublayers( QgsVectorLayer *&layerTransferOwnership, const QStringList &subLayers );
-
-    /**
-     * Add a raster layer to the map (passed in as a ptr).
-     * It won't force a refresh.
-     */
-    bool addRasterLayer( QgsRasterLayer *rasterLayer );
-
-    //! Open a raster layer - this is the generic function which takes all parameters
-    QgsRasterLayer *addRasterLayerPrivate( const QString &uri, const QString &baseName,
-                                           const QString &providerKey, bool guiWarning,
-                                           bool guiUpdate );
-
-    /**
-     * This method will open a dialog so the user can select MDAL mesh sublayers to load,
-     * and then returns a list of these layers. Layers are added to the project in the method.
-     */
-    QList< QgsMapLayer * > askUserForMDALSublayers( QgsMeshLayer *layer );
-
-    //! Open a mesh layer - this is the generic function which takes all parameters
-    QgsMeshLayer *addMeshLayerPrivate( const QString &uri, const QString &baseName,
-                                       const QString &providerKey, bool guiWarning = true );
+    void postProcessAddedLayer( QgsMapLayer *layer );
 
     //! Open a vector tile layer - this is the generic function which takes all parameters
     QgsVectorTileLayer *addVectorTileLayerPrivate( const QString &uri, const QString &baseName, bool guiWarning = true );
@@ -2118,9 +2099,9 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
         const QString &providerKey,
         bool guiWarning = true );
 
-    bool addVectorLayersPrivate( const QStringList &layerQStringList, const QString &enc, const QString &dataSourceType, bool guiWarning = true );
-    QgsVectorLayer *addVectorLayerPrivate( const QString &vectorLayerPath, const QString &baseName, const QString &providerKey, bool guiWarning = true );
+    bool addVectorLayersPrivate( const QStringList &layers, const QString &enc, const QString &dataSourceType, bool guiWarning = true );
 
+    template<typename T> T *addLayerPrivate( QgsMapLayerType type, const QString &uri, const QString &baseName, const QString &providerKey, bool guiWarnings = true );
 
     /**
      * Add the current project to the recently opened/saved projects list
@@ -2200,7 +2181,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
                                          const QString &layerName,
                                          const QString &encoding,
                                          const QString &vectorFileName )> &onSuccess, const std::function< void ( int error, const QString &errorMessage ) > &onFailure,
-                                     int dialogOptions = QgsVectorLayerSaveAsDialog::AllOptions,
+                                     QgsVectorLayerSaveAsDialog::Options dialogOptions = QgsVectorLayerSaveAsDialog::AllOptions,
                                      const QString &dialogTitle = QString() );
 
     //! Sets project properties, including map untis
@@ -2349,6 +2330,49 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * according to \a invalidGeometryCount and \a nTotalFeatures
      */
     void pasteFeatures( QgsVectorLayer *pasteVectorLayer, int invalidGeometriesCount, int nTotalFeatures, QgsFeatureList &features );
+
+    /**
+     * starts/stops for a vector layer \a vlayer
+     */
+    bool toggleEditingVectorLayer( QgsVectorLayer *vlayer, bool allowCancel = true );
+
+    /**
+     * Starts/stops for a mesh layer \a mlayer
+     */
+    bool toggleEditingMeshLayer( QgsMeshLayer *vlayer, bool allowCancel = true );
+
+    /**
+     * Saves edits of a vector layer
+     * \param leaveEditable leave the layer in editing mode when done
+     * \param triggerRepaint send layer signal to repaint canvas when done
+     */
+    void saveVectorLayerEdits( QgsMapLayer *layer, bool leaveEditable = true, bool triggerRepaint = true );
+
+    /**
+     * Saves edits of a mesh layer
+     * \param leaveEditable leave the layer in editing mode when done
+     * \param triggerRepaint send layer signal to repaint canvas when done
+     */
+    void saveMeshLayerEdits( QgsMapLayer *layer, bool leaveEditable = true, bool triggerRepaint = true );
+
+    /**
+     * Cancels edits of a vector layer
+     * \param leaveEditable leave the layer in editing mode when done
+     * \param triggerRepaint send layer signal to repaint canvas when done
+     */
+    void cancelVectorLayerEdits( QgsMapLayer *layer, bool leaveEditable = true, bool triggerRepaint = true );
+
+    /**
+     * Cancels edits of a mesh layer
+     * \param leaveEditable leave the layer in editing mode when done
+     * \param triggerRepaint send layer signal to repaint canvas when done
+     */
+    void cancelMeshLayerEdits( QgsMapLayer *layer, bool leaveEditable = true, bool triggerRepaint = true );
+
+    /**
+     * Enables/Disables mesh frame editing tools
+     */
+    void enableMeshEditingTools( bool enable );
 
 
     QgisAppStyleSheet *mStyleSheetBuilder = nullptr;
@@ -2649,6 +2673,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QgsScopedDevToolWidgetFactory mStartupProfilerWidgetFactory;
 
     QgsScopedOptionsWidgetFactory mCodeEditorWidgetFactory;
+    QgsScopedOptionsWidgetFactory mBabelGpsDevicesWidgetFactory;
     QgsScopedOptionsWidgetFactory m3DOptionsWidgetFactory;
 
     class QgsCanvasRefreshBlocker

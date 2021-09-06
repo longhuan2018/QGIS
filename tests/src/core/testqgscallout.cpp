@@ -43,7 +43,9 @@
 #include "qgsvectorlayerlabeling.h"
 #include "qgsvectorlayerlabelprovider.h"
 #include "qgsnullsymbolrenderer.h"
-
+#include "qgslinesymbol.h"
+#include "qgsfillsymbol.h"
+#include "qgsmarkersymbol.h"
 
 //qgis test includes
 #include "qgsmultirenderchecker.h"
@@ -201,13 +203,13 @@ void TestQgsCallout::initTestCase()
   QgsCalloutRegistry *registry = QgsApplication::calloutRegistry();
   registry->addCalloutType( new QgsCalloutMetadata( QStringLiteral( "Dummy" ), QStringLiteral( "Dummy callout" ), QIcon(), DummyCallout::create ) );
 
-  QString myDataDir( TEST_DATA_DIR ); //defined in CmakeLists.txt
+  const QString myDataDir( TEST_DATA_DIR ); //defined in CmakeLists.txt
   mTestDataDir = myDataDir + '/';
 }
 
 void TestQgsCallout::cleanupTestCase()
 {
-  QString myReportFile = QDir::tempPath() + "/qgistest.html";
+  const QString myReportFile = QDir::tempPath() + "/qgistest.html";
   QFile myFile( myReportFile );
   if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
   {
@@ -220,7 +222,7 @@ void TestQgsCallout::cleanupTestCase()
 
 void TestQgsCallout::init()
 {
-  QString filename = QStringLiteral( TEST_DATA_DIR ) + "/points.shp";
+  const QString filename = QStringLiteral( TEST_DATA_DIR ) + "/points.shp";
   vl = new QgsVectorLayer( filename, QStringLiteral( "points" ), QStringLiteral( "ogr" ) );
   QVERIFY( vl->isValid() );
   QgsMarkerSymbol *marker = static_cast< QgsMarkerSymbol * >( QgsSymbol::defaultSymbol( QgsWkbTypes::PointGeometry ) );
@@ -243,7 +245,7 @@ void TestQgsCallout::saveRestore()
   DummyCallout *callout = new DummyCallout( QStringLiteral( "a" ), QStringLiteral( "b" ) );
 
   QDomImplementation DomImplementation;
-  QDomDocumentType documentType =
+  const QDomDocumentType documentType =
     DomImplementation.createDocumentType(
       QStringLiteral( "qgis" ), QStringLiteral( "http://mrcc.com/qgis.dtd" ), QStringLiteral( "SYSTEM" ) );
   QDomDocument doc( documentType );
@@ -259,10 +261,10 @@ void TestQgsCallout::saveRestore()
   QVERIFY( callout->saveProperties( doc, calloutParentElem, QgsReadWriteContext() ) );
 
   //check if callout node was written
-  QDomNodeList evalNodeList = calloutParentElem.elementsByTagName( QStringLiteral( "callout" ) );
+  const QDomNodeList evalNodeList = calloutParentElem.elementsByTagName( QStringLiteral( "callout" ) );
   QCOMPARE( evalNodeList.count(), 1 );
 
-  QDomElement calloutElem = evalNodeList.at( 0 ).toElement();
+  const QDomElement calloutElem = evalNodeList.at( 0 ).toElement();
   QCOMPARE( calloutElem.attribute( "type" ), QString( "Dummy" ) );
 
   //test reading empty node
@@ -270,7 +272,7 @@ void TestQgsCallout::saveRestore()
   QVERIFY( restoredCallout );
 
   //test reading bad node
-  QDomElement badCalloutElem = doc.createElement( QStringLiteral( "parent" ) );
+  const QDomElement badCalloutElem = doc.createElement( QStringLiteral( "parent" ) );
   restoredCallout = QgsApplication::calloutRegistry()->createCallout( QStringLiteral( "Dummy" ), badCalloutElem, QgsReadWriteContext() );
   QVERIFY( restoredCallout );
 
@@ -290,7 +292,7 @@ void TestQgsCallout::saveRestore()
 
 void TestQgsCallout::calloutsInLabeling()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -353,7 +355,7 @@ void TestQgsCallout::calloutsInLabeling()
 
 void TestQgsCallout::calloutsBlend()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -407,7 +409,7 @@ void TestQgsCallout::calloutsBlend()
 
 void TestQgsCallout::calloutsWithRotation()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -496,17 +498,17 @@ void TestQgsCallout::calloutsInLayout()
   outputImage.setDotsPerMeterY( 300 / 25.4 * 1000 );
   QgsMultiRenderChecker::drawBackground( &outputImage );
   QPainter p( &outputImage );
-  QgsLayoutExporter exporter( &l );
+  const QgsLayoutExporter exporter( &l );
   exporter.renderPage( &p, 0 );
   p.end();
 
-  bool result = imageCheck( QStringLiteral( "callouts_layout" ), outputImage );
+  const bool result = imageCheck( QStringLiteral( "callouts_layout" ), outputImage );
   QVERIFY( result );
 }
 
 void TestQgsCallout::calloutsDisabled()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -557,7 +559,7 @@ void TestQgsCallout::calloutsDisabled()
 
 void TestQgsCallout::calloutsDataDefinedDisabled()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -609,7 +611,7 @@ void TestQgsCallout::calloutsDataDefinedDisabled()
 
 void TestQgsCallout::calloutDataDefinedSymbol()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -661,7 +663,7 @@ void TestQgsCallout::calloutDataDefinedSymbol()
 
 void TestQgsCallout::calloutDataDefinedSymbolColor()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -713,7 +715,7 @@ void TestQgsCallout::calloutDataDefinedSymbolColor()
 
 void TestQgsCallout::calloutMinimumDistance()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -765,7 +767,7 @@ void TestQgsCallout::calloutMinimumDistance()
 
 void TestQgsCallout::calloutDataDefinedMinimumDistance()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -818,7 +820,7 @@ void TestQgsCallout::calloutDataDefinedMinimumDistance()
 
 void TestQgsCallout::calloutOffsetFromAnchor()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -870,7 +872,7 @@ void TestQgsCallout::calloutOffsetFromAnchor()
 
 void TestQgsCallout::calloutDataDefinedOffsetFromAnchor()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -922,7 +924,7 @@ void TestQgsCallout::calloutDataDefinedOffsetFromAnchor()
 
 void TestQgsCallout::calloutOffsetFromLabel()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -975,7 +977,7 @@ void TestQgsCallout::calloutOffsetFromLabel()
 
 void TestQgsCallout::calloutDataDefinedOffsetFromLabel()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1028,7 +1030,7 @@ void TestQgsCallout::calloutDataDefinedOffsetFromLabel()
 
 void TestQgsCallout::calloutLabelAnchorTopRight()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1097,7 +1099,7 @@ void TestQgsCallout::calloutLabelAnchorTopRight()
 
 void TestQgsCallout::calloutLabelAnchorTopLeft()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1165,7 +1167,7 @@ void TestQgsCallout::calloutLabelAnchorTopLeft()
 
 void TestQgsCallout::calloutLabelAnchorTop()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1233,7 +1235,7 @@ void TestQgsCallout::calloutLabelAnchorTop()
 
 void TestQgsCallout::calloutLabelAnchorBottomLeft()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1301,7 +1303,7 @@ void TestQgsCallout::calloutLabelAnchorBottomLeft()
 
 void TestQgsCallout::calloutLabelAnchorBottom()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1369,7 +1371,7 @@ void TestQgsCallout::calloutLabelAnchorBottom()
 
 void TestQgsCallout::calloutLabelAnchorBottomRight()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1437,7 +1439,7 @@ void TestQgsCallout::calloutLabelAnchorBottomRight()
 
 void TestQgsCallout::calloutLabelAnchorLeft()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1505,7 +1507,7 @@ void TestQgsCallout::calloutLabelAnchorLeft()
 
 void TestQgsCallout::calloutLabelAnchorRight()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1573,7 +1575,7 @@ void TestQgsCallout::calloutLabelAnchorRight()
 
 void TestQgsCallout::calloutLabelAnchorCentroid()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1641,7 +1643,7 @@ void TestQgsCallout::calloutLabelAnchorCentroid()
 
 void TestQgsCallout::calloutLabelDataDefinedAnchor()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1695,7 +1697,7 @@ void TestQgsCallout::calloutLabelDataDefinedAnchor()
 void TestQgsCallout::calloutBehindLabel()
 {
   // test that callouts are rendered below labels
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1751,7 +1753,7 @@ void TestQgsCallout::calloutBehindLabel()
 void TestQgsCallout::calloutBehindIndividualLabels()
 {
   // test that callouts can be rendered below individual labels
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -1822,7 +1824,7 @@ void TestQgsCallout::calloutNoDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -1890,7 +1892,7 @@ void TestQgsCallout::calloutDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -1959,7 +1961,7 @@ void TestQgsCallout::calloutDataDefinedDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2022,7 +2024,7 @@ void TestQgsCallout::calloutPointOnExterior()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2085,7 +2087,7 @@ void TestQgsCallout::calloutDataDefinedAnchorPoint()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2148,7 +2150,7 @@ void TestQgsCallout::calloutDataDefinedDestination()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ) );
@@ -2213,7 +2215,7 @@ void TestQgsCallout::calloutDataDefinedOrigin()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ) );
@@ -2268,7 +2270,7 @@ void TestQgsCallout::calloutDataDefinedOrigin()
 
 void TestQgsCallout::manhattan()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -2320,7 +2322,7 @@ void TestQgsCallout::manhattan()
 
 void TestQgsCallout::manhattanRotated()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -2389,7 +2391,7 @@ void TestQgsCallout::manhattanNoDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2457,7 +2459,7 @@ void TestQgsCallout::manhattanDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2526,7 +2528,7 @@ void TestQgsCallout::manhattanDataDefinedDrawToAllParts()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "MultiPoint (190030 5000060, 190084 5000060 )" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( vl2->crs() );
@@ -2589,7 +2591,7 @@ void TestQgsCallout::manhattanDataDefinedDestination()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ) );
@@ -2654,7 +2656,7 @@ void TestQgsCallout::manhattanDataDefinedOrigin()
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon ((190000 4999900, 190100 5000100, 190100 5000100, 190000 5000100, 190000 4999900 ))" ) ) );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ) );
@@ -2755,7 +2757,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtBottomLeft()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -2855,7 +2857,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtBottomRight()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -2955,7 +2957,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtTopLeft()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3055,7 +3057,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtTopRight()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3155,7 +3157,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtTop()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3255,7 +3257,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtBottom()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3355,7 +3357,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtLeft()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3455,7 +3457,7 @@ void TestQgsCallout::curvedAutoLeavingLabelsAtRight()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3525,7 +3527,7 @@ void TestQgsCallout::curvedAutoHorizontalLines()
   f.setAttributes( QgsAttributes() << 2 << 180180 << 5000167 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3594,7 +3596,7 @@ void TestQgsCallout::curvedAutoVerticalLines()
   f.setAttributes( QgsAttributes() << 2 << 180175 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3693,7 +3695,7 @@ void TestQgsCallout::curvedClockwise()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3793,7 +3795,7 @@ void TestQgsCallout::curvedCounterClockwise()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3893,7 +3895,7 @@ void TestQgsCallout::curvedCurvature()
   f.setAttributes( QgsAttributes() << 20 << 180120 << 5000140 );
   QVERIFY( vl2->dataProvider()->addFeature( f ) );
 
-  QSize size( 640, 640 );
+  const QSize size( 640, 640 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setDestinationCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3946" ) ) );
@@ -3948,7 +3950,7 @@ void TestQgsCallout::curvedCurvature()
 
 void TestQgsCallout::balloonCallout()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -4002,7 +4004,7 @@ void TestQgsCallout::balloonCallout()
 
 void TestQgsCallout::balloonCalloutMargin()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -4057,7 +4059,7 @@ void TestQgsCallout::balloonCalloutMargin()
 
 void TestQgsCallout::balloonCalloutWedgeWidth()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -4112,7 +4114,7 @@ void TestQgsCallout::balloonCalloutWedgeWidth()
 
 void TestQgsCallout::balloonCalloutCornerRadius()
 {
-  QSize size( 640, 480 );
+  const QSize size( 640, 480 );
   QgsMapSettings mapSettings;
   mapSettings.setOutputSize( size );
   mapSettings.setExtent( vl->extent() );
@@ -4195,15 +4197,15 @@ bool TestQgsCallout::imageCheck( const QString &testName, QImage &image, unsigne
   painter.end();
 
   mReport += "<h2>" + testName + "</h2>\n";
-  QString tempDir = QDir::tempPath() + '/';
-  QString fileName = tempDir + testName + ".png";
+  const QString tempDir = QDir::tempPath() + '/';
+  const QString fileName = tempDir + testName + ".png";
   imageWithBackground.save( fileName, "PNG" );
   QgsMultiRenderChecker checker;
   checker.setControlPathPrefix( QStringLiteral( "callouts" ) );
   checker.setControlName( "expected_" + testName );
   checker.setRenderedImage( fileName );
   checker.setColorTolerance( 2 );
-  bool resultFlag = checker.runTest( testName, mismatchCount );
+  const bool resultFlag = checker.runTest( testName, mismatchCount );
   mReport += checker.report();
   return resultFlag;
 }

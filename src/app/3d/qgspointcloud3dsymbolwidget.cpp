@@ -272,31 +272,31 @@ void QgsPointCloud3DSymbolWidget::setCustomMinMaxValues( QgsRgbPointCloud3DSymbo
   QgsContrastEnhancement *blueEnhancement = nullptr;
 
   bool redMinOk, redMaxOk;
-  double redMin = QgsDoubleValidator::toDouble( mRedMinLineEdit->text(), &redMinOk );
-  double redMax = QgsDoubleValidator::toDouble( mRedMaxLineEdit->text(), &redMaxOk );
+  const double redMin = QgsDoubleValidator::toDouble( mRedMinLineEdit->text(), &redMinOk );
+  const double redMax = QgsDoubleValidator::toDouble( mRedMaxLineEdit->text(), &redMaxOk );
   if ( redMinOk && redMaxOk && !mRedAttributeComboBox->currentAttribute().isEmpty() )
   {
-    redEnhancement = new QgsContrastEnhancement( Qgis::UnknownDataType );
+    redEnhancement = new QgsContrastEnhancement( Qgis::DataType::UnknownDataType );
     redEnhancement->setMinimumValue( redMin );
     redEnhancement->setMaximumValue( redMax );
   }
 
   bool greenMinOk, greenMaxOk;
-  double greenMin = QgsDoubleValidator::toDouble( mGreenMinLineEdit->text(), &greenMinOk );
-  double greenMax = QgsDoubleValidator::toDouble( mGreenMaxLineEdit->text(), &greenMaxOk );
+  const double greenMin = QgsDoubleValidator::toDouble( mGreenMinLineEdit->text(), &greenMinOk );
+  const double greenMax = QgsDoubleValidator::toDouble( mGreenMaxLineEdit->text(), &greenMaxOk );
   if ( greenMinOk && greenMaxOk && !mGreenAttributeComboBox->currentAttribute().isEmpty() )
   {
-    greenEnhancement = new QgsContrastEnhancement( Qgis::UnknownDataType );
+    greenEnhancement = new QgsContrastEnhancement( Qgis::DataType::UnknownDataType );
     greenEnhancement->setMinimumValue( greenMin );
     greenEnhancement->setMaximumValue( greenMax );
   }
 
   bool blueMinOk, blueMaxOk;
-  double blueMin = QgsDoubleValidator::toDouble( mBlueMinLineEdit->text(), &blueMinOk );
-  double blueMax = QgsDoubleValidator::toDouble( mBlueMaxLineEdit->text(), &blueMaxOk );
+  const double blueMin = QgsDoubleValidator::toDouble( mBlueMinLineEdit->text(), &blueMinOk );
+  const double blueMax = QgsDoubleValidator::toDouble( mBlueMaxLineEdit->text(), &blueMaxOk );
   if ( blueMinOk && blueMaxOk && !mBlueAttributeComboBox->currentAttribute().isEmpty() )
   {
-    blueEnhancement = new QgsContrastEnhancement( Qgis::UnknownDataType );
+    blueEnhancement = new QgsContrastEnhancement( Qgis::DataType::UnknownDataType );
     blueEnhancement->setMinimumValue( blueMin );
     blueEnhancement->setMaximumValue( blueMax );
   }
@@ -359,8 +359,8 @@ void QgsPointCloud3DSymbolWidget::setMinMaxValue( const QgsContrastEnhancement *
 
 void QgsPointCloud3DSymbolWidget::reloadColorRampShaderMinMax()
 {
-  double min = mColorRampShaderMinEdit->value();
-  double max = mColorRampShaderMaxEdit->value();
+  const double min = mColorRampShaderMinEdit->value();
+  const double max = mColorRampShaderMaxEdit->value();
   mColorRampShaderWidget->setMinimumMaximum( min, max );
   mColorRampShaderWidget->classify();
 }
@@ -627,7 +627,7 @@ void QgsPointCloud3DSymbolWidget::setPointCloudSize( int size )
   mPointCloudSizeLabel->setText( QStringLiteral( "%1 points" ).arg( size ) );
 }
 
-double QgsPointCloud3DSymbolWidget::showBoundingBoxes() const
+bool QgsPointCloud3DSymbolWidget::showBoundingBoxes() const
 {
   return mShowBoundingBoxesCheckBox->isChecked();
 }
@@ -636,4 +636,3 @@ void QgsPointCloud3DSymbolWidget::connectChildPanels( QgsPanelWidget *parent )
 {
   parent->connectChildPanel( mClassifiedRendererWidget );
 }
-

@@ -250,7 +250,11 @@ QgsAmsProvider::QgsAmsProvider( const QString &uri, const ProviderOptions &optio
   mLayerMetadata.setExtent( metadataExtent );
   mLayerMetadata.setCrs( mCrs );
 
-  mTiled = mServiceInfo.value( QStringLiteral( "singleFusedMapCache" ) ).toBool() && mCrs.mapUnits() == QgsUnitTypes::DistanceMeters;
+  mTiled = mServiceInfo.value( QStringLiteral( "singleFusedMapCache" ) ).toBool();
+  if ( dataSource.param( QStringLiteral( "tiled" ) ).toLower() == "false" || dataSource.param( QStringLiteral( "tiled" ) ) == "0" )
+  {
+    mTiled = false;
+  }
 
   if ( mServiceInfo.contains( QStringLiteral( "maxImageWidth" ) ) )
     mMaxImageWidth = mServiceInfo.value( QStringLiteral( "maxImageWidth" ) ).toInt();

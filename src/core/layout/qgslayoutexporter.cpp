@@ -28,6 +28,7 @@
 #include "qgslayoutgeopdfexporter.h"
 #include "qgslinestring.h"
 #include "qgsmessagelog.h"
+#include "qgslabelingresults.h"
 #include <QImageWriter>
 #include <QSize>
 #include <QSvgGenerator>
@@ -150,6 +151,11 @@ QgsLayoutExporter::QgsLayoutExporter( QgsLayout *layout )
 
 }
 
+QgsLayoutExporter::~QgsLayoutExporter()
+{
+  qDeleteAll( mLabelingResults );
+}
+
 QgsLayout *QgsLayoutExporter::layout() const
 {
   return mLayout;
@@ -206,7 +212,7 @@ QImage QgsLayoutExporter::renderPageToImage( int page, QSize imageSize, double d
     // specified image size is wrong aspect ratio for paper rect - so ignore it and just use dpi
     // this can happen e.g. as a result of data defined page sizes
     // see https://github.com/qgis/QGIS/issues/26422
-    QgsMessageLog::logMessage( QObject::tr( "Ignoring custom image size because aspect ratio %1 does not match paper ratio %2" ).arg( QString::number( imageAspectRatio, 'g', 3 ), QString::number( paperAspectRatio, 'g', 3 ) ), QStringLiteral( "Layout" ), Qgis::Warning );
+    QgsMessageLog::logMessage( QObject::tr( "Ignoring custom image size because aspect ratio %1 does not match paper ratio %2" ).arg( QString::number( imageAspectRatio, 'g', 3 ), QString::number( paperAspectRatio, 'g', 3 ) ), QStringLiteral( "Layout" ), Qgis::MessageLevel::Warning );
     imageSize = QSize();
   }
 
@@ -462,6 +468,7 @@ QgsLayoutExporter::ExportResult QgsLayoutExporter::exportToImage( const QString 
     }
 
   }
+  captureLabelingResults();
   return Success;
 }
 
@@ -699,6 +706,7 @@ QgsLayoutExporter::ExportResult QgsLayoutExporter::exportToPdf( const QString &f
       georeferenceOutputPrivate( filePath, nullptr, QRectF(), settings.dpi, shouldAppendGeoreference, settings.exportMetadata );
     }
   }
+  captureLabelingResults();
   return result;
 }
 
@@ -879,6 +887,7 @@ QgsLayoutExporter::ExportResult QgsLayoutExporter::print( QPrinter &printer, con
   ExportResult result = printPrivate( printer, p, false, settings.dpi, settings.rasterizeWholeImage );
   p.end();
 
+  captureLabelingResults();
   return result;
 }
 
@@ -1132,7 +1141,7 @@ QgsLayoutExporter::ExportResult QgsLayoutExporter::exportToSvg( const QString &f
       }
     }
   }
-
+  captureLabelingResults();
   return Success;
 }
 
@@ -1185,6 +1194,18 @@ QgsLayoutExporter::ExportResult QgsLayoutExporter::exportToSvg( QgsAbstractLayou
   iterator->endRender();
   return Success;
 
+}
+
+QMap<QString, QgsLabelingResults *> QgsLayoutExporter::labelingResults()
+{
+  return mLabelingResults;
+}
+
+QMap<QString, QgsLabelingResults *> QgsLayoutExporter::takeLabelingResults()
+{
+  QMap<QString, QgsLabelingResults *> res;
+  std::swap( mLabelingResults, res );
+  return res;
 }
 
 void QgsLayoutExporter::preparePrintAsPdf( QgsLayout *layout, QPrinter &printer, const QString &filePath )
@@ -1916,6 +1937,40 @@ void QgsLayoutExporter::computeWorldFileParameters( const QRectF &exportRegion, 
   f = r[3] * s[2] + r[4] * s[5] + r[5];
 }
 
+bool QgsLayoutExporter::requiresRasterization( const QgsLayout *layout )
+{
+  if ( !layout )
+    return false;
+
+  QList< QgsLayoutItem *> items;
+  layout->layoutItems( items );
+
+  for ( QgsLayoutItem *currentItem : std::as_const( items ) )
+  {
+    // ignore invisible items, they won't affect the output in any way...
+    if ( currentItem->isVisible() && currentItem->requiresRasterization() )
+      return true;
+  }
+  return false;
+}
+
+bool QgsLayoutExporter::containsAdvancedEffects( const QgsLayout *layout )
+{
+  if ( !layout )
+    return false;
+
+  QList< QgsLayoutItem *> items;
+  layout->layoutItems( items );
+
+  for ( QgsLayoutItem *currentItem : std::as_const( items ) )
+  {
+    // ignore invisible items, they won't affect the output in any way...
+    if ( currentItem->isVisible() && currentItem->containsAdvancedEffects() )
+      return true;
+  }
+  return false;
+}
+
 QImage QgsLayoutExporter::createImage( const QgsLayoutExporter::ImageExportSettings &settings, int page, QRectF &bounds, bool &skipPage ) const
 {
   bounds = QRectF();
@@ -1977,6 +2032,20 @@ QString QgsLayoutExporter::generateFileName( const PageExportDetails &details ) 
   else
   {
     return details.directory + '/' + details.baseName + '_' + QString::number( details.page + 1 ) + '.' + details.extension;
+  }
+}
+
+void QgsLayoutExporter::captureLabelingResults()
+{
+  qDeleteAll( mLabelingResults );
+  mLabelingResults.clear();
+
+  QList< QgsLayoutItemMap * > maps;
+  mLayout->layoutItems( maps );
+
+  for ( QgsLayoutItemMap *map : std::as_const( maps ) )
+  {
+    mLabelingResults[ map->uuid() ] = map->mExportLabelingResults.release();
   }
 }
 

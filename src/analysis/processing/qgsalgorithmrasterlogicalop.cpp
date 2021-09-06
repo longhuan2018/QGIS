@@ -52,7 +52,7 @@ void QgsRasterBooleanLogicAlgorithmBase::initAlgorithm( const QVariantMap & )
   noDataValueParam->setFlags( QgsProcessingParameterDefinition::FlagAdvanced );
   addParameter( noDataValueParam.release() );
 
-  std::unique_ptr< QgsProcessingParameterDefinition > typeChoice = QgsRasterAnalysisUtils::createRasterTypeParameter( QStringLiteral( "DATA_TYPE" ), QObject::tr( "Output data type" ), Qgis::Float32 );
+  std::unique_ptr< QgsProcessingParameterDefinition > typeChoice = QgsRasterAnalysisUtils::createRasterTypeParameter( QStringLiteral( "DATA_TYPE" ), QObject::tr( "Output data type" ), Qgis::DataType::Float32 );
   typeChoice->setFlags( QgsProcessingParameterDefinition::FlagAdvanced );
   addParameter( typeChoice.release() );
 
@@ -116,7 +116,7 @@ bool QgsRasterBooleanLogicAlgorithmBase::prepareAlgorithm( const QVariantMap &pa
 QVariantMap QgsRasterBooleanLogicAlgorithmBase::processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback )
 {
   const QString outputFile = parameterAsOutputLayer( parameters, QStringLiteral( "OUTPUT" ), context );
-  QFileInfo fi( outputFile );
+  const QFileInfo fi( outputFile );
   const QString outputFormat = QgsRasterFileWriter::driverForExtension( fi.suffix() );
 
   std::unique_ptr< QgsRasterFileWriter > writer = std::make_unique< QgsRasterFileWriter >( outputFile );
@@ -132,7 +132,7 @@ QVariantMap QgsRasterBooleanLogicAlgorithmBase::processAlgorithm( const QVariant
   qgssize noDataCount = 0;
   qgssize trueCount = 0;
   qgssize falseCount = 0;
-  qgssize layerSize = static_cast< qgssize >( mLayerWidth ) * static_cast< qgssize >( mLayerHeight );
+  const qgssize layerSize = static_cast< qgssize >( mLayerWidth ) * static_cast< qgssize >( mLayerHeight );
 
   QgsRasterAnalysisUtils::applyRasterLogicOperator( mInputs, provider.get(), mNoDataValue, mTreatNodataAsFalse, mLayerWidth, mLayerHeight,
       mExtent, feedback, mExtractValFunc, noDataCount, trueCount, falseCount );

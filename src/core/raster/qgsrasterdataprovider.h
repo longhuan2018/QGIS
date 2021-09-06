@@ -102,7 +102,8 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
       WriteLayerMetadata = 1 << 2, //!< Provider can write layer metadata to the data store. Since QGIS 3.0. See QgsDataProvider::writeLayerMetadata()
       ProviderHintBenefitsFromResampling = 1 << 3, //!< Provider benefits from resampling and should apply user default resampling settings (since QGIS 3.10)
       ProviderHintCanPerformProviderResampling = 1 << 4, //!< Provider can perform resampling (to be opposed to post rendering resampling) (since QGIS 3.16)
-      ReloadData = 1 << 5 //!< Is able to force reload data / clear local caches. Since QGIS 3.18, see QgsDataProvider::reloadProviderData()
+      ReloadData = 1 << 5, //!< Is able to force reload data / clear local caches. Since QGIS 3.18, see QgsDataProvider::reloadProviderData()
+      DpiDependentData = 1 << 6, //! Provider's rendering is dependent on requested pixel size of the viewport (since QGIS 3.20)
     };
 
     //! Provider capabilities
@@ -533,6 +534,48 @@ class CORE_EXPORT QgsRasterDataProvider : public QgsDataProvider, public QgsRast
      * for given provider
      */
     static QList<QPair<QString, QString> > pyramidResamplingMethods( const QString &providerKey );
+
+    /**
+     * Struct that stores information of the raster used in QgsVirtualRasterProvider for the calculations,
+     * this struct is  stored in the DecodedUriParameters
+     * \note used by QgsVirtualRasterProvider only
+     */
+    struct VirtualRasterInputLayers
+    {
+      QString name;
+      QString uri;
+      QString provider;
+    };
+
+    /**
+     * Struct that stores the information about the parameters that should be given to the
+     * QgsVirtualRasterProvider through the QgsRasterDataProvider::DecodedUriParameters
+     * \note used by QgsVirtualRasterProvider only
+     */
+    struct VirtualRasterParameters
+    {
+      QgsCoordinateReferenceSystem crs;
+      QgsRectangle extent;
+      int width;
+      int height;
+      QString formula;
+      QList <QgsRasterDataProvider::VirtualRasterInputLayers> rInputLayers;
+
+    };
+
+    /**
+     * Decodes the URI returning a struct with all the parameters for QgsVirtualRasterProvider class
+     * \note used by Virtual Raster Provider only
+     * \note since QGIS 3.22
+     */
+    static QgsRasterDataProvider::VirtualRasterParameters decodeVirtualRasterProviderUri( const QString &uri, bool *ok = nullptr );
+
+    /**
+     * Encodes the URI starting from the struct .
+     * \note used by Virtual Raster Provider only
+     * \note since QGIS 3.22
+     */
+    static QString encodeVirtualRasterProviderUri( const VirtualRasterParameters &parts );
 
     /**
      * Validates creation options for a specific dataset and destination format.

@@ -58,15 +58,15 @@ QList<IndexedPointCloudNode> QgsRemoteEptPointCloudIndex::nodeChildren( const In
   if ( !loadNodeHierarchy( n ) )
     return lst;
 
-  int d = n.d() + 1;
-  int x = n.x() * 2;
-  int y = n.y() * 2;
-  int z = n.z() * 2;
+  const int d = n.d() + 1;
+  const int x = n.x() * 2;
+  const int y = n.y() * 2;
+  const int z = n.z() * 2;
 
   for ( int i = 0; i < 8; ++i )
   {
     int dx = i & 1, dy = !!( i & 2 ), dz = !!( i & 4 );
-    IndexedPointCloudNode n2( d, x + dx, y + dy, z + dz );
+    const IndexedPointCloudNode n2( d, x + dx, y + dy, z + dz );
     if ( loadNodeHierarchy( n2 ) )
       lst.append( n2 );
   }
@@ -86,7 +86,7 @@ void QgsRemoteEptPointCloudIndex::load( const QString &url )
   QNetworkRequest nr( url );
 
   QgsBlockingNetworkRequest req;
-  QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr );
+  const QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr );
   if ( errCode != QgsBlockingNetworkRequest::NoError )
   {
     QgsDebugMsg( QStringLiteral( "Request failed: " ) + url );
@@ -94,7 +94,7 @@ void QgsRemoteEptPointCloudIndex::load( const QString &url )
     return;
   }
 
-  QgsNetworkReplyContent reply = req.reply();
+  const QgsNetworkReplyContent reply = req.reply();
   mIsValid = loadSchema( reply.content() );
 }
 
@@ -139,7 +139,7 @@ QgsPointCloudBlockRequest *QgsRemoteEptPointCloudIndex::asyncNodeData( const Ind
     return nullptr;
   }
 
-  return new QgsPointCloudBlockRequest( n, fileUrl, mDataType, attributes(), request.attributes() );
+  return new QgsPointCloudBlockRequest( n, fileUrl, mDataType, attributes(), request.attributes(), scale(), offset() );
 }
 
 bool QgsRemoteEptPointCloudIndex::hasNode( const IndexedPointCloudNode &n ) const
@@ -149,8 +149,12 @@ bool QgsRemoteEptPointCloudIndex::hasNode( const IndexedPointCloudNode &n ) cons
 
 bool QgsRemoteEptPointCloudIndex::loadNodeHierarchy( const IndexedPointCloudNode &nodeId ) const
 {
-  if ( mHierarchy.contains( nodeId ) )
+  mHierarchyMutex.lock();
+  bool found = mHierarchy.contains( nodeId );
+  mHierarchyMutex.unlock();
+  if ( found )
     return true;
+
   QVector<IndexedPointCloudNode> nodePathToRoot;
   {
     IndexedPointCloudNode currentNode = nodeId;
@@ -164,12 +168,16 @@ bool QgsRemoteEptPointCloudIndex::loadNodeHierarchy( const IndexedPointCloudNode
 
   for ( int i = nodePathToRoot.size() - 1; i >= 0 && !mHierarchy.contains( nodeId ); --i )
   {
-    IndexedPointCloudNode node = nodePathToRoot[i];
+    const IndexedPointCloudNode node = nodePathToRoot[i];
     //! The hierarchy of the node is found => No need to load its file
-    if ( mHierarchy.contains( node ) )
+    mHierarchyMutex.lock();
+    const bool foundInHierarchy = mHierarchy.contains( node );
+    const bool foundInHierarchyNodes = mHierarchyNodes.contains( node );
+    mHierarchyMutex.unlock();
+    if ( foundInHierarchy )
       continue;
 
-    if ( !mHierarchyNodes.contains( node ) )
+    if ( !foundInHierarchyNodes )
       continue;
 
     const QString fileUrl = QStringLiteral( "%1/ept-hierarchy/%2.json" ).arg( mUrlDirectoryPart, node.toString() );
@@ -179,16 +187,16 @@ bool QgsRemoteEptPointCloudIndex::loadNodeHierarchy( const IndexedPointCloudNode
     nr.setAttribute( QNetworkRequest::CacheSaveControlAttribute, true );
 
     QgsBlockingNetworkRequest req;
-    QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr );
+    const QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr );
     if ( errCode != QgsBlockingNetworkRequest::NoError )
     {
       QgsDebugMsgLevel( QStringLiteral( "unable to read hierarchy from file %1" ).arg( fileUrl ), 2 );
       return false;
     }
 
-    QgsNetworkReplyContent reply = req.reply();
+    const QgsNetworkReplyContent reply = req.reply();
 
-    QByteArray dataJsonH = reply.content();
+    const QByteArray dataJsonH = reply.content();
     QJsonParseError errH;
     const QJsonDocument docH = QJsonDocument::fromJson( dataJsonH, &errH );
     if ( errH.error != QJsonParseError::NoError )
@@ -200,17 +208,23 @@ bool QgsRemoteEptPointCloudIndex::loadNodeHierarchy( const IndexedPointCloudNode
     const QJsonObject rootHObj = docH.object();
     for ( auto it = rootHObj.constBegin(); it != rootHObj.constEnd(); ++it )
     {
-      QString nodeIdStr = it.key();
-      int nodePointCount = it.value().toInt();
-      IndexedPointCloudNode nodeId = IndexedPointCloudNode::fromString( nodeIdStr );
+      const QString nodeIdStr = it.key();
+      const int nodePointCount = it.value().toInt();
+      const IndexedPointCloudNode nodeId = IndexedPointCloudNode::fromString( nodeIdStr );
+      mHierarchyMutex.lock();
       if ( nodePointCount > 0 )
         mHierarchy[nodeId] = nodePointCount;
       else if ( nodePointCount == -1 )
         mHierarchyNodes.insert( nodeId );
+      mHierarchyMutex.unlock();
     }
   }
 
-  return mHierarchy.contains( nodeId );
+  mHierarchyMutex.lock();
+  found = mHierarchy.contains( nodeId );
+  mHierarchyMutex.unlock();
+
+  return found;
 }
 
 bool QgsRemoteEptPointCloudIndex::isValid() const

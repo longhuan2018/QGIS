@@ -78,6 +78,14 @@ void QgsHtmlAnnotation::setSourceFile( const QString &htmlFile )
   emit appearanceChanged();
 }
 
+void QgsHtmlAnnotation::setHtmlSource( const QString &htmlSource )
+{
+  mHtmlFile.clear();
+  mHtmlSource = htmlSource;
+  setAssociatedFeature( associatedFeature() );
+  emit appearanceChanged();
+}
+
 void QgsHtmlAnnotation::renderAnnotation( QgsRenderContext &context, QSizeF size ) const
 {
   if ( !context.painter() )
@@ -86,7 +94,7 @@ void QgsHtmlAnnotation::renderAnnotation( QgsRenderContext &context, QSizeF size
   }
 
   // scale painter back to 96 dpi, so layout prints match screen rendering
-  QgsScopedQPainterState painterState( context.painter() );
+  const QgsScopedQPainterState painterState( context.painter() );
   const double scaleFactor = context.painter()->device()->logicalDpiX() / 96.0;
   context.painter()->scale( scaleFactor, scaleFactor );
   size /= scaleFactor;
@@ -99,7 +107,7 @@ QSizeF QgsHtmlAnnotation::minimumFrameSize() const
 {
   if ( mWebPage )
   {
-    QSizeF widgetMinSize = QSizeF( 0, 0 ); // mWebPage->minimumSize();
+    const QSizeF widgetMinSize = QSizeF( 0, 0 ); // mWebPage->minimumSize();
     return QSizeF( contentsMargin().left() + contentsMargin().right() + widgetMinSize.width(),
                    contentsMargin().top() + contentsMargin().bottom() + widgetMinSize.height() );
   }
@@ -112,7 +120,14 @@ QSizeF QgsHtmlAnnotation::minimumFrameSize() const
 void QgsHtmlAnnotation::writeXml( QDomElement &elem, QDomDocument &doc, const QgsReadWriteContext &context ) const
 {
   QDomElement formAnnotationElem = doc.createElement( QStringLiteral( "HtmlAnnotationItem" ) );
-  formAnnotationElem.setAttribute( QStringLiteral( "htmlfile" ), sourceFile() );
+  if ( !mHtmlFile.isEmpty() )
+  {
+    formAnnotationElem.setAttribute( QStringLiteral( "htmlfile" ), sourceFile() );
+  }
+  else
+  {
+    formAnnotationElem.setAttribute( QStringLiteral( "htmlsource" ), mHtmlSource );
+  }
 
   _writeXml( formAnnotationElem, doc, context );
   elem.appendChild( formAnnotationElem );
@@ -120,8 +135,7 @@ void QgsHtmlAnnotation::writeXml( QDomElement &elem, QDomDocument &doc, const Qg
 
 void QgsHtmlAnnotation::readXml( const QDomElement &itemElem, const QgsReadWriteContext &context )
 {
-  mHtmlFile = itemElem.attribute( QStringLiteral( "htmlfile" ), QString() );
-  QDomElement annotationElem = itemElem.firstChildElement( QStringLiteral( "AnnotationItem" ) );
+  const QDomElement annotationElem = itemElem.firstChildElement( QStringLiteral( "AnnotationItem" ) );
   if ( !annotationElem.isNull() )
   {
     _readXml( annotationElem, context );
@@ -135,7 +149,15 @@ void QgsHtmlAnnotation::readXml( const QDomElement &itemElem, const QgsReadWrite
 
   if ( mWebPage )
   {
-    setSourceFile( mHtmlFile );
+    mHtmlFile = itemElem.attribute( QStringLiteral( "htmlfile" ), QString() );
+    if ( !mHtmlFile.isEmpty() )
+    {
+      setSourceFile( mHtmlFile );
+    }
+    else
+    {
+      setHtmlSource( itemElem.attribute( QStringLiteral( "htmlsource" ), QString() ) );
+    }
   }
 }
 

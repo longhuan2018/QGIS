@@ -11,7 +11,6 @@
 
 
 
-
 class QgsJsonExporter
 {
 %Docstring(signature="appended")
@@ -273,6 +272,9 @@ Helper utilities for working with JSON and GeoJSON conversions.
 %TypeHeaderCode
 #include "qgsjsonutils.h"
 %End
+  public:
+    static const QMetaObject staticMetaObject;
+
   public:
 
     static QgsFeatureList stringToFeatureList( const QString &string, const QgsFields &fields = QgsFields(), QTextCodec *encoding = 0 );

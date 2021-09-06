@@ -22,6 +22,7 @@ email                : marco.hugentobler at sourcepole dot com
 #include "qgis_sip.h"
 #include "qgspoint.h"
 #include "qgsabstractgeometry.h"
+#include "qgsgeometry.h"
 #include "qgsvector3d.h"
 
 #include <QJsonArray>
@@ -237,9 +238,9 @@ class CORE_EXPORT QgsGeometryUtils
      */
     static QgsPoint projectPointOnSegment( const QgsPoint &p, const QgsPoint &s1, const QgsPoint &s2 ) SIP_HOLDGIL
     {
-      double nx = s2.y() - s1.y();
-      double ny = -( s2.x() - s1.x() );
-      double t = ( p.x() * ny - p.y() * nx - s1.x() * ny + s1.y() * nx ) / ( ( s2.x() - s1.x() ) * ny - ( s2.y() - s1.y() ) * nx );
+      const double nx = s2.y() - s1.y();
+      const double ny = -( s2.x() - s1.x() );
+      const double t = ( p.x() * ny - p.y() * nx - s1.x() * ny + s1.y() * nx ) / ( ( s2.x() - s1.x() ) * ny - ( s2.y() - s1.y() ) * nx );
       return t < 0. ? s1 : t > 1. ? s2 : QgsPoint( s1.x() + ( s2.x() - s1.x() ) * t, s1.y() + ( s2.y() - s1.y() ) * t );
     }
 
@@ -770,15 +771,144 @@ class CORE_EXPORT QgsGeometryUtils
 
     /**
      * A Z dimension is added to \a point if one of the point in the list
-     * \a points is in 3D. Moreover, the Z value of \a point is updated with.
+     * \a points is in 3D. Moreover, the Z value of \a point is updated
+     * with the first Z value found in list \a points even if \a point
+     * already contains a Z value.
      *
      * \param points List of points in which a 3D point is searched.
      * \param point The point to update with Z dimension and value.
      * \returns TRUE if the point is updated, FALSE otherwise
      *
+     * \warning This method does not copy the z value of the coordinate from the
+     * points whose z value is closest to the original x/y point, but only the first one found.
+     *
      * \since QGIS 3.0
+     * \deprecated since QGIS 3.20 use transferFirstZValueToPoint( const QgsPointSequence &points, QgsPoint &point ) instead
      */
-    static bool setZValueFromPoints( const QgsPointSequence &points, QgsPoint &point );
+    Q_DECL_DEPRECATED static bool setZValueFromPoints( const QgsPointSequence &points, QgsPoint &point ) SIP_DEPRECATED
+    {
+      return transferFirstZValueToPoint( points, point );
+    }
+
+    /**
+     * A Z dimension is added to \a point if one of the point in the list
+     * \a points is in 3D. Moreover, the Z value of \a point is updated
+     * with the first Z value found in list \a points even if \a point
+     * already contains a Z value.
+     *
+     * \param points List of points in which a 3D point is searched.
+     * \param point The point to update with Z dimension and value.
+     * \returns TRUE if the point is updated, FALSE otherwise
+     *
+     * \warning This method does not copy the z value of the coordinate from the
+     * points whose z value is closest to the original x/y point, but only the first one found.
+     *
+     * \since QGIS 3.20
+     */
+    static bool transferFirstZValueToPoint( const QgsPointSequence &points, QgsPoint &point );
+
+    /**
+     * A M dimension is added to \a point if one of the points in the list
+     * \a points contains an M value. Moreover, the M value of \a point is
+     * updated with the first M value found in list \a points even if \a point
+     * already contains a M value.
+     *
+     * \param points List of points in which a M point is searched.
+     * \param point The point to update with M dimension and value.
+     * \returns TRUE if the point is updated, FALSE otherwise
+     *
+     * \warning This method does not copy the m value of the coordinate from the
+     * points whose m value is closest to the original x/y point, but only the first one found.
+     *
+     * \since QGIS 3.20
+     */
+    static bool transferFirstMValueToPoint( const QgsPointSequence &points, QgsPoint &point );
+
+    /**
+     * A Z or M dimension is added to \a point if one of the points in the list
+     * \a points contains Z or M value.
+     *
+     * This method is equivalent to successively calling Z and M but avoiding
+     * looping twice over the set of points.
+     *
+     * \param verticesBegin begin vertex which a Z or M point is searched.
+     * \param verticesEnd end vertex which a Z or M point is searched.
+     * \param point The point to update with Z or M dimension and value.
+     * \returns TRUE if the point is updated, FALSE otherwise
+     *
+     * \warning This method does not copy the z or m value of the coordinate from the
+     * points whose z or m value is closest to the original x/y point, but only the first one found.
+     *
+     * \note Not available in Python bindings
+     * \since QGIS 3.20
+     */
+    template <class Iterator> static bool transferFirstZOrMValueToPoint( Iterator verticesBegin, Iterator verticesEnd, QgsPoint &point ) SIP_SKIP
+    {
+      bool zFound = false;
+      bool mFound = false;
+
+      for ( auto it = verticesBegin ; it != verticesEnd ; ++it )
+      {
+        if ( !mFound && ( *it ).isMeasure() )
+        {
+          point.convertTo( QgsWkbTypes::addM( point.wkbType() ) );
+          point.setM( ( *it ).m() );
+          mFound = true;
+        }
+        if ( !zFound && ( *it ).is3D() )
+        {
+          point.convertTo( QgsWkbTypes::addZ( point.wkbType() ) );
+          point.setZ( ( *it ).z() );
+          zFound = true;
+        }
+        if ( zFound && mFound )
+          break;
+      }
+
+      return zFound || mFound;
+    }
+
+    /**
+     * A Z or M dimension is added to \a point if one of the points in the list
+     * \a points contains Z or M value.
+     *
+     * This method is equivalent to successively calling Z and M but avoiding
+     * looping twice over the set of points.
+     *
+     * \param points List of points in which a M point is searched.
+     * \param point The point to update with Z or M dimension and value.
+     * \returns TRUE if the point is updated, FALSE otherwise
+     *
+     * \warning This method does not copy the z or m value of the coordinate from the
+     * points whose z or m value is closest to the original x/y point, but only the first one found.
+     *
+     * \since QGIS 3.20
+     */
+    static bool transferFirstZOrMValueToPoint( const QgsPointSequence &points, QgsPoint &point )
+    {
+      return QgsGeometryUtils::transferFirstZOrMValueToPoint( points.constBegin(), points.constEnd(), point );
+    }
+
+    /**
+     * A Z or M dimension is added to \a point if one of the points in the list
+     * \a points contains Z or M value.
+     *
+     * This method is equivalent to successively calling Z and M but avoiding
+     * looping twice over the set of points.
+     *
+     * \param geom geometry in which a M point is searched.
+     * \param point The point to update with Z or M dimension and value.
+     * \returns TRUE if the point is updated, FALSE otherwise
+     *
+     * \warning This method does not copy the z or m value of the coordinate from the
+     * points whose z or m value is closest to the original x/y point, but only the first one found.
+     *
+     * \since QGIS 3.20
+     */
+    static bool transferFirstZOrMValueToPoint( const QgsGeometry &geom, QgsPoint &point )
+    {
+      return QgsGeometryUtils::transferFirstZOrMValueToPoint( geom.vertices_begin(), geom.vertices_end(), point );
+    }
 
     /**
      * Returns the point (\a pointX, \a pointY) forming the bisector from segment (\a aX \a aY) (\a bX \a bY)

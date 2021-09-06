@@ -70,6 +70,7 @@ class QgsSnappingUtils;
 class QgsRubberBand;
 class QgsMapCanvasAnnotationItem;
 class QgsReferencedRectangle;
+class QgsRenderedItemResults;
 
 class QgsTemporalController;
 
@@ -82,7 +83,7 @@ class QgsMapMouseEvent;
  * \brief Map canvas is a class for displaying all GIS data types on a canvas.
  */
 
-class GUI_EXPORT QgsMapCanvas : public QGraphicsView
+class GUI_EXPORT QgsMapCanvas : public QGraphicsView, public QgsExpressionContextGenerator
 {
 
 #ifdef SIP_RUN
@@ -133,9 +134,9 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     const QgsMapSettings &mapSettings() const SIP_KEEPREFERENCE;
 
     /**
-     * Sets the temporal controller, tQgsMapCanvasInteractionBlockerhis controller will be used to
-     * update the canvas temporal range.
+     * Sets the temporal \a controller for this canvas.
      *
+     * The controller will be used to update the canvas' temporal range.
      * \since QGIS 3.14
      */
     void setTemporalController( QgsTemporalController *controller );
@@ -149,7 +150,7 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     const QgsTemporalController *temporalController() const;
 
     /**
-     * sets destination coordinate reference system
+     * Sets destination coordinate reference system
      * \since QGIS 2.4
      */
     void setDestinationCrs( const QgsCoordinateReferenceSystem &crs );
@@ -169,6 +170,17 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * \since QGIS 2.4
      */
     const QgsLabelingResults *labelingResults( bool allowOutdatedResults = true ) const;
+
+    /**
+     * Gets access to the rendered item results (may be NULLPTR), which includes the results of rendering
+     * annotation items in the canvas map.
+     *
+     * If the \a allowOutdatedResults flag is FALSE then outdated rendered item results (e.g.
+     * as a result of an ongoing canvas render) will not be returned, and instead NULLPTR will be returned.
+     *
+     * \since QGIS 3.22
+     */
+    const QgsRenderedItemResults *renderedItemResults( bool allowOutdatedResults = true ) const;
 
     /**
      * Set whether to cache images of rendered layers
@@ -234,8 +246,27 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
 
     //! Returns the current zoom extent of the map canvas
     QgsRectangle extent() const;
-    //! Returns the combined extent for all layers on the map canvas
+
+    /**
+     * Returns the combined extent for all layers on the map canvas.
+     *
+     * This method returns the combined extent for all layers which are currently visible in the map canvas.
+     * The returned extent will be in the same CRS as the map canvas.
+     *
+     * \see projectExtent()
+     */
     QgsRectangle fullExtent() const;
+
+    /**
+     * Returns the associated project's full extent, in the canvas' CRS.
+     *
+     * This method returns the full extent for the project associated with this canvas.
+     * Unlike fullExtent(), this method does NOT consider which layers are actually visible in the map canvas.
+     *
+     * \see fullExtent()
+     * \since QGIS 3.20
+     */
+    QgsRectangle projectExtent() const;
 
     /**
      * Sets the extent of the map canvas to the specified rectangle.
@@ -284,8 +315,22 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      */
     QgsPointXY center() const;
 
-    //! Zoom to the full extent of all layers
+    /**
+     * Zoom to the full extent of all layers currently visible in the canvas.
+     *
+     * \see zoomToProjectExtent()
+     */
     void zoomToFullExtent();
+
+    /**
+     * Zoom to the full extent the project associated with this canvas.
+     *
+     * This method zooms to the full extent for the project associated with this canvas.
+     * Unlike zoomToFullExtent(), this method does NOT consider which layers are actually visible in the map canvas.
+     *
+     * \since QGIS 3.20
+     */
+    void zoomToProjectExtent();
 
     //! Zoom to the previous extent (view)
     void zoomToPreviousExtent();
@@ -670,7 +715,9 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
      * \see setExpressionContextScope()
      * \since QGIS 3.4
      */
-    QgsExpressionContextScope *defaultExpressionContextScope() SIP_FACTORY;
+    QgsExpressionContextScope *defaultExpressionContextScope() const SIP_FACTORY;
+
+    QgsExpressionContext createExpressionContext() const override;
 
     /**
      * Sets the segmentation tolerance applied when rendering curved geometries
@@ -946,6 +993,8 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     //! Renames the active map theme called \a theme to \a newTheme
     void mapThemeRenamed( const QString &theme, const QString &newTheme );
 
+    void updateDevicePixelFromScreen();
+
   signals:
 
     /**
@@ -1072,7 +1121,7 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     void themeChanged( const QString &theme );
 
     //! emit a message (usually to be displayed in a message bar)
-    void messageEmitted( const QString &title, const QString &message, Qgis::MessageLevel = Qgis::Info );
+    void messageEmitted( const QString &title, const QString &message, Qgis::MessageLevel = Qgis::MessageLevel::Info );
 
     /**
      * Emitted whenever an error is encountered during a map render operation.
@@ -1139,12 +1188,14 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     void resizeEvent( QResizeEvent *e ) override;
     void paintEvent( QPaintEvent *e ) override;
     void dragEnterEvent( QDragEnterEvent *e ) override;
+    bool viewportEvent( QEvent *event ) override;
 
     //! called when panning is in action, reset indicates end of panning
     void moveCanvasContents( bool reset = false );
 
     void dropEvent( QDropEvent *event ) override;
 
+    void showEvent( QShowEvent *event ) override;
 
     /// implementation struct
     class CanvasProperties;
@@ -1262,6 +1313,25 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     //! TRUE if the labeling results stored in mLabelingResults are outdated (e.g. as a result of an ongoing canvas render)
     bool mLabelingResultsOutdated = false;
 
+    /**
+     * Rendered results from the recently rendered map.
+     * \since QGIS 3.22
+     */
+    std::unique_ptr< QgsRenderedItemResults > mRenderedItemResults;
+
+    /**
+     * Rendered results stored from previously rendered maps
+     * \since QGIS 3.22
+     */
+    std::unique_ptr< QgsRenderedItemResults > mPreviousRenderedItemResults;
+
+    /**
+     * TRUE if the rendered item results stored in mRenderedItemResults are outdated (e.g. as a result of an ongoing canvas render)
+     *
+     * \since QGIS 3.22
+     */
+    bool mRenderedItemResultsOutdated = false;
+
     //! Whether layers are rendered sequentially or in parallel
     bool mUseParallelRendering = false;
 
@@ -1321,6 +1391,8 @@ class GUI_EXPORT QgsMapCanvas : public QGraphicsView
     QList< QgsMapCanvasInteractionBlocker * > mInteractionBlockers;
 
     int mBlockItemPositionUpdates = 0;
+
+    QMetaObject::Connection mScreenDpiChangedConnection;
 
     /**
      * Returns the last cursor position on the canvas in geographical coordinates

@@ -35,7 +35,7 @@
 #include "qgsfeaturefilterprovider.h"
 #include "qgsexception.h"
 #include "qgslogger.h"
-#include "qgssettings.h"
+#include "qgssettingsregistrycore.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgsrenderedfeaturehandlerinterface.h"
 #include "qgsvectorlayertemporalproperties.h"
@@ -115,24 +115,23 @@ QgsVectorLayerRenderer::QgsVectorLayerRenderer( QgsVectorLayer *layer, QgsRender
     mSimplifyGeometry = layer->simplifyDrawingCanbeApplied( *renderContext(), QgsVectorSimplifyMethod::GeometrySimplification );
   }
 
-  QgsSettings settings;
-  mVertexMarkerOnlyForSelection = settings.value( QStringLiteral( "qgis/digitizing/marker_only_for_selected" ), true ).toBool();
+  mVertexMarkerOnlyForSelection = QgsSettingsRegistryCore::settingsDigitizingMarkerOnlyForSelected.value();
 
-  QString markerTypeString = settings.value( QStringLiteral( "qgis/digitizing/marker_style" ), "Cross" ).toString();
+  QString markerTypeString = QgsSettingsRegistryCore::settingsDigitizingMarkerStyle.value();
   if ( markerTypeString == QLatin1String( "Cross" ) )
   {
-    mVertexMarkerStyle = QgsSymbolLayerUtils::Cross;
+    mVertexMarkerStyle = Qgis::VertexMarkerType::Cross;
   }
   else if ( markerTypeString == QLatin1String( "SemiTransparentCircle" ) )
   {
-    mVertexMarkerStyle = QgsSymbolLayerUtils::SemiTransparentCircle;
+    mVertexMarkerStyle = Qgis::VertexMarkerType::SemiTransparentCircle;
   }
   else
   {
-    mVertexMarkerStyle = QgsSymbolLayerUtils::NoMarker;
+    mVertexMarkerStyle = Qgis::VertexMarkerType::NoMarker;
   }
 
-  mVertexMarkerSize = settings.value( QStringLiteral( "qgis/digitizing/marker_size_mm" ), 2.0 ).toDouble();
+  mVertexMarkerSize = QgsSettingsRegistryCore::settingsDigitizingMarkerSizeMm.value();
 
   QgsDebugMsgLevel( "rendering v2:\n  " + mRenderer->dump(), 2 );
 
@@ -236,6 +235,9 @@ bool QgsVectorLayerRenderer::renderInternal( QgsFeatureRenderer *renderer )
 {
   const bool isMainRenderer = renderer == mRenderer;
 
+  QgsRenderContext &context = *renderContext();
+  context.setSymbologyReferenceScale( renderer->referenceScale() );
+
   if ( renderer->type() == QLatin1String( "nullSymbol" ) )
   {
     // a little shortcut for the null symbol renderer - most of the time it is not going to render anything
@@ -244,8 +246,6 @@ bool QgsVectorLayerRenderer::renderInternal( QgsFeatureRenderer *renderer )
          ( !mDrawVertexMarkers && !mLabelProvider && !mDiagramProvider && mSelectedFeatureIds.isEmpty() ) )
       return true;
   }
-
-  QgsRenderContext &context = *renderContext();
 
   QgsScopedQPainterState painterState( context.painter() );
 
@@ -393,6 +393,11 @@ bool QgsVectorLayerRenderer::renderInternal( QgsFeatureRenderer *renderer )
     context.setVectorSimplifyMethod( vectorMethod );
   }
 
+  featureRequest.setFeedback( mInterruptionChecker.get() );
+  // also set the interruption checker for the expression context, in case the renderer uses some complex expression
+  // which could benefit from early exit paths...
+  context.expressionContext().setFeedback( mInterruptionChecker.get() );
+
   QgsFeatureIterator fit = mSource->getFeatures( featureRequest );
   // Attach an interruption checker so that iterators that have potentially
   // slow fetchFeature() implementations, such as in the WFS provider, can
@@ -415,6 +420,7 @@ bool QgsVectorLayerRenderer::renderInternal( QgsFeatureRenderer *renderer )
     renderer->paintEffect()->end( context );
   }
 
+  context.expressionContext().setFeedback( nullptr );
   mInterruptionChecker.reset();
   return true;
 }

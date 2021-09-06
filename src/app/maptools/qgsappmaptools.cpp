@@ -29,6 +29,7 @@
 #include "qgsmaptoolcircle3points.h"
 #include "qgsmaptoolcircle2tangentspoint.h"
 #include "qgsmaptoolmeasureangle.h"
+#include "qgsmaptoolmeasurebearing.h"
 #include "qgsmaptoolformannotation.h"
 #include "qgsmaptoolsvgannotation.h"
 #include "qgsmaptoolcircularstringcurvepoint.h"
@@ -68,7 +69,9 @@
 #include "qgsmaptoolchangelabelproperties.h"
 #include "qgsmaptoolpinlabels.h"
 #include "qgsmaptooloffsetpointsymbol.h"
+#include "qgsmaptooleditmeshframe.h"
 #include "qgsspinbox.h"
+#include "qgssettingsregistrycore.h"
 
 //
 // QgsStreamDigitizingSettingsAction
@@ -80,9 +83,6 @@ QgsStreamDigitizingSettingsAction::QgsStreamDigitizingSettingsAction( QWidget *p
   QGridLayout *gLayout = new QGridLayout();
   gLayout->setContentsMargins( 3, 2, 3, 2 );
 
-  QgsSettings settings;
-  int defaultTolerance = settings.value( QStringLiteral( "/qgis/digitizing/stream_tolerance" ), 2 ).toInt();
-
   mStreamToleranceSpinBox = new QgsSpinBox();
   mStreamToleranceSpinBox->setSuffix( tr( "px" ) );
   mStreamToleranceSpinBox->setKeyboardTracking( false );
@@ -90,15 +90,14 @@ QgsStreamDigitizingSettingsAction::QgsStreamDigitizingSettingsAction( QWidget *p
   mStreamToleranceSpinBox->setWrapping( false );
   mStreamToleranceSpinBox->setSingleStep( 1 );
   mStreamToleranceSpinBox->setClearValue( 2 );
-  mStreamToleranceSpinBox->setValue( defaultTolerance );
+  mStreamToleranceSpinBox->setValue( QgsSettingsRegistryCore::settingsDigitizingStreamTolerance.value() );
 
   QLabel *label = new QLabel( tr( "Streaming Tolerance" ) );
   gLayout->addWidget( label, 1, 0 );
   gLayout->addWidget( mStreamToleranceSpinBox, 1, 1 );
   connect( mStreamToleranceSpinBox, qOverload<int>( &QgsSpinBox::valueChanged ), this, [ = ]( int value )
   {
-    QgsSettings settings;
-    settings.setValue( QStringLiteral( "/qgis/digitizing/stream_tolerance" ), value );
+    QgsSettingsRegistryCore::settingsDigitizingStreamTolerance.setValue( value );
   } );
 
   QWidget *w = new QWidget();
@@ -123,6 +122,7 @@ QgsAppMapTools::QgsAppMapTools( QgsMapCanvas *canvas, QgsAdvancedDigitizingDockW
   mTools.insert( Tool::MeasureDistance, new QgsMeasureTool( canvas, false /* area */ ) );
   mTools.insert( Tool::MeasureArea, new QgsMeasureTool( canvas, true /* area */ ) );
   mTools.insert( Tool::MeasureAngle, new QgsMapToolMeasureAngle( canvas ) );
+  mTools.insert( Tool::MeasureBearing, new QgsMapToolMeasureBearing( canvas ) );
   mTools.insert( Tool::TextAnnotation, new QgsMapToolTextAnnotation( canvas ) );
   mTools.insert( Tool::FormAnnotation, new QgsMapToolFormAnnotation( canvas ) );
   mTools.insert( Tool::HtmlAnnotation, new QgsMapToolHtmlAnnotation( canvas ) );
@@ -177,6 +177,7 @@ QgsAppMapTools::QgsAppMapTools( QgsMapCanvas *canvas, QgsAdvancedDigitizingDockW
   mTools.insert( Tool::MoveLabel, new QgsMapToolMoveLabel( canvas, cadDock ) );
   mTools.insert( Tool::RotateLabel, new QgsMapToolRotateLabel( canvas, cadDock ) );
   mTools.insert( Tool::ChangeLabelProperties, new QgsMapToolChangeLabelProperties( canvas, cadDock ) );
+  mTools.insert( Tool::EditMeshFrame, new QgsMapToolEditMeshFrame( canvas ) );
 
   mStreamDigitizingSettingsAction = new QgsStreamDigitizingSettingsAction();
 }

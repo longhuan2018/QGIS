@@ -22,7 +22,7 @@
 #include "qgsgpsdconnection.h"
 #include "qgssettings.h"
 
-#if defined(HAVE_QT_MOBILITY_LOCATION ) || defined(QT_POSITIONING_LIB)
+#if defined(QT_POSITIONING_LIB)
 #include "qgsqtlocationconnection.h"
 #endif
 
@@ -40,7 +40,7 @@ QList< QPair<QString, QString> > QgsGpsDetector::availablePorts()
   QList< QPair<QString, QString> > devs;
 
   // try local QtLocation first
-#if defined(HAVE_QT_MOBILITY_LOCATION ) || defined(QT_POSITIONING_LIB)
+#if defined(QT_POSITIONING_LIB)
   devs << QPair<QString, QString>( QStringLiteral( "internalGPS" ), tr( "internal GPS" ) );
 #endif
 
@@ -49,7 +49,7 @@ QList< QPair<QString, QString> > QgsGpsDetector::availablePorts()
 
   // try serial ports
 #if defined( HAVE_QT5SERIALPORT )
-  for ( auto p : QSerialPortInfo::availablePorts() )
+  for ( const QSerialPortInfo &p : QSerialPortInfo::availablePorts() )
   {
     devs << QPair<QString, QString>( p.portName(), tr( "%1: %2" ).arg( p.portName(), p.description() ) );
   }
@@ -110,10 +110,10 @@ void QgsGpsDetector::advance()
     }
     else if ( mPortList.at( mPortIndex ).first.contains( QLatin1String( "internalGPS" ) ) )
     {
-#if defined(HAVE_QT_MOBILITY_LOCATION ) || defined(QT_POSITIONING_LIB)
+#if defined(QT_POSITIONING_LIB)
       mConn = std::make_unique< QgsQtLocationConnection >();
 #else
-      qWarning( "QT_MOBILITY_LOCATION not found and mPortList matches internalGPS, this should never happen" );
+      qWarning( "QT_POSITIONING_LIB not found and mPortList matches internalGPS, this should never happen" );
 #endif
     }
     else

@@ -34,6 +34,8 @@
 #include "qgsprintlayout.h"
 #include "qgsfillsymbollayer.h"
 #include "qgshollowscalebarrenderer.h"
+#include "qgsfillsymbol.h"
+#include "qgslinesymbol.h"
 #include <QLocale>
 #include <QObject>
 #include "qgstest.h"
@@ -87,7 +89,7 @@ void TestQgsLayoutScaleBar::initTestCase()
   QLocale::setDefault( QLocale::c() );
 
   //reproject to WGS84
-  QgsCoordinateReferenceSystem destCRS( QStringLiteral( "EPSG:4326" ) );
+  const QgsCoordinateReferenceSystem destCRS( QStringLiteral( "EPSG:4326" ) );
   QgsProject::instance()->setCrs( destCRS );
   QgsProject::instance()->setEllipsoid( QStringLiteral( "WGS84" ) );
 
@@ -96,7 +98,7 @@ void TestQgsLayoutScaleBar::initTestCase()
 
 void TestQgsLayoutScaleBar::cleanupTestCase()
 {
-  QString myReportFile = QDir::tempPath() + "/qgistest.html";
+  const QString myReportFile = QDir::tempPath() + "/qgistest.html";
   QFile myFile( myReportFile );
   if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
   {
@@ -490,7 +492,7 @@ void TestQgsLayoutScaleBar::numeric()
   scalebar->attemptSetSceneRect( QRectF( 20, 180, 50, 20 ) );
   l.addLayoutItem( scalebar );
   scalebar->setLinkedMap( map );
-  QgsTextFormat format = QgsTextFormat::fromQFont( QgsFontUtils::getStandardTestFont() );
+  const QgsTextFormat format = QgsTextFormat::fromQFont( QgsFontUtils::getStandardTestFont() );
   scalebar->setTextFormat( format );
   scalebar->setUnits( QgsUnitTypes::DistanceMeters );
   scalebar->setUnitsPerSegment( 2000 );
@@ -511,7 +513,7 @@ void TestQgsLayoutScaleBar::numeric()
   scalebar->setStyle( QStringLiteral( "Numeric" ) );
   QgsLayoutChecker checker( QStringLiteral( "layoutscalebar_numeric" ), &l );
   checker.setControlPathPrefix( QStringLiteral( "layout_scalebar" ) );
-  bool result = checker.testLayout( mReport, 0, 0 );
+  const bool result = checker.testLayout( mReport, 0, 0 );
   QVERIFY( result );
 }
 
@@ -611,7 +613,7 @@ void TestQgsLayoutScaleBar::dataDefined()
   scalebar->attemptSetSceneRect( QRectF( 20, 180, 50, 20 ) );
   l.addLayoutItem( scalebar );
   scalebar->setLinkedMap( map );
-  QgsTextFormat format = QgsTextFormat::fromQFont( QgsFontUtils::getStandardTestFont() );
+  const QgsTextFormat format = QgsTextFormat::fromQFont( QgsFontUtils::getStandardTestFont() );
   scalebar->setTextFormat( format );
   scalebar->setUnits( QgsUnitTypes::DistanceMeters );
   scalebar->setUnitsPerSegment( 2000 );

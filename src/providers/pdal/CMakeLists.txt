@@ -9,14 +9,12 @@ set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 
 set(PDAL_SRCS
-  qgspdaldataitems.cpp
   qgspdalprovider.cpp
   qgspdaleptgenerationtask.cpp
   ${CMAKE_SOURCE_DIR}/external/untwine/api/QgisUntwine.cpp
 )
 
 set(PDAL_HDRS
-  qgspdaldataitems.h
   qgspdalprovider.h
   qgspdaleptgenerationtask.h
   ${CMAKE_SOURCE_DIR}/external/untwine/api/QgisUntwine.hpp
@@ -25,12 +23,10 @@ set(PDAL_HDRS
 if (WITH_GUI)
   set(PDAL_GUI_SRCS
     qgspdalprovidergui.cpp
-    qgspdaldataitemguiprovider.cpp
   )
 
   set(PDAL_GUI_HDRS
     qgspdalprovidergui.h
-    qgspdaldataitemguiprovider.h
   )
 endif()
 
@@ -117,67 +113,67 @@ target_link_libraries (untwine
 )
 target_include_directories(untwine PRIVATE ${UNTWINE_INCLUDE_DIRS})
 
-add_library (pdalprovider MODULE ${PDAL_SRCS} ${PDAL_HDRS} ${PDAL_GUI_SRCS} ${PDAL_GUI_HDRS})
+add_library (provider_pdal MODULE ${PDAL_SRCS} ${PDAL_HDRS} ${PDAL_GUI_SRCS} ${PDAL_GUI_HDRS})
 
-target_compile_features(pdalprovider PRIVATE cxx_std_17)
+target_compile_features(provider_pdal PRIVATE cxx_std_17)
 
-target_link_libraries (pdalprovider
+target_link_libraries (provider_pdal
   qgis_core
   ${PDAL_LIBRARIES}
   Threads::Threads
 )
 
 if (WITH_GUI)
-  target_link_libraries (pdalprovider
+  target_link_libraries (provider_pdal
     ${PDAL_LIBRARIES}
-    ${Qt5Xml_LIBRARIES}
-    ${Qt5Core_LIBRARIES}
-    ${Qt5Svg_LIBRARIES}
-    ${Qt5Network_LIBRARIES}
-    ${Qt5Sql_LIBRARIES}
-    ${Qt5Concurrent_LIBRARIES}
+    ${QT_VERSION_BASE}::Xml
+    ${QT_VERSION_BASE}::Core
+    ${QT_VERSION_BASE}::Svg
+    ${QT_VERSION_BASE}::Network
+    ${QT_VERSION_BASE}::Sql
+    ${QT_VERSION_BASE}::Concurrent
     qgis_gui
   )
-  add_dependencies(pdalprovider ui)
+  add_dependencies(provider_pdal ui)
 endif()
 
 # static library
-add_library (pdalprovider_a STATIC ${PDAL_SRCS} ${PDAL_HDRS})
+add_library (provider_pdal_a STATIC ${PDAL_SRCS} ${PDAL_HDRS})
 
 # require c++17
-target_compile_features(pdalprovider_a PRIVATE cxx_std_17)
+target_compile_features(provider_pdal_a PRIVATE cxx_std_17)
 
-target_link_libraries (pdalprovider_a
+target_link_libraries (provider_pdal_a
   ${PDAL_LIBRARIES}
-  ${Qt5Xml_LIBRARIES}
-  ${Qt5Core_LIBRARIES}
-  ${Qt5Svg_LIBRARIES}
-  ${Qt5Network_LIBRARIES}
-  ${Qt5Sql_LIBRARIES}
-  ${Qt5Concurrent_LIBRARIES}
+  ${QT_VERSION_BASE}::Xml
+  ${QT_VERSION_BASE}::Core
+  ${QT_VERSION_BASE}::Svg
+  ${QT_VERSION_BASE}::Network
+  ${QT_VERSION_BASE}::Sql
+  ${QT_VERSION_BASE}::Concurrent
   qgis_core
 )
 
 if (WITH_GUI)
-  add_library (pdalprovider_gui_a STATIC ${PDAL_GUI_SRCS} ${PDAL_GUI_HDRS})
+  add_library (provider_pdal_gui_a STATIC ${PDAL_GUI_SRCS} ${PDAL_GUI_HDRS})
 
   # require c++17
-  target_compile_features(pdalprovider_gui_a PRIVATE cxx_std_17)
+  target_compile_features(provider_pdal_gui_a PRIVATE cxx_std_17)
 
-  target_link_libraries (pdalprovider_gui_a
+  target_link_libraries (provider_pdal_gui_a
     ${PDAL_LIBRARIES}
-    ${Qt5Xml_LIBRARIES}
-    ${Qt5Core_LIBRARIES}
-    ${Qt5Svg_LIBRARIES}
-    ${Qt5Network_LIBRARIES}
-    ${Qt5Sql_LIBRARIES}
-    ${Qt5Concurrent_LIBRARIES}
+    ${QT_VERSION_BASE}::Xml
+    ${QT_VERSION_BASE}::Core
+    ${QT_VERSION_BASE}::Svg
+    ${QT_VERSION_BASE}::Network
+    ${QT_VERSION_BASE}::Sql
+    ${QT_VERSION_BASE}::Concurrent
     qgis_gui
   )
-  add_dependencies(pdalprovider_gui_a ui)
+  add_dependencies(provider_pdal_gui_a ui)
 endif()
 
-install(TARGETS pdalprovider
+install(TARGETS provider_pdal
   RUNTIME DESTINATION ${QGIS_PLUGIN_DIR}
   LIBRARY DESTINATION ${QGIS_PLUGIN_DIR})
 # override default path where built files are put to allow running qgis without installing

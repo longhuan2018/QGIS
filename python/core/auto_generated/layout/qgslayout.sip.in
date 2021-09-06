@@ -614,7 +614,6 @@ should be canceled.
 .. versionadded:: 3.10
 %End
 
-    const QgsSettingsEntryStringList settingsSearchPathForTemplates;
 
   public slots:
 
@@ -664,6 +663,13 @@ and updated.
 Emitted whenever the ``total`` number of background tasks running in items from the layout changes.
 
 .. versionadded:: 3.10
+%End
+
+    void itemAdded( QgsLayoutItem *item );
+%Docstring
+Emitted when an ``item`` was added to the layout.
+
+.. versionadded:: 3.20
 %End
 
 };

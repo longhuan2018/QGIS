@@ -33,6 +33,7 @@
 #include "qgslegendrenderer.h"
 #include "qgsmaplayer.h"
 #include "qgsmaplayerlegend.h"
+#include "qgsmapthemecollection.h"
 #include "qgsmaptopixel.h"
 #include "qgsproject.h"
 #include "qgsrasteridentifyresult.h"
@@ -131,6 +132,10 @@ namespace QgsWms
     const qreal dpmm = mContext.dotsPerMm();
     const QSizeF minSize = renderer.minimumSize();
     const QSize size( static_cast<int>( minSize.width() * dpmm ), static_cast<int>( minSize.height() * dpmm ) );
+    if ( !mContext.isValidWidthHeight( size.width(), size.height() ) )
+    {
+      throw QgsServerException( QStringLiteral( "Legend image is too large" ) );
+    }
     image.reset( createImage( size ) );
 
     // configure painter
@@ -163,6 +168,11 @@ namespace QgsWms
 
     // create image
     const QSize size( mWmsParameters.widthAsInt(), mWmsParameters.heightAsInt() );
+    //test if legend image is larger than max width/height
+    if ( !mContext.isValidWidthHeight( size.width(), size.height() ) )
+    {
+      throw QgsServerException( QStringLiteral( "Legend image is too large" ) );
+    }
     std::unique_ptr<QImage> image( createImage( size ) );
 
     // configure painter
@@ -646,13 +656,13 @@ namespace QgsWms
 
       if ( !map->keepLayerSet() )
       {
+        QList<QgsMapLayer *> layerSet;
         if ( cMapParams.mLayers.isEmpty() )
         {
-          map->setLayers( mapSettings.layers() );
+          layerSet = mapSettings.layers();
         }
         else
         {
-          QList<QgsMapLayer *> layerSet;
           for ( auto layer : cMapParams.mLayers )
           {
             if ( mContext.isValidGroup( layer.mNickname ) )
@@ -689,12 +699,54 @@ namespace QgsWms
               layerSet << mlayer;
             }
           }
-
-          layerSet << highlightLayers( cMapParams.mHighlightLayers );
           std::reverse( layerSet.begin(), layerSet.end() );
-          map->setLayers( layerSet );
         }
+
+        // If the map is set to follow preset we need to disable follow preset and manually
+        // configure the layers here or the map item internal logic will override and get
+        // the layers from the map theme.
+        QMap<QString, QString> layersStyle;
+        if ( map->followVisibilityPreset() )
+        {
+          const QString presetName = map->followVisibilityPresetName();
+          if ( layerSet.isEmpty() )
+          {
+            // Get the layers from the theme
+            const QgsExpressionContext ex { map->createExpressionContext() };
+            layerSet = map->layersToRender( &ex );
+          }
+          // Disable the theme
+          map->setFollowVisibilityPreset( false );
+
+          // Collect the style of each layer in the theme that has been disabled
+          const QList<QgsMapThemeCollection::MapThemeLayerRecord> mapThemeRecords = QgsProject::instance()->mapThemeCollection()->mapThemeState( presetName ).layerRecords();
+          for ( const auto &layerMapThemeRecord : std::as_const( mapThemeRecords ) )
+          {
+            if ( layerSet.contains( layerMapThemeRecord.layer() ) )
+            {
+              layersStyle.insert( layerMapThemeRecord.layer()->id(),
+                                  layerMapThemeRecord.layer()->styleManager()->style( layerMapThemeRecord.currentStyle ).xmlData() );
+            }
+          }
+        }
+
+        // Handle highlight layers
+        const QList< QgsMapLayer *> highlights = highlightLayers( cMapParams.mHighlightLayers );
+        for ( const auto &hl : std::as_const( highlights ) )
+        {
+          layerSet.prepend( hl );
+        }
+
+        map->setLayers( layerSet );
         map->setKeepLayerSet( true );
+
+        // Set style override if a particular style should be used due to a map theme.
+        // It will actualize linked legend symbols too.
+        if ( !layersStyle.isEmpty() )
+        {
+          map->setLayerStyleOverrides( layersStyle );
+          map->setKeepLayerStyles( true );
+        }
       }
 
       //grid space x / y
@@ -783,7 +835,18 @@ namespace QgsWms
         // get model and layer tree root of the legend
         QgsLegendModel *model = legend->model();
         QStringList layerSet;
-        const QList<QgsMapLayer *> layerList( map->layers() );
+        QList<QgsMapLayer *> mapLayers;
+        if ( map->layers().isEmpty() )
+        {
+          // in QGIS desktop, each layer has its legend, including invisible layers
+          // and using maptheme, legend items are automatically filtered
+          mapLayers = mProject->mapLayers( true ).values();
+        }
+        else
+        {
+          mapLayers = map->layers();
+        }
+        const QList<QgsMapLayer *> layerList = mapLayers;
         for ( const auto &layer : layerList )
           layerSet << layer->id();
 
@@ -857,7 +920,7 @@ namespace QgsWms
     painter.reset( layersRendering( mapSettings, *image ) );
 
     // rendering step for annotations
-    annotationsRendering( painter.get() );
+    annotationsRendering( painter.get(), mapSettings );
 
     // painting is terminated
     painter->end();
@@ -2743,19 +2806,27 @@ namespace QgsWms
     {
       // create sld document from symbology
       QDomDocument sldDoc;
-      if ( !sldDoc.setContent( param.mSld, true ) )
+      QString errorMsg;
+      int errorLine;
+      int errorColumn;
+      if ( !sldDoc.setContent( param.mSld, true, &errorMsg, &errorLine, &errorColumn ) )
       {
+        QgsMessageLog::logMessage( QStringLiteral( "Error parsing SLD for layer %1 at line %2, column %3:\n%4" )
+                                   .arg( param.mName )
+                                   .arg( errorLine )
+                                   .arg( errorColumn )
+                                   .arg( errorMsg ),
+                                   QStringLiteral( "Server" ), Qgis::MessageLevel::Warning );
         continue;
       }
 
       // create renderer from sld document
-      QString errorMsg;
       std::unique_ptr<QgsFeatureRenderer> renderer;
       QDomElement el = sldDoc.documentElement();
       renderer.reset( QgsFeatureRenderer::loadSld( el, param.mGeom.type(), errorMsg ) );
       if ( !renderer )
       {
-        QgsMessageLog::logMessage( errorMsg, "Server", Qgis::Info );
+        QgsMessageLog::logMessage( errorMsg, "Server", Qgis::MessageLevel::Info );
         continue;
       }
 
@@ -3003,7 +3074,15 @@ namespace QgsWms
             newSubsetString.prepend( filteredLayer->subsetString() );
             newSubsetString.prepend( "(" );
           }
-          filteredLayer->setSubsetString( newSubsetString );
+          if ( ! filteredLayer->setSubsetString( newSubsetString ) )
+          {
+            QgsMessageLog::logMessage( QStringLiteral( "Error setting subset string from filter for layer %1, filter: %2" ).arg( layer->name(), newSubsetString ),
+                                       QStringLiteral( "Server" ),
+                                       Qgis::MessageLevel::Warning );
+            throw QgsBadRequestException( QgsServiceException::QGIS_InvalidParameterValue,
+                                          QStringLiteral( "Filter not valid for layer %1: check the filter syntax and the field names." ).arg( layer->name() ) );
+
+          }
         }
       }
 
@@ -3214,17 +3293,22 @@ namespace QgsWms
 
   void QgsRenderer::setLayerSelection( QgsMapLayer *layer, const QStringList &fids ) const
   {
-    if ( layer->type() == QgsMapLayerType::VectorLayer )
+    if ( !fids.empty() && layer->type() == QgsMapLayerType::VectorLayer )
     {
-      QgsFeatureIds selectedIds;
-
-      for ( const QString &id : fids )
-      {
-        selectedIds.insert( STRING_TO_FID( id ) );
-      }
-
       QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
-      vl->selectByIds( selectedIds );
+
+      QgsFeatureRequest request;
+      QgsServerFeatureId::updateFeatureRequestFromServerFids( request, fids, vl->dataProvider() );
+      const QgsFeatureIds selectedIds = request.filterFids();
+
+      if ( selectedIds.empty() )
+      {
+        vl->selectByExpression( request.filterExpression()->expression() );
+      }
+      else
+      {
+        vl->selectByIds( selectedIds );
+      }
     }
   }
 
@@ -3248,7 +3332,7 @@ namespace QgsWms
     }
   }
 
-  void QgsRenderer::annotationsRendering( QPainter *painter ) const
+  void QgsRenderer::annotationsRendering( QPainter *painter, const QgsMapSettings &mapSettings ) const
   {
     const QgsAnnotationManager *annotationManager = mProject->annotationManager();
     const QList< QgsAnnotation * > annotations = annotationManager->annotations();
@@ -3260,7 +3344,39 @@ namespace QgsWms
       if ( !annotation || !annotation->isVisible() )
         continue;
 
+      //consider item position
+      double offsetX = 0;
+      double offsetY = 0;
+      if ( annotation->hasFixedMapPosition() )
+      {
+        QgsPointXY mapPos = annotation->mapPosition();
+        if ( mapSettings.destinationCrs() != annotation->mapPositionCrs() )
+        {
+          QgsCoordinateTransform coordTransform( annotation->mapPositionCrs(), mapSettings.destinationCrs(), mapSettings.transformContext() );
+          try
+          {
+            mapPos = coordTransform.transform( mapPos );
+          }
+          catch ( const QgsCsException &e )
+          {
+            QgsMessageLog::logMessage( QStringLiteral( "Error transforming coordinates of annotation item: %1" ).arg( e.what() ) );
+          }
+        }
+        const QgsPointXY devicePos = mapSettings.mapToPixel().transform( mapPos );
+        offsetX = devicePos.x();
+        offsetY = devicePos.y();
+      }
+      else
+      {
+        const QPointF relativePos = annotation->relativePosition();
+        offsetX = mapSettings.outputSize().width() * relativePos.x();
+        offsetY = mapSettings.outputSize().height() * relativePos.y();
+      }
+
+      painter->save();
+      painter->translate( offsetX, offsetY );
       annotation->render( renderContext );
+      painter->restore();
     }
   }
 
@@ -3341,6 +3457,11 @@ namespace QgsWms
         setLayerFilter( layer, param.mFilter );
       }
 
+      if ( mContext.testFlag( QgsWmsRenderContext::SetAccessControl ) )
+      {
+        setLayerAccessControlFilter( layer );
+      }
+
       if ( mContext.testFlag( QgsWmsRenderContext::UseSelection ) )
       {
         setLayerSelection( layer, param.mSelection );
@@ -3349,11 +3470,6 @@ namespace QgsWms
       if ( settings && mContext.updateExtent() )
       {
         updateExtent( layer, *settings );
-      }
-
-      if ( mContext.testFlag( QgsWmsRenderContext::SetAccessControl ) )
-      {
-        setLayerAccessControlFilter( layer );
       }
     }
 

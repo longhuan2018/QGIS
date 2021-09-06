@@ -232,7 +232,7 @@ void QgsModelGraphicsScene::createItems( QgsProcessingModelAlgorithm *model, Qgs
       connect( item, &QgsModelComponentGraphicItem::changed, this, &QgsModelGraphicsScene::componentChanged );
       connect( item, &QgsModelComponentGraphicItem::aboutToChange, this, &QgsModelGraphicsScene::componentAboutToChange );
 
-      QPointF pos = outputIt.value().position();
+      const QPointF pos = outputIt.value().position();
       int idx = -1;
       int i = 0;
       // find the actual index of the linked output from the child algorithm it comes from
@@ -420,7 +420,7 @@ QList<QgsModelGraphicsScene::LinkSource> QgsModelGraphicsScene::linkSourcesForPa
             if ( messageBar() )
               showWarning( const_cast<QString &>( short_message ), const_cast<QString &>( title ), const_cast<QString &>( long_message ) );
             else
-              QgsMessageLog::logMessage( long_message, "QgsModelGraphicsScene", Qgis::Warning, true );
+              QgsMessageLog::logMessage( long_message, "QgsModelGraphicsScene", Qgis::MessageLevel::Warning, true );
             break;
           }
 
@@ -434,7 +434,7 @@ QList<QgsModelGraphicsScene::LinkSource> QgsModelGraphicsScene::linkSourcesForPa
       case QgsProcessingModelChildParameterSource::Expression:
       {
         const QMap<QString, QgsProcessingModelAlgorithm::VariableDefinition> variables = model->variablesForChildAlgorithm( childId, context );
-        QgsExpression exp( source.expression() );
+        const QgsExpression exp( source.expression() );
         const QSet<QString> vars = exp.referencedVariables();
         for ( const QString &v : vars )
         {

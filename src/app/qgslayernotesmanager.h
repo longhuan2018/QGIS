@@ -28,28 +28,6 @@ class QgsLayerNotesManager
   public:
 
     /**
-     * Returns the notes for the specified \a layer.
-     *
-     * The returned string is a HTML formatted set of user notations for the layer.
-     */
-    static QString layerNotes( QgsMapLayer *layer );
-
-    /**
-     * Sets the \a notes for the specified \a layer, where \a notes is a HTML formatted string.
-     */
-    static void setLayerNotes( QgsMapLayer *layer, const QString &notes );
-
-    /**
-     * Returns TRUE if the specified \a layer has notes available.
-     */
-    static bool layerHasNotes( QgsMapLayer *layer );
-
-    /**
-     * Removes any notes for the specified \a layer.
-     */
-    static void removeNotes( QgsMapLayer *layer );
-
-    /**
      * Shows a dialog allowing users to edit the notes for the specified \a layer.
      */
     static void editLayerNotes( QgsMapLayer *layer, QWidget *parent );

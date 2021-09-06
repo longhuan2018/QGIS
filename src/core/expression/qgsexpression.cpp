@@ -23,6 +23,7 @@
 #include "qgsgeometry.h"
 #include "qgsproject.h"
 #include "qgsexpressioncontextutils.h"
+#include "qgsexpressionutils.h"
 #include "qgsexpression_p.h"
 
 #include <QRegularExpression>
@@ -498,14 +499,13 @@ QSet<QString> QgsExpression::referencedVariables( const QString &text )
   int index = 0;
   while ( index < text.size() )
   {
-    QRegExp rx = QRegExp( "\\[%([^\\]]+)%\\]" );
-
-    int pos = rx.indexIn( text, index );
-    if ( pos < 0 )
+    const thread_local QRegularExpression rx( "\\[%([^\\]]+)%\\]" );
+    const QRegularExpressionMatch match = rx.match( text );
+    if ( !match.hasMatch() )
       break;
 
-    index = pos + rx.matchedLength();
-    QString to_replace = rx.cap( 1 ).trimmed();
+    index = match.capturedStart() + match.capturedLength();
+    QString to_replace = match.captured( 1 ).trimmed();
 
     QgsExpression exp( to_replace );
     variables.unite( exp.referencedVariables() );
@@ -749,8 +749,8 @@ void QgsExpression::initVariableHelp()
   sVariableHelpTexts()->insert( QStringLiteral( "layout_name" ), QCoreApplication::translate( "variable_help", "Name of composition." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "layout_numpages" ), QCoreApplication::translate( "variable_help", "Number of pages in composition." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "layout_page" ), QCoreApplication::translate( "variable_help", "Current page number in composition." ) );
-  sVariableHelpTexts()->insert( QStringLiteral( "layout_pageheight" ), QCoreApplication::translate( "variable_help", "Composition page height in mm." ) );
-  sVariableHelpTexts()->insert( QStringLiteral( "layout_pagewidth" ), QCoreApplication::translate( "variable_help", "Composition page width in mm." ) );
+  sVariableHelpTexts()->insert( QStringLiteral( "layout_pageheight" ), QCoreApplication::translate( "variable_help", "Composition page height in mm (or specified custom units)." ) );
+  sVariableHelpTexts()->insert( QStringLiteral( "layout_pagewidth" ), QCoreApplication::translate( "variable_help", "Composition page width in mm (or specified custom units)." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "layout_pageoffsets" ), QCoreApplication::translate( "variable_help", "Array of Y coordinate of the top of each page." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "layout_dpi" ), QCoreApplication::translate( "variable_help", "Composition resolution (DPI)." ) );
 
@@ -786,6 +786,7 @@ void QgsExpression::initVariableHelp()
   sVariableHelpTexts()->insert( QStringLiteral( "map_units" ), QCoreApplication::translate( "variable_help", "Units for map measurements." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "map_crs_definition" ), QCoreApplication::translate( "variable_help", "Coordinate reference system of the map (full definition)." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "map_crs_acronym" ), QCoreApplication::translate( "variable_help", "Acronym of the coordinate reference system of the map." ) );
+  sVariableHelpTexts()->insert( QStringLiteral( "map_crs_projection" ), QCoreApplication::translate( "variable_help", "Projection method used by the coordinate reference system of the map." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "map_crs_ellipsoid" ), QCoreApplication::translate( "variable_help", "Acronym of the ellipsoid of the coordinate reference system of the map." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "map_crs_proj4" ), QCoreApplication::translate( "variable_help", "Proj4 definition of the coordinate reference system of the map." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "map_crs_wkt" ), QCoreApplication::translate( "variable_help", "WKT definition of the coordinate reference system of the map." ) );
@@ -1012,18 +1013,18 @@ QString QgsExpression::formatPreviewString( const QVariant &value, const bool ht
   }
   else if ( value.type() == QVariant::Date )
   {
-    QDate dt = value.toDate();
+    const QDate dt = value.toDate();
     return startToken + tr( "date: %1" ).arg( dt.toString( QStringLiteral( "yyyy-MM-dd" ) ) ) + endToken;
   }
   else if ( value.type() == QVariant::Time )
   {
-    QTime tm = value.toTime();
+    const QTime tm = value.toTime();
     return startToken + tr( "time: %1" ).arg( tm.toString( QStringLiteral( "hh:mm:ss" ) ) ) + endToken;
   }
   else if ( value.type() == QVariant::DateTime )
   {
-    QDateTime dt = value.toDateTime();
-    return startToken + tr( "datetime: %1" ).arg( dt.toString( QStringLiteral( "yyyy-MM-dd hh:mm:ss" ) ) ) + endToken;
+    const QDateTime dt = value.toDateTime();
+    return startToken + tr( "datetime: %1 (%2)" ).arg( dt.toString( QStringLiteral( "yyyy-MM-dd hh:mm:ss" ) ), dt.timeZoneAbbreviation() ) + endToken;
   }
   else if ( value.type() == QVariant::String )
   {
@@ -1083,6 +1084,16 @@ QString QgsExpression::formatPreviewString( const QVariant &value, const bool ht
       listStr += QLatin1Char( ' ' );
     listStr += QLatin1Char( ']' );
     return listStr;
+  }
+  else if ( value.type() == QVariant::Int ||
+            value.type() == QVariant::UInt ||
+            value.type() == QVariant::LongLong ||
+            value.type() == QVariant::ULongLong ||
+            value.type() == QVariant::Double ||
+            // Qt madness with QMetaType::Float :/
+            value.type() == static_cast<QVariant::Type>( QMetaType::Float ) )
+  {
+    return QgsExpressionUtils::toLocalizedString( value );
   }
   else
   {
@@ -1191,6 +1202,122 @@ bool QgsExpression::attemptReduceToInClause( const QStringList &expressions, QSt
           }
         }
       }
+      // Collect ORs
+      else if ( const QgsExpressionNodeBinaryOperator *orOp = dynamic_cast<const QgsExpressionNodeBinaryOperator *>( e.rootNode() ) )
+      {
+
+        // OR Collector function: returns a possibly empty list of the left and right operands of an OR expression
+        std::function<QStringList( QgsExpressionNode *, QgsExpressionNode * )> collectOrs = [ &collectOrs ]( QgsExpressionNode * opLeft,  QgsExpressionNode * opRight ) -> QStringList
+        {
+          QStringList orParts;
+          if ( const QgsExpressionNodeBinaryOperator *leftOrOp = dynamic_cast<const QgsExpressionNodeBinaryOperator *>( opLeft ) )
+          {
+            if ( leftOrOp->op( ) == QgsExpressionNodeBinaryOperator::BinaryOperator::boOr )
+            {
+              orParts.append( collectOrs( leftOrOp->opLeft(), leftOrOp->opRight() ) );
+            }
+            else
+            {
+              orParts.append( leftOrOp->dump() );
+            }
+          }
+          else if ( const QgsExpressionNodeInOperator *leftInOp = dynamic_cast<const QgsExpressionNodeInOperator *>( opLeft ) )
+          {
+            orParts.append( leftInOp->dump() );
+          }
+          else
+          {
+            return {};
+          }
+
+          if ( const QgsExpressionNodeBinaryOperator *rightOrOp = dynamic_cast<const QgsExpressionNodeBinaryOperator *>( opRight ) )
+          {
+            if ( rightOrOp->op( ) == QgsExpressionNodeBinaryOperator::BinaryOperator::boOr )
+            {
+              orParts.append( collectOrs( rightOrOp->opLeft(), rightOrOp->opRight() ) );
+            }
+            else
+            {
+              orParts.append( rightOrOp->dump() );
+            }
+          }
+          else if ( const QgsExpressionNodeInOperator *rightInOp = dynamic_cast<const QgsExpressionNodeInOperator *>( opRight ) )
+          {
+            orParts.append( rightInOp->dump() );
+          }
+          else
+          {
+            return {};
+          }
+
+          return orParts;
+        };
+
+        if ( orOp->op( ) == QgsExpressionNodeBinaryOperator::BinaryOperator::boOr )
+        {
+          // Try to collect all OR conditions
+          const QStringList orParts = collectOrs( orOp->opLeft(), orOp->opRight() );
+          if ( orParts.isEmpty() )
+          {
+            return false;
+          }
+          else
+          {
+            QString orPartsResult;
+            if ( attemptReduceToInClause( orParts, orPartsResult ) )
+            {
+              // Need to check if the IN field is correct,
+              QgsExpression inExp { orPartsResult };
+              if ( ! inExp.rootNode() )
+              {
+                return false;
+              }
+
+              if ( const QgsExpressionNodeInOperator *inOpInner = dynamic_cast<const QgsExpressionNodeInOperator *>( inExp.rootNode() ) )
+              {
+                if ( inOpInner->node()->nodeType() != QgsExpressionNode::NodeType::ntColumnRef || inOpInner->node()->referencedColumns().size() < 1 )
+                {
+                  return false;
+                }
+
+                const QString innerInfield { inOpInner->node()->referencedColumns().values().first() };
+
+                if ( first )
+                {
+                  inField = innerInfield;
+                  first = false;
+                }
+
+                if ( innerInfield != inField )
+                {
+                  return false;
+                }
+                else
+                {
+                  const auto constInnerValuesList { inOpInner->list()->list() };
+                  for ( const auto &innerInValueNode : std::as_const( constInnerValuesList ) )
+                  {
+                    values.append( innerInValueNode->dump() );
+                  }
+                }
+
+              }
+              else
+              {
+                return false;
+              }
+            }
+            else
+            {
+              return false;
+            }
+          }
+        }
+        else
+        {
+          return false;
+        }
+      }
       else
       {
         return false;
@@ -1209,6 +1336,26 @@ const QgsExpressionNode *QgsExpression::rootNode() const
 bool QgsExpression::isField() const
 {
   return d->mRootNode && d->mRootNode->nodeType() == QgsExpressionNode::ntColumnRef;
+}
+
+int QgsExpression::expressionToLayerFieldIndex( const QString &expression, const QgsVectorLayer *layer )
+{
+  if ( !layer )
+    return -1;
+
+  // easy check first -- lookup field directly.
+  int attrIndex = layer->fields().lookupField( expression.trimmed() );
+  if ( attrIndex >= 0 )
+    return attrIndex;
+
+  // may still be a simple field expression, just one which is enclosed in "" or similar
+  QgsExpression candidate( expression );
+  if ( candidate.isField() )
+  {
+    const QString fieldName =  qgis::down_cast<const QgsExpressionNodeColumnRef *>( candidate.rootNode() )->name();
+    return layer->fields().lookupField( fieldName );
+  }
+  return -1;
 }
 
 QList<const QgsExpressionNode *> QgsExpression::nodes() const

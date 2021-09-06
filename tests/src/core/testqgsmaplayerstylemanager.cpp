@@ -21,7 +21,7 @@
 #include "qgsmaplayerstylemanager.h"
 #include "qgssinglesymbolrenderer.h"
 #include "qgsvectorlayer.h"
-
+#include "qgslinesymbol.h"
 
 class TestQgsMapLayerStyleManager : public QObject
 {
@@ -78,7 +78,7 @@ void TestQgsMapLayerStyleManager::testDefault()
 
 void TestQgsMapLayerStyleManager::testStyle()
 {
-  QgsMapLayerStyle st;
+  const QgsMapLayerStyle st;
   QCOMPARE( st.isValid(), false );
 
   QgsLineSymbol *sym1 = new QgsLineSymbol();

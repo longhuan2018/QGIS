@@ -132,7 +132,10 @@ Create a new Change
       QgsGeometryCheck::ChangeType type;
 
       QgsVertexId vidx;
-      bool operator==( const QgsGeometryCheck::Change &other );
+
+      bool operator==( const QgsGeometryCheck::Change &other ) const;
+
+      bool operator!=( const QgsGeometryCheck::Change &other ) const;
     };
 
     typedef QMap<QString, QMap<QgsFeatureId, QList<QgsGeometryCheck::Change> > > Changes;

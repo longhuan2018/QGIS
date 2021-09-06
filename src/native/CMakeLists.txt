@@ -85,7 +85,7 @@ endif()
 #############################################################
 # qgis_native library
 
-add_library(qgis_native SHARED ${QGIS_NATIVE_SRCS} ${QGIS_NATIVE_HDRS})
+add_library(qgis_native ${LIBRARY_TYPE} ${QGIS_NATIVE_SRCS} ${QGIS_NATIVE_HDRS})
 set_property(TARGET qgis_native PROPERTY POSITION_INDEPENDENT_CODE ON)
 
 # require c++17
@@ -154,7 +154,7 @@ if (MSVC)
   find_package(${QT_VERSION_BASE}WinExtras)
 
   target_link_libraries(qgis_native shell32)
-  target_link_libraries(qgis_native ${${QT_VERSION_BASE}Widget_LIBRARIES} ${QT_QTMAIN_LIBRARY})
+  target_link_libraries(qgis_native ${QT_VERSION_BASE}::Widgets ${QT_QTMAIN_LIBRARY})
   target_link_libraries(qgis_native ${QT_VERSION_BASE}::WinExtras)
 endif()
 # install

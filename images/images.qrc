@@ -1,6 +1,5 @@
 <RCC>
     <qresource prefix="/images">
-        <file alias="last-hackfest.png">splash/dev-splash.png</file>
         <file>flags/af.svg</file>
         <file>flags/ar.svg</file>
         <file>flags/bg.svg</file>
@@ -365,6 +364,7 @@
         <file>themes/default/mActionViewScaleInCanvas.svg</file>
         <file>themes/default/mActionOffsetCurve.svg</file>
         <file>themes/default/mActionOpenTable.svg</file>
+        <file>themes/default/mActionOpenTableEdited.svg</file>
         <file>themes/default/mActionOpenTableSelected.svg</file>
         <file>themes/default/mActionOpenTableVisible.svg</file>
         <file>themes/default/mActionAddTable.svg</file>
@@ -647,6 +647,7 @@
         <file>themes/default/labelingSingle.svg</file>
         <file>themes/default/labelingRuleBased.svg</file>
         <file>themes/default/labelingObstacle.svg</file>
+        <file>themes/default/labelingCalloutCurved.svg</file>
         <file>themes/default/labelingCalloutSimple.svg</file>
         <file>themes/default/labelingCalloutManhattan.svg</file>
         <file>themes/default/repositoryConnected.svg</file>
@@ -915,6 +916,21 @@
         <file>themes/default/mActionStreamingDigitize.svg</file>
         <file>themes/default/mActionEditHtml.svg</file>
         <file>themes/default/mIndicatorNotes.svg</file>
+        <file>themes/default/mIndicatorLowAccuracy.svg</file>
+        <file>themes/default/mIconFolderParams.svg</file>
+        <file>themes/default/mIconFolderOpenParams.svg</file>
+        <file>themes/default/mIconFolderLinkParams.svg</file>
+        <file>themes/default/mIconFolderHomeParams.svg</file>
+        <file>themes/default/mActionMeasureBearing.svg</file>
+        <file>themes/default/mActionMeshDigitizing.svg</file>
+        <file>themes/default/mActionMeshSelectPolygon.svg</file>
+        <file>themes/default/mActionNewMeshLayer.svg</file>
+        <file>themes/default/mActionMeshTransformByExpression.svg</file>
+        <file>themes/default/mIconGeometryCollectionLayer.svg</file>
+        <file>themes/default/mIconGps.svg</file>
+        <file>themes/default/mActionNewGpx.svg</file>
+        <file>themes/default/mActionAddGpsLayer.svg</file>
+        <file>themes/default/mIconAnnotationLayer.svg</file>
     </qresource>
     <qresource prefix="/images/tips">
         <file alias="symbol_levels.png">qgis_tips/symbol_levels.png</file>

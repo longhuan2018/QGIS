@@ -37,12 +37,12 @@ QStringList QgsFilterAlgorithm::tags() const
 
 QString QgsFilterAlgorithm::group() const
 {
-  return QObject::tr( "Vector table" );
+  return QObject::tr( "Modeler tools" );
 }
 
 QString QgsFilterAlgorithm::groupId() const
 {
-  return QStringLiteral( "vectortable" );
+  return QStringLiteral( "modelertools" );
 }
 
 QgsProcessingAlgorithm::Flags QgsFilterAlgorithm::flags() const
@@ -122,7 +122,8 @@ QVariantMap QgsFilterAlgorithm::processAlgorithm( const QVariantMap &parameters,
     {
       if ( output->expression.evaluate( &expressionContext ).toBool() )
       {
-        output->sink->addFeature( f, QgsFeatureSink::FastInsert );
+        if ( !output->sink->addFeature( f, QgsFeatureSink::FastInsert ) )
+          throw QgsProcessingException( writeFeatureError( output->sink.get(), parameters, output->name ) );
       }
     }
 

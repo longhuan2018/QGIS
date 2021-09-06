@@ -79,14 +79,14 @@ QVariantMap QgsRasterStatisticsAlgorithm::processAlgorithm( const QVariantMap &p
   if ( !layer )
     throw QgsProcessingException( invalidRasterError( parameters, QStringLiteral( "INPUT" ) ) );
 
-  int band = parameterAsInt( parameters, QStringLiteral( "BAND" ), context );
+  const int band = parameterAsInt( parameters, QStringLiteral( "BAND" ), context );
   if ( band < 1 || band > layer->bandCount() )
     throw QgsProcessingException( QObject::tr( "Invalid band number for BAND (%1): Valid values for input raster are 1 to %2" ).arg( band )
                                   .arg( layer->bandCount() ) );
 
-  QString outputFile = parameterAsFileOutput( parameters, QStringLiteral( "OUTPUT_HTML_FILE" ), context );
+  const QString outputFile = parameterAsFileOutput( parameters, QStringLiteral( "OUTPUT_HTML_FILE" ), context );
 
-  QgsRasterBandStats stat = layer->dataProvider()->bandStatistics( band, QgsRasterBandStats::All, QgsRectangle(), 0 );
+  const QgsRasterBandStats stat = layer->dataProvider()->bandStatistics( band, QgsRasterBandStats::All, QgsRectangle(), 0 );
 
   QVariantMap outputs;
   outputs.insert( QStringLiteral( "MIN" ), stat.minimumValue );
@@ -100,7 +100,7 @@ QVariantMap QgsRasterStatisticsAlgorithm::processAlgorithm( const QVariantMap &p
   if ( !outputFile.isEmpty() )
   {
     QFile file( outputFile );
-    if ( file.open( QIODevice::WriteOnly | QIODevice::Text ) )
+    if ( file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
     {
       QTextStream out( &file );
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)

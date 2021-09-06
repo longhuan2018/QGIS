@@ -61,7 +61,7 @@ bool QgsRandomRasterAlgorithmBase::prepareAlgorithm( const QVariantMap &paramete
 
 QVariantMap QgsRandomRasterAlgorithmBase::processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback )
 {
-  int typeId = parameterAsInt( parameters, QStringLiteral( "OUTPUT_TYPE" ), context );
+  const int typeId = parameterAsInt( parameters, QStringLiteral( "OUTPUT_TYPE" ), context );
   //prepare specific parameters
   mRasterDataType = getRasterDataType( typeId );
   prepareRandomParameters( parameters, context );
@@ -70,15 +70,15 @@ QVariantMap QgsRandomRasterAlgorithmBase::processAlgorithm( const QVariantMap &p
   std::mt19937 mersenneTwister{rd()};
 
   const QString outputFile = parameterAsOutputLayer( parameters, QStringLiteral( "OUTPUT" ), context );
-  QFileInfo fi( outputFile );
+  const QFileInfo fi( outputFile );
   const QString outputFormat = QgsRasterFileWriter::driverForExtension( fi.suffix() );
 
-  int rows = std::max( std::ceil( mExtent.height() / mPixelSize ), 1.0 );
-  int cols = std::max( std::ceil( mExtent.width() / mPixelSize ), 1.0 );
+  const int rows = std::max( std::ceil( mExtent.height() / mPixelSize ), 1.0 );
+  const int cols = std::max( std::ceil( mExtent.width() / mPixelSize ), 1.0 );
 
   //build new raster extent based on number of columns and cellsize
   //this prevents output cellsize being calculated too small
-  QgsRectangle rasterExtent = QgsRectangle( mExtent.xMinimum(), mExtent.yMaximum() - ( rows * mPixelSize ), mExtent.xMinimum() + ( cols * mPixelSize ), mExtent.yMaximum() );
+  const QgsRectangle rasterExtent = QgsRectangle( mExtent.xMinimum(), mExtent.yMaximum() - ( rows * mPixelSize ), mExtent.xMinimum() + ( cols * mPixelSize ), mExtent.yMaximum() );
 
   std::unique_ptr< QgsRasterFileWriter > writer = std::make_unique< QgsRasterFileWriter >( outputFile );
   writer->setOutputProviderKey( QStringLiteral( "gdal" ) );
@@ -89,7 +89,7 @@ QVariantMap QgsRandomRasterAlgorithmBase::processAlgorithm( const QVariantMap &p
   if ( !provider->isValid() )
     throw QgsProcessingException( QObject::tr( "Could not create raster output %1: %2" ).arg( outputFile, provider->error().message( QgsErrorMessage::Text ) ) );
 
-  double step = rows > 0 ? 100.0 / rows : 1;
+  const double step = rows > 0 ? 100.0 / rows : 1;
 
   for ( int row = 0; row < rows ; row++ )
   {
@@ -101,74 +101,74 @@ QVariantMap QgsRandomRasterAlgorithmBase::processAlgorithm( const QVariantMap &p
     QgsRasterBlock block( mRasterDataType, cols, 1 );
     switch ( mRasterDataType )
     {
-      case Qgis::Byte:
+      case Qgis::DataType::Byte:
       {
         std::vector<quint8> byteRow( cols );
         for ( int col = 0; col < cols; col++ )
         {
           byteRow[col] = static_cast<quint8>( generateRandomLongValue( mersenneTwister ) );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( byteRow.data() ), QgsRasterBlock::typeSize( Qgis::Byte ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( byteRow.data() ), QgsRasterBlock::typeSize( Qgis::DataType::Byte ) * cols ) );
         break;
       }
-      case Qgis::Int16:
+      case Qgis::DataType::Int16:
       {
         std::vector<qint16> int16Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           int16Row[col] = static_cast<qint16>( generateRandomLongValue( mersenneTwister ) );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( int16Row.data() ), QgsRasterBlock::typeSize( Qgis::Int16 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( int16Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::Int16 ) * cols ) );
         break;
       }
-      case Qgis::UInt16:
+      case Qgis::DataType::UInt16:
       {
         std::vector<quint16> uInt16Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           uInt16Row[col] = static_cast<quint16>( generateRandomLongValue( mersenneTwister ) );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( uInt16Row.data() ), QgsRasterBlock::typeSize( Qgis::UInt16 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( uInt16Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::UInt16 ) * cols ) );
         break;
       }
-      case Qgis::Int32:
+      case Qgis::DataType::Int32:
       {
         std::vector<qint32> int32Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           int32Row[col] = generateRandomLongValue( mersenneTwister );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( int32Row.data() ), QgsRasterBlock::typeSize( Qgis::Int32 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( int32Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::Int32 ) * cols ) );
         break;
       }
-      case Qgis::UInt32:
+      case Qgis::DataType::UInt32:
       {
         std::vector<quint32> uInt32Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           uInt32Row[col] = static_cast<quint32>( generateRandomLongValue( mersenneTwister ) );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( uInt32Row.data() ), QgsRasterBlock::typeSize( Qgis::UInt32 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( uInt32Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::UInt32 ) * cols ) );
         break;
       }
-      case Qgis::Float32:
+      case Qgis::DataType::Float32:
       {
         std::vector<float> float32Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           float32Row[col] = static_cast<float>( generateRandomDoubleValue( mersenneTwister ) );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( float32Row.data() ), QgsRasterBlock::typeSize( Qgis::Float32 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( float32Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::Float32 ) * cols ) );
         break;
       }
-      case Qgis::Float64:
+      case Qgis::DataType::Float64:
       {
         std::vector<double> float64Row( cols );
         for ( int col = 0; col < cols; col++ )
         {
           float64Row[col] = generateRandomDoubleValue( mersenneTwister );
         }
-        block.setData( QByteArray( reinterpret_cast<const char *>( float64Row.data() ), QgsRasterBlock::typeSize( Qgis::Float64 ) * cols ) );
+        block.setData( QByteArray( reinterpret_cast<const char *>( float64Row.data() ), QgsRasterBlock::typeSize( Qgis::DataType::Float64 ) * cols ) );
         break;
       }
       default:
@@ -249,21 +249,21 @@ Qgis::DataType QgsRandomUniformRasterAlgorithm::getRasterDataType( int typeId )
   switch ( typeId )
   {
     case 0:
-      return Qgis::Byte;
+      return Qgis::DataType::Byte;
     case 1:
-      return Qgis::Int16;
+      return Qgis::DataType::Int16;
     case 2:
-      return Qgis::UInt16;
+      return Qgis::DataType::UInt16;
     case 3:
-      return Qgis::Int32;
+      return Qgis::DataType::Int32;
     case 4:
-      return Qgis::UInt32;
+      return Qgis::DataType::UInt32;
     case 5:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 6:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
@@ -275,12 +275,12 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
   if ( mRandomLowerBound > mRandomUpperBound )
     throw QgsProcessingException( QObject::tr( "The chosen lower bound for random number range is greater than the upper bound. The lower bound value must be smaller than the upper bound value." ) );
 
-  int typeId = parameterAsInt( parameters, QStringLiteral( "OUTPUT_TYPE" ), context );
-  Qgis::DataType rasterDataType = getRasterDataType( typeId );
+  const int typeId = parameterAsInt( parameters, QStringLiteral( "OUTPUT_TYPE" ), context );
+  const Qgis::DataType rasterDataType = getRasterDataType( typeId );
 
   switch ( rasterDataType )
   {
-    case Qgis::Byte:
+    case Qgis::DataType::Byte:
       if ( mRandomLowerBound < std::numeric_limits<quint8>::min() || mRandomUpperBound > std::numeric_limits<quint8>::max() )
         throw QgsProcessingException( QObject::tr( "Raster datasets of type %3 only accept positive values between %1 and %2. Please choose other bounds for random values." ).arg( std::numeric_limits<quint8>::min() ).arg( std::numeric_limits<quint8>::max() ).arg( QLatin1String( "Byte" ) ) );
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
@@ -290,7 +290,7 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
         mRandomLowerBound = std::numeric_limits<quint8>::min();
       }
       break;
-    case Qgis::Int16:
+    case Qgis::DataType::Int16:
       if ( mRandomLowerBound < std::numeric_limits<qint16>::min() || mRandomUpperBound > std::numeric_limits<qint16>::max() )
         throw QgsProcessingException( QObject::tr( "Raster datasets of type %3 only accept values between %1 and %2. Please choose other bounds for random values." ).arg( std::numeric_limits<qint16>::min() ).arg( std::numeric_limits<qint16>::max() ).arg( QLatin1String( "Integer16" ) ) );
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
@@ -299,7 +299,7 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
         mRandomLowerBound = std::numeric_limits<qint16>::min();
       }
       break;
-    case Qgis::UInt16:
+    case Qgis::DataType::UInt16:
       if ( mRandomLowerBound < std::numeric_limits<quint16>::min() || mRandomUpperBound > std::numeric_limits<quint16>::max() )
         throw QgsProcessingException( QObject::tr( "Raster datasets of type %3 only accept positive values between %1 and %2. Please choose other bounds for random values." ).arg( std::numeric_limits<quint16>::min() ).arg( std::numeric_limits<quint16>::max() ).arg( QLatin1String( "Unsigned Integer16" ) ) );
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
@@ -308,7 +308,7 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
         mRandomLowerBound = std::numeric_limits<quint16>::min();
       }
       break;
-    case Qgis::Int32:
+    case Qgis::DataType::Int32:
       if ( mRandomLowerBound < std::numeric_limits<qint32>::min() || mRandomUpperBound > std::numeric_limits<qint32>::max() )
         throw QgsProcessingException( QObject::tr( "Raster datasets of type %3 only accept values between %1 and %2. Please choose other bounds for random values." ).arg( std::numeric_limits<qint32>::min() ).arg( std::numeric_limits<qint32>::max() ).arg( QLatin1String( "Integer32" ) ) );
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
@@ -317,7 +317,7 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
         mRandomLowerBound = std::numeric_limits<qint32>::min();
       }
       break;
-    case Qgis::UInt32:
+    case Qgis::DataType::UInt32:
       if ( mRandomLowerBound < std::numeric_limits<quint32>::min() || mRandomUpperBound > std::numeric_limits<quint32>::max() )
         throw QgsProcessingException( QObject::tr( "Raster datasets of type %3 only accept positive values between %1 and %2. Please choose other bounds for random values." ).arg( std::numeric_limits<quint32>::min() ).arg( std::numeric_limits<quint32>::max() ).arg( QLatin1String( "Unsigned Integer32" ) ) );
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
@@ -326,14 +326,14 @@ bool QgsRandomUniformRasterAlgorithm::prepareRandomParameters( const QVariantMap
         mRandomLowerBound = std::numeric_limits<quint32>::min();
       }
       break;
-    case Qgis::Float32:
+    case Qgis::DataType::Float32:
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
       {
         mRandomUpperBound = std::numeric_limits<float>::max();
         mRandomLowerBound = std::numeric_limits<float>::min();
       }
       break;
-    case Qgis::Float64:
+    case Qgis::DataType::Float64:
       if ( ( qgsDoubleNear( mRandomLowerBound, 0.0 ) && qgsDoubleNear( mRandomUpperBound, 0.0 ) ) || qgsDoubleNear( mRandomUpperBound, mRandomLowerBound ) )
       {
         mRandomUpperBound = std::numeric_limits<double>::max();
@@ -424,26 +424,26 @@ Qgis::DataType QgsRandomBinomialRasterAlgorithm::getRasterDataType( int typeId )
   switch ( typeId )
   {
     case 0:
-      return Qgis::Int16;
+      return Qgis::DataType::Int16;
     case 1:
-      return Qgis::UInt16;
+      return Qgis::DataType::UInt16;
     case 2:
-      return Qgis::Int32;
+      return Qgis::DataType::Int32;
     case 3:
-      return Qgis::UInt32;
+      return Qgis::DataType::UInt32;
     case 4:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 5:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomBinomialRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  int n = parameterAsInt( parameters, QStringLiteral( "N" ), context );
-  double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
+  const int n = parameterAsInt( parameters, QStringLiteral( "N" ), context );
+  const double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
   mRandombinomialDistribution = std::binomial_distribution<long>( n, probability );
   return true;
 }
@@ -512,17 +512,17 @@ Qgis::DataType QgsRandomExponentialRasterAlgorithm::getRasterDataType( int typeI
   switch ( typeId )
   {
     case 0:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 1:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomExponentialRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  double lambda = parameterAsDouble( parameters, QStringLiteral( "LAMBDA" ), context );
+  const double lambda = parameterAsDouble( parameters, QStringLiteral( "LAMBDA" ), context );
   mRandomExponentialDistribution = std::exponential_distribution<double>( lambda );
   return true;
 }
@@ -595,18 +595,18 @@ Qgis::DataType QgsRandomGammaRasterAlgorithm::getRasterDataType( int typeId )
   switch ( typeId )
   {
     case 0:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 1:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomGammaRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  double alpha = parameterAsDouble( parameters, QStringLiteral( "ALPHA" ), context );
-  double beta = parameterAsDouble( parameters, QStringLiteral( "BETA" ), context );
+  const double alpha = parameterAsDouble( parameters, QStringLiteral( "ALPHA" ), context );
+  const double beta = parameterAsDouble( parameters, QStringLiteral( "BETA" ), context );
   mRandomGammaDistribution = std::gamma_distribution<double>( alpha, beta );
   return true;
 }
@@ -681,25 +681,25 @@ Qgis::DataType QgsRandomGeometricRasterAlgorithm::getRasterDataType( int typeId 
   switch ( typeId )
   {
     case 0:
-      return Qgis::Int16;
+      return Qgis::DataType::Int16;
     case 1:
-      return Qgis::UInt16;
+      return Qgis::DataType::UInt16;
     case 2:
-      return Qgis::Int32;
+      return Qgis::DataType::Int32;
     case 3:
-      return Qgis::UInt32;
+      return Qgis::DataType::UInt32;
     case 4:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 5:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomGeometricRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
+  const double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
   mRandomGeometricDistribution = std::geometric_distribution<long>( probability );
   return true;
 }
@@ -779,26 +779,26 @@ Qgis::DataType QgsRandomNegativeBinomialRasterAlgorithm::getRasterDataType( int 
   switch ( typeId )
   {
     case 0:
-      return Qgis::Int16;
+      return Qgis::DataType::Int16;
     case 1:
-      return Qgis::UInt16;
+      return Qgis::DataType::UInt16;
     case 2:
-      return Qgis::Int32;
+      return Qgis::DataType::Int32;
     case 3:
-      return Qgis::UInt32;
+      return Qgis::DataType::UInt32;
     case 4:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 5:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomNegativeBinomialRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  int k = parameterAsInt( parameters, QStringLiteral( "K_PARAMETER" ), context );
-  double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
+  const int k = parameterAsInt( parameters, QStringLiteral( "K_PARAMETER" ), context );
+  const double probability = parameterAsDouble( parameters, QStringLiteral( "PROBABILITY" ), context );
   mRandomNegativeBinomialDistribution = std::negative_binomial_distribution<long>( k, probability );
   return true;
 }
@@ -871,18 +871,18 @@ Qgis::DataType QgsRandomNormalRasterAlgorithm::getRasterDataType( int typeId )
   switch ( typeId )
   {
     case 0:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 1:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomNormalRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  double mean = parameterAsDouble( parameters, QStringLiteral( "MEAN" ), context );
-  double stddev = parameterAsDouble( parameters, QStringLiteral( "STDDEV" ), context );
+  const double mean = parameterAsDouble( parameters, QStringLiteral( "MEAN" ), context );
+  const double stddev = parameterAsDouble( parameters, QStringLiteral( "STDDEV" ), context );
   mRandomNormalDistribution = std::normal_distribution<double>( mean, stddev );
   return true;
 }
@@ -956,25 +956,25 @@ Qgis::DataType QgsRandomPoissonRasterAlgorithm::getRasterDataType( int typeId )
   switch ( typeId )
   {
     case 0:
-      return Qgis::Int16;
+      return Qgis::DataType::Int16;
     case 1:
-      return Qgis::UInt16;
+      return Qgis::DataType::UInt16;
     case 2:
-      return Qgis::Int32;
+      return Qgis::DataType::Int32;
     case 3:
-      return Qgis::UInt32;
+      return Qgis::DataType::UInt32;
     case 4:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
     case 5:
-      return Qgis::Float64;
+      return Qgis::DataType::Float64;
     default:
-      return Qgis::Float32;
+      return Qgis::DataType::Float32;
   }
 }
 
 bool QgsRandomPoissonRasterAlgorithm::prepareRandomParameters( const QVariantMap &parameters, QgsProcessingContext &context )
 {
-  double mean = parameterAsDouble( parameters, QStringLiteral( "MEAN" ), context );
+  const double mean = parameterAsDouble( parameters, QStringLiteral( "MEAN" ), context );
   mRandomPoissonDistribution = std::poisson_distribution<long>( mean );
   return true;
 }

@@ -17,6 +17,7 @@
 #define QGSSETTINGSENTRY_H
 
 #include <QString>
+#include <QColor>
 #include <limits>
 
 #include "qgis_core.h"
@@ -50,6 +51,8 @@ class CORE_EXPORT QgsSettingsEntryBase
       sipType = sipType_QgsSettingsEntryInteger;
     else if ( dynamic_cast< QgsSettingsEntryDouble * >( sipCpp ) )
       sipType = sipType_QgsSettingsEntryDouble;
+    else if ( dynamic_cast< QgsSettingsEntryColor * >( sipCpp ) )
+      sipType = sipType_QgsSettingsEntryColor;
     else
       sipType = NULL;
     SIP_END
@@ -57,16 +60,17 @@ class CORE_EXPORT QgsSettingsEntryBase
 
   public:
 
+    //! Types of settings entries
     enum class SettingsType : int
     {
-      Variant,
-      String,
-      StringList,
-      Bool,
-      Integer,
-      Double,
-      Enum,
-      Flag
+      Variant, //!< Generic variant
+      String, //!< String
+      StringList, //!< List of strings
+      Bool, //!< Boolean
+      Integer, //!< Integer
+      Double, //!< Double precision numer
+      EnumFlag, //!< Enum or Flag
+      Color //!< Color
     };
 
 #ifndef SIP_RUN
@@ -122,7 +126,7 @@ class CORE_EXPORT QgsSettingsEntryBase
     /**
      * Returns TRUE if the provided key match the settings entry.
      *
-     * This is useful for settings with dynamic keys. For example this permits to check that
+     * This is useful for settings with dynamic keys. For example this permits one to check that
      * the settings key "NewsFeed/httpsfeedqgisorg/27/content" is valid for the settings entry
      * defined with the key "NewsFeed/%1/%2/content"
      *
@@ -866,16 +870,16 @@ class CORE_EXPORT QgsSettingsEntryDouble : public QgsSettingsEntryBase
 };
 
 
-#ifndef SIP_RUN
-
 /**
- * \class QgsSettingsEntryEnum
+ * \class QgsSettingsEntryEnumFlag
  * \ingroup core
- * A base class for enum and flag settings entry.
-  * \since QGIS 3.20
+ * A template class for enum and flag settings entry.
+ *
+ * \note This template class has a dedicated handling in sipify.pl
+ * \since QGIS 3.20
  */
 template <typename T>
-class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
+class CORE_EXPORT QgsSettingsEntryEnumFlag : public QgsSettingsEntryBase
 {
   public:
 
@@ -890,16 +894,8 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
      * \note The enum needs to be declared with Q_ENUM, and flags with Q_FLAG (not Q_FLAGS).
      * \note for Python bindings, a custom implementation is achieved in Python directly
      */
-    QgsSettingsEntryEnumFlagBase( const QString &key,
-                                  QgsSettings::Section section,
-                                  const T &defaultValue,
-                                  const QString &description = QString() )
-      : QgsSettingsEntryBase( key,
-                              section,
-                              QMetaEnum::fromType<T>().isFlag() ?
-                              QVariant( QMetaEnum::fromType<T>().valueToKeys( defaultValue ) ) :
-                              QVariant( QMetaEnum::fromType<T>().valueToKey( defaultValue ) ),
-                              description )
+    QgsSettingsEntryEnumFlag( const QString &key, QgsSettings::Section section, const T &defaultValue, const QString &description = QString() )
+      : QgsSettingsEntryBase( key, section, QMetaEnum::fromType<T>().isFlag() ? QVariant( QMetaEnum::fromType<T>().valueToKeys( static_cast <int >( defaultValue ) ) ) : QVariant( QMetaEnum::fromType<T>().valueToKey( static_cast< int >( defaultValue ) ) ), description )
     {
       mMetaEnum = QMetaEnum::fromType<T>();
       Q_ASSERT( mMetaEnum.isValid() );
@@ -936,7 +932,7 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
       if ( useDefaultValueOverride )
         defaultVal = defaultValueOverride;
 
-      if ( settingsType() == QgsSettingsEntryBase::SettingsType::Enum )
+      if ( !mMetaEnum.isFlag() )
         return QgsSettings().enumValue( key( dynamicKeyPartList ),
                                         defaultVal,
                                         section() );
@@ -959,7 +955,7 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
 
       bool ok = false;
       T defaultValue;
-      if ( settingsType() == QgsSettingsEntryBase::SettingsType::Enum )
+      if ( !mMetaEnum.isFlag() )
         defaultValue = static_cast<T>( mMetaEnum.keyToValue( defaultValueAsVariant().toByteArray(), &ok ) );
       else
         defaultValue = static_cast<T>( mMetaEnum.keysToValue( defaultValueAsVariant().toByteArray(), &ok ) );
@@ -992,12 +988,12 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
         return false;
       }
 
-      if ( settingsType() == QgsSettingsEntryBase::SettingsType::Enum )
+      if ( !mMetaEnum.isFlag() )
       {
-        const char *enumKey = mMetaEnum.valueToKey( value );
+        const char *enumKey = mMetaEnum.valueToKey( static_cast< int >( value ) );
         if ( enumKey == nullptr )
         {
-          QgsDebugMsg( QStringLiteral( "Invalid enum value '%1'." ).arg( value ) );
+          QgsDebugMsg( QStringLiteral( "Invalid enum value '%1'." ).arg( static_cast< int >( value ) ) );
           return false;
         }
 
@@ -1005,14 +1001,20 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
       }
       else
       {
-        QByteArray flagKeys = mMetaEnum.valueToKeys( value );
+        const QByteArray flagKeys = mMetaEnum.valueToKeys( static_cast< int >( value ) );
         if ( flagKeys.isEmpty() )
         {
-          QgsDebugMsg( QStringLiteral( "Invalid flag value '%1'." ).arg( value ) );
+          QgsDebugMsg( QStringLiteral( "Invalid flag value '%1'." ).arg( static_cast< int >( value ) ) );
           return false;
         }
         return QgsSettingsEntryBase::setVariantValue( flagKeys, dynamicKeyPartList );
       }
+    }
+
+    //! \copydoc QgsSettingsEntryBase::settingsType
+    virtual QgsSettingsEntryBase::SettingsType settingsType() const override
+    {
+      return QgsSettingsEntryBase::SettingsType::EnumFlag;
     }
 
   private:
@@ -1020,94 +1022,91 @@ class QgsSettingsEntryEnumFlagBase : public QgsSettingsEntryBase
     QMetaEnum mMetaEnum;
 
 };
-#endif
 
-
-#ifndef SIP_RUN
 
 /**
- * \class QgsSettingsEntryEnum
+ * \class QgsSettingsEntryColor
  * \ingroup core
- * An enum settings entry.
-  * \since QGIS 3.20
+ * A color settings entry.
+ * \since QGIS 3.20
  */
-template <typename T>
-class QgsSettingsEntryEnum : public QgsSettingsEntryEnumFlagBase<T>
+class CORE_EXPORT QgsSettingsEntryColor : public QgsSettingsEntryBase
 {
   public:
 
+#ifndef SIP_RUN
+
     /**
-     * Constructor for QgsSettingsEntryEnum.
+     * Constructor for QgsSettingsEntryColor.
      *
      * The \a key argument specifies the final part of the settings key.
      * The \a section argument specifies the section.
      * The \a default value argument specifies the default value for the settings entry.
      * The \a description argument specifies a description for the settings entry.
-     *
-     * \note The enum needs to be declared with Q_ENUM, and flags with Q_FLAG (not Q_FLAGS).
-     * \note for Python bindings, a custom implementation is achieved in Python directly
      */
-    QgsSettingsEntryEnum( const QString &key,
-                          QgsSettings::Section section,
-                          const T &defaultValue,
-                          const QString &description = QString() )
-      : QgsSettingsEntryEnumFlagBase<T>( key,
-                                         section,
-                                         defaultValue,
-                                         description )
-    {
-    }
+    QgsSettingsEntryColor( const QString &key,
+                           QgsSettings::Section section,
+                           const QColor &defaultValue = QColor(),
+                           const QString &description = QString() );
 
-    //! \copydoc QgsSettingsEntryBase::settingsType
-    virtual QgsSettingsEntryBase::SettingsType settingsType() const override
-    {
-      return QgsSettingsEntryBase::SettingsType::Enum;
-    }
-};
 #endif
-
-
-#ifndef SIP_RUN
-
-/**
- * \class QgsSettingsEntryFlag
- * \ingroup core
- * An flag settings entry.
-  * \since QGIS 3.20
- */
-template <typename T>
-class QgsSettingsEntryFlag : public QgsSettingsEntryEnumFlagBase<T>
-{
-  public:
 
     /**
-     * Constructor for QgsSettingsEntryFlag.
+     * Constructor for QgsSettingsEntryColor.
+     * This constructor is intended to be used from plugins.
      *
-     * The \a key argument specifies the final part of the settings key.
-     * The \a section argument specifies the section.
+     * The \a key argument specifies the key of the settings.
+     * The \a pluginName argument is inserted in the key after the section.
      * The \a default value argument specifies the default value for the settings entry.
      * The \a description argument specifies a description for the settings entry.
-     *
-     * \note The flag needs to be declared with Q_FLAG (not Q_FLAGS).
-     * \note for Python bindings, a custom implementation is achieved in Python directly.
      */
-    QgsSettingsEntryFlag( const QString &key,
-                          QgsSettings::Section section,
-                          const T &defaultValue,
-                          const QString &description = QString() )
-      : QgsSettingsEntryEnumFlagBase<T>( key,
-                                         section,
-                                         defaultValue,
-                                         description )
-    {
-    }
+    QgsSettingsEntryColor( const QString &key,
+                           const QString &pluginName,
+                           const QColor &defaultValue = QColor(),
+                           const QString &description = QString() );
+
+    /**
+     * Set settings value.
+     *
+     * The \a value to set.
+     * The \a dynamicKeyPart argument specifies the dynamic part of the settings key.
+     */
+    bool setValue( const QColor &value, const QString &dynamicKeyPart = QString() ) const;
+
+    /**
+     * Set settings value.
+     *
+     * The \a value to set.
+     * The \a dynamicKeyParts argument specifies the list of dynamic parts of the settings key.
+     */
+    bool setValue( const QColor &value, const QStringList &dynamicKeyPartList ) const;
+
+    /**
+     * Get settings value.
+     *
+     * The \a dynamicKeyPart argument specifies the dynamic part of the settings key.
+     * The \a useDefaultValueOverride argument specifies if defaultValueOverride should be used.
+     * The \a defaultValueOverride argument if valid is used instead of the normal default value.
+     */
+    QColor value( const QString &dynamicKeyPart = QString(), bool useDefaultValueOverride = false, const QString &defaultValueOverride = QString() ) const;
+
+    /**
+     * Get settings value.
+     *
+     * The \a dynamicKeyParts argument specifies the list of dynamic parts of the settings key.
+     * The \a useDefaultValueOverride argument specifies if defaultValueOverride should be used.
+     * The \a defaultValueOverride argument if valid is used instead of the normal default value.
+     */
+    QColor value( const QStringList &dynamicKeyPartList, bool useDefaultValueOverride = false, const QString &defaultValueOverride = QString() ) const;
+
+    /**
+     * Get settings default value.
+     */
+    QColor defaultValue() const;
 
     //! \copydoc QgsSettingsEntryBase::settingsType
-    virtual QgsSettingsEntryBase::SettingsType settingsType() const override
-    {
-      return QgsSettingsEntryBase::SettingsType::Flag;
-    }
+    virtual SettingsType settingsType() const override;
+
 };
-#endif
 
 #endif // QGSSETTINGSENTRY_H

@@ -117,18 +117,18 @@ void QgsTemporalControllerDockWidget::exportAnimation()
     animationSettings.fileNameTemplate = fileNameExpression;
     animationSettings.decorations = decorations;
 
-    bool success = QgsTemporalUtils::exportAnimation( s, animationSettings, error, &progressFeedback );
+    const bool success = QgsTemporalUtils::exportAnimation( s, animationSettings, error, &progressFeedback );
 
     progressDialog.hide();
     if ( !success )
     {
-      QgisApp::instance()->messageBar()->pushMessage( tr( "Export Animation" ), error, Qgis::Critical );
+      QgisApp::instance()->messageBar()->pushMessage( tr( "Export Animation" ), error, Qgis::MessageLevel::Critical );
     }
     else
     {
       QgisApp::instance()->messageBar()->pushMessage( tr( "Export Animation" ),
           tr( "Successfully exported animation to <a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( outputDir ).toString(), QDir::toNativeSeparators( outputDir ) ),
-          Qgis::Success, 0 );
+          Qgis::MessageLevel::Success, 0 );
     }
   } );
   dlg->setAttribute( Qt::WA_DeleteOnClose );

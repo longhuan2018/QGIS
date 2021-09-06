@@ -15,11 +15,13 @@
 
 #include <QIcon>
 
-#include "qgsdataitem.h"
 #include "qgsmaplayermodel.h"
 #include "qgsproject.h"
 #include "qgsapplication.h"
 #include "qgsvectorlayer.h"
+#include "qgsiconutils.h"
+#include "qgsmaplayerlistutils.h"
+#include <QMimeData>
 
 QgsMapLayerModel::QgsMapLayerModel( const QList<QgsMapLayer *> &layers, QObject *parent, QgsProject *project )
   : QAbstractItemModel( parent )
@@ -157,6 +159,37 @@ void QgsMapLayerModel::setAdditionalItems( const QStringList &items )
   beginInsertRows( QModelIndex(), offset, offset + items.count() - 1 );
   mAdditionalItems = items;
   endInsertRows();
+}
+
+void QgsMapLayerModel::setAdditionalLayers( const QList<QgsMapLayer *> &layers )
+{
+  if ( layers == _qgis_listQPointerToRaw( mAdditionalLayers ) )
+    return;
+
+  QStringList layerIdsToRemove;
+  for ( QgsMapLayer *layer : std::as_const( mAdditionalLayers ) )
+  {
+    if ( layer )
+      layerIdsToRemove << layer->id();
+  }
+  removeLayers( layerIdsToRemove );
+
+  for ( QgsMapLayer *layer : layers )
+  {
+    if ( layer )
+    {
+      addLayers( { layer } );
+      const QString layerId = layer->id();
+      connect( layer, &QgsMapLayer::willBeDeleted, this, [this, layerId] { removeLayers( {layerId} ); } );
+    }
+  }
+
+  mAdditionalLayers = _qgis_listRawToQPointer( layers );
+}
+
+QList<QgsMapLayer *> QgsMapLayerModel::additionalLayers() const
+{
+  return _qgis_listQPointerToRaw( mAdditionalLayers );
 }
 
 void QgsMapLayerModel::removeLayers( const QStringList &layerIds )
@@ -515,68 +548,8 @@ Qt::DropActions QgsMapLayerModel::supportedDropActions() const
 
 QIcon QgsMapLayerModel::iconForLayer( QgsMapLayer *layer )
 {
-  switch ( layer->type() )
-  {
-    case QgsMapLayerType::RasterLayer:
-    {
-      return QgsLayerItem::iconRaster();
-    }
-
-    case QgsMapLayerType::MeshLayer:
-    {
-      return QgsLayerItem::iconMesh();
-    }
-
-    case QgsMapLayerType::VectorTileLayer:
-    {
-      return QgsLayerItem::iconVectorTile();
-    }
-
-    case QgsMapLayerType::PointCloudLayer:
-    {
-      return QgsLayerItem::iconPointCloud();
-    }
-
-    case QgsMapLayerType::VectorLayer:
-    {
-      QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
-      if ( !vl )
-      {
-        return QIcon();
-      }
-      QgsWkbTypes::GeometryType geomType = vl->geometryType();
-      switch ( geomType )
-      {
-        case QgsWkbTypes::PointGeometry:
-        {
-          return QgsLayerItem::iconPoint();
-        }
-        case QgsWkbTypes::PolygonGeometry :
-        {
-          return QgsLayerItem::iconPolygon();
-        }
-        case QgsWkbTypes::LineGeometry :
-        {
-          return QgsLayerItem::iconLine();
-        }
-        case QgsWkbTypes::NullGeometry :
-        {
-          return QgsLayerItem::iconTable();
-        }
-        default:
-        {
-          return QIcon();
-        }
-      }
-    }
-
-    default:
-    {
-      return QIcon();
-    }
-  }
+  return QgsIconUtils::iconForLayer( layer );
 }
-
 
 bool QgsMapLayerModel::setData( const QModelIndex &index, const QVariant &value, int role )
 {

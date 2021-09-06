@@ -90,7 +90,8 @@ bool QgsWmsSettings::parseUri( const QString &uriString )
     mTemporalExtent = uri.param( QStringLiteral( "timeDimensionExtent" ) );
     mTimeDimensionExtent = parseTemporalExtent( mTemporalExtent );
 
-    if ( !mTimeDimensionExtent.datesResolutionList.constFirst().dates.dateTimes.empty() )
+    if ( !mTimeDimensionExtent.datesResolutionList.isEmpty() &&
+         !mTimeDimensionExtent.datesResolutionList.constFirst().dates.dateTimes.empty() )
     {
       QDateTime begin = mTimeDimensionExtent.datesResolutionList.constFirst().dates.dateTimes.first();
       QDateTime end = mTimeDimensionExtent.datesResolutionList.constLast().dates.dateTimes.last();
@@ -183,7 +184,7 @@ bool QgsWmsSettings::parseUri( const QString &uriString )
     for ( const QString &opacity : opacities )
     {
       bool ok = false;
-      opacity.toInt( &ok );
+      ( void )opacity.toInt( &ok );
       if ( ok )
       {
         mOpacities.append( opacity );

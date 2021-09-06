@@ -224,9 +224,9 @@ QVariantMap QgsCategorizeUsingStyleAlgorithm::processAlgorithm( const QVariantMa
 
   mRenderer = std::make_unique< QgsCategorizedSymbolRenderer >( mField, cats );
 
-  const QgsSymbol::SymbolType type = mLayerGeometryType == QgsWkbTypes::PointGeometry ? QgsSymbol::Marker
-                                     : mLayerGeometryType == QgsWkbTypes::LineGeometry ? QgsSymbol::Line
-                                     : QgsSymbol::Fill;
+  const Qgis::SymbolType type = mLayerGeometryType == QgsWkbTypes::PointGeometry ? Qgis::SymbolType::Marker
+                                : mLayerGeometryType == QgsWkbTypes::LineGeometry ? Qgis::SymbolType::Line
+                                : Qgis::SymbolType::Fill;
 
   QVariantList unmatchedCategories;
   QStringList unmatchedSymbols;
@@ -252,7 +252,8 @@ QVariantMap QgsCategorizeUsingStyleAlgorithm::processAlgorithm( const QVariantMa
       {
         QgsFeature f;
         f.setAttributes( QgsAttributes() << cat.toString() );
-        nonMatchingCategoriesSink->addFeature( f, QgsFeatureSink::FastInsert );
+        if ( !nonMatchingCategoriesSink->addFeature( f, QgsFeatureSink::FastInsert ) )
+          throw QgsProcessingException( writeFeatureError( nonMatchingCategoriesSink.get(), parameters, QStringLiteral( "NON_MATCHING_CATEGORIES" ) ) );
       }
     }
   }
@@ -268,7 +269,8 @@ QVariantMap QgsCategorizeUsingStyleAlgorithm::processAlgorithm( const QVariantMa
       {
         QgsFeature f;
         f.setAttributes( QgsAttributes() << name );
-        nonMatchingSymbolsSink->addFeature( f, QgsFeatureSink::FastInsert );
+        if ( !nonMatchingSymbolsSink->addFeature( f, QgsFeatureSink::FastInsert ) )
+          throw QgsProcessingException( writeFeatureError( nonMatchingSymbolsSink.get(), parameters, QStringLiteral( "NON_MATCHING_SYMBOLS" ) ) );
       }
     }
   }

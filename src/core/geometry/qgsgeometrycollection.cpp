@@ -901,7 +901,7 @@ QgsPoint QgsGeometryCollection::vertexAt( QgsVertexId id ) const
   return mGeometries[id.part]->vertexAt( id );
 }
 
-bool QgsGeometryCollection::isValid( QString &error, int flags ) const
+bool QgsGeometryCollection::isValid( QString &error, Qgis::GeometryValidityFlags flags ) const
 {
   if ( flags == 0 && mHasCachedValidity )
   {
@@ -911,7 +911,7 @@ bool QgsGeometryCollection::isValid( QString &error, int flags ) const
   }
 
   QgsGeos geos( this );
-  bool res = geos.isValid( &error, flags & QgsGeometry::FlagAllowSelfTouchingHoles, nullptr );
+  bool res = geos.isValid( &error, flags & Qgis::GeometryValidityFlag::AllowSelfTouchingHoles, nullptr );
   if ( flags == 0 )
   {
     mValidityFailureReason = !res ? error : QString();
@@ -1018,6 +1018,14 @@ QgsGeometryCollection *QgsGeometryCollection::toCurveType() const
     newCollection->addGeometry( geom->toCurveType() );
   }
   return newCollection.release();
+}
+
+const QgsAbstractGeometry *QgsGeometryCollection::simplifiedTypeRef() const
+{
+  if ( mGeometries.size() == 1 )
+    return mGeometries.at( 0 )->simplifiedTypeRef();
+  else
+    return this;
 }
 
 bool QgsGeometryCollection::transform( QgsAbstractGeometryTransformer *transformer, QgsFeedback *feedback )

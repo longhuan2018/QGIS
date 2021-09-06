@@ -74,9 +74,12 @@ Since QGIS 3.4 when closing a project, the application shows a warning about pot
 loss if there are any non-empty memory layers present. If your memory layer should not
 trigger such warning, it is possible to suppress that by setting the following custom variable:
 
+
 .. code-block:: python
 
          layer.setCustomProperty("skipMemoryLayersCheck", 1)
+
+
 
 OGR data provider (ogr)
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -209,7 +212,7 @@ may span multiple records.  The default type is csv.
   escape themselves within quotes.  Elsewhere they are treated as
   quote characters.  The defaults for delimiter, quote, and escape
   are ',', '"', '"'.
-- "regexp" splits each record using a regular expression (see QRegExp
+- "regexp" splits each record using a regular expression (see QRegularExpression
   documentation for details).
 - "whitespace" splits each record based on whitespace (on or more whitespace
   characters.  Leading whitespace in the record is ignored.
@@ -337,23 +340,6 @@ Provider to display vector data in a GRASS GIS layer.
 #include "qgsvectorlayer.h"
 %End
   public:
-
-    enum EditResult
-    {
-      Success,
-      EmptyGeometry,
-      EditFailed,
-      FetchFeatureFailed,
-      InvalidLayer,
-    };
-
-    enum SelectBehavior
-    {
-      SetSelection,
-      AddToSelection,
-      IntersectSelection,
-      RemoveFromSelection,
-    };
 
     struct LayerOptions
     {
@@ -644,7 +630,7 @@ Returns the number of features that are selected in this layer.
 .. seealso:: :py:func:`selectedFeatureIds`
 %End
 
-    void selectByRect( QgsRectangle &rect, QgsVectorLayer::SelectBehavior behavior = QgsVectorLayer::SetSelection );
+    void selectByRect( QgsRectangle &rect, Qgis::SelectBehavior behavior = Qgis::SelectBehavior::SetSelection );
 %Docstring
 Selects features found within the search rectangle (in layer's coordinates)
 
@@ -659,7 +645,7 @@ Selects features found within the search rectangle (in layer's coordinates)
 .. seealso:: :py:func:`selectByIds`
 %End
 
-    void selectByExpression( const QString &expression, QgsVectorLayer::SelectBehavior behavior = QgsVectorLayer::SetSelection );
+    void selectByExpression( const QString &expression, Qgis::SelectBehavior behavior = Qgis::SelectBehavior::SetSelection );
 %Docstring
 Selects matching features using an expression.
 
@@ -674,7 +660,7 @@ Selects matching features using an expression.
 .. versionadded:: 2.16
 %End
 
-    void selectByIds( const QgsFeatureIds &ids, QgsVectorLayer::SelectBehavior behavior = QgsVectorLayer::SetSelection );
+    void selectByIds( const QgsFeatureIds &ids, Qgis::SelectBehavior behavior = Qgis::SelectBehavior::SetSelection );
 %Docstring
 Selects matching features using a list of feature IDs. Will emit the
 :py:func:`~QgsVectorLayer.selectionChanged` signal with the clearAndSelect flag set.
@@ -1049,7 +1035,7 @@ Writes the symbology of the layer into the document provided in SLD 1.1 format
     virtual bool readSld( const QDomNode &node, QString &errorMessage ) ${SIP_FINAL};
 
 
-    long featureCount( const QString &legendKey ) const;
+    long long featureCount( const QString &legendKey ) const;
 %Docstring
 Number of features rendered with specified legend key. Features must be first
 calculated by :py:func:`~QgsVectorLayer.countSymbolFeatures`
@@ -1082,40 +1068,6 @@ Determines if this vector layer has features.
 .. versionadded:: 3.4
 %End
 
- void setDataSource( const QString &dataSource, const QString &baseName, const QString &provider, bool loadDefaultStyleFlag = false ) /Deprecated/;
-%Docstring
-Update the data source of the layer. The layer's renderer and legend will be preserved only
-if the geometry type of the new data source matches the current geometry type of the layer.
-
-:param dataSource: new layer data source
-:param baseName: base name of the layer
-:param provider: provider string
-:param loadDefaultStyleFlag: set to ``True`` to reset the layer's style to the default for the
-                             data source
-
-.. versionadded:: 2.10
-
-.. deprecated::
-   Use version with ProviderOptions argument instead
-%End
-
-    virtual void setDataSource( const QString &dataSource, const QString &baseName, const QString &provider, const QgsDataProvider::ProviderOptions &options, bool loadDefaultStyleFlag = false );
-
-%Docstring
-Updates the data source of the layer. The layer's renderer and legend will be preserved only
-if the geometry type of the new data source matches the current geometry type of the layer.
-
-:param dataSource: new layer data source
-:param baseName: base name of the layer
-:param provider: provider string
-:param options: provider options
-:param loadDefaultStyleFlag: set to ``True`` to reset the layer's style to the default for the
-                             data source
-
-.. seealso:: :py:func:`dataSourceChanged`
-
-.. versionadded:: 3.2
-%End
 
     virtual QString loadDefaultStyle( bool &resultFlag /Out/ ) ${SIP_FINAL};
 
@@ -1293,7 +1245,7 @@ to the given coordinates.
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
-    EditResult deleteVertex( QgsFeatureId featureId, int vertex );
+    Qgis::VectorEditResult deleteVertex( QgsFeatureId featureId, int vertex );
 %Docstring
 Deletes a vertex from a feature.
 
@@ -1320,14 +1272,14 @@ Deletes the selected features
 :return: ``True`` in case of success and ``False`` otherwise
 %End
 
- QgsGeometry::OperationResult addRing( const QVector<QgsPointXY> &ring, QgsFeatureId *featureId = 0 ) /Deprecated/;
+ Qgis::GeometryOperationResult addRing( const QVector<QgsPointXY> &ring, QgsFeatureId *featureId = 0 ) /Deprecated/;
 %Docstring
 Adds a ring to polygon/multipolygon features
 
 :param ring: ring to add
 :param featureId: if specified, feature ID for feature ring was added to will be stored in this parameter
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1349,14 +1301,14 @@ Adds a ring to polygon/multipolygon features
 %End
 
 
-    QgsGeometry::OperationResult addRing( const QgsPointSequence &ring, QgsFeatureId *featureId = 0 );
+    Qgis::GeometryOperationResult addRing( const QgsPointSequence &ring, QgsFeatureId *featureId = 0 );
 %Docstring
 Adds a ring to polygon/multipolygon features
 
 :param ring: ring to add
 :param featureId: if specified, feature ID for feature ring was added to will be stored in this parameter
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1374,14 +1326,14 @@ Adds a ring to polygon/multipolygon features
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
-    QgsGeometry::OperationResult addRing( QgsCurve *ring /Transfer/, QgsFeatureId *featureId = 0 ) /PyName=addCurvedRing/;
+    Qgis::GeometryOperationResult addRing( QgsCurve *ring /Transfer/, QgsFeatureId *featureId = 0 ) /PyName=addCurvedRing/;
 %Docstring
 Adds a ring to polygon/multipolygon features (takes ownership)
 
 :param ring: ring to add
 :param featureId: if specified, feature ID for feature ring was added to will be stored in this parameter
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1403,11 +1355,11 @@ Adds a ring to polygon/multipolygon features (takes ownership)
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
- QgsGeometry::OperationResult addPart( const QList<QgsPointXY> &ring ) /Deprecated/;
+ Qgis::GeometryOperationResult addPart( const QList<QgsPointXY> &ring ) /Deprecated/;
 %Docstring
 Adds a new part polygon to a multipart feature
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1430,11 +1382,11 @@ Adds a new part polygon to a multipart feature
 %End
 
 
- QgsGeometry::OperationResult addPart( const QVector<QgsPointXY> &ring ) /PyName=addPartV2,Deprecated/;
+ Qgis::GeometryOperationResult addPart( const QVector<QgsPointXY> &ring ) /PyName=addPartV2,Deprecated/;
 %Docstring
 Adds a new part polygon to a multipart feature
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1460,11 +1412,11 @@ Adds a new part polygon to a multipart feature
    - will be removed in QGIS 4.0. Use the variant which accepts :py:class:`QgsPoint` objects instead of :py:class:`QgsPointXY`.
 %End
 
-    QgsGeometry::OperationResult addPart( const QgsPointSequence &ring ) /PyName=addPartV2/;
+    Qgis::GeometryOperationResult addPart( const QgsPointSequence &ring ) /PyName=addPartV2/;
 %Docstring
 Adds a new part polygon to a multipart feature
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - LayerNotEditable
@@ -1487,7 +1439,7 @@ Adds a new part polygon to a multipart feature
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
-    QgsGeometry::OperationResult addPart( QgsCurve *ring /Transfer/ ) /PyName=addCurvedPart/;
+    Qgis::GeometryOperationResult addPart( QgsCurve *ring /Transfer/ ) /PyName=addCurvedPart/;
 %Docstring
 
 .. note::
@@ -1520,14 +1472,14 @@ Translates feature by dx, dy
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
- QgsGeometry::OperationResult splitParts( const QVector<QgsPointXY> &splitLine, bool topologicalEditing = false ) /Deprecated/;
+ Qgis::GeometryOperationResult splitParts( const QVector<QgsPointXY> &splitLine, bool topologicalEditing = false ) /Deprecated/;
 %Docstring
 Splits parts cut by the given line
 
 :param splitLine: line that splits the layer features
 :param topologicalEditing: ``True`` if topological editing is enabled
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - NothingHappened
@@ -1548,14 +1500,14 @@ Splits parts cut by the given line
    - will be removed in QGIS 4.0. Use the variant which accepts :py:class:`QgsPoint` objects instead of :py:class:`QgsPointXY`.
 %End
 
-    QgsGeometry::OperationResult splitParts( const QgsPointSequence &splitLine, bool topologicalEditing = false );
+    Qgis::GeometryOperationResult splitParts( const QgsPointSequence &splitLine, bool topologicalEditing = false );
 %Docstring
 Splits parts cut by the given line
 
 :param splitLine: line that splits the layer features
 :param topologicalEditing: ``True`` if topological editing is enabled
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - NothingHappened
@@ -1573,14 +1525,14 @@ Splits parts cut by the given line
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
- QgsGeometry::OperationResult splitFeatures( const QVector<QgsPointXY> &splitLine, bool topologicalEditing = false ) /Deprecated/;
+ Qgis::GeometryOperationResult splitFeatures( const QVector<QgsPointXY> &splitLine, bool topologicalEditing = false ) /Deprecated/;
 %Docstring
 Splits features cut by the given line
 
 :param splitLine: line that splits the layer features
 :param topologicalEditing: ``True`` if topological editing is enabled
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - NothingHappened
@@ -1601,14 +1553,14 @@ Splits features cut by the given line
    - will be removed in QGIS 4.0. Use the variant which accepts :py:class:`QgsPoint` objects instead of :py:class:`QgsPointXY`.
 %End
 
-    QgsGeometry::OperationResult splitFeatures( const QgsPointSequence &splitLine, bool topologicalEditing = false );
+    Qgis::GeometryOperationResult splitFeatures( const QgsPointSequence &splitLine, bool topologicalEditing = false );
 %Docstring
 Splits features cut by the given line
 
 :param splitLine: line that splits the layer features
 :param topologicalEditing: ``True`` if topological editing is enabled
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - NothingHappened
@@ -1626,7 +1578,7 @@ Splits features cut by the given line
    changes can be discarded by calling :py:func:`~QgsVectorLayer.rollBack`.
 %End
 
-    QgsGeometry::OperationResult splitFeatures( const QgsCurve *curve, QgsPointSequence &topologyTestPoints /Out/, bool preserveCircular = false, bool topologicalEditing = false );
+    Qgis::GeometryOperationResult splitFeatures( const QgsCurve *curve, QgsPointSequence &topologyTestPoints /Out/, bool preserveCircular = false, bool topologicalEditing = false );
 %Docstring
 Splits features cut by the given curve
 
@@ -1635,7 +1587,7 @@ Splits features cut by the given curve
 :param preserveCircular: whether circular strings are preserved after splitting
 :param topologicalEditing: ``True`` if topological editing is enabled
 
-:return: :py:class:`QgsGeometry`.OperationResult
+:return: Qgis.GeometryOperationResult
 
          - Success
          - NothingHappened
@@ -1661,7 +1613,13 @@ Adds topological points for every vertex of the geometry.
 
 :param geom: the geometry where each vertex is added to segments of other features
 
+:return: -1 in case of layer error (invalid or non editable)
+
 :return: 0 in case of success
+
+:return: 1 in case of geometry error (non spatial or null geometry)
+
+:return: 2 in case no vertices needed to be added
 
 .. note::
 
@@ -1684,7 +1642,13 @@ editing.
 
 :param p: position of the vertex
 
+:return: -1 in case of layer error (invalid or non editable)
+
 :return: 0 in case of success
+
+:return: 1 in case of geometry error (non spatial or null geometry)
+
+:return: 2 in case no vertices needed to be added
 
 .. note::
 
@@ -1706,7 +1670,13 @@ editing.
 
 :param p: position of the vertex
 
+:return: -1 in case of layer error (invalid or non editable)
+
 :return: 0 in case of success
+
+:return: 1 in case of geometry error (non spatial or null geometry)
+
+:return: 2 in case no vertices needed to be added
 
 .. note::
 
@@ -1727,7 +1697,13 @@ editing.
 
 :param ps: point sequence of the vertices
 
+:return: -1 in case of layer error (invalid or non editable)
+
 :return: 0 in case of success
+
+:return: 1 in case of geometry error (non spatial or null geometry)
+
+:return: 2 in case no vertices needed to be added
 
 .. note::
 
@@ -1773,6 +1749,7 @@ Returns ``True`` if this is a geometry layer and ``False`` in case of NoGeometry
 %End
 
     virtual bool isModified() const;
+
 %Docstring
 Returns ``True`` if the provider has been modified since the last commit
 %End
@@ -1823,7 +1800,7 @@ Returns list of attribute indexes. i.e. a list from 0 ... :py:func:`~QgsVectorLa
 Returns the list of attributes which make up the layer's primary keys.
 %End
 
-    virtual long featureCount() const ${SIP_FINAL};
+    virtual long long featureCount() const ${SIP_FINAL};
 
 %Docstring
 Returns feature count including changes which have not yet been committed
@@ -1839,7 +1816,8 @@ Makes layer read-only (editing disabled) or not
 :return: ``False`` if the layer is in editing yet
 %End
 
-    bool supportsEditing();
+    virtual bool supportsEditing() const;
+
 %Docstring
 Returns whether the layer supports editing or not
 
@@ -2191,14 +2169,7 @@ Finish edit command and add it to undo/redo stack
 Destroy active command and reverts all changes in it
 %End
 
-    enum VertexMarkerType
-    {
-      SemiTransparentCircle,
-      Cross,
-      NoMarker
-    };
-
- static void drawVertexMarker( double x, double y, QPainter &p, QgsVectorLayer::VertexMarkerType type, int vertexSize );
+ static void drawVertexMarker( double x, double y, QPainter &p, Qgis::VertexMarkerType type, int vertexSize );
 %Docstring
 Draws a vertex symbol at (screen) coordinates x, y. (Useful to assist vertex editing.)
 
@@ -2489,7 +2460,9 @@ and maximum values are required.
                         const QgsAggregateCalculator::AggregateParameters &parameters = QgsAggregateCalculator::AggregateParameters(),
                         QgsExpressionContext *context = 0,
                         bool *ok = 0,
-                        QgsFeatureIds *fids = 0 ) const;
+                        QgsFeatureIds *fids = 0,
+                        QgsFeedback *feedback = 0) const;
+
 %Docstring
 Calculates an aggregated value from the layer's features.
 Currently any filtering expression provided will override filters in the FeatureRequest.
@@ -2500,6 +2473,7 @@ Currently any filtering expression provided will override filters in the Feature
 :param context: expression context for expressions and filters
 :param ok: if specified, will be set to ``True`` if aggregate calculation was successful
 :param fids: list of fids to filter, otherwise will use all fids
+:param feedback: optional feedback argument for early cancellation (since QGIS 3.22)
 
 :return: calculated aggregate value
 
@@ -2758,11 +2732,6 @@ Emitted when selection was changed
 :param clearAndSelect: In case this is set to ``True``, the old selection was dismissed and the new selection corresponds to selected
 %End
 
-    void layerModified();
-%Docstring
-Emitted when modifications has been done on layer
-%End
-
     void allowCommitChanged();
 %Docstring
 Emitted whenever the :py:func:`~QgsVectorLayer.allowCommitChanged` property of this layer changes.
@@ -2778,16 +2747,6 @@ Emitted when the layer is checked for modifications. Use for last-minute additio
     void beforeEditingStarted();
 %Docstring
 Emitted before editing on this layer is started.
-%End
-
-    void editingStarted();
-%Docstring
-Emitted when editing on this layer has started.
-%End
-
-    void editingStopped();
-%Docstring
-Emitted when edited changes have been successfully written to the data provider.
 %End
 
     void beforeCommitChanges( bool stopEditing );

@@ -24,12 +24,15 @@
 #include "qgscurve.h"
 #include "qgslinesymbollayer.h"
 #include "qgslayertreemodellegendnode.h"
+#include "qgsfillsymbol.h"
 
 QgsPointCloudExtentRenderer::QgsPointCloudExtentRenderer( QgsFillSymbol *symbol )
   : mFillSymbol( symbol ? symbol : defaultFillSymbol() )
 {
 
 }
+
+QgsPointCloudExtentRenderer::~QgsPointCloudExtentRenderer() = default;
 
 QString QgsPointCloudExtentRenderer::type() const
 {
@@ -52,7 +55,7 @@ QgsPointCloudRenderer *QgsPointCloudExtentRenderer::create( QDomElement &element
 {
   std::unique_ptr< QgsPointCloudExtentRenderer > r = std::make_unique< QgsPointCloudExtentRenderer >();
 
-  QDomElement symbolElem = element.firstChildElement( QStringLiteral( "symbol" ) );
+  const QDomElement symbolElem = element.firstChildElement( QStringLiteral( "symbol" ) );
   if ( !symbolElem.isNull() )
   {
     r->mFillSymbol.reset( QgsSymbolLayerUtils::loadSymbol<QgsFillSymbol>( symbolElem, context ) );
@@ -139,7 +142,7 @@ QDomElement QgsPointCloudExtentRenderer::save( QDomDocument &doc, const QgsReadW
 
   rendererElem.setAttribute( QStringLiteral( "type" ), type() );
 
-  QDomElement symbolElem = QgsSymbolLayerUtils::saveSymbol( QString(), mFillSymbol.get(), doc, context );
+  const QDomElement symbolElem = QgsSymbolLayerUtils::saveSymbol( QString(), mFillSymbol.get(), doc, context );
   rendererElem.appendChild( symbolElem );
 
   saveCommonProperties( rendererElem, context );
@@ -162,11 +165,10 @@ QList<QgsLayerTreeModelLegendNode *> QgsPointCloudExtentRenderer::createLegendNo
 {
   QList<QgsLayerTreeModelLegendNode *> nodes;
 
-  QgsLegendSymbolItem extentItem( mFillSymbol.get(), QStringLiteral( "extent" ), QStringLiteral( "extent" ) );
+  const QgsLegendSymbolItem extentItem( mFillSymbol.get(), QStringLiteral( "extent" ), QStringLiteral( "extent" ) );
   QgsSymbolLegendNode *node = new QgsSymbolLegendNode( nodeLayer, extentItem );
   node->setEmbeddedInParent( true );
   nodes << node;
 
   return nodes;
 }
-

@@ -18,6 +18,7 @@
 #include "qgsfeatureiterator.h"
 #include "qgsogrconnpool.h"
 #include "qgsfields.h"
+#include "qgsogrutils.h"
 
 #include <ogr_api.h>
 
@@ -109,12 +110,15 @@ class QgsOgrFeatureIterator final: public QgsAbstractFeatureIteratorFromSource<Q
 
     QgsFeedback *mInterruptionChecker = nullptr;
 
-    QgsSymbol::SymbolType mSymbolType = QgsSymbol::Hybrid;
+    Qgis::SymbolType mSymbolType = Qgis::SymbolType::Hybrid;
 
     /* This flag tells the iterator when to skip all calls that might reset the reading (rewind),
      * to be used when the request is for a single fid or for a list of fids and we are inside
      * a transaction for SQLITE-based layers */
     bool mAllowResetReading = true;
+
+    QgsGeometry mDistanceWithinGeom;
+    std::unique_ptr< QgsGeometryEngine > mDistanceWithinEngine;
 
     bool fetchFeatureWithId( QgsFeatureId id, QgsFeature &feature ) const;
 

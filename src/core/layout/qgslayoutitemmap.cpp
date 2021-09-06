@@ -35,6 +35,8 @@
 #include "qgsstyleentityvisitor.h"
 #include "qgsannotationlayer.h"
 #include "qgscoordinatereferencesystemregistry.h"
+#include "qgsprojoperation.h"
+#include "qgslabelingresults.h"
 
 #include <QPainter>
 #include <QStyleOptionGraphicsItem>
@@ -360,6 +362,7 @@ void QgsLayoutItemMap::setFollowVisibilityPreset( bool follow )
     return;
 
   mFollowVisibilityPreset = follow;
+
   if ( !mFollowVisibilityPresetName.isEmpty() )
     emit themeChanged( mFollowVisibilityPreset ? mFollowVisibilityPresetName : QString() );
 }
@@ -1136,7 +1139,10 @@ bool QgsLayoutItemMap::nextExportPart()
         if ( mStagedRendererJob->nextPart() )
           return true;
         else
+        {
+          mExportLabelingResults.reset( mStagedRendererJob->takeLabelingResults() );
           mStagedRendererJob.reset(); // no more map layer parts
+        }
       }
 
       if ( mExportThemeIt != mExportThemes.end() && ++mExportThemeIt != mExportThemes.end() )
@@ -1356,6 +1362,8 @@ void QgsLayoutItemMap::drawMap( QPainter *painter, const QgsRectangle &extent, Q
   // Raster images were not displayed - see #10599
   job.renderSynchronously();
 
+  mExportLabelingResults.reset( job.takeLabelingResults() );
+
   mRenderingErrors = job.errors();
 }
 
@@ -1484,6 +1492,8 @@ QgsMapSettings QgsLayoutItemMap::mapSettings( const QgsRectangle &extent, QSizeF
   jobMapSettings.setExtent( extent );
   jobMapSettings.setOutputSize( size.toSize() );
   jobMapSettings.setOutputDpi( dpi );
+  if ( layout()->renderContext().isPreviewRender() )
+    jobMapSettings.setDpiTarget( layout()->renderContext().dpi() );
   jobMapSettings.setBackgroundColor( Qt::transparent );
   jobMapSettings.setRotation( mEvaluatedMapRotation );
   if ( mLayout )
@@ -1535,6 +1545,7 @@ QgsMapSettings QgsLayoutItemMap::mapSettings( const QgsRectangle &extent, QSizeF
   // override project "show partial labels" setting with this map's setting
   labelSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, mMapFlags & ShowPartialLabels );
   labelSettings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, mMapFlags & ShowUnplacedLabels );
+  labelSettings.setFlag( QgsLabelingEngineSettings::CollectUnplacedLabels, true );
   jobMapSettings.setLabelingEngineSettings( labelSettings );
 
   // override the default text render format inherited from the labeling engine settings using the layout's render context setting
@@ -1674,6 +1685,7 @@ QgsExpressionContext QgsLayoutItemMap::createExpressionContext() const
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_description" ), mapCrs.description(), true ) );
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_units" ), QgsUnitTypes::toString( mapCrs.mapUnits() ), true ) );
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_acronym" ), mapCrs.projectionAcronym(), true ) );
+  scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_projection" ), mapCrs.operation().description(), true ) );
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_ellipsoid" ), mapCrs.ellipsoidAcronym(), true ) );
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_proj4" ), mapCrs.toProj(), true ) );
   scope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "map_crs_wkt" ), mapCrs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ), true ) );
@@ -1747,6 +1759,11 @@ void QgsLayoutItemMap::removeLabelBlockingItem( QgsLayoutItem *item )
 bool QgsLayoutItemMap::isLabelBlockingItem( QgsLayoutItem *item ) const
 {
   return mBlockingLabelItems.contains( item );
+}
+
+QgsLabelingResults *QgsLayoutItemMap::previewLabelingResults() const
+{
+  return mPreviewLabelingResults.get();
 }
 
 bool QgsLayoutItemMap::accept( QgsStyleEntityVisitorInterface *visitor ) const
@@ -1946,6 +1963,7 @@ void QgsLayoutItemMap::layersAboutToBeRemoved( const QList<QgsMapLayer *> &layer
 void QgsLayoutItemMap::painterJobFinished()
 {
   mPainter->end();
+  mPreviewLabelingResults.reset( mPainterJob->takeLabelingResults() );
   mPainterJob.reset( nullptr );
   mPainter.reset( nullptr );
   mCacheFinalImage = std::move( mCacheRenderingImage );
@@ -1953,6 +1971,7 @@ void QgsLayoutItemMap::painterJobFinished()
   mLastRenderedImageOffsetY = 0;
   emit backgroundTaskCountChanged( 0 );
   update();
+  emit previewRefreshed();
 }
 
 void QgsLayoutItemMap::shapeChanged()
@@ -2623,7 +2642,7 @@ void QgsLayoutItemMap::updateAtlasFeature()
     else
       scales = mLayout->renderContext().predefinedScales();
     Q_NOWARN_DEPRECATED_POP
-    if ( mAtlasScalingMode == Fixed || isPointLayer || scales.isEmpty() )
+    if ( mAtlasScalingMode == Fixed || scales.isEmpty() || ( isPointLayer && mAtlasScalingMode != Predefined ) )
     {
       // only translate, keep the original scale (i.e. width x height)
       double xMin = geomCenterX - originalExtent.width() / 2.0;

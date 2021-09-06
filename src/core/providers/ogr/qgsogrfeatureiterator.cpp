@@ -28,6 +28,8 @@
 #include "qgsexception.h"
 #include "qgswkbtypes.h"
 #include "qgsogrtransaction.h"
+#include "qgssymbol.h"
+#include "qgsgeometryengine.h"
 
 #include <QTextCodec>
 #include <QFile>
@@ -82,9 +84,13 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
   else
   {
     //QgsDebugMsg( "Feature iterator of " + mSource->mLayerName + ": acquiring connection");
-    mConn = QgsOgrConnPool::instance()->acquireConnection( QgsOgrProviderUtils::connectionPoolId( mSource->mDataSource, mSource->mShareSameDatasetAmongLayers ), mRequest.timeout(), mRequest.requestMayBeNested() );
+    mConn = QgsOgrConnPool::instance()->acquireConnection( QgsOgrProviderUtils::connectionPoolId( mSource->mDataSource, mSource->mShareSameDatasetAmongLayers ),
+            mRequest.timeout(),
+            mRequest.requestMayBeNested(),
+            mRequest.feedback() );
     if ( !mConn || !mConn->ds )
     {
+      iteratorClosed();
       return;
     }
 
@@ -196,6 +202,23 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
       if ( mOgrLayerOri && mOgrLayerOri != mOgrLayer )
         OGR_L_SetSpatialFilter( mOgrLayerOri, nullptr );
     }
+  }
+
+  // prepare spatial filter geometries for optimal speed
+  switch ( mRequest.spatialFilterType() )
+  {
+    case Qgis::SpatialFilterType::NoFilter:
+    case Qgis::SpatialFilterType::BoundingBox:
+      break;
+
+    case Qgis::SpatialFilterType::DistanceWithin:
+      if ( !mRequest.referenceGeometry().isEmpty() )
+      {
+        mDistanceWithinGeom = mRequest.referenceGeometry();
+        mDistanceWithinEngine.reset( QgsGeometry::createGeometryEngine( mDistanceWithinGeom.constGet() ) );
+        mDistanceWithinEngine->prepareGeometry();
+      }
+      break;
   }
 
   if ( request.filterType() == QgsFeatureRequest::FilterExpression )
@@ -332,9 +355,13 @@ bool QgsOgrFeatureIterator::checkFeature( gdal::ogr_feature_unique_ptr &fet, Qgs
   if ( !mFilterRect.isNull() && ( !feature.hasGeometry() || feature.geometry().isEmpty() ) )
     return false;
 
+  geometryToDestinationCrs( feature, mTransform );
+
+  if ( mDistanceWithinEngine && mDistanceWithinEngine->distance( feature.geometry().constGet() ) > mRequest.distanceWithin() )
+    return false;
+
   // we have a feature, end this cycle
   feature.setValid( true );
-  geometryToDestinationCrs( feature, mTransform );
   return true;
 }
 
@@ -359,6 +386,13 @@ bool QgsOgrFeatureIterator::fetchFeature( QgsFeature &feature )
   {
     bool result = fetchFeatureWithId( mRequest.filterFid(), feature );
     close(); // the feature has been read or was not found: we have finished here
+
+    if ( result && mDistanceWithinEngine )
+    {
+      result = mDistanceWithinEngine->distance( feature.geometry().constGet() ) <= mRequest.distanceWithin();
+      feature.setValid( result );
+    }
+
     return result;
   }
   else if ( mRequest.filterType() == QgsFeatureRequest::FilterFids )
@@ -369,7 +403,17 @@ bool QgsOgrFeatureIterator::fetchFeature( QgsFeature &feature )
       ++mFilterFidsIt;
 
       if ( fetchFeatureWithId( nextId, feature ) )
-        return true;
+      {
+        bool result = true;
+        if ( mDistanceWithinEngine )
+        {
+          result = mDistanceWithinEngine->distance( feature.geometry().constGet() ) <= mRequest.distanceWithin();
+          feature.setValid( result );
+        }
+
+        if ( result )
+          return true;
+      }
     }
     close();
     return false;
@@ -508,9 +552,9 @@ bool QgsOgrFeatureIterator::readFeature( const gdal::ogr_feature_unique_ptr &fet
   feature.initAttributes( mSource->mFields.count() );
   feature.setFields( mSource->mFields ); // allow name-based attribute lookups
 
-  bool useIntersect = !mRequest.filterRect().isNull();
-  bool geometryTypeFilter = mSource->mOgrGeometryTypeFilter != wkbUnknown;
-  if ( mFetchGeometry || useIntersect || geometryTypeFilter )
+  const bool useExactIntersect = mRequest.spatialFilterType() == Qgis::SpatialFilterType::BoundingBox && ( mRequest.flags() & QgsFeatureRequest::ExactIntersect );
+  const bool geometryTypeFilter = mSource->mOgrGeometryTypeFilter != wkbUnknown;
+  if ( mFetchGeometry || mRequest.spatialFilterType() != Qgis::SpatialFilterType::NoFilter || geometryTypeFilter )
   {
     OGRGeometryH geom = OGR_F_GetGeometryRef( fet.get() );
 
@@ -534,11 +578,12 @@ bool QgsOgrFeatureIterator::readFeature( const gdal::ogr_feature_unique_ptr &fet
     {
       // OK
     }
-    else if ( ( geometryTypeFilter && ( !feature.hasGeometry() || QgsOgrProvider::ogrWkbSingleFlatten( ( OGRwkbGeometryType )feature.geometry().wkbType() ) != mSource->mOgrGeometryTypeFilter ) )
-              || ( useIntersect && ( !feature.hasGeometry()
-                                     || ( mRequest.flags() & QgsFeatureRequest::ExactIntersect && !feature.geometry().intersects( mFilterRect ) )
-                                     || ( !( mRequest.flags() & QgsFeatureRequest::ExactIntersect ) && !feature.geometry().boundingBoxIntersects( mFilterRect ) )
-                                   )
+    else if ( ( geometryTypeFilter && ( !feature.hasGeometry() || QgsOgrProviderUtils::ogrWkbSingleFlatten( ( OGRwkbGeometryType )feature.geometry().wkbType() ) != mSource->mOgrGeometryTypeFilter ) )
+              || ( !mFilterRect.isNull() &&
+                   ( !feature.hasGeometry()
+                     || ( useExactIntersect && !feature.geometry().intersects( mFilterRect ) )
+                     || ( !useExactIntersect && !feature.geometry().boundingBoxIntersects( mFilterRect ) )
+                   )
                  ) )
     {
       return false;
@@ -589,7 +634,7 @@ QgsOgrFeatureSource::QgsOgrFeatureSource( const QgsOgrProvider *p )
   , mEncoding( p->textEncoding() ) // no copying - this is a borrowed pointer from Qt
   , mFields( p->mAttributeFields )
   , mFirstFieldIsFid( p->mFirstFieldIsFid )
-  , mOgrGeometryTypeFilter( QgsOgrProvider::ogrWkbSingleFlatten( p->mOgrGeometryTypeFilter ) )
+  , mOgrGeometryTypeFilter( QgsOgrProviderUtils::ogrWkbSingleFlatten( p->mOgrGeometryTypeFilter ) )
   , mDriverName( p->mGDALDriverName )
   , mCrs( p->crs() )
   , mWkbType( p->wkbType() )

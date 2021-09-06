@@ -2,6 +2,11 @@
 
 set -e
 
+# Debug env
+echo "::group::Print env"
+env
+echo "::endgroup::"
+
 # Temporarily uncomment to debug ccache issues
 # cat /tmp/cache.debug
 
@@ -56,8 +61,8 @@ if [ ${RUN_HANA:-"NO"} == "YES" ]; then
 
   export HANA_HOST=917df316-4e01-4a10-be54-eac1b6ab15fb.hana.prod-us10.hanacloud.ondemand.com
   export HANA_PORT=443
-  export HANA_USER=QGIS_CI
-  export HANA_PASSWORD="3w8dkX:NDrs&"
+  export HANA_USER=QGISCI
+  export HANA_PASSWORD="tQ&7W3Klr9!p"
 
   export QGIS_HANA_TEST_DB='driver='/usr/sap/hdbclient/libodbcHDB.so' host='${HANA_HOST}' port='${HANA_PORT}' user='${HANA_USER}' password='${HANA_PASSWORD}' sslEnabled=true sslValidateCertificate=False'
 
@@ -170,12 +175,33 @@ EOT
 
 fi
 
+#######################################
+# Wait for WebDAV container to be ready
+#######################################
 
+if [ $# -eq 0 ] || [ $1 = "ALL_BUT_PROVIDERS" ] || [ $1 = "ALL" ] ; then
+
+  echo "Wait for webdav to be ready..."
+  COUNT=0
+  while ! curl -f -X GET -u qgis:myPasswd! http://$QGIS_WEBDAV_HOST:$QGIS_WEBDAV_PORT/webdav_tests/ &> /dev/null;
+  do
+    printf "."
+    sleep 5
+    if [[ $(( COUNT++ )) -eq 40 ]]; then
+      break
+    fi
+  done
+  if [[ ${COUNT} -eq 41 ]]; then
+    echo "Error: WebDAV docker timeout!!!"
+  else
+    echo "done"
+  fi
+fi
 
 ###########
 # Run tests
 ###########
-EXCLUDE_TESTS=$(cat /root/QGIS/.ci/test_blocklist.txt | sed -r '/^(#.*?)?$/d' | paste -sd '|' -)
+EXCLUDE_TESTS=$(cat /root/QGIS/.ci/test_blocklist_qt${QT_VERSION}.txt | sed -r '/^(#.*?)?$/d' | paste -sd '|' -)
 if ! [[ ${RUN_FLAKY_TESTS} == true ]]; then
   echo "Flaky tests are skipped!"
   EXCLUDE_TESTS=${EXCLUDE_TESTS}"|"$(cat /root/QGIS/.ci/test_flaky.txt | sed -r '/^(#.*?)?$/d' | paste -sd '|' -)
@@ -188,3 +214,6 @@ echo "Print disk space"
 df -h
 
 python3 /root/QGIS/.ci/ctest2ci.py xvfb-run ctest -V $CTEST_OPTIONS -E "${EXCLUDE_TESTS}" -S /root/QGIS/.ci/config_test.ctest --output-on-failure
+
+echo "Print disk space"
+df -h

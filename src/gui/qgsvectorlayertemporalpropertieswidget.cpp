@@ -60,7 +60,7 @@ QgsVectorLayerTemporalPropertiesWidget::QgsVectorLayerTemporalPropertiesWidget( 
   mFixedDurationSpinBox->setMinimum( 0 );
   mFixedDurationSpinBox->setClearValue( 0 );
 
-  for ( QgsUnitTypes::TemporalUnit u :
+  for ( const QgsUnitTypes::TemporalUnit u :
         {
           QgsUnitTypes::TemporalMilliseconds,
           QgsUnitTypes::TemporalSeconds,
@@ -105,8 +105,8 @@ void QgsVectorLayerTemporalPropertiesWidget::saveTemporalProperties()
   properties->setIsActive( mTemporalGroupBox->isChecked() );
   properties->setMode( static_cast< QgsVectorLayerTemporalProperties::TemporalMode >( mModeComboBox->currentData().toInt() ) );
 
-  QgsDateTimeRange normalRange = QgsDateTimeRange( mStartTemporalDateTimeEdit->dateTime(),
-                                 mEndTemporalDateTimeEdit->dateTime() );
+  const QgsDateTimeRange normalRange = QgsDateTimeRange( mStartTemporalDateTimeEdit->dateTime(),
+                                       mEndTemporalDateTimeEdit->dateTime() );
 
   properties->setFixedTemporalRange( normalRange );
 
@@ -159,16 +159,10 @@ void QgsVectorLayerTemporalPropertiesWidget::syncToLayer()
 
   mFixedDurationSpinBox->setValue( properties->fixedDuration() );
 
-  if ( !properties->startField().isEmpty() )
-  {
-    mSingleFieldComboBox->setField( properties->startField() );
-    mStartFieldComboBox->setField( properties->startField() );
-    mDurationStartFieldComboBox->setField( properties->startField() );
-  }
-  if ( !properties->endField().isEmpty() )
-  {
-    mEndFieldComboBox->setField( properties->endField() );
-  }
+  mSingleFieldComboBox->setField( properties->startField() );
+  mStartFieldComboBox->setField( properties->startField() );
+  mDurationStartFieldComboBox->setField( properties->startField() );
+  mEndFieldComboBox->setField( properties->endField() );
   mDurationFieldComboBox->setField( properties->durationField() );
   mDurationUnitsComboBox->setCurrentIndex( mDurationUnitsComboBox->findData( properties->durationUnits() ) );
   mFixedDurationUnitsComboBox->setCurrentIndex( mDurationUnitsComboBox->findData( properties->durationUnits() ) );

@@ -56,6 +56,8 @@ const double Qgis::SCALE_PRECISION = 0.9999999999;
 
 const double Qgis::DEFAULT_Z_COORDINATE = 0.0;
 
+const double Qgis::DEFAULT_M_COORDINATE = 0.0;
+
 const double Qgis::DEFAULT_SNAP_TOLERANCE = 12.0;
 
 const QgsTolerance::UnitType Qgis::DEFAULT_SNAP_UNITS = QgsTolerance::Pixels;
@@ -202,7 +204,7 @@ QString qgsVsiPrefix( const QString &path )
   else if ( path.endsWith( QLatin1String( ".shp.zip" ), Qt::CaseInsensitive ) )
   {
     // GDAL 3.1 Shapefile driver directly handles .shp.zip files
-    if ( GDALIdentifyDriver( path.toUtf8().constData(), nullptr ) )
+    if ( GDALIdentifyDriverEx( path.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr ) )
       return QString();
     return QStringLiteral( "/vsizip/" );
   }
@@ -342,3 +344,4 @@ bool qMapLessThanKey<QVariantList>( const QVariantList &key1, const QVariantList
   return qgsVariantGreaterThan( key1, key2 ) && key1 != key2;
 }
 #endif
+

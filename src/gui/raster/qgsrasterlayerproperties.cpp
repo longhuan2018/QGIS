@@ -67,6 +67,7 @@
 
 #include "qgsrasterlayertemporalpropertieswidget.h"
 #include "qgsprojecttimesettings.h"
+#include "qgsexpressioncontextutils.h"
 
 #include <QDesktopServices>
 #include <QTableWidgetItem>
@@ -86,6 +87,8 @@
 #include <QUrl>
 #include <QMenu>
 #include <QScreen>
+#include <QRegularExpressionValidator>
+#include <QRegularExpression>
 
 QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanvas *canvas, QWidget *parent, Qt::WindowFlags fl )
   : QgsOptionsDialogBase( QStringLiteral( "RasterLayerProperties" ), parent, fl )
@@ -105,7 +108,10 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
   mRGBMinimumMaximumEstimated = true;
 
   setupUi( this );
-  connect( mLayerOrigNameLineEd, &QLineEdit::textEdited, this, &QgsRasterLayerProperties::mLayerOrigNameLineEd_textEdited );
+
+  mMetadataViewer = new QgsWebView( this );
+  mOptsPage_Information->layout()->addWidget( mMetadataViewer );
+
   connect( buttonBuildPyramids, &QPushButton::clicked, this, &QgsRasterLayerProperties::buttonBuildPyramids_clicked );
   connect( pbnAddValuesFromDisplay, &QToolButton::clicked, this, &QgsRasterLayerProperties::pbnAddValuesFromDisplay_clicked );
   connect( pbnAddValuesManually, &QToolButton::clicked, this, &QgsRasterLayerProperties::pbnAddValuesManually_clicked );
@@ -220,6 +226,13 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
   {
     return;
   }
+
+  mContext << QgsExpressionContextUtils::globalScope()
+           << QgsExpressionContextUtils::projectScope( QgsProject::instance() )
+           << QgsExpressionContextUtils::atlasScope( nullptr );
+  if ( mMapCanvas )
+    mContext << QgsExpressionContextUtils::mapSettingsScope( mMapCanvas->mapSettings() );
+  mContext << QgsExpressionContextUtils::layerScope( mRasterLayer );
 
   QgsRasterDataProvider *provider = mRasterLayer->dataProvider();
 
@@ -337,6 +350,7 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
     btnColorizeColor->setColor( hueSaturationFilter->colorizeColor() );
     toggleColorizeControls( hueSaturationFilter->colorizeOn() );
     sliderColorizeStrength->setValue( hueSaturationFilter->colorizeStrength() );
+    mInvertColorsCheck->setChecked( hueSaturationFilter->invertColors() );
   }
 
   //blend mode
@@ -441,6 +455,8 @@ QgsRasterLayerProperties::QgsRasterLayerProperties( QgsMapLayer *lyr, QgsMapCanv
 
 #endif
 
+  initializeDataDefinedButton( mOpacityDDBtn, QgsRasterPipe::RendererOpacity );
+
   mRenderTypeComboBox_currentIndexChanged( widgetIndex );
 
   // update based on lyr's current state
@@ -509,6 +525,11 @@ void QgsRasterLayerProperties::addPropertiesPageFactory( const QgsMapLayerConfig
       mTemporalWidget->addWidget( page );
       break;
   }
+}
+
+QgsExpressionContext QgsRasterLayerProperties::createExpressionContext() const
+{
+  return mContext;
 }
 
 void QgsRasterLayerProperties::setupTransparencyTable( int nBands )
@@ -713,8 +734,8 @@ void QgsRasterLayerProperties::sync()
   if ( !provider )
     return;
 
-  if ( provider->dataType( 1 ) == Qgis::ARGB32
-       || provider->dataType( 1 ) == Qgis::ARGB32_Premultiplied )
+  if ( provider->dataType( 1 ) == Qgis::DataType::ARGB32
+       || provider->dataType( 1 ) == Qgis::DataType::ARGB32_Premultiplied )
   {
     gboxNoDataValue->setEnabled( false );
     gboxCustomTransparency->setEnabled( false );
@@ -773,6 +794,7 @@ void QgsRasterLayerProperties::sync()
     btnColorizeColor->setColor( hueSaturationFilter->colorizeColor() );
     toggleColorizeControls( hueSaturationFilter->colorizeOn() );
     sliderColorizeStrength->setValue( hueSaturationFilter->colorizeStrength() );
+    mInvertColorsCheck->setChecked( hueSaturationFilter->invertColors() );
   }
 
   /*
@@ -834,9 +856,7 @@ void QgsRasterLayerProperties::sync()
    * General Tab
    */
 
-  //these properties (layer name and label) are provided by the qgsmaplayer superclass
   mLayerOrigNameLineEd->setText( mRasterLayer->name() );
-  leDisplayName->setText( mRasterLayer->name() );
 
   QgsDebugMsgLevel( QStringLiteral( "populate metadata tab" ), 2 );
   /*
@@ -848,7 +868,7 @@ void QgsRasterLayerProperties::sync()
   // WMS Name as layer short name
   mLayerShortNameLineEdit->setText( mRasterLayer->shortName() );
   // WMS Name validator
-  QValidator *shortNameValidator = new QRegExpValidator( QgsApplication::shortNameRegExp(), this );
+  QValidator *shortNameValidator = new QRegularExpressionValidator( QgsApplication::shortNameRegularExpression(), this );
   mLayerShortNameLineEdit->setValidator( shortNameValidator );
 
   //layer title and abstract
@@ -893,9 +913,14 @@ void QgsRasterLayerProperties::sync()
   QVariant wmsBackgroundLayer = mRasterLayer->customProperty( QStringLiteral( "WMSBackgroundLayer" ), false );
   mBackgroundLayerCheckBox->setChecked( wmsBackgroundLayer.toBool() );
 
+  mLegendPlaceholderWidget->setLastPathSettingsKey( QStringLiteral( "lastLegendPlaceholderDir" ) );
+  mLegendPlaceholderWidget->setSource( mRasterLayer->legendPlaceholderImage() );
   mLegendConfigEmbeddedWidget->setLayer( mRasterLayer );
 
   mTemporalWidget->syncToLayer();
+
+  mPropertyCollection = mRasterLayer->pipe()->dataDefinedProperties();
+  updateDataDefinedButtons();
 
   for ( QgsMapLayerConfigWidget *page : std::as_const( mLayerPropertiesPages ) )
   {
@@ -922,6 +947,7 @@ void QgsRasterLayerProperties::apply()
   /*
    * Legend Tab
    */
+  mRasterLayer->setLegendPlaceholderImage( mLegendPlaceholderWidget->source() );
   mLegendConfigEmbeddedWidget->applyToLayer();
 
   QgsDebugMsgLevel( QStringLiteral( "apply processing symbology tab" ), 3 );
@@ -1044,6 +1070,7 @@ void QgsRasterLayerProperties::apply()
     hueSaturationFilter->setColorizeOn( mColorizeCheck->checkState() );
     hueSaturationFilter->setColorizeColor( btnColorizeColor->color() );
     hueSaturationFilter->setColorizeStrength( sliderColorizeStrength->value() );
+    hueSaturationFilter->setInvertColors( mInvertColorsCheck->isChecked() );
   }
 
   //set the blend mode for the layer
@@ -1115,6 +1142,8 @@ void QgsRasterLayerProperties::apply()
   mRasterLayer->setCustomProperty( "WMSPublishDataSourceUrl", mPublishDataSourceUrlCheckBox->isChecked() );
   mRasterLayer->setCustomProperty( "WMSBackgroundLayer", mBackgroundLayerCheckBox->isChecked() );
 
+  mRasterLayer->pipe()->setDataDefinedProperties( mPropertyCollection );
+
   // Force a redraw of the legend
   mRasterLayer->setLegend( QgsMapLayerLegend::defaultRasterLegend( mRasterLayer ) );
 
@@ -1123,11 +1152,6 @@ void QgsRasterLayerProperties::apply()
 
   // notify the project we've made a change
   QgsProject::instance()->setDirty( true );
-}
-
-void QgsRasterLayerProperties::mLayerOrigNameLineEd_textEdited( const QString &text )
-{
-  leDisplayName->setText( mRasterLayer->formatLayerName( text ) );
 }
 
 void QgsRasterLayerProperties::buttonBuildPyramids_clicked()
@@ -1214,7 +1238,6 @@ void QgsRasterLayerProperties::buttonBuildPyramids_clicked()
   QIcon myPyramidPixmap( QgsApplication::getThemeIcon( "/mIconPyramid.svg" ) );
   QIcon myNoPyramidPixmap( QgsApplication::getThemeIcon( "/mIconNoPyramid.svg" ) );
 
-  QList< QgsRasterPyramid >::iterator myRasterPyramidIterator;
   for ( const QgsRasterPyramid &pyramid : std::as_const( myPyramidList ) )
   {
     if ( pyramid.getExists() )
@@ -1359,8 +1382,8 @@ void QgsRasterLayerProperties::setTransparencyCell( int row, int column, double 
     QString valueString;
     switch ( provider->sourceDataType( 1 ) )
     {
-      case Qgis::Float32:
-      case Qgis::Float64:
+      case Qgis::DataType::Float32:
+      case Qgis::DataType::Float64:
         lineEdit->setValidator( new QgsDoubleValidator( nullptr ) );
         if ( !std::isnan( value ) )
         {
@@ -1575,6 +1598,43 @@ void QgsRasterLayerProperties::optionsStackedWidget_CurrentChanged( int index )
   }
 }
 
+void QgsRasterLayerProperties::initializeDataDefinedButton( QgsPropertyOverrideButton *button, QgsRasterPipe::Property key )
+{
+  button->blockSignals( true );
+  button->init( key, mPropertyCollection, QgsRasterPipe::propertyDefinitions(), nullptr );
+  connect( button, &QgsPropertyOverrideButton::changed, this, &QgsRasterLayerProperties::updateProperty );
+  button->registerExpressionContextGenerator( this );
+  button->blockSignals( false );
+}
+
+void QgsRasterLayerProperties::updateDataDefinedButtons()
+{
+  const auto propertyOverrideButtons { findChildren< QgsPropertyOverrideButton * >() };
+  for ( QgsPropertyOverrideButton *button : propertyOverrideButtons )
+  {
+    updateDataDefinedButton( button );
+  }
+}
+
+void QgsRasterLayerProperties::updateDataDefinedButton( QgsPropertyOverrideButton *button )
+{
+  if ( !button )
+    return;
+
+  if ( button->propertyKey() < 0 )
+    return;
+
+  QgsRasterPipe::Property key = static_cast< QgsRasterPipe::Property >( button->propertyKey() );
+  whileBlocking( button )->setToProperty( mPropertyCollection.property( key ) );
+}
+
+void QgsRasterLayerProperties::updateProperty()
+{
+  QgsPropertyOverrideButton *button = qobject_cast<QgsPropertyOverrideButton *>( sender() );
+  QgsRasterPipe::Property key = static_cast<  QgsRasterPipe::Property >( button->propertyKey() );
+  mPropertyCollection.setProperty( key, button->toProperty() );
+}
+
 void QgsRasterLayerProperties::pbnImportTransparentPixelValues_clicked()
 {
   int myLineCounter = 0;
@@ -1606,7 +1666,7 @@ void QgsRasterLayerProperties::pbnImportTransparentPixelValues_clicked()
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
             QStringList myTokens = myInputLine.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
 #else
-            QStringList myTokens = myInputLine.split( QRegExp( "\\s+" ), Qt::SkipEmptyParts );
+            QStringList myTokens = myInputLine.split( QRegularExpression( "\\s+" ), Qt::SkipEmptyParts );
 #endif
             if ( myTokens.count() != 4 )
             {
@@ -1643,7 +1703,7 @@ void QgsRasterLayerProperties::pbnImportTransparentPixelValues_clicked()
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
             QStringList myTokens = myInputLine.split( QRegExp( "\\s+" ), QString::SkipEmptyParts );
 #else
-            QStringList myTokens = myInputLine.split( QRegExp( "\\s+" ), Qt::SkipEmptyParts );
+            QStringList myTokens = myInputLine.split( QRegularExpression( "\\s+" ), Qt::SkipEmptyParts );
 #endif
             if ( myTokens.count() != 3 && myTokens.count() != 2 ) // 2 for QGIS < 1.9 compatibility
             {
@@ -2084,6 +2144,7 @@ void QgsRasterLayerProperties::mResetColorRenderingBtn_clicked()
   comboGrayscale->setCurrentIndex( ( int ) QgsHueSaturationFilter::GrayscaleOff );
   mColorizeCheck->setChecked( false );
   sliderColorizeStrength->setValue( 100 );
+  mInvertColorsCheck->setChecked( false );
 }
 
 bool QgsRasterLayerProperties::rasterIsMultiBandColor()

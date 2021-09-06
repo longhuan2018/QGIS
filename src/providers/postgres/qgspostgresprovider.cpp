@@ -26,10 +26,6 @@
 #include "qgscoordinatereferencesystem.h"
 #include "qgsxmlutils.h"
 #include "qgsvectorlayer.h"
-
-#include <QMessageBox>
-#include <QRegularExpression>
-
 #include "qgsvectorlayerexporter.h"
 #include "qgspostgresprovider.h"
 #include "qgspostgresconn.h"
@@ -43,12 +39,15 @@
 #include "qgslogger.h"
 #include "qgsfeedback.h"
 #include "qgssettings.h"
+#include "qgsstringutils.h"
 #include "qgsjsonutils.h"
 
 #include "qgspostgresprovider.h"
 #include "qgsprovidermetadata.h"
 #include "qgspostgresproviderconnection.h"
 
+#include <QMessageBox>
+#include <QRegularExpression>
 
 const QString QgsPostgresProvider::POSTGRES_KEY = QStringLiteral( "postgres" );
 const QString QgsPostgresProvider::POSTGRES_DESCRIPTION = QStringLiteral( "PostgreSQL/PostGIS data provider" );
@@ -295,6 +294,9 @@ QgsPostgresConn *QgsPostgresProvider::connectionRO() const
 
 void QgsPostgresProvider::setListening( bool isListening )
 {
+  if ( !mValid )
+    return;
+
   if ( isListening && !mListener )
   {
     mListener.reset( QgsPostgresListener::create( mUri.connectionInfo( false ) ).release() );
@@ -588,6 +590,29 @@ QString QgsPostgresUtils::whereClause( QgsFeatureId featureId, const QgsFields &
 
 QString QgsPostgresUtils::whereClause( const QgsFeatureIds &featureIds, const QgsFields &fields, QgsPostgresConn *conn, QgsPostgresPrimaryKeyType pkType, const QList<int> &pkAttrs, const std::shared_ptr<QgsPostgresSharedData> &sharedData )
 {
+  auto lookupKeyWhereClause = [ = ]
+  {
+    if ( featureIds.isEmpty() )
+      return QString();
+
+    //simple primary key, so prefer to use an "IN (...)" query. These are much faster then multiple chained ...OR... clauses
+    QString delim;
+    QString expr = QStringLiteral( "%1 IN (" ).arg( QgsPostgresConn::quotedIdentifier( fields.at( pkAttrs[0] ).name() ) );
+
+    for ( const QgsFeatureId featureId : std::as_const( featureIds ) )
+    {
+      const QVariantList pkVals = sharedData->lookupKey( featureId );
+      if ( !pkVals.isEmpty() )
+      {
+        expr += delim + QgsPostgresConn::quotedValue( pkVals.at( 0 ) );
+        delim = ',';
+      }
+    }
+    expr += ')';
+
+    return expr;
+  };
+
   switch ( pkType )
   {
     case PktOid:
@@ -613,34 +638,16 @@ QString QgsPostgresUtils::whereClause( const QgsFeatureIds &featureIds, const Qg
     }
     case PktInt64:
     case PktUint64:
-    {
-      QString expr;
+      return lookupKeyWhereClause();
 
-      //simple primary key, so prefer to use an "IN (...)" query. These are much faster then multiple chained ...OR... clauses
-      if ( !featureIds.isEmpty() )
-      {
-        QString delim;
-        expr = QStringLiteral( "%1 IN (" ).arg( QgsPostgresConn::quotedIdentifier( fields.at( pkAttrs[0] ).name() ) );
-
-        for ( const QgsFeatureId featureId : std::as_const( featureIds ) )
-        {
-          QVariantList pkVals = sharedData->lookupKey( featureId );
-          if ( !pkVals.isEmpty() )
-          {
-            QgsField fld = fields.at( pkAttrs[0] );
-            expr += delim + pkVals[0].toString();
-            delim = ',';
-          }
-        }
-        expr += ')';
-      }
-
-      return expr;
-    }
     case PktFidMap:
     case PktTid:
     case PktUnknown:
     {
+      // on simple string primary key we can use IN
+      if ( pkType == PktFidMap && pkAttrs.count() == 1 && fields.at( pkAttrs[0] ).type() == QVariant::String )
+        return lookupKeyWhereClause();
+
       //complex primary key, need to build up where string
       QStringList whereClauses;
       for ( const QgsFeatureId featureId : std::as_const( featureIds ) )
@@ -1065,6 +1072,9 @@ bool QgsPostgresProvider::loadFields()
                 fieldTypeName == QLatin1String( "geometry" ) ||
                 fieldTypeName == QLatin1String( "geography" ) ||
                 fieldTypeName == QLatin1String( "inet" ) ||
+                fieldTypeName == QLatin1String( "cidr" ) ||
+                fieldTypeName == QLatin1String( "macaddr" ) ||
+                fieldTypeName == QLatin1String( "macaddr8" ) ||
                 fieldTypeName == QLatin1String( "money" ) ||
                 fieldTypeName == QLatin1String( "ltree" ) ||
                 fieldTypeName == QLatin1String( "uuid" ) ||
@@ -1229,7 +1239,7 @@ bool QgsPostgresProvider::loadFields()
       QgsPostgresResult seqResult( connectionRO()->PQexec( seqSql ) );
       if ( seqResult.PQntuples() == 1 )
       {
-        defValMap[tableoid][attnum] = QStringLiteral( "nextval(%1::regclass)" ).arg( quotedIdentifier( seqName ) );
+        defValMap[tableoid][attnum] = QStringLiteral( "nextval(%1::regclass)" ).arg( quotedValue( seqName ) );
       }
     }
 
@@ -1452,13 +1462,13 @@ bool QgsPostgresProvider::hasSufficientPermsAndCapabilities()
     // get a new alias for the subquery
     int index = 0;
     QString alias;
-    QRegExp regex;
+    QRegularExpression regex;
     do
     {
       alias = QStringLiteral( "subQuery_%1" ).arg( QString::number( index++ ) );
-      QString pattern = QStringLiteral( "(\\\"?)%1\\1" ).arg( QRegExp::escape( alias ) );
+      QString pattern = QStringLiteral( "(\\\"?)%1\\1" ).arg( QgsStringUtils::qRegExpEscape( alias ) );
       regex.setPattern( pattern );
-      regex.setCaseSensitivity( Qt::CaseInsensitive );
+      regex.setPatternOptions( QRegularExpression::CaseInsensitiveOption );
     }
     while ( mQuery.contains( regex ) );
 
@@ -1776,7 +1786,7 @@ void QgsPostgresProvider::determinePrimaryKeyFromUriKeyColumn()
         mPrimaryKeyType = PktFidMap; // Map by default
         if ( mPrimaryKeyAttrs.size() == 1 )
         {
-          QgsField fld = mAttributeFields.at( 0 );
+          QgsField fld = mAttributeFields.at( mPrimaryKeyAttrs.at( 0 ) );
           mPrimaryKeyType = pkType( fld );
         }
       }
@@ -2046,8 +2056,8 @@ bool QgsPostgresProvider::parseDomainCheckConstraint( QStringList &enumValues, c
       //we assume that the constraint is of the following form:
       //(VALUE = ANY (ARRAY['a'::text, 'b'::text, 'c'::text, 'd'::text]))
       //normally, PostgreSQL creates that if the constraint has been specified as 'VALUE in ('a', 'b', 'c', 'd')
-
-      int anyPos = checkDefinition.indexOf( QRegExp( "VALUE\\s*=\\s*ANY\\s*\\(\\s*ARRAY\\s*\\[" ) );
+      const thread_local QRegularExpression definitionRegExp( "VALUE\\s*=\\s*ANY\\s*\\(\\s*ARRAY\\s*\\[" );
+      int anyPos = checkDefinition.indexOf( definitionRegExp );
       int arrayPosition = checkDefinition.lastIndexOf( QLatin1String( "ARRAY[" ) );
       int closingBracketPos = checkDefinition.indexOf( ']', arrayPosition + 6 );
 
@@ -2662,14 +2672,14 @@ bool QgsPostgresProvider::deleteFeatures( const QgsFeatureIds &ids )
     conn->begin();
 
     QgsFeatureIds chunkIds;
-    QgsFeatureIds::const_iterator lastId = ids.constEnd();
-    --lastId;
-
+    const int countIds = ids.size();
+    int i = 0;
     for ( QgsFeatureIds::const_iterator it = ids.constBegin(); it != ids.constEnd(); ++it )
     {
       // create chunks of fids to delete, the last chunk may be smaller
       chunkIds.insert( *it );
-      if ( chunkIds.size() < 5000 && it != lastId )
+      i++;
+      if ( chunkIds.size() < 5000 && i < countIds )
         continue;
 
       const QString sql = QStringLiteral( "DELETE FROM %1 WHERE %2" )
@@ -3590,9 +3600,9 @@ bool QgsPostgresProvider::setSubsetString( const QString &theSQL, bool updateFea
 /**
  * Returns the feature count
  */
-long QgsPostgresProvider::featureCount() const
+long long QgsPostgresProvider::featureCount() const
 {
-  long featuresCounted = mShared->featuresCounted();
+  long long featuresCounted = mShared->featuresCounted();
   if ( featuresCounted >= 0 )
     return featuresCounted;
 
@@ -3608,7 +3618,7 @@ long QgsPostgresProvider::featureCount() const
   // use estimated metadata even when there is a where clause,
   // although we get an incorrect feature count for the subset
   // - but make huge dataset usable.
-  long num = -1;
+  long long num = -1;
   if ( !mIsQuery && mUseEstimatedMetadata )
   {
     if ( relkind() == Relkind::View && connectionRO()->pgVersion() >= 90000 )
@@ -3624,7 +3634,7 @@ long QgsPostgresProvider::featureCount() const
       const QVariant nbRows = countPlan.value( "Plan Rows" );
 
       if ( nbRows.isValid() )
-        num = nbRows.toInt();
+        num = nbRows.toLongLong();
       else
         QgsLogger::warning( QStringLiteral( "Cannot parse JSON explain result to estimate feature count (%1) : %2" ).arg( sql, json ) );
     }
@@ -3632,7 +3642,7 @@ long QgsPostgresProvider::featureCount() const
     {
       sql = QStringLiteral( "SELECT reltuples::bigint FROM pg_catalog.pg_class WHERE oid=regclass(%1)::oid" ).arg( quotedValue( mQuery ) );
       QgsPostgresResult result( connectionRO()->PQexec( sql ) );
-      num = result.PQgetvalue( 0, 0 ).toLong();
+      num = result.PQgetvalue( 0, 0 ).toLongLong();
     }
   }
   else
@@ -3642,7 +3652,7 @@ long QgsPostgresProvider::featureCount() const
 
     QgsDebugMsgLevel( "number of features as text: " + result.PQgetvalue( 0, 0 ), 2 );
 
-    num = result.PQgetvalue( 0, 0 ).toLong();
+    num = result.PQgetvalue( 0, 0 ).toLongLong();
   }
 
   mShared->setFeaturesCounted( num );
@@ -3736,7 +3746,7 @@ QgsRectangle QgsPostgresProvider::extent() const
     {
       sql = QStringLiteral( "SELECT %1(%2%3) FROM %4%5" )
             .arg( connectionRO()->majorVersion() < 2 ? "extent" : "st_extent",
-                  quotedIdentifier( mGeometryColumn ),
+                  quotedIdentifier( mBoundingBoxColumn ),
                   mSpatialColType == SctPcPatch ? "::geometry" : "",
                   mQuery,
                   filterWhereClause() );
@@ -4323,7 +4333,7 @@ void postgisGeometryType( QgsWkbTypes::Type wkbType, QString &geometryType, int 
   }
 }
 
-QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const QString &uri,
+Qgis::VectorExportResult QgsPostgresProvider::createEmptyLayer( const QString &uri,
     const QgsFields &fields,
     QgsWkbTypes::Type wkbType,
     const QgsCoordinateReferenceSystem &srs,
@@ -4365,7 +4375,7 @@ QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const
   {
     if ( errorMessage )
       *errorMessage = QObject::tr( "Connection to database failed" );
-    return QgsVectorLayerExporter::ErrConnectionFailed;
+    return Qgis::VectorExportResult::ErrorConnectionFailed;
   }
 
   // get the pk's name and type
@@ -4541,7 +4551,7 @@ QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const
 
     conn->PQexecNR( QStringLiteral( "ROLLBACK" ) );
     conn->unref();
-    return QgsVectorLayerExporter::ErrCreateLayer;
+    return Qgis::VectorExportResult::ErrorCreatingLayer;
   }
   conn->unref();
 
@@ -4558,7 +4568,7 @@ QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const
     if ( errorMessage )
       *errorMessage = QObject::tr( "Loading of the layer %1 failed" ).arg( schemaTableName );
 
-    return QgsVectorLayerExporter::ErrInvalidLayer;
+    return Qgis::VectorExportResult::ErrorInvalidLayer;
   }
 
   QgsDebugMsgLevel( QStringLiteral( "layer loaded" ), 2 );
@@ -4618,7 +4628,7 @@ QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const
         if ( errorMessage )
           *errorMessage = QObject::tr( "Unsupported type for field %1" ).arg( fld.name() );
 
-        return QgsVectorLayerExporter::ErrAttributeTypeUnsupported;
+        return Qgis::VectorExportResult::ErrorAttributeTypeUnsupported;
       }
 
       QgsDebugMsgLevel( QStringLiteral( "creating field #%1 -> #%2 name %3 type %4 typename %5 width %6 precision %7" )
@@ -4637,12 +4647,12 @@ QgsVectorLayerExporter::ExportError QgsPostgresProvider::createEmptyLayer( const
       if ( errorMessage )
         *errorMessage = QObject::tr( "Creation of fields failed:\n%1" ).arg( provider->errors().join( '\n' ) );
 
-      return QgsVectorLayerExporter::ErrAttributeCreationFailed;
+      return Qgis::VectorExportResult::ErrorAttributeCreationFailed;
     }
 
     QgsDebugMsgLevel( QStringLiteral( "Done creating fields" ), 2 );
   }
-  return QgsVectorLayerExporter::NoError;
+  return Qgis::VectorExportResult::Success;
 }
 
 QgsCoordinateReferenceSystem QgsPostgresProvider::crs() const
@@ -4650,9 +4660,6 @@ QgsCoordinateReferenceSystem QgsPostgresProvider::crs() const
   QgsCoordinateReferenceSystem srs;
   int srid = mRequestedSrid.isEmpty() ? mDetectedSrid.toInt() : mRequestedSrid.toInt();
 
-  // TODO QGIS 4 - move the logic from createFromSridInternal to sit within the postgres provider alone
-  srs.createFromPostgisSrid( srid );
-  if ( !srs.isValid() )
   {
     static QMutex sMutex;
     QMutexLocker locker( &sMutex );
@@ -4664,10 +4671,23 @@ QgsCoordinateReferenceSystem QgsPostgresProvider::crs() const
       QgsPostgresConn *conn = connectionRO();
       if ( conn )
       {
-        QgsPostgresResult result( conn->PQexec( QStringLiteral( "SELECT proj4text FROM spatial_ref_sys WHERE srid=%1" ).arg( srid ) ) );
+        QgsPostgresResult result( conn->PQexec( QStringLiteral( "SELECT auth_name, auth_srid, srtext, proj4text FROM spatial_ref_sys WHERE srid=%1" ).arg( srid ) ) );
         if ( result.PQresultStatus() == PGRES_TUPLES_OK )
         {
-          srs = QgsCoordinateReferenceSystem::fromProj( result.PQgetvalue( 0, 0 ) );
+          const QString authName = result.PQgetvalue( 0, 0 );
+          const QString authSRID = result.PQgetvalue( 0, 1 );
+          const QString srText = result.PQgetvalue( 0, 2 );
+          bool ok = false;
+          if ( authName == QLatin1String( "EPSG" ) || authName == QLatin1String( "ESRI" ) )
+          {
+            ok = srs.createFromUserInput( authName + ':' + authSRID );
+          }
+          if ( !ok && !srText.isEmpty() )
+          {
+            ok = srs.createFromUserInput( srText );
+          }
+          if ( !ok )
+            srs = QgsCoordinateReferenceSystem::fromProj( result.PQgetvalue( 0, 3 ) );
           sCrsCache.insert( srid, srs );
         }
       }
@@ -4737,13 +4757,14 @@ QString QgsPostgresProvider::getNextString( const QString &txt, int &i, const QS
   jumpSpace( txt, i );
   if ( i < txt.length() && txt.at( i ) == '"' )
   {
-    QRegExp stringRe( "^\"((?:\\\\.|[^\"\\\\])*)\".*" );
-    if ( !stringRe.exactMatch( txt.mid( i ) ) )
+    const thread_local QRegularExpression stringRe( QRegularExpression::anchoredPattern( "^\"((?:\\\\.|[^\"\\\\])*)\".*" ) );
+    const QRegularExpressionMatch match = stringRe.match( txt.mid( i ) );
+    if ( !match.hasMatch() )
     {
       QgsMessageLog::logMessage( tr( "Cannot find end of double quoted string: %1" ).arg( txt ), tr( "PostGIS" ) );
       return QString();
     }
-    i += stringRe.cap( 1 ).length() + 2;
+    i += match.captured( 1 ).length() + 2;
     jumpSpace( txt, i );
     if ( !QStringView{txt}.mid( i ).startsWith( sep ) && i < txt.length() )
     {
@@ -4751,7 +4772,7 @@ QString QgsPostgresProvider::getNextString( const QString &txt, int &i, const QS
       return QString();
     }
     i += sep.length();
-    return stringRe.cap( 1 ).replace( QLatin1String( "\\\"" ), QLatin1String( "\"" ) ).replace( QLatin1String( "\\\\" ), QLatin1String( "\\" ) );
+    return match.captured( 1 ).replace( QLatin1String( "\\\"" ), QLatin1String( "\"" ) ).replace( QLatin1String( "\\\\" ), QLatin1String( "\\" ) );
   }
   else
   {
@@ -5154,7 +5175,7 @@ QList< QgsDataItemProvider * > QgsPostgresProviderMetadata::dataItemProviders() 
 
 // ---------------------------------------------------------------------------
 
-QgsVectorLayerExporter::ExportError QgsPostgresProviderMetadata::createEmptyLayer(
+Qgis::VectorExportResult QgsPostgresProviderMetadata::createEmptyLayer(
   const QString &uri,
   const QgsFields &fields,
   QgsWkbTypes::Type wkbType,
@@ -5632,7 +5653,7 @@ void QgsPostgresProviderMetadata::cleanupProvider()
 
 // ----------
 
-void QgsPostgresSharedData::addFeaturesCounted( long diff )
+void QgsPostgresSharedData::addFeaturesCounted( long long diff )
 {
   QMutexLocker locker( &mMutex );
 
@@ -5640,7 +5661,7 @@ void QgsPostgresSharedData::addFeaturesCounted( long diff )
     mFeaturesCounted += diff;
 }
 
-void QgsPostgresSharedData::ensureFeaturesCountedAtLeast( long fetched )
+void QgsPostgresSharedData::ensureFeaturesCountedAtLeast( long long fetched )
 {
   QMutexLocker locker( &mMutex );
 
@@ -5655,13 +5676,13 @@ void QgsPostgresSharedData::ensureFeaturesCountedAtLeast( long fetched )
   }
 }
 
-long QgsPostgresSharedData::featuresCounted()
+long long QgsPostgresSharedData::featuresCounted()
 {
   QMutexLocker locker( &mMutex );
   return mFeaturesCounted;
 }
 
-void QgsPostgresSharedData::setFeaturesCounted( long count )
+void QgsPostgresSharedData::setFeaturesCounted( long long count )
 {
   QMutexLocker locker( &mMutex );
   mFeaturesCounted = count;

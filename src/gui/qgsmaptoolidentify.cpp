@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsapplication.h"
+#include "qgscoordinateformatter.h"
 #include "qgsdistancearea.h"
 #include "qgsfeature.h"
 #include "qgsfeatureiterator.h"
@@ -54,6 +55,8 @@
 #include "qgspointcloudrenderer.h"
 #include "qgspointcloudlayerrenderer.h"
 #include "qgspointcloudlayerelevationproperties.h"
+#include "qgssymbol.h"
+#include "qgsmultilinestring.h"
 
 #include <QMouseEvent>
 #include <QCursor>
@@ -317,7 +320,7 @@ bool QgsMapToolIdentify::identifyMeshLayer( QList<QgsMapToolIdentify::IdentifyRe
     {
       const QgsMeshDatasetValue scalarValue = layer->datasetValue( index, point, searchRadius );
       const double scalar = scalarValue.scalar();
-      attribute.insert( tr( "Scalar Value" ), std::isnan( scalar ) ? tr( "no data" ) : QString::number( scalar ) );
+      attribute.insert( tr( "Scalar Value" ), std::isnan( scalar ) ? tr( "no data" ) : QLocale().toString( scalar ) );
     }
 
     if ( groupMeta.isVector() )
@@ -329,9 +332,9 @@ bool QgsMapToolIdentify::identifyMeshLayer( QList<QgsMapToolIdentify::IdentifyRe
         attribute.insert( tr( "Vector Value" ), tr( "no data" ) );
       else
       {
-        attribute.insert( tr( "Vector Magnitude" ), QString::number( vectorValue.scalar() ) );
-        derivedAttributes.insert( tr( "Vector x-component" ), QString::number( vectorY ) );
-        derivedAttributes.insert( tr( "Vector y-component" ), QString::number( vectorX ) );
+        attribute.insert( tr( "Vector Magnitude" ), QLocale().toString( vectorValue.scalar() ) );
+        derivedAttributes.insert( tr( "Vector x-component" ), QLocale().toString( vectorY ) );
+        derivedAttributes.insert( tr( "Vector y-component" ), QLocale().toString( vectorX ) );
       }
     }
 
@@ -358,22 +361,22 @@ bool QgsMapToolIdentify::identifyMeshLayer( QList<QgsMapToolIdentify::IdentifyRe
   QgsPointXY vertexPoint = layer->snapOnElement( QgsMesh::Vertex, point, searchRadius );
   if ( !vertexPoint.isEmpty() )
   {
-    derivedGeometry.insert( tr( "Snapped Vertex Position X" ), QString::number( vertexPoint.x() ) );
-    derivedGeometry.insert( tr( "Snapped Vertex Position Y" ), QString::number( vertexPoint.y() ) );
+    derivedGeometry.insert( tr( "Snapped Vertex Position X" ), QLocale().toString( vertexPoint.x() ) );
+    derivedGeometry.insert( tr( "Snapped Vertex Position Y" ), QLocale().toString( vertexPoint.y() ) );
   }
 
   QgsPointXY faceCentroid = layer->snapOnElement( QgsMesh::Face, point, searchRadius );
   if ( !faceCentroid.isEmpty() )
   {
-    derivedGeometry.insert( tr( "Face Centroid X" ), QString::number( faceCentroid.x() ) );
-    derivedGeometry.insert( tr( "Face Centroid Y" ), QString::number( faceCentroid.y() ) );
+    derivedGeometry.insert( tr( "Face Centroid X" ), QLocale().toString( faceCentroid.x() ) );
+    derivedGeometry.insert( tr( "Face Centroid Y" ), QLocale().toString( faceCentroid.y() ) );
   }
 
   QgsPointXY pointOnEdge = layer->snapOnElement( QgsMesh::Edge, point, searchRadius );
   if ( !pointOnEdge.isEmpty() )
   {
-    derivedGeometry.insert( tr( "Point on Edge X" ), QString::number( pointOnEdge.x() ) );
-    derivedGeometry.insert( tr( "Point on Edge Y" ), QString::number( pointOnEdge.y() ) );
+    derivedGeometry.insert( tr( "Point on Edge X" ), QLocale().toString( pointOnEdge.x() ) );
+    derivedGeometry.insert( tr( "Point on Edge Y" ), QLocale().toString( pointOnEdge.y() ) );
   }
 
   const IdentifyResult result( layer,
@@ -530,13 +533,13 @@ QMap<QString, QString> QgsMapToolIdentify::derivedAttributesForPoint( const QgsP
   derivedAttributes.insert( tr( "(clicked coordinate X)" ), formatXCoordinate( point ) );
   derivedAttributes.insert( tr( "(clicked coordinate Y)" ), formatYCoordinate( point ) );
   if ( point.is3D() )
-    derivedAttributes.insert( tr( "(clicked coordinate Z)" ), QString::number( point.z(), 'f' ) );
+    derivedAttributes.insert( tr( "(clicked coordinate Z)" ), QLocale().toString( point.z(), 'f' ) );
   return derivedAttributes;
 }
 
 bool QgsMapToolIdentify::identifyVectorLayer( QList<QgsMapToolIdentify::IdentifyResult> *results, QgsVectorLayer *layer, const QgsGeometry &geometry, const QgsIdentifyContext &identifyContext )
 {
-  if ( !layer || !layer->isSpatial() )
+  if ( !layer || !layer->isSpatial() || !layer->dataProvider() )
     return false;
 
   if ( !layer->isInScaleRange( mCanvas->mapSettings().scale() ) )
@@ -634,6 +637,7 @@ bool QgsMapToolIdentify::identifyVectorLayer( QList<QgsMapToolIdentify::Identify
   bool filter = false;
 
   QgsRenderContext context( QgsRenderContext::fromMapSettings( mCanvas->mapSettings() ) );
+  context.setExpressionContext( mCanvas->createExpressionContext() );
   context.expressionContext() << QgsExpressionContextUtils::layerScope( layer );
   std::unique_ptr< QgsFeatureRenderer > renderer( layer->renderer() ? layer->renderer()->clone() : nullptr );
   if ( renderer )
@@ -746,13 +750,13 @@ QString QgsMapToolIdentify::formatCoordinate( const QgsPointXY &canvasPoint ) co
 QString QgsMapToolIdentify::formatXCoordinate( const QgsPointXY &canvasPoint ) const
 {
   QString coordinate = formatCoordinate( canvasPoint );
-  return coordinate.split( ',' ).at( 0 );
+  return coordinate.split( QgsCoordinateFormatter::separator() ).at( 0 );
 }
 
 QString QgsMapToolIdentify::formatYCoordinate( const QgsPointXY &canvasPoint ) const
 {
   QString coordinate = formatCoordinate( canvasPoint );
-  return coordinate.split( ',' ).at( 1 );
+  return coordinate.split( QgsCoordinateFormatter::separator() ).at( 1 );
 }
 
 QMap< QString, QString > QgsMapToolIdentify::featureDerivedAttributes( const QgsFeature &feature, QgsMapLayer *layer, const QgsPointXY &layerPoint )
@@ -803,6 +807,8 @@ QMap< QString, QString > QgsMapToolIdentify::featureDerivedAttributes( const Qgs
 
   if ( geometryType == QgsWkbTypes::LineGeometry )
   {
+    const QgsAbstractGeometry *geom = feature.geometry().constGet();
+
     double dist = calc.measureLength( feature.geometry() );
     dist = calc.convertLengthMeasurement( dist, displayDistanceUnits() );
     QString str;
@@ -811,45 +817,50 @@ QMap< QString, QString > QgsMapToolIdentify::featureDerivedAttributes( const Qgs
       str = formatDistance( dist );
       derivedAttributes.insert( tr( "Length (Ellipsoidal — %1)" ).arg( ellipsoid ), str );
     }
-    str = formatDistance( feature.geometry().constGet()->length()
+
+    str = formatDistance( geom->length()
                           * QgsUnitTypes::fromUnitToUnitFactor( layer->crs().mapUnits(), cartesianDistanceUnits ), cartesianDistanceUnits );
-    if ( !QgsWkbTypes::hasZ( feature.geometry().wkbType() ) )
-      derivedAttributes.insert( tr( "Length (Cartesian)" ), str );
-    else
-      derivedAttributes.insert( tr( "Length (Cartesian — 2D)" ), str );
-    if ( QgsWkbTypes::hasZ( feature.geometry().wkbType() ) && QgsWkbTypes::flatType( feature.geometry().wkbType() ) == QgsWkbTypes::LineString )
+    if ( QgsWkbTypes::hasZ( geom->wkbType() )
+         && QgsWkbTypes::flatType( QgsWkbTypes::singleType( geom->wkbType() ) ) == QgsWkbTypes::LineString )
     {
-      str = formatDistance( qgsgeometry_cast< const QgsLineString * >( feature.geometry().constGet() )->length3D()
-                            * QgsUnitTypes::fromUnitToUnitFactor( layer->crs().mapUnits(), cartesianDistanceUnits ), cartesianDistanceUnits );
+      // 3d linestring (or multiline)
+      derivedAttributes.insert( tr( "Length (Cartesian — 2D)" ), str );
+
+      double totalLength3d = std::accumulate( geom->const_parts_begin(), geom->const_parts_end(), 0.0, []( double total, const QgsAbstractGeometry * part )
+      {
+        return total + qgsgeometry_cast< const QgsLineString * >( part )->length3D();
+      } );
+
+      str = formatDistance( totalLength3d, cartesianDistanceUnits );
       derivedAttributes.insert( tr( "Length (Cartesian — 3D)" ), str );
     }
-
-    const QgsAbstractGeometry *geom = feature.geometry().constGet();
-    if ( geom )
+    else
     {
-      str = QLocale().toString( geom->nCoordinates() );
-      derivedAttributes.insert( tr( "Vertices" ), str );
-      if ( !layerPoint.isEmpty() )
-      {
-        //add details of closest vertex to identify point
-        closestVertexAttributes( *geom, vId, layer, derivedAttributes );
-        closestPointAttributes( *geom, layerPoint, derivedAttributes );
-      }
+      derivedAttributes.insert( tr( "Length (Cartesian)" ), str );
+    }
 
-      if ( const QgsCurve *curve = qgsgeometry_cast< const QgsCurve * >( geom ) )
-      {
-        // Add the start and end points in as derived attributes
-        QgsPointXY pnt = mCanvas->mapSettings().layerToMapCoordinates( layer, QgsPointXY( curve->startPoint().x(), curve->startPoint().y() ) );
-        str = formatXCoordinate( pnt );
-        derivedAttributes.insert( tr( "firstX", "attributes get sorted; translation for lastX should be lexically larger than this one" ), str );
-        str = formatYCoordinate( pnt );
-        derivedAttributes.insert( tr( "firstY" ), str );
-        pnt = mCanvas->mapSettings().layerToMapCoordinates( layer, QgsPointXY( curve->endPoint().x(), curve->endPoint().y() ) );
-        str = formatXCoordinate( pnt );
-        derivedAttributes.insert( tr( "lastX", "attributes get sorted; translation for firstX should be lexically smaller than this one" ), str );
-        str = formatYCoordinate( pnt );
-        derivedAttributes.insert( tr( "lastY" ), str );
-      }
+    str = QLocale().toString( geom->nCoordinates() );
+    derivedAttributes.insert( tr( "Vertices" ), str );
+    if ( !layerPoint.isEmpty() )
+    {
+      //add details of closest vertex to identify point
+      closestVertexAttributes( *geom, vId, layer, derivedAttributes );
+      closestPointAttributes( *geom, layerPoint, derivedAttributes );
+    }
+
+    if ( const QgsCurve *curve = qgsgeometry_cast< const QgsCurve * >( geom ) )
+    {
+      // Add the start and end points in as derived attributes
+      QgsPointXY pnt = mCanvas->mapSettings().layerToMapCoordinates( layer, QgsPointXY( curve->startPoint().x(), curve->startPoint().y() ) );
+      str = formatXCoordinate( pnt );
+      derivedAttributes.insert( tr( "firstX", "attributes get sorted; translation for lastX should be lexically larger than this one" ), str );
+      str = formatYCoordinate( pnt );
+      derivedAttributes.insert( tr( "firstY" ), str );
+      pnt = mCanvas->mapSettings().layerToMapCoordinates( layer, QgsPointXY( curve->endPoint().x(), curve->endPoint().y() ) );
+      str = formatXCoordinate( pnt );
+      derivedAttributes.insert( tr( "lastX", "attributes get sorted; translation for firstX should be lexically smaller than this one" ), str );
+      str = formatYCoordinate( pnt );
+      derivedAttributes.insert( tr( "lastY" ), str );
     }
   }
   else if ( geometryType == QgsWkbTypes::PolygonGeometry )
@@ -942,7 +953,7 @@ bool QgsMapToolIdentify::identifyRasterLayer( QList<IdentifyResult> *results, Qg
   if ( !layer )
     return false;
 
-  QgsRasterDataProvider *dprovider = layer->dataProvider();
+  std::unique_ptr< QgsRasterDataProvider > dprovider( layer->dataProvider()->clone() );
   if ( !dprovider )
     return false;
 
@@ -954,6 +965,8 @@ bool QgsMapToolIdentify::identifyRasterLayer( QList<IdentifyResult> *results, Qg
   {
     if ( !layer->temporalProperties()->isVisibleInTemporalRange( identifyContext.temporalRange() ) )
       return false;
+
+    dprovider->temporalCapabilities()->setRequestedTemporalRange( identifyContext.temporalRange() );
   }
 
   QgsPointXY pointInCanvasCrs = point;

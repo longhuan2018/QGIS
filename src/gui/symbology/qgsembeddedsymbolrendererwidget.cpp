@@ -35,7 +35,7 @@ QgsEmbeddedSymbolRendererWidget::QgsEmbeddedSymbolRendererWidget( QgsVectorLayer
     return;
   }
 
-  QgsWkbTypes::GeometryType type = QgsWkbTypes::geometryType( layer->wkbType() );
+  const QgsWkbTypes::GeometryType type = QgsWkbTypes::geometryType( layer->wkbType() );
 
   // the renderer only applies to layers with providers supporting embedded symbols
   if ( !( layer->dataProvider()->capabilities() & QgsVectorDataProvider::FeatureSymbology ) )
@@ -65,6 +65,8 @@ QgsEmbeddedSymbolRendererWidget::QgsEmbeddedSymbolRendererWidget( QgsVectorLayer
   {
     // use default embedded renderer
     mRenderer.reset( new QgsEmbeddedSymbolRenderer( QgsSymbol::defaultSymbol( type ) ) );
+    if ( renderer )
+      renderer->copyRendererData( mRenderer.get() );
   }
 
   mDefaultSymbolToolButton->setSymbol( mRenderer->defaultSymbol()->clone() );
@@ -78,6 +80,8 @@ QgsEmbeddedSymbolRendererWidget::QgsEmbeddedSymbolRendererWidget( QgsVectorLayer
     emit widgetChanged();
   } );
 }
+
+QgsEmbeddedSymbolRendererWidget::~QgsEmbeddedSymbolRendererWidget() = default;
 
 QgsFeatureRenderer *QgsEmbeddedSymbolRendererWidget::renderer()
 {

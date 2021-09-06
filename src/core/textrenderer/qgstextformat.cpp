@@ -159,19 +159,36 @@ QFont QgsTextFormat::font() const
   return d->textFont;
 }
 
-QFont QgsTextFormat::scaledFont( const QgsRenderContext &context, double scaleFactor ) const
+QFont QgsTextFormat::scaledFont( const QgsRenderContext &context, double scaleFactor, bool *isZeroSize ) const
 {
+  if ( isZeroSize )
+    *isZeroSize = false;
+
   QFont font = d->textFont;
   if ( scaleFactor == 1 )
   {
     int fontPixelSize = QgsTextRenderer::sizeToPixel( d->fontSize, context, d->fontSizeUnits,
                         d->fontSizeMapUnitScale );
+    if ( fontPixelSize == 0 )
+    {
+      if ( isZeroSize )
+        *isZeroSize = true;
+      return QFont();
+    }
+
     font.setPixelSize( fontPixelSize );
   }
   else
   {
     double fontPixelSize = context.convertToPainterUnits( d->fontSize, d->fontSizeUnits, d->fontSizeMapUnitScale );
-    font.setPixelSize( std::round( scaleFactor * fontPixelSize + 0.5 ) );
+    if ( qgsDoubleNear( fontPixelSize, 0 ) )
+    {
+      if ( isZeroSize )
+        *isZeroSize = true;
+      return QFont();
+    }
+    const int roundedPixelSize = static_cast< int >( std::round( scaleFactor * fontPixelSize + 0.5 ) );
+    font.setPixelSize( roundedPixelSize );
   }
 
   font.setLetterSpacing( QFont::AbsoluteSpacing, context.convertToPainterUnits( d->textFont.letterSpacing(), d->fontSizeUnits, d->fontSizeMapUnitScale ) * scaleFactor );
@@ -467,6 +484,11 @@ void QgsTextFormat::readXml( const QDomElement &elem, const QgsReadWriteContext 
     mTextFontFound = true;
   }
 
+  if ( !mTextFontFound )
+  {
+    context.pushMessage( QObject::tr( "Font “%1” not available on system" ).arg( mTextFontFamily ) );
+  }
+
   if ( textStyleElem.hasAttribute( QStringLiteral( "fontSize" ) ) )
   {
     d->fontSize = textStyleElem.attribute( QStringLiteral( "fontSize" ) ).toDouble();
@@ -582,6 +604,7 @@ void QgsTextFormat::readXml( const QDomElement &elem, const QgsReadWriteContext 
   if ( !ddElem.isNull() )
   {
     d->mDataDefinedProperties.readXml( ddElem, QgsPalLayerSettings::propertyDefinitions() );
+    mBackgroundSettings.upgradeDataDefinedProperties( d->mDataDefinedProperties );
   }
   else
   {
@@ -782,7 +805,7 @@ void QgsTextFormat::updateDataDefinedProperties( QgsRenderContext &context )
   QString ddFontFamily;
   context.expressionContext().setOriginalValueVariable( d->textFont.family() );
   QVariant exprVal = d->mDataDefinedProperties.value( QgsPalLayerSettings::Family, context.expressionContext() );
-  if ( exprVal.isValid() )
+  if ( !exprVal.isNull() )
   {
     QString family = exprVal.toString().trimmed();
     if ( d->textFont.family() != family )
@@ -800,7 +823,7 @@ void QgsTextFormat::updateDataDefinedProperties( QgsRenderContext &context )
   QString ddFontStyle;
   context.expressionContext().setOriginalValueVariable( d->textNamedStyle );
   exprVal = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontStyle, context.expressionContext() );
-  if ( exprVal.isValid() )
+  if ( !exprVal.isNull() )
   {
     QString fontstyle = exprVal.toString().trimmed();
     ddFontStyle = fontstyle;
@@ -905,7 +928,7 @@ void QgsTextFormat::updateDataDefinedProperties( QgsRenderContext &context )
   }
 
   exprVal = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontSizeUnit, context.expressionContext() );
-  if ( exprVal.isValid() )
+  if ( !exprVal.isNull() )
   {
     QString units = exprVal.toString();
     if ( !units.isEmpty() )
@@ -920,7 +943,11 @@ void QgsTextFormat::updateDataDefinedProperties( QgsRenderContext &context )
   if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::FontOpacity ) )
   {
     context.expressionContext().setOriginalValueVariable( d->opacity * 100 );
-    d->opacity = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontOpacity, context.expressionContext(), d->opacity * 100 ).toDouble() / 100.0;
+    const QVariant val = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontOpacity, context.expressionContext(), d->opacity * 100 );
+    if ( !val.isNull() )
+    {
+      d->opacity = val.toDouble() / 100.0;
+    }
   }
 
   if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::TextOrientation ) )
@@ -933,13 +960,21 @@ void QgsTextFormat::updateDataDefinedProperties( QgsRenderContext &context )
   if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::FontLetterSpacing ) )
   {
     context.expressionContext().setOriginalValueVariable( d->textFont.letterSpacing() );
-    d->textFont.setLetterSpacing( QFont::AbsoluteSpacing, d->mDataDefinedProperties.value( QgsPalLayerSettings::FontLetterSpacing, context.expressionContext(), d->textFont.letterSpacing() ).toDouble() );
+    const QVariant val = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontLetterSpacing, context.expressionContext(), d->textFont.letterSpacing() );
+    if ( !val.isNull() )
+    {
+      d->textFont.setLetterSpacing( QFont::AbsoluteSpacing, val.toDouble() );
+    }
   }
 
   if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::FontWordSpacing ) )
   {
     context.expressionContext().setOriginalValueVariable( d->textFont.wordSpacing() );
-    d->textFont.setWordSpacing( d->mDataDefinedProperties.value( QgsPalLayerSettings::FontWordSpacing, context.expressionContext(), d->textFont.wordSpacing() ).toDouble() );
+    const QVariant val = d->mDataDefinedProperties.value( QgsPalLayerSettings::FontWordSpacing, context.expressionContext(), d->textFont.wordSpacing() );
+    if ( !val.isNull() )
+    {
+      d->textFont.setWordSpacing( val.toDouble() );
+    }
   }
 
   if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::FontBlendMode ) )

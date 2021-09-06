@@ -66,8 +66,21 @@ class CORE_EXPORT QgsCurve: public QgsAbstractGeometry SIP_ABSTRACT
 
     /**
      * Returns TRUE if the curve is closed.
+     *
+     * \see isClosed2D()
      */
     virtual bool isClosed() const SIP_HOLDGIL;
+
+    /**
+     * Returns true if the curve is closed.
+     *
+     * Unlike isClosed. It looks only for XY coordinates.
+     *
+     * \see isClosed()
+     *
+     * \since QGIS 3.20
+     */
+    virtual bool isClosed2D() const SIP_HOLDGIL;
 
     /**
      * Returns TRUE if the curve is a ring.
@@ -179,7 +192,7 @@ class CORE_EXPORT QgsCurve: public QgsAbstractGeometry SIP_ABSTRACT
     void normalize() final SIP_HOLDGIL;
 
     QgsRectangle boundingBox() const override;
-    bool isValid( QString &error SIP_OUT, int flags = 0 ) const override;
+    bool isValid( QString &error SIP_OUT, Qgis::GeometryValidityFlags flags = Qgis::GeometryValidityFlags() ) const override;
 
     /**
      * Returns the x-coordinate of the specified node in the line string.
@@ -290,7 +303,7 @@ class CORE_EXPORT QgsCurve: public QgsAbstractGeometry SIP_ABSTRACT
       if ( !geom )
         return nullptr;
 
-      QgsWkbTypes::Type type = geom->wkbType();
+      const QgsWkbTypes::Type type = geom->wkbType();
       if ( QgsWkbTypes::geometryType( type ) == QgsWkbTypes::LineGeometry && QgsWkbTypes::isSingleType( type ) )
       {
         return static_cast<const QgsCurve *>( geom );

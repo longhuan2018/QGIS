@@ -16,11 +16,9 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgslogger.h"
-#include "qgsdataitem.h"
 #include "qgsvectorlayersaveasdialog.h"
 #include "qgsprojectionselectiondialog.h"
 #include "qgsvectordataprovider.h"
-#include "qgsogrdataitems.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgseditorwidgetfactory.h"
 #include "qgseditorwidgetregistry.h"
@@ -34,6 +32,10 @@
 #include <QSpinBox>
 #include <QRegularExpression>
 #include "gdal.h"
+#include "qgsdatums.h"
+#include "qgsiconutils.h"
+#include "qgsproviderregistry.h"
+#include "qgsprovidersublayerdetails.h"
 
 static const int COLUMN_IDX_NAME = 0;
 static const int COLUMN_IDX_TYPE = 1;
@@ -49,13 +51,13 @@ QgsVectorLayerSaveAsDialog::QgsVectorLayerSaveAsDialog( long srsid, QWidget *par
   setup();
 }
 
-QgsVectorLayerSaveAsDialog::QgsVectorLayerSaveAsDialog( QgsVectorLayer *layer, int options, QWidget *parent, Qt::WindowFlags fl )
+QgsVectorLayerSaveAsDialog::QgsVectorLayerSaveAsDialog( QgsVectorLayer *layer, Options options, QWidget *parent, Qt::WindowFlags fl )
   : QDialog( parent, fl )
   , mLayer( layer )
   , mAttributeTableItemChangedSlotEnabled( true )
   , mReplaceRawFieldValuesStateChangedSlotEnabled( true )
   , mActionOnExistingFile( QgsVectorFileWriter::CreateOrOverwriteFile )
-  , mOptions( static_cast< Options >( options ) )
+  , mOptions( options )
 {
   if ( layer )
   {
@@ -91,6 +93,12 @@ QgsVectorLayerSaveAsDialog::QgsVectorLayerSaveAsDialog( QgsVectorLayer *layer, i
 
   if ( !( mOptions & Extent ) )
     mExtentGroupBox->hide();
+
+  if ( !( mOptions & Metadata ) )
+  {
+    mCheckPersistMetadata->setChecked( false );
+    mCheckPersistMetadata->hide();
+  }
 
   mSelectedOnly->setEnabled( layer && layer->selectedFeatureCount() != 0 );
   mButtonBox->button( QDialogButtonBox::Ok )->setDisabled( true );
@@ -134,7 +142,7 @@ void QgsVectorLayerSaveAsDialog::setup()
 
   const auto addGeomItem = [this]( QgsWkbTypes::Type type )
   {
-    mGeometryTypeComboBox->addItem( QgsLayerItem::iconForWkbType( type ), QgsWkbTypes::translatedDisplayString( type ), type );
+    mGeometryTypeComboBox->addItem( QgsIconUtils::iconForWkbType( type ), QgsWkbTypes::translatedDisplayString( type ), type );
   };
 
   //add geometry types to combobox
@@ -194,6 +202,20 @@ void QgsVectorLayerSaveAsDialog::setup()
     }
     mButtonBox->button( QDialogButtonBox::Ok )->setEnabled( !filePath.isEmpty() );
   } );
+
+  try
+  {
+    const QgsDatumEnsemble ensemble = mSelectedCrs.datumEnsemble();
+    if ( ensemble.isValid() )
+    {
+      mCrsSelector->setSourceEnsemble( ensemble.name() );
+    }
+  }
+  catch ( QgsNotSupportedException & )
+  {
+  }
+
+  mCrsSelector->setShowAccuracyWarnings( true );
 }
 
 QList<QPair<QLabel *, QWidget *> > QgsVectorLayerSaveAsDialog::createControls( const QMap<QString, QgsVectorFileWriter::Option *> &options )
@@ -366,34 +388,24 @@ void QgsVectorLayerSaveAsDialog::accept()
   }
   else if ( mActionOnExistingFile == QgsVectorFileWriter::CreateOrOverwriteFile && QFile::exists( filename() ) )
   {
-    try
+    const QList<QgsProviderSublayerDetails> sublayers = QgsProviderRegistry::instance()->querySublayers( filename() );
+    QStringList layerList;
+    layerList.reserve( sublayers.size() );
+    for ( const QgsProviderSublayerDetails &sublayer : sublayers )
     {
-      const QList<QgsOgrDbLayerInfo *> subLayers = QgsOgrLayerItem::subLayers( filename(), format() );
-      QStringList layerList;
-      for ( const QgsOgrDbLayerInfo *layer : subLayers )
-      {
-        layerList.append( layer->name() );
-      }
-      qDeleteAll( subLayers );
-      if ( layerList.length() > 1 )
-      {
-        layerList.sort( Qt::CaseInsensitive );
-        QMessageBox msgBox;
-        msgBox.setIcon( QMessageBox::Warning );
-        msgBox.setWindowTitle( tr( "Overwrite File" ) );
-        msgBox.setText( tr( "This file contains %1 layers that will be lost!\n" ).arg( QString::number( layerList.length() ) ) );
-        msgBox.setDetailedText( tr( "The following layers will be permanently lost:\n\n%1" ).arg( layerList.join( "\n" ) ) );
-        msgBox.setStandardButtons( QMessageBox::Ok | QMessageBox::Cancel );
-        if ( msgBox.exec() == QMessageBox::Cancel )
-          return;
-      }
+      layerList.append( sublayer.name() );
     }
-    catch ( QgsOgrLayerNotValidException &ex )
+    if ( layerList.length() > 1 )
     {
-      QMessageBox::critical( this,
-                             tr( "Save Vector Layer As" ),
-                             tr( "Error opening destination file: %1" ).arg( ex.what() ) );
-      return;
+      layerList.sort( Qt::CaseInsensitive );
+      QMessageBox msgBox;
+      msgBox.setIcon( QMessageBox::Warning );
+      msgBox.setWindowTitle( tr( "Overwrite File" ) );
+      msgBox.setText( tr( "This file contains %1 layers that will be lost!\n" ).arg( QLocale().toString( layerList.length() ) ) );
+      msgBox.setDetailedText( tr( "The following layers will be permanently lost:\n\n%1" ).arg( layerList.join( "\n" ) ) );
+      msgBox.setStandardButtons( QMessageBox::Ok | QMessageBox::Cancel );
+      if ( msgBox.exec() == QMessageBox::Cancel )
+        return;
     }
   }
 
@@ -971,6 +983,11 @@ void QgsVectorLayerSaveAsDialog::setOnlySelected( bool onlySelected )
 bool QgsVectorLayerSaveAsDialog::onlySelected() const
 {
   return mSelectedOnly->isChecked();
+}
+
+bool QgsVectorLayerSaveAsDialog::persistMetadata() const
+{
+  return mCheckPersistMetadata->isChecked();
 }
 
 QgsWkbTypes::Type QgsVectorLayerSaveAsDialog::geometryType() const

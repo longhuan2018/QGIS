@@ -343,7 +343,7 @@ int QgsLineString::indexOf( const QgsPoint &point ) const
   return -1;
 }
 
-bool QgsLineString::isValid( QString &error, int flags ) const
+bool QgsLineString::isValid( QString &error, Qgis::GeometryValidityFlags flags ) const
 {
   if ( !isEmpty() && ( numPoints() < 2 ) )
   {
@@ -406,13 +406,19 @@ bool QgsLineString::removeDuplicateNodes( double epsilon, bool useZValues )
   return result;
 }
 
-bool QgsLineString::isClosed() const
+bool QgsLineString::isClosed2D() const
 {
   if ( mX.empty() )
     return false;
 
-  bool closed = qgsDoubleNear( mX.first(), mX.last() ) &&
-                qgsDoubleNear( mY.first(), mY.last() );
+  return qgsDoubleNear( mX.first(), mX.last() ) &&
+         qgsDoubleNear( mY.first(), mY.last() );
+}
+
+bool QgsLineString::isClosed() const
+{
+  bool closed = isClosed2D();
+
   if ( is3D() && closed )
     closed &= qgsDoubleNear( mZ.first(), mZ.last() ) || ( std::isnan( mZ.first() ) && std::isnan( mZ.last() ) );
   return closed;

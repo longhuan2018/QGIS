@@ -452,18 +452,7 @@
                    </layout>
                   </item>
                   <item row="4" column="1">
-                   <widget class="QComboBox" name="cbxAbsolutePath">
-                    <item>
-                     <property name="text">
-                      <string>absolute</string>
-                     </property>
-                    </item>
-                    <item>
-                     <property name="text">
-                      <string>relative</string>
-                     </property>
-                    </item>
-                   </widget>
+                   <widget class="QComboBox" name="cbxAbsolutePath"/>
                   </item>
                   <item row="1" column="0">
                    <widget class="QLabel" name="label_30">
@@ -2150,7 +2139,7 @@
                     <item row="0" column="0" colspan="5">
                      <widget class="QLabel" name="label_21">
                       <property name="text">
-                       <string>Maximums for GetMap request</string>
+                       <string>Maximum image size for GetMap and GetLegendGraphic requests</string>
                       </property>
                      </widget>
                     </item>

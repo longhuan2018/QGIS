@@ -18,6 +18,8 @@
 #include "qgsannotationmarkeritem.h"
 #include "qgssymbol.h"
 #include "qgssymbollayerutils.h"
+#include "qgsmarkersymbol.h"
+#include "qgsannotationitemnode.h"
 
 QgsAnnotationMarkerItem::QgsAnnotationMarkerItem( const QgsPoint &point )
   : QgsAnnotationItem()
@@ -66,6 +68,17 @@ bool QgsAnnotationMarkerItem::writeXml( QDomElement &element, QDomDocument &docu
   return true;
 }
 
+Qgis::AnnotationItemFlags QgsAnnotationMarkerItem::flags() const
+{
+  // in truth this should depend on whether the marker symbol is scale dependent or not!
+  return Qgis::AnnotationItemFlag::ScaleDependentBoundingBox;
+}
+
+QList<QgsAnnotationItemNode> QgsAnnotationMarkerItem::nodes() const
+{
+  return { QgsAnnotationItemNode( mPoint, Qgis::AnnotationItemNodeType::VertexHandle )};
+}
+
 QgsAnnotationMarkerItem *QgsAnnotationMarkerItem::create()
 {
   return new QgsAnnotationMarkerItem( QgsPoint() );
@@ -97,6 +110,35 @@ QgsAnnotationMarkerItem *QgsAnnotationMarkerItem::clone()
 QgsRectangle QgsAnnotationMarkerItem::boundingBox() const
 {
   return QgsRectangle( mPoint.x(), mPoint.y(), mPoint.x(), mPoint.y() );
+}
+
+QgsRectangle QgsAnnotationMarkerItem::boundingBox( QgsRenderContext &context ) const
+{
+  QPointF pt;
+  if ( context.coordinateTransform().isValid() )
+  {
+    double x = mPoint.x();
+    double y = mPoint.y();
+    double z = 0.0;
+    context.coordinateTransform().transformInPlace( x, y, z );
+    pt = QPointF( x, y );
+  }
+  else
+    pt = mPoint.toQPointF();
+
+  context.mapToPixel().transformInPlace( pt.rx(), pt.ry() );
+
+  mSymbol->startRender( context );
+  const QRectF boundsInPixels = mSymbol->bounds( pt, context );
+  mSymbol->stopRender( context );
+
+  const QgsPointXY topLeft = context.mapToPixel().toMapCoordinates( boundsInPixels.left(), boundsInPixels.top() );
+  const QgsPointXY topRight = context.mapToPixel().toMapCoordinates( boundsInPixels.right(), boundsInPixels.top() );
+  const QgsPointXY bottomLeft = context.mapToPixel().toMapCoordinates( boundsInPixels.left(), boundsInPixels.bottom() );
+  const QgsPointXY bottomRight = context.mapToPixel().toMapCoordinates( boundsInPixels.right(), boundsInPixels.bottom() );
+
+  const QgsRectangle boundsMapUnits = QgsRectangle( topLeft.x(), bottomLeft.y(), bottomRight.x(), topRight.y() );
+  return context.coordinateTransform().transformBoundingBox( boundsMapUnits, QgsCoordinateTransform::ReverseTransform );
 }
 
 const QgsMarkerSymbol *QgsAnnotationMarkerItem::symbol() const

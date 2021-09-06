@@ -26,7 +26,6 @@
 #include <gdalwarper.h>
 #include "cpl_conv.h"
 #include "cpl_string.h"
-#include "qgssymbol.h"
 
 class QTextCodec;
 
@@ -166,6 +165,12 @@ class CORE_EXPORT QgsOgrUtils
   public:
 
     /**
+     * Converts an OGRField \a value of the specified \a type into a QVariant.
+     * \since QGIS 3.20
+     */
+    static QVariant OGRFieldtoVariant( const OGRField *value, OGRFieldType type );
+
+    /**
      * Reads an OGR feature and converts it to a QgsFeature.
      * \param ogrFet OGR feature handle
      * \param fields fields collection corresponding to feature
@@ -290,6 +295,15 @@ class CORE_EXPORT QgsOgrUtils
     static QgsCoordinateReferenceSystem OGRSpatialReferenceToCrs( OGRSpatialReferenceH srs );
 
     /**
+     * Returns a OGRSpatialReferenceH corresponding to the specified \a crs object.
+     *
+     * \note Caller must release the returned object with OSRRelease.
+     *
+     * \since QGIS 3.22
+     */
+    static OGRSpatialReferenceH crsToOGRSpatialReference( const QgsCoordinateReferenceSystem &crs );
+
+    /**
      * Reads the encoding of the shapefile at the specified \a path (where \a path is the
      * location of the ".shp" file).
      *
@@ -336,7 +350,7 @@ class CORE_EXPORT QgsOgrUtils
      *
      * \since QGIS 3.20
      */
-    static std::unique_ptr< QgsSymbol > symbolFromStyleString( const QString &string, QgsSymbol::SymbolType type ) SIP_FACTORY;
+    static std::unique_ptr< QgsSymbol > symbolFromStyleString( const QString &string, Qgis::SymbolType type ) SIP_FACTORY;
 };
 
 #endif // QGSOGRUTILS_H

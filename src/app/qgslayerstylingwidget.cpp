@@ -53,6 +53,7 @@
 #include "qgsrasterminmaxwidget.h"
 #include "qgisapp.h"
 #include "qgssymbolwidgetcontext.h"
+#include "qgsannotationlayer.h"
 
 #ifdef HAVE_3D
 #include "qgsvectorlayer3drendererwidget.h"
@@ -107,7 +108,9 @@ QgsLayerStylingWidget::QgsLayerStylingWidget( QgsMapCanvas *canvas, QgsMessageBa
                            | QgsMapLayerProxyModel::Filter::PluginLayer
                            | QgsMapLayerProxyModel::Filter::MeshLayer
                            | QgsMapLayerProxyModel::Filter::VectorTileLayer
-                           | QgsMapLayerProxyModel::Filter::PointCloudLayer );
+                           | QgsMapLayerProxyModel::Filter::PointCloudLayer
+                           | QgsMapLayerProxyModel::Filter::AnnotationLayer );
+  mLayerCombo->setAdditionalLayers( { QgsProject::instance()->mainAnnotationLayer() } );
 
   mStackedWidget->setCurrentIndex( 0 );
 }
@@ -566,6 +569,12 @@ void QgsLayerStylingWidget::updateCurrentWidgetLayer()
           {
             QgsRasterTransparencyWidget *transwidget = new QgsRasterTransparencyWidget( rlayer, mMapCanvas, mWidgetStack );
             transwidget->setDockMode( true );
+
+            QgsSymbolWidgetContext context;
+            context.setMapCanvas( mMapCanvas );
+            context.setMessageBar( mMessageBar );
+            transwidget->setContext( context );
+
             connect( transwidget, &QgsPanelWidget::widgetChanged, this, &QgsLayerStylingWidget::autoApply );
             mWidgetStack->setMainPanel( transwidget );
             break;

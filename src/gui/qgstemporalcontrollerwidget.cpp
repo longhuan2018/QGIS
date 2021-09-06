@@ -31,6 +31,7 @@
 
 #include <QAction>
 #include <QMenu>
+#include <QRegularExpression>
 
 QgsTemporalControllerWidget::QgsTemporalControllerWidget( QWidget *parent )
   : QgsPanelWidget( parent )
@@ -132,7 +133,7 @@ QgsTemporalControllerWidget::QgsTemporalControllerWidget( QWidget *parent )
     whileBlocking( mFixedRangeEndDateTime )->setDateTime( range.end() );
   }
 
-  for ( QgsUnitTypes::TemporalUnit u :
+  for ( const QgsUnitTypes::TemporalUnit u :
         {
           QgsUnitTypes::TemporalMilliseconds,
           QgsUnitTypes::TemporalSeconds,
@@ -176,6 +177,11 @@ QgsTemporalControllerWidget::QgsTemporalControllerWidget( QWidget *parent )
   connect( QgsProject::instance(), &QgsProject::cleared, this, &QgsTemporalControllerWidget::onProjectCleared );
 }
 
+bool QgsTemporalControllerWidget::applySizeConstraintsToStack() const
+{
+  return true;
+}
+
 void QgsTemporalControllerWidget::keyPressEvent( QKeyEvent *e )
 {
   if ( mSlider->hasFocus() && e->key() == Qt::Key_Space )
@@ -195,14 +201,14 @@ void QgsTemporalControllerWidget::aboutToShowRangeMenu()
   mRangeLayersSubMenu->clear();
   for ( int i = 0; i < mMapLayerModel->rowCount(); ++i )
   {
-    QModelIndex index = mMapLayerModel->index( i, 0 );
+    const QModelIndex index = mMapLayerModel->index( i, 0 );
     QgsMapLayer *currentLayer = mMapLayerModel->data( index, QgsMapLayerModel::LayerRole ).value<QgsMapLayer *>();
     if ( !currentLayer->temporalProperties() || !currentLayer->temporalProperties()->isActive() )
       continue;
 
-    QIcon icon = qvariant_cast<QIcon>( mMapLayerModel->data( index, Qt::DecorationRole ) );
-    QString text = mMapLayerModel->data( index, Qt::DisplayRole ).toString();
-    QgsDateTimeRange range = currentLayer->temporalProperties()->calculateTemporalExtent( currentLayer );
+    const QIcon icon = qvariant_cast<QIcon>( mMapLayerModel->data( index, Qt::DecorationRole ) );
+    const QString text = mMapLayerModel->data( index, Qt::DisplayRole ).toString();
+    const QgsDateTimeRange range = currentLayer->temporalProperties()->calculateTemporalExtent( currentLayer );
     if ( range.begin().isValid() && range.end().isValid() )
     {
       QAction *action = new QAction( icon, text, mRangeLayersSubMenu.get() );
@@ -286,8 +292,8 @@ void QgsTemporalControllerWidget::updateTemporalExtent()
   const QDateTime start = mStartDateTime->dateTime();
   const QDateTime end = mEndDateTime->dateTime();
   const bool isTimeInstant = start == end;
-  QgsDateTimeRange temporalExtent = QgsDateTimeRange( start, end,
-                                    true, !isTimeInstant && mNavigationObject->navigationMode() == QgsTemporalNavigationObject::FixedRange ? false : true );
+  const QgsDateTimeRange temporalExtent = QgsDateTimeRange( start, end,
+                                          true, !isTimeInstant && mNavigationObject->navigationMode() == QgsTemporalNavigationObject::FixedRange ? false : true );
   mNavigationObject->setTemporalExtents( temporalExtent );
   mSlider->setRange( 0, mNavigationObject->totalFrameCount() - 1 );
   mSlider->setValue( mNavigationObject->currentFrameNumber() );
@@ -299,7 +305,7 @@ void QgsTemporalControllerWidget::updateFrameDuration()
     return;
 
   // save new settings into project
-  QgsUnitTypes::TemporalUnit unit = static_cast< QgsUnitTypes::TemporalUnit>( mTimeStepsComboBox->currentData().toInt() );
+  const QgsUnitTypes::TemporalUnit unit = static_cast< QgsUnitTypes::TemporalUnit>( mTimeStepsComboBox->currentData().toInt() );
   QgsProject::instance()->timeSettings()->setTimeStepUnit( unit );
   QgsProject::instance()->timeSettings()->setTimeStep( unit == QgsUnitTypes::TemporalIrregularStep ? 1 : mStepSpinBox->value() );
 
@@ -336,7 +342,7 @@ void QgsTemporalControllerWidget::setWidgetStateFromProject()
   mBlockSettingUpdates--;
 
   bool ok = false;
-  QgsTemporalNavigationObject::NavigationMode mode = static_cast< QgsTemporalNavigationObject::NavigationMode>( QgsProject::instance()->readNumEntry( QStringLiteral( "TemporalControllerWidget" ),
+  const QgsTemporalNavigationObject::NavigationMode mode = static_cast< QgsTemporalNavigationObject::NavigationMode>( QgsProject::instance()->readNumEntry( QStringLiteral( "TemporalControllerWidget" ),
       QStringLiteral( "/NavigationMode" ), 0, &ok ) );
   if ( ok )
   {
@@ -477,10 +483,17 @@ void QgsTemporalControllerWidget::onProjectCleared()
   mNavigationObject->setNavigationMode( QgsTemporalNavigationObject::NavigationOff );
   setWidgetStateFromNavigationMode( QgsTemporalNavigationObject::NavigationOff );
 
-  whileBlocking( mStartDateTime )->setDateTime( QDateTime( QDate::currentDate(), QTime( 0, 0, 0 ), Qt::UTC ) );
-  whileBlocking( mEndDateTime )->setDateTime( mStartDateTime->dateTime() );
-  whileBlocking( mFixedRangeStartDateTime )->setDateTime( QDateTime( QDate::currentDate(), QTime( 0, 0, 0 ), Qt::UTC ) );
-  whileBlocking( mFixedRangeEndDateTime )->setDateTime( mStartDateTime->dateTime() );
+  // default to showing the last 24 hours, ending at the current date's hour, in one hour blocks...
+  // it's COMPLETELY arbitrary, but better than starting with a "zero length" duration!
+  const QTime startOfCurrentHour = QTime( QTime::currentTime().hour(), 0, 0 );
+  const QDateTime end = QDateTime( QDate::currentDate(), startOfCurrentHour, Qt::UTC );
+  const QDateTime start = end.addSecs( -24 * 60 * 60 );
+
+  whileBlocking( mStartDateTime )->setDateTime( start );
+  whileBlocking( mEndDateTime )->setDateTime( end );
+  whileBlocking( mFixedRangeStartDateTime )->setDateTime( start );
+  whileBlocking( mFixedRangeEndDateTime )->setDateTime( end );
+
   updateTemporalExtent();
   mTimeStepsComboBox->setCurrentIndex( mTimeStepsComboBox->findData( QgsUnitTypes::TemporalHours ) );
   mStepSpinBox->setValue( 1 );
@@ -501,7 +514,7 @@ void QgsTemporalControllerWidget::updateRangeLabel( const QgsDateTimeRange &rang
   switch ( mNavigationObject->navigationMode() )
   {
     case QgsTemporalNavigationObject::Animated:
-      mCurrentRangeLabel->setText( tr( "Frame: %1 ≤ <i>t</i> &lt; %2" ).arg(
+      mCurrentRangeLabel->setText( tr( "Current frame: %1 ≤ <i>t</i> &lt; %2" ).arg(
                                      range.begin().toString( timeFrameFormat ),
                                      range.end().toString( timeFrameFormat ) ) );
       break;
@@ -585,14 +598,20 @@ void QgsTemporalControllerWidget::setTimeStep( const QgsInterval &timeStep )
     // the one that gives the smallest time step value for double spin box with round value (if possible) and/or the less signifiant digits
 
     int stringSize = std::numeric_limits<int>::max();
-    int precision = mStepSpinBox->decimals();
+    const int precision = mStepSpinBox->decimals();
     for ( int i = 0; i < mTimeStepsComboBox->count(); ++i )
     {
-      QgsUnitTypes::TemporalUnit unit = static_cast<QgsUnitTypes::TemporalUnit>( mTimeStepsComboBox->itemData( i ).toInt() );
-      double value = timeStep.seconds() * QgsUnitTypes::fromUnitToUnitFactor( QgsUnitTypes::TemporalSeconds, unit );
+      const QgsUnitTypes::TemporalUnit unit = static_cast<QgsUnitTypes::TemporalUnit>( mTimeStepsComboBox->itemData( i ).toInt() );
+      const double value = timeStep.seconds() * QgsUnitTypes::fromUnitToUnitFactor( QgsUnitTypes::TemporalSeconds, unit );
       QString string = QString::number( value, 'f', precision );
-      string.remove( QRegExp( "0+$" ) ); //remove trailing zero
-      string.remove( QRegExp( "[.]+$" ) ); //remove last point if present
+
+      const thread_local QRegularExpression trailingZeroRegEx = QRegularExpression( QStringLiteral( "0+$" ) );
+      //remove trailing zero
+      string.remove( trailingZeroRegEx );
+
+      const thread_local QRegularExpression trailingPointRegEx = QRegularExpression( QStringLiteral( "[.]+$" ) );
+      //remove last point if present
+      string.remove( trailingPointRegEx );
 
       if ( value >= 1
            && string.size() <= stringSize // less significant digit than currently selected

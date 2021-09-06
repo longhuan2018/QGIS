@@ -441,6 +441,100 @@ class TestQgsGeometry(unittest.TestCase):
         with self.assertRaises(IndexError):
             del ls[-3]
 
+    def testQgsLineStringPythonConstructors(self):
+        """
+        Test various constructors for QgsLineString in Python
+        """
+        line = QgsLineString()
+        self.assertEqual(line.asWkt(), 'LineString EMPTY')
+
+        # empty array
+        line = QgsLineString([])
+        self.assertEqual(line.asWkt(), 'LineString EMPTY')
+
+        # invalid array
+        with self.assertRaises(TypeError):
+            line = QgsLineString([1, 2, 3])
+
+        # array of QgsPoint
+        line = QgsLineString([QgsPoint(1, 2), QgsPoint(3, 4), QgsPoint(11, 12)])
+        self.assertEqual(line.asWkt(), 'LineString (1 2, 3 4, 11 12)')
+
+        # array of QgsPoint with Z
+        line = QgsLineString([QgsPoint(1, 2, 11), QgsPoint(3, 4, 13), QgsPoint(11, 12, 14)])
+        self.assertEqual(line.asWkt(), 'LineStringZ (1 2 11, 3 4 13, 11 12 14)')
+
+        # array of QgsPoint with Z, only first has z
+        line = QgsLineString([QgsPoint(1, 2, 11), QgsPoint(3, 4), QgsPoint(11, 12)])
+        self.assertEqual(line.asWkt(), 'LineStringZ (1 2 11, 3 4 nan, 11 12 nan)')
+
+        # array of QgsPoint with M
+        line = QgsLineString([QgsPoint(1, 2, None, 11), QgsPoint(3, 4, None, 13), QgsPoint(11, 12, None, 14)])
+        self.assertEqual(line.asWkt(), 'LineStringM (1 2 11, 3 4 13, 11 12 14)')
+
+        # array of QgsPoint with M, only first has M
+        line = QgsLineString([QgsPoint(1, 2, None, 11), QgsPoint(3, 4), QgsPoint(11, 12)])
+        self.assertEqual(line.asWkt(), 'LineStringM (1 2 11, 3 4 nan, 11 12 nan)')
+
+        # array of QgsPoint with ZM
+        line = QgsLineString([QgsPoint(1, 2, 22, 11), QgsPoint(3, 4, 23, 13), QgsPoint(11, 12, 24, 14)])
+        self.assertEqual(line.asWkt(), 'LineStringZM (1 2 22 11, 3 4 23 13, 11 12 24 14)')
+
+        # array of QgsPoint with ZM, only first has ZM
+        line = QgsLineString([QgsPoint(1, 2, 33, 11), QgsPoint(3, 4), QgsPoint(11, 12)])
+        self.assertEqual(line.asWkt(), 'LineStringZM (1 2 33 11, 3 4 nan nan, 11 12 nan nan)')
+
+        # array of QgsPointXY
+        line = QgsLineString([QgsPointXY(1, 2), QgsPointXY(3, 4), QgsPointXY(11, 12)])
+        self.assertEqual(line.asWkt(), 'LineString (1 2, 3 4, 11 12)')
+
+        # array of array of bad values
+        with self.assertRaises(TypeError):
+            line = QgsLineString([[QgsPolygon(), QgsPoint()]])
+
+        with self.assertRaises(TypeError):
+            line = QgsLineString([[1, 2], [QgsPolygon(), QgsPoint()]])
+
+        # array of array of 1d floats
+        with self.assertRaises(TypeError):
+            line = QgsLineString([[1], [3], [5]])
+
+        # array of array of floats
+        line = QgsLineString([[1, 2], [3, 4], [5, 6]])
+        self.assertEqual(line.asWkt(), 'LineString (1 2, 3 4, 5 6)')
+
+        # tuple of tuple of floats
+        line = QgsLineString(((1, 2), (3, 4), (5, 6)))
+        self.assertEqual(line.asWkt(), 'LineString (1 2, 3 4, 5 6)')
+
+        # sequence
+        line = QgsLineString([[c + 10, c + 11] for c in range(5)])
+        self.assertEqual(line.asWkt(), 'LineString (10 11, 11 12, 12 13, 13 14, 14 15)')
+
+        # array of array of 3d floats
+        line = QgsLineString([[1, 2, 11], [3, 4, 12], [5, 6, 13]])
+        self.assertEqual(line.asWkt(), 'LineStringZ (1 2 11, 3 4 12, 5 6 13)')
+
+        # array of array of inconsistent 3d floats
+        line = QgsLineString([[1, 2, 11], [3, 4], [5, 6]])
+        self.assertEqual(line.asWkt(), 'LineStringZ (1 2 11, 3 4 nan, 5 6 nan)')
+
+        # array of array of 4d floats
+        line = QgsLineString([[1, 2, 11, 21], [3, 4, 12, 22], [5, 6, 13, 23]])
+        self.assertEqual(line.asWkt(), 'LineStringZM (1 2 11 21, 3 4 12 22, 5 6 13 23)')
+
+        # array of array of inconsistent 4d floats
+        line = QgsLineString([[1, 2, 11, 21], [3, 4, 12], [5, 6]])
+        self.assertEqual(line.asWkt(), 'LineStringZM (1 2 11 21, 3 4 12 nan, 5 6 nan nan)')
+
+        # array of array of 5 floats
+        with self.assertRaises(TypeError):
+            line = QgsLineString([[1, 2, 11, 21, 22], [3, 4, 12, 22, 23], [5, 6, 13, 23, 24]])
+
+        # mixed array, because hey, why not?? :D
+        line = QgsLineString([QgsPoint(1, 2), QgsPointXY(3, 4), [5, 6], (7, 8)])
+        self.assertEqual(line.asWkt(), 'LineString (1 2, 3 4, 5 6, 7 8)')
+
     def testGeometryCollectionPythonAdditions(self):
         """
         Tests Python specific additions to the QgsGeometryCollection API
@@ -2607,7 +2701,8 @@ class TestQgsGeometry(unittest.TestCase):
         self.assertEqual(g.reshapeGeometry(QgsLineString([QgsPoint(0, 0), QgsPoint(0.5, 0.5), QgsPoint(0, 1)])),
                          QgsGeometry.Success)
         expWkt = 'Polygon ((0 0, 1 0, 1 1, 0 1, 0.5 0.5, 0 0))'
-        self.assertTrue(compareWkt(g.asWkt(), expWkt),
+        wkt = g.asWkt()
+        self.assertTrue(compareWkt(wkt, expWkt),
                         "testReshape failed: mismatch Expected:\n%s\nGot:\n%s\n" % (expWkt, wkt))
 
         # Test reshape a line from first/last vertex
@@ -4458,6 +4553,36 @@ class TestQgsGeometry(unittest.TestCase):
         expected_wkt = "CurvePolygon (CompoundCurve (CircularString (0 0, 1 1, 2 0),(2 0, 0 0)))"
         self.assertEqual(geom.asWkt(), QgsGeometry.fromWkt(expected_wkt).asWkt())
 
+    def testConvertVertex(self):
+
+        # WKT BEFORE -> WKT AFTER A CONVERT ON POINT AT 10,10
+        test_setup = {
+            # Curve
+            'LINESTRING(0 0, 10 0, 10 10, 0 10, 0 0)': 'COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0))',
+            'COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0))': 'COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0))',
+            'COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0))': 'COMPOUNDCURVE((0 0, 10 0, 10 10, 0 10, 0 0))',
+
+            # Multicurve
+            'MULTICURVE(LINESTRING(0 0, 10 0, 10 10, 0 10, 0 0), LINESTRING(5 15, 10 20, 0 20, 5 15))': 'MULTICURVE(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), LINESTRING(5 15, 10 20, 0 20, 5 15))',
+            'MULTICURVE(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), LINESTRING(5 15, 10 20, 0 20, 5 15))': 'MULTICURVE(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), LINESTRING(5 15, 10 20, 0 20, 5 15))',
+            'MULTICURVE(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), LINESTRING(5 15, 10 20, 0 20, 5 15))': 'MULTICURVE(COMPOUNDCURVE((0 0, 10 0, 10 10, 0 10, 0 0)), LINESTRING(5 15, 10 20, 0 20, 5 15))',
+
+            # Polygon
+            'CURVEPOLYGON(LINESTRING(0 0, 10 0, 10 10, 0 10, 0 0), LINESTRING(3 3, 7 3, 7 7, 3 7, 3 3))': 'CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), LINESTRING(3 3, 7 3, 7 7, 3 7, 3 3))',
+            'CURVEPOLYGON(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE(CIRCULARSTRING(3 3, 7 3, 7 7, 3 7, 3 3)))': 'CURVEPOLYGON(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE(CIRCULARSTRING(3 3, 7 3, 7 7, 3 7, 3 3)))',
+            'CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), COMPOUNDCURVE((3 3, 7 3), CIRCULARSTRING(7 3, 7 7, 3 7), (3 7, 3 3)))': 'CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE((3 3, 7 3), CIRCULARSTRING(7 3, 7 7, 3 7), (3 7, 3 3)))',
+
+            # Multipolygon
+            'MULTISURFACE(CURVEPOLYGON(LINESTRING(0 0, 10 0, 10 10, 0 10, 0 0), LINESTRING(3 3, 7 3, 7 7, 3 7, 3 3)), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))': 'MULTISURFACE(CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), LINESTRING(3 3, 7 3, 7 7, 3 7, 3 3)), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))',
+            'MULTISURFACE(CURVEPOLYGON(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE(CIRCULARSTRING(3 3, 7 3, 7 7, 3 7, 3 3))), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))': 'MULTISURFACE(CURVEPOLYGON(COMPOUNDCURVE(CIRCULARSTRING(0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE(CIRCULARSTRING(3 3, 7 3, 7 7, 3 7, 3 3))), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))',
+            'MULTISURFACE(CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0), CIRCULARSTRING(10 0, 10 10, 0 10), (0 10, 0 0)), COMPOUNDCURVE((3 3, 7 3), CIRCULARSTRING(7 3, 7 7, 3 7), (3 7, 3 3))), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))': 'MULTISURFACE(CURVEPOLYGON(COMPOUNDCURVE((0 0, 10 0, 10 10, 0 10, 0 0)), COMPOUNDCURVE((3 3, 7 3), CIRCULARSTRING(7 3, 7 7, 3 7), (3 7, 3 3))), CURVEPOLYGON(LINESTRING(5 15, 10 20, 0 20, 5 15)))',
+        }
+
+        for wkt_before, wkt_expected in test_setup.items():
+            geom = QgsGeometry.fromWkt(wkt_before)
+            geom.toggleCircularAtVertex(geom.closestVertex(QgsPointXY(10, 10))[1])
+            self.assertTrue(QgsGeometry.equals(geom, QgsGeometry.fromWkt(wkt_expected)), f'toggleCircularAtVertex() did not create expected geometry.\nconverted wkt : {geom.asWkt()}\nexpected wkt :  {wkt_expected}\ninput wkt :     {wkt_before}).')
+
     def testSingleSidedBuffer(self):
 
         wkt = "LineString( 0 0, 10 0)"
@@ -5612,8 +5737,11 @@ class TestQgsGeometry(unittest.TestCase):
             ["LINESTRING(-13151357.927248 3913656.64539871,-13151419.0845266 3913664.12016378,-13151441.323537 3913666.61175286,-13151456.8908442 3913666.61175286,-13151476.9059536 3913666.61175286,-13151496.921063 3913666.61175287,-13151521.3839744 3913666.61175287,-13151591.4368571 3913665.36595828)",
              "CompoundCurve ((-13151357.92724799923598766 3913656.64539870992302895, -13151419.08452660031616688 3913664.12016378017142415, -13151441.32353699952363968 3913666.61175285978242755, -13151456.8908441998064518 3913666.61175285978242755, -13151476.90595359914004803 3913666.61175285978242755, -13151496.92106300033628941 3913666.61175287002697587, -13151521.38397439941763878 3913666.61175287002697587, -13151591.43685710057616234 3913665.36595827993005514))", 0.000001, 0.0000001],
             ["Point( 1 2 )", "Point( 1 2 )", 0.00001, 0.00001],
-            ["MultiPoint( 1 2, 3 4 )", "MultiPoint( (1 2 ), (3 4 ))", 0.00001, 0.00001]
-
+            ["MultiPoint( 1 2, 3 4 )", "MultiPoint( (1 2 ), (3 4 ))", 0.00001, 0.00001],
+            # A polygon converts to curve
+            ["POLYGON((3 3,2.4142135623731 1.58578643762691,1 1,-0.414213562373092 1.5857864376269,-1 2.99999999999999,-0.414213562373101 4.41421356237309,0.999999999999991 5,2.41421356237309 4.4142135623731,3 3))", "CURVEPOLYGON(COMPOUNDCURVE(CircularString(3 3, -1 2.99999999999998979, 3 3)))", 0.00000001, 0.00000001],
+            # The same polygon, even if already CURVEPOLYGON, still converts to curve
+            ["CURVEPOLYGON((3 3,2.4142135623731 1.58578643762691,1 1,-0.414213562373092 1.5857864376269,-1 2.99999999999999,-0.414213562373101 4.41421356237309,0.999999999999991 5,2.41421356237309 4.4142135623731,3 3))", "CURVEPOLYGON(COMPOUNDCURVE(CircularString(3 3, -1 2.99999999999998979, 3 3)))", 0.00000001, 0.00000001],
         ]
         for t in tests:
             g1 = QgsGeometry.fromWkt(t[0])
@@ -6064,6 +6192,81 @@ class TestQgsGeometry(unittest.TestCase):
         g = QgsGeometry.fromWkt('LineString(0 0, 10 0, 10 10)')
         self.assertTrue(g.get().transform(transformer))
         self.assertEqual(g.asWkt(0), 'LineString (0 1, 20 1, 20 11)')
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30900, "GEOS 3.9 required")
+    def testFrechetDistance(self):
+        """
+        Test QgsGeometry.frechetDistance
+        """
+        l1 = QgsGeometry.fromWkt('LINESTRING (0 0, 100 0)')
+        l2 = QgsGeometry.fromWkt('LINESTRING (0 0, 50 50, 100 0)')
+        self.assertAlmostEqual(l1.frechetDistance(l2), 70.711, 3)
+        self.assertAlmostEqual(l2.frechetDistance(l1), 70.711, 3)
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30900, "GEOS 3.9 required")
+    def testFrechetDistanceDensify(self):
+        """
+        Test QgsGeometry.frechetDistanceDensify
+        """
+        l1 = QgsGeometry.fromWkt('LINESTRING (0 0, 100 0)')
+        l2 = QgsGeometry.fromWkt('LINESTRING (0 0, 50 50, 100 0)')
+        self.assertAlmostEqual(l1.frechetDistanceDensify(l2, 0.5), 50.000, 3)
+        self.assertAlmostEqual(l2.frechetDistanceDensify(l1, 0.5), 50.000, 3)
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30900, "GEOS 3.9 required")
+    def testLargestEmptyCircle(self):
+        """
+        Test QgsGeometry.largestEmptyCircle
+        """
+        g1 = QgsGeometry.fromWkt('POLYGON ((50 50, 150 50, 150 150, 50 150, 50 50))')
+        self.assertEqual(g1.largestEmptyCircle(1).asWkt(), 'LineString (100 100, 100 50)')
+        self.assertEqual(g1.largestEmptyCircle(0.1).asWkt(), 'LineString (100 100, 100 50)')
+        g2 = QgsGeometry.fromWkt('MultiPolygon (((95.03667481662591854 163.45354523227382515, 95.03667481662591854 122.0354523227383936, 34.10757946210270575 122.0354523227383936, 34.10757946210270575 163.45354523227382515, 95.03667481662591854 163.45354523227382515)),((35.64792176039119198 76.3386308068459698, 94.52322738386308743 76.3386308068459698, 94.52322738386308743 41.25305623471882654, 35.64792176039119198 41.25305623471882654, 35.64792176039119198 76.3386308068459698)),((185.23227383863081741 108.34352078239608375, 185.23227383863081741 78.56356968215158076, 118.99755501222495013 78.56356968215158076, 118.99755501222495013 108.34352078239608375, 185.23227383863081741 108.34352078239608375)))')
+        self.assertEqual(g2.largestEmptyCircle(0.1).asWkt(1), 'LineString (129.3 142.5, 129.3 108.3)')
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30600, "GEOS 3.6 required")
+    def testMinimumClearance(self):
+        """
+        Test QgsGeometry.minimumClearance
+        """
+        l1 = QgsGeometry.fromWkt('POLYGON ((0 0, 1 0, 1 1, 0.5 3.2e-4, 0 0))')
+        self.assertAlmostEqual(l1.minimumClearance(), 0.00032, 5)
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30600, "GEOS 3.6 required")
+    def testMinimumClearanceLine(self):
+        """
+        Test QgsGeometry.minimumClearanceLine
+        """
+        l1 = QgsGeometry.fromWkt('POLYGON ((0 0, 1 0, 1 1, 0.5 3.2e-4, 0 0))')
+        self.assertEqual(l1.minimumClearanceLine().asWkt(6), 'LineString (0.5 0.00032, 0.5 0)')
+
+    @unittest.skipIf(Qgis.geosVersionInt() < 30600, "GEOS 3.6 required")
+    def testMinimumWidth(self):
+        """
+        Test QgsGeometry.minimumWidth
+        """
+        l1 = QgsGeometry.fromWkt('POLYGON ((0 0, 1 0, 1 1, 0.5 3.2e-4, 0 0))')
+        self.assertEqual(l1.minimumWidth().asWkt(6), 'LineString (0.5 0.5, 1 0)')
+
+    def testNode(self):
+        """
+        Test QgsGeometry.node
+        """
+        l1 = QgsGeometry.fromWkt('LINESTRINGZ(0 0 0, 10 10 10, 0 10 5, 10 0 3)')
+        self.assertEqual(l1.node().asWkt(6), 'MultiLineStringZ ((0 0 0, 5 5 4.5),(5 5 4.5, 10 10 10, 0 10 5, 5 5 4.5),(5 5 4.5, 10 0 3))')
+        l1 = QgsGeometry.fromWkt('MULTILINESTRING ((2 5, 2 1, 7 1), (6 1, 4 1, 2 3, 2 5))')
+        self.assertEqual(l1.node().asWkt(6), 'MultiLineString ((2 5, 2 3),(2 3, 2 1, 4 1),(4 1, 6 1),(6 1, 7 1),(4 1, 2 3))')
+
+    def testSharedPaths(self):
+        """
+        Test QgsGeometry.sharedPaths
+        """
+        l1 = QgsGeometry.fromWkt('MULTILINESTRING((26 125,26 200,126 200,126 125,26 125),(51 150,101 150,76 175,51 150))')
+        l2 = QgsGeometry.fromWkt('LINESTRING(151 100,126 156.25,126 125,90 161, 76 175)')
+        self.assertEqual(l1.sharedPaths(l2).asWkt(6), 'GeometryCollection (MultiLineString ((126 156.25, 126 125),(101 150, 90 161),(90 161, 76 175)),MultiLineString EMPTY)')
+        l1 = QgsGeometry.fromWkt('LINESTRING(76 175,90 161,126 125,126 156.25,151 100)')
+        l2 = QgsGeometry.fromWkt('MULTILINESTRING((26 125,26 200,126 200,126 125,26 125),(51 150,101 150,76 175,51 150))')
+        self.assertEqual(l1.sharedPaths(l2).asWkt(6), 'GeometryCollection (MultiLineString EMPTY,MultiLineString ((76 175, 90 161),(90 161, 101 150),(126 125, 126 156.25)))')
 
     def renderGeometry(self, geom, use_pen, as_polygon=False, as_painter_path=False):
         image = QImage(200, 200, QImage.Format_RGB32)

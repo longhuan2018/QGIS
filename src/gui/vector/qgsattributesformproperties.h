@@ -71,7 +71,6 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
     {
       operator QVariant();
 
-      QgsAttributeEditorRelation::Buttons buttons = QgsAttributeEditorRelation::Button::AllButtons;
       QString mRelationWidgetType;
       QVariantMap mRelationWidgetConfig;
       QVariant nmRelationId;
@@ -99,7 +98,8 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
           Container, //!< Container for the form
           QmlWidget,
           HtmlWidget,
-          WidgetType //!< In the widget tree, the type of widget
+          WidgetType, //!< In the widget tree, the type of widget
+          Action //!< Layer action
         };
 
         //do we need that
@@ -305,8 +305,12 @@ class GUI_EXPORT QgsAttributesDnDTree : public QTreeWidget
     // QTreeWidget interface
   protected:
     QStringList mimeTypes() const override;
-    QMimeData *mimeData( const QList<QTreeWidgetItem *> items ) const override;
 
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+    QMimeData *mimeData( const QList<QTreeWidgetItem *> items ) const override;
+#else
+    QMimeData *mimeData( const QList<QTreeWidgetItem *> &items ) const override;
+#endif
 
   private slots:
     void onItemDoubleClicked( QTreeWidgetItem *item, int column );

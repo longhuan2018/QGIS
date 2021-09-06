@@ -78,7 +78,7 @@ class CORE_EXPORT QgsWkbPtr
     inline const QgsWkbPtr &operator>>( double &v ) const { read( v ); return *this; } SIP_SKIP
     inline const QgsWkbPtr &operator>>( float &r ) const { double v; read( v ); r = v; return *this; } SIP_SKIP
     inline const QgsWkbPtr &operator>>( int &v ) const { read( v ); return *this; } SIP_SKIP
-#ifndef Q_PROCESSOR_X86_32
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     //! Reads an integer value into a qsizetype
     inline const QgsWkbPtr &operator>>( qsizetype &r ) const { int v; read( v ); r = v; return *this; } SIP_SKIP
 #endif
@@ -92,7 +92,7 @@ class CORE_EXPORT QgsWkbPtr
     inline QgsWkbPtr &operator<<( float r ) { double v = r; write( v ); return *this; } SIP_SKIP
     //! Writes an int to the pointer
     inline QgsWkbPtr &operator<<( int v ) { write( v ); return *this; } SIP_SKIP
-#ifndef Q_PROCESSOR_X86_32
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     //! Writes a size as int to the pointer
     inline QgsWkbPtr &operator<<( qsizetype r ) { int v = r; write( v ); return *this; } SIP_SKIP
 #endif
@@ -198,7 +198,7 @@ class CORE_EXPORT QgsConstWkbPtr
     template<typename T> void endian_swap( T &value ) const SIP_SKIP
     {
       char *data = reinterpret_cast<char *>( &value );
-      std::size_t n = sizeof( value );
+      const std::size_t n = sizeof( value );
       for ( std::size_t i = 0, m = n / 2; i < m; ++i )
       {
         std::swap( data[i], data[n - 1 - i] );

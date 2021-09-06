@@ -53,7 +53,7 @@
 #include "qgsprocessingwidgetwrapper.h"
 #include "qgstemporalcontroller.h"
 #include "qgsdoublevalidator.h"
-
+#include "qgsmarkersymbol.h"
 
 
 // ------------------------------ Model ------------------------------------
@@ -459,12 +459,14 @@ QgsGraduatedSymbolRendererWidget::QgsGraduatedSymbolRendererWidget( QgsVectorLay
   if ( !mRenderer )
   {
     mRenderer = std::make_unique< QgsGraduatedSymbolRenderer >( QString(), QgsRangeList() );
+    if ( renderer )
+      renderer->copyRendererData( mRenderer.get() );
   }
 
   // setup user interface
   setupUi( this );
 
-  mSymmetryPointValidator = new QDoubleValidator();
+  mSymmetryPointValidator = new QgsDoubleValidator( this );
   cboSymmetryPoint->setEditable( true );
   cboSymmetryPoint->setValidator( mSymmetryPointValidator );
 
@@ -523,28 +525,28 @@ QgsGraduatedSymbolRendererWidget::QgsGraduatedSymbolRendererWidget( QgsVectorLay
     methodComboBox->addItem( tr( "Color" ), ColorMode );
     switch ( mGraduatedSymbol->type() )
     {
-      case QgsSymbol::Marker:
+      case Qgis::SymbolType::Marker:
       {
         methodComboBox->addItem( tr( "Size" ), SizeMode );
         minSizeSpinBox->setValue( 1 );
         maxSizeSpinBox->setValue( 8 );
         break;
       }
-      case QgsSymbol::Line:
+      case Qgis::SymbolType::Line:
       {
         methodComboBox->addItem( tr( "Size" ), SizeMode );
         minSizeSpinBox->setValue( .1 );
         maxSizeSpinBox->setValue( 2 );
         break;
       }
-      case QgsSymbol::Fill:
+      case Qgis::SymbolType::Fill:
       {
         //set button and label invisible to avoid display of a single item combobox
         methodComboBox->hide();
         labelMethod->hide();
         break;
       }
-      case QgsSymbol::Hybrid:
+      case Qgis::SymbolType::Hybrid:
         break;
     }
     methodComboBox->blockSignals( false );
@@ -576,8 +578,8 @@ QgsGraduatedSymbolRendererWidget::QgsGraduatedSymbolRendererWidget( QgsVectorLay
   // menus for data-defined rotation/size
   QMenu *advMenu = new QMenu( this );
 
-  advMenu->addAction( tr( "Symbol Levels…" ), this, SLOT( showSymbolLevels() ) );
-  if ( mGraduatedSymbol && mGraduatedSymbol->type() == QgsSymbol::Marker )
+  mActionLevels = advMenu->addAction( tr( "Symbol Levels…" ), this, &QgsGraduatedSymbolRendererWidget::showSymbolLevels );
+  if ( mGraduatedSymbol && mGraduatedSymbol->type() == Qgis::SymbolType::Marker )
   {
     QAction *actionDdsLegend = advMenu->addAction( tr( "Data-defined Size Legend…" ) );
     // only from Qt 5.6 there is convenience addAction() with new style connection
@@ -620,6 +622,12 @@ void QgsGraduatedSymbolRendererWidget::setContext( const QgsSymbolWidgetContext 
   QgsRendererWidget::setContext( context );
   btnChangeGraduatedSymbol->setMapCanvas( context.mapCanvas() );
   btnChangeGraduatedSymbol->setMessageBar( context.messageBar() );
+}
+
+void QgsGraduatedSymbolRendererWidget::disableSymbolLevels()
+{
+  delete mActionLevels;
+  mActionLevels = nullptr;
 }
 
 // Connect/disconnect event handlers which trigger updating renderer
@@ -687,7 +695,7 @@ void QgsGraduatedSymbolRendererWidget::updateUiFromRenderer( bool updateCount )
   while ( cboSymmetryPoint->count() )
     cboSymmetryPoint->removeItem( 0 );
   for ( int i = 0; i < ranges.count() - 1; i++ )
-    cboSymmetryPoint->addItem( QString::number( ranges.at( i ).upperValue(), 'f', precision ), ranges.at( i ).upperValue() );
+    cboSymmetryPoint->addItem( QLocale().toString( ranges.at( i ).upperValue(), 'f', precision ), ranges.at( i ).upperValue() );
 
   if ( method )
   {
@@ -911,6 +919,21 @@ void QgsGraduatedSymbolRendererWidget::refreshRanges( bool )
   emit widgetChanged();
 }
 
+void QgsGraduatedSymbolRendererWidget::setSymbolLevels( const QgsLegendSymbolList &levels, bool enabled )
+{
+  for ( const QgsLegendSymbolItem &legendSymbol : levels )
+  {
+    QgsSymbol *sym = legendSymbol.symbol();
+    for ( int layer = 0; layer < sym->symbolLayerCount(); layer++ )
+    {
+      mRenderer->setLegendSymbolItem( legendSymbol.ruleKey(), sym->clone() );
+    }
+  }
+  mRenderer->setUsingSymbolLevels( enabled );
+  mModel->updateSymbology();
+  emit widgetChanged();
+}
+
 void QgsGraduatedSymbolRendererWidget::cleanUpSymbolSelector( QgsPanelWidget *container )
 {
   QgsSymbolSelectorWidget *dlg = qobject_cast<QgsSymbolSelectorWidget *>( container );
@@ -1001,7 +1024,7 @@ void QgsGraduatedSymbolRendererWidget::classifyGraduated()
   double maximum = maxVal.toDouble();
   mSymmetryPointValidator->setBottom( minimum );
   mSymmetryPointValidator->setTop( maximum );
-  mSymmetryPointValidator->setDecimals( spinPrecision->value() );
+  mSymmetryPointValidator->setMaxDecimals( spinPrecision->value() );
 
   if ( method->id() == QgsClassificationEqualInterval::METHOD_ID ||
        method->id() == QgsClassificationStandardDeviation::METHOD_ID )
