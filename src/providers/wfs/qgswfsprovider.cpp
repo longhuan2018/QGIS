@@ -119,7 +119,7 @@ QgsWFSProvider::QgsWFSProvider( const QString &uri, const ProviderOptions &optio
   }
 
   //Failed to detect feature type from describeFeatureType -> get first feature from layer to detect type
-  if ( mShared->mWKBType == QgsWkbTypes::Unknown )
+  //if ( mShared->mWKBType == QgsWkbTypes::Unknown )
   {
     const bool requestMadeFromMainThread = QThread::currentThread() == QApplication::instance()->thread();
     auto downloader = qgis::make_unique<QgsFeatureDownloader>();
@@ -712,6 +712,18 @@ void QgsWFSProvider::featureReceivedAnalyzeOneFeature( QVector<QgsFeatureUniqueI
             mShared->mWKBType = QgsWkbTypes::Unknown;
           }
         }
+      }
+
+      QgsPoint point = *(geometry.vertices_begin());
+
+      if ( point.is3D() || point.dropZValue() )
+      {
+        mShared->mWKBType = QgsWkbTypes::addZ(mShared->mWKBType);
+      }
+
+      if ( point.isMeasure() || point.dropMValue() )
+      {
+        mShared->mWKBType = QgsWkbTypes::addM(mShared->mWKBType);
       }
     }
   }

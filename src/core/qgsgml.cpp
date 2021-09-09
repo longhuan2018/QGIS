@@ -953,7 +953,7 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
   }
   else if ( parseMode == LowerCorner && isGMLNS && LOCALNAME_EQUALS( "lowerCorner" ) )
   {
-    QList<QgsPointXY> points;
+    QList<QgsPoint> points;
     pointsFromPosListString( points, mStringCash, 2 );
     if ( points.size() == 1 )
     {
@@ -964,7 +964,7 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
   }
   else if ( parseMode == UpperCorner && isGMLNS && LOCALNAME_EQUALS( "upperCorner" ) )
   {
-    QList<QgsPointXY> points;
+    QList<QgsPoint> points;
     pointsFromPosListString( points, mStringCash, 2 );
     if ( points.size() == 1 )
     {
@@ -1009,7 +1009,7 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
   }
   else if ( isGMLNS && LOCALNAME_EQUALS( "Point" ) )
   {
-    QList<QgsPointXY> pointList;
+    QList<QgsPoint> pointList;
     if ( pointsFromString( pointList, mStringCash ) != 0 )
     {
       //error
@@ -1053,7 +1053,7 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
   {
     //add WKB point to the feature
 
-    QList<QgsPointXY> pointList;
+    QList<QgsPoint> pointList;
     if ( pointsFromString( pointList, mStringCash ) != 0 )
     {
       //error
@@ -1091,7 +1091,7 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
   else if ( ( parseMode == Geometry || parseMode == MultiPolygon ) &&
             isGMLNS && LOCALNAME_EQUALS( "LinearRing" ) )
   {
-    QList<QgsPointXY> pointList;
+    QList<QgsPoint> pointList;
     if ( pointsFromString( pointList, mStringCash ) != 0 )
     {
       //error
@@ -1119,6 +1119,10 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
     if ( mWkbType != QgsWkbTypes::MultiPolygon )//keep multitype in case of geometry type mix
     {
       mWkbType = QgsWkbTypes::Polygon;
+      if ( mDimension > 2 )
+        mWkbType = QgsWkbTypes::addZ( mWkbType );
+      if ( mDimension > 3 )
+        mWkbType = QgsWkbTypes::addM( mWkbType );
     }
 
     if ( parseMode == Geometry )
@@ -1137,6 +1141,10 @@ void QgsGmlStreamingParser::endElement( const XML_Char *el )
             ( LOCALNAME_EQUALS( "MultiLineString" )  || LOCALNAME_EQUALS( "MultiCurve" ) ) )
   {
     mWkbType = QgsWkbTypes::MultiLineString;
+    if ( mDimension > 2 )
+      mWkbType = QgsWkbTypes::addZ( mWkbType );
+    if ( mDimension > 3 )
+      mWkbType = QgsWkbTypes::addM( mWkbType );
     mParseModeStack.pop();
     createMultiLineFromFragments();
   }
@@ -1299,7 +1307,7 @@ QString QgsGmlStreamingParser::readAttribute( const QString &attributeName, cons
 
 bool QgsGmlStreamingParser::createBBoxFromCoordinateString( QgsRectangle &r, const QString &coordString ) const
 {
-  QList<QgsPointXY> points;
+  QList<QgsPoint> points;
   if ( pointsFromCoordinateString( points, coordString ) != 0 )
   {
     return false;
@@ -1315,7 +1323,7 @@ bool QgsGmlStreamingParser::createBBoxFromCoordinateString( QgsRectangle &r, con
   return true;
 }
 
-int QgsGmlStreamingParser::pointsFromCoordinateString( QList<QgsPointXY> &points, const QString &coordString ) const
+int QgsGmlStreamingParser::pointsFromCoordinateString( QList<QgsPoint> &points, const QString &coordString ) const
 {
   //tuples are separated by space, x/y by ','
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
@@ -1349,12 +1357,22 @@ int QgsGmlStreamingParser::pointsFromCoordinateString( QList<QgsPointXY> &points
     {
       continue;
     }
-    points.push_back( ( mInvertAxisOrientation ) ? QgsPointXY( y, x ) : QgsPointXY( x, y ) );
+    double z = std::numeric_limits<double>::quiet_NaN();
+    double m = std::numeric_limits<double>::quiet_NaN();
+    if ( tuples_coordinates.size() > 2 )
+    {
+      z = tuples_coordinates.at( 2 ).toDouble( &conversionSuccess );
+      if ( tuples_coordinates.size() > 3 )
+        m = tuples_coordinates.at( 3 ).toDouble( &conversionSuccess );
+      if ( !conversionSuccess )
+      	continue;
+    }
+    points.push_back( ( mInvertAxisOrientation ) ? QgsPoint( y, x , z, m ) : QgsPoint( x, y , z, m ) );
   }
   return 0;
 }
 
-int QgsGmlStreamingParser::pointsFromPosListString( QList<QgsPointXY> &points, const QString &coordString, int dimension ) const
+int QgsGmlStreamingParser::pointsFromPosListString( QList<QgsPoint> &points, const QString &coordString, int dimension ) const
 {
   // coordinates separated by spaces
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
@@ -1382,12 +1400,22 @@ int QgsGmlStreamingParser::pointsFromPosListString( QList<QgsPointXY> &points, c
     {
       continue;
     }
-    points.append( ( mInvertAxisOrientation ) ? QgsPointXY( y, x ) : QgsPointXY( x, y ) );
+    double z = std::numeric_limits<double>::quiet_NaN();
+    double m = std::numeric_limits<double>::quiet_NaN();
+    if ( dimension > 2 )
+    {
+      z = coordinates.value( i * dimension + 2 ).toDouble( &conversionSuccess );
+      if ( dimension > 3 )
+        m = coordinates.value( i * dimension + 3 ).toDouble( &conversionSuccess );
+      if ( !conversionSuccess )
+        continue;
+    }
+    points.append( ( mInvertAxisOrientation ) ? QgsPoint( y, x , z, m ) : QgsPoint( x, y , z, m ) );
   }
   return 0;
 }
 
-int QgsGmlStreamingParser::pointsFromString( QList<QgsPointXY> &points, const QString &coordString ) const
+int QgsGmlStreamingParser::pointsFromString( QList<QgsPoint> &points, const QString &coordString ) const
 {
   if ( mCoorMode == QgsGmlStreamingParser::Coordinate )
   {
@@ -1400,48 +1428,87 @@ int QgsGmlStreamingParser::pointsFromString( QList<QgsPointXY> &points, const QS
   return 1;
 }
 
-int QgsGmlStreamingParser::getPointWKB( QgsWkbPtr &wkbPtr, const QgsPointXY &point ) const
+int QgsGmlStreamingParser::getPointWKB( QgsWkbPtr &wkbPtr, const QgsPoint &point ) const
 {
   int wkbSize = 1 + sizeof( int ) + 2 * sizeof( double );
+  auto wkbType = QgsWkbTypes::Point;
+  if ( mDimension > 2 )
+  {
+    wkbType = QgsWkbTypes::addZ( wkbType );
+    wkbSize += sizeof( double );
+  }
+  if ( mDimension > 3 )
+  {
+    wkbType = QgsWkbTypes::addM( wkbType );
+    wkbSize += sizeof( double );
+  }
   wkbPtr = QgsWkbPtr( new unsigned char[wkbSize], wkbSize );
 
   QgsWkbPtr fillPtr( wkbPtr );
-  fillPtr << mEndian << QgsWkbTypes::Point << point.x() << point.y();
+  fillPtr << mEndian << wkbType << point.x() << point.y();
+  if ( mDimension > 2 )
+    fillPtr << point.z();
+  if ( mDimension > 3 )
+    fillPtr << point.m();
 
   return 0;
 }
 
-int QgsGmlStreamingParser::getLineWKB( QgsWkbPtr &wkbPtr, const QList<QgsPointXY> &lineCoordinates ) const
+int QgsGmlStreamingParser::getLineWKB( QgsWkbPtr &wkbPtr, const QList<QgsPoint> &lineCoordinates ) const
 {
   int wkbSize = 1 + 2 * sizeof( int ) + lineCoordinates.size() * 2 * sizeof( double );
+  auto wkbType = QgsWkbTypes::LineString;
+  if ( mDimension > 2 )
+  {
+    wkbType = QgsWkbTypes::addZ( wkbType );
+    wkbSize += lineCoordinates.size() * sizeof( double );
+  }
+  if ( mDimension > 3 )
+  {
+    wkbType = QgsWkbTypes::addM( wkbType );
+    wkbSize += lineCoordinates.size() * sizeof( double );
+  }
   wkbPtr = QgsWkbPtr( new unsigned char[wkbSize], wkbSize );
 
   QgsWkbPtr fillPtr( wkbPtr );
 
-  fillPtr << mEndian << QgsWkbTypes::LineString << lineCoordinates.size();
+  fillPtr << mEndian << wkbType << lineCoordinates.size();
 
-  QList<QgsPointXY>::const_iterator iter;
+  QList<QgsPoint>::const_iterator iter;
   for ( iter = lineCoordinates.constBegin(); iter != lineCoordinates.constEnd(); ++iter )
   {
     fillPtr << iter->x() << iter->y();
+    if ( mDimension > 2 )
+      fillPtr << iter->z();
+    if ( mDimension > 3 )
+      fillPtr << iter->m();
   }
 
   return 0;
 }
 
-int QgsGmlStreamingParser::getRingWKB( QgsWkbPtr &wkbPtr, const QList<QgsPointXY> &ringCoordinates ) const
+int QgsGmlStreamingParser::getRingWKB( QgsWkbPtr &wkbPtr, const QList<QgsPoint> &ringCoordinates ) const
 {
-  int wkbSize = sizeof( int ) + ringCoordinates.size() * 2 * sizeof( double );
+  int wkbSize = sizeof( int ) + ringCoordinates.size() * ( 2 * sizeof( double ) );
+  if (mDimension > 2)
+    wkbSize += ringCoordinates.size() * sizeof(double);
+  if (mDimension > 3)
+    wkbSize += ringCoordinates.size() * sizeof(double);
+
   wkbPtr = QgsWkbPtr( new unsigned char[wkbSize], wkbSize );
 
   QgsWkbPtr fillPtr( wkbPtr );
 
   fillPtr << ringCoordinates.size();
 
-  QList<QgsPointXY>::const_iterator iter;
+  QList<QgsPoint>::const_iterator iter;
   for ( iter = ringCoordinates.constBegin(); iter != ringCoordinates.constEnd(); ++iter )
   {
     fillPtr << iter->x() << iter->y();
+    if ( mDimension > 2 )
+      fillPtr << iter->z();
+    if ( mDimension > 3 )
+      fillPtr << iter->m();
   }
 
   return 0;
@@ -1451,10 +1518,15 @@ int QgsGmlStreamingParser::createMultiLineFromFragments()
 {
   int size = 1 + 2 * sizeof( int ) + totalWKBFragmentSize();
   mCurrentWKB = QgsWkbPtr( new unsigned char[size], size );
+  auto wkbType = QgsWkbTypes::MultiLineString;
+  if ( mDimension > 2 )
+    wkbType = QgsWkbTypes::addZ( wkbType );
+  if ( mDimension > 3 )
+    wkbType = QgsWkbTypes::addM( wkbType );
 
   QgsWkbPtr wkbPtr( mCurrentWKB );
 
-  wkbPtr << mEndian << QgsWkbTypes::MultiLineString << mCurrentWKBFragments.constBegin()->size();
+  wkbPtr << mEndian << wkbType << mCurrentWKBFragments.constBegin()->size();
 
   //copy (and delete) all the wkb fragments
   QList<QgsWkbPtr>::const_iterator wkbIt = mCurrentWKBFragments.constBegin()->constBegin();
@@ -1466,7 +1538,7 @@ int QgsGmlStreamingParser::createMultiLineFromFragments()
   }
 
   mCurrentWKBFragments.clear();
-  mWkbType = QgsWkbTypes::MultiLineString;
+  mWkbType = wkbType;
   return 0;
 }
 
@@ -1474,9 +1546,14 @@ int QgsGmlStreamingParser::createMultiPointFromFragments()
 {
   int size = 1 + 2 * sizeof( int ) + totalWKBFragmentSize();
   mCurrentWKB = QgsWkbPtr( new unsigned char[size], size );
+  auto wkbType = QgsWkbTypes::MultiPoint;
+  if ( mDimension > 2 )
+    wkbType = QgsWkbTypes::addZ( wkbType );
+  if ( mDimension > 3 )
+    wkbType = QgsWkbTypes::addM( wkbType );
 
   QgsWkbPtr wkbPtr( mCurrentWKB );
-  wkbPtr << mEndian << QgsWkbTypes::MultiPoint << mCurrentWKBFragments.constBegin()->size();
+  wkbPtr << mEndian << wkbType << mCurrentWKBFragments.constBegin()->size();
 
   QList<QgsWkbPtr>::const_iterator wkbIt = mCurrentWKBFragments.constBegin()->constBegin();
   for ( ; wkbIt != mCurrentWKBFragments.constBegin()->constEnd(); ++wkbIt )
@@ -1487,7 +1564,7 @@ int QgsGmlStreamingParser::createMultiPointFromFragments()
   }
 
   mCurrentWKBFragments.clear();
-  mWkbType = QgsWkbTypes::MultiPoint;
+  mWkbType = wkbType;
   return 0;
 }
 
@@ -1496,9 +1573,14 @@ int QgsGmlStreamingParser::createPolygonFromFragments()
 {
   int size = 1 + 2 * sizeof( int ) + totalWKBFragmentSize();
   mCurrentWKB = QgsWkbPtr( new unsigned char[size], size );
+  auto wkbType = QgsWkbTypes::Polygon;
+  if ( mDimension > 2 )
+    wkbType = QgsWkbTypes::addZ( wkbType );
+  if ( mDimension > 3 )
+    wkbType = QgsWkbTypes::addM( wkbType );
 
   QgsWkbPtr wkbPtr( mCurrentWKB );
-  wkbPtr << mEndian << QgsWkbTypes::Polygon << mCurrentWKBFragments.constBegin()->size();
+  wkbPtr << mEndian << wkbType << mCurrentWKBFragments.constBegin()->size();
 
   QList<QgsWkbPtr>::const_iterator wkbIt = mCurrentWKBFragments.constBegin()->constBegin();
   for ( ; wkbIt != mCurrentWKBFragments.constBegin()->constEnd(); ++wkbIt )
@@ -1509,7 +1591,7 @@ int QgsGmlStreamingParser::createPolygonFromFragments()
   }
 
   mCurrentWKBFragments.clear();
-  mWkbType = QgsWkbTypes::Polygon;
+  mWkbType = wkbType;
   return 0;
 }
 
@@ -1521,9 +1603,14 @@ int QgsGmlStreamingParser::createMultiPolygonFromFragments()
   size += mCurrentWKBFragments.size() * ( 1 + 2 * sizeof( int ) ); //fragments are just the rings
 
   mCurrentWKB = QgsWkbPtr( new unsigned char[size], size );
+  auto wkbType = QgsWkbTypes::Polygon;
+  if ( mDimension > 2 )
+    wkbType = QgsWkbTypes::addZ( wkbType );
+  if ( mDimension > 3 )
+    wkbType = QgsWkbTypes::addM( wkbType );
 
   QgsWkbPtr wkbPtr( mCurrentWKB );
-  wkbPtr << ( char ) mEndian << QgsWkbTypes::MultiPolygon << mCurrentWKBFragments.size();
+  wkbPtr << ( char ) mEndian << QgsWkbTypes::multiType(wkbType) << mCurrentWKBFragments.size();
 
   //have outer and inner iterators
   QList< QList<QgsWkbPtr> >::const_iterator outerWkbIt = mCurrentWKBFragments.constBegin();
@@ -1531,7 +1618,7 @@ int QgsGmlStreamingParser::createMultiPolygonFromFragments()
   for ( ; outerWkbIt != mCurrentWKBFragments.constEnd(); ++outerWkbIt )
   {
     //new polygon
-    wkbPtr << ( char ) mEndian << QgsWkbTypes::Polygon << outerWkbIt->size();
+    wkbPtr << ( char ) mEndian << wkbType << outerWkbIt->size();
 
     QList<QgsWkbPtr>::const_iterator innerWkbIt = outerWkbIt->constBegin();
     for ( ; innerWkbIt != outerWkbIt->constEnd(); ++innerWkbIt )
@@ -1543,7 +1630,7 @@ int QgsGmlStreamingParser::createMultiPolygonFromFragments()
   }
 
   mCurrentWKBFragments.clear();
-  mWkbType = QgsWkbTypes::MultiPolygon;
+  mWkbType = QgsWkbTypes::multiType( wkbType );
   return 0;
 }
 

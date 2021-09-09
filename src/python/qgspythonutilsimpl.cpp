@@ -17,7 +17,7 @@
 // otherwise issues some warnings
 #ifdef _MSC_VER
 #ifdef _DEBUG
-#undef _DEBUG
+//#undef _DEBUG
 #endif
 #endif
 #include <Python.h>

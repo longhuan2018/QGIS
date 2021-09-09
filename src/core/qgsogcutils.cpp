@@ -1211,6 +1211,7 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
   QDomElement baseCoordElem;
 
   bool hasZValue = false;
+  bool hasMValue = false;
 
   QByteArray wkb( geometry.asWkb() );
   QgsConstWkbPtr wkbPtr( wkb );
@@ -1256,6 +1257,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
       case QgsWkbTypes::Point25D:
       case QgsWkbTypes::Point:
       {
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
         QDomElement pointElem = doc.createElement( QStringLiteral( "gml:Point" ) );
         if ( gmlVersion == GML_3_2_1 && !gmlIdBase.isEmpty() )
           pointElem.setAttribute( QStringLiteral( "gml:id" ), gmlIdBase );
@@ -1269,16 +1282,42 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
           wkbPtr >> y >> x;
         else
           wkbPtr >> x >> y;
-        QDomText coordText = doc.createTextNode( qgsDoubleToString( x, precision ) + cs + qgsDoubleToString( y, precision ) );
+        QString coordString = qgsDoubleToString( x, precision ) + cs + qgsDoubleToString( y, precision );
 
+        if ( hasZValue )
+        {
+          //wkbPtr += sizeof( double );
+          double z;
+          wkbPtr >> z;
+          coordString += cs + qgsDoubleToString(z, precision);
+        }
+
+        if ( hasMValue )
+        {
+          //wkbPtr += sizeof( double );
+          double m;
+          wkbPtr >> m;
+          coordString += cs + qgsDoubleToString(m, precision);
+        }
+
+        QDomText coordText = doc.createTextNode( coordString );
         coordElem.appendChild( coordText );
         pointElem.appendChild( coordElem );
         return pointElem;
       }
       case QgsWkbTypes::MultiPoint25D:
-        hasZValue = true;
-        //intentional fall-through
-        FALLTHROUGH
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
       case QgsWkbTypes::MultiPoint:
       {
         QDomElement multiPointElem = doc.createElement( QStringLiteral( "gml:MultiPoint" ) );
@@ -1305,24 +1344,48 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
             wkbPtr >> y >> x;
           else
             wkbPtr >> x >> y;
-          QDomText coordText = doc.createTextNode( qgsDoubleToString( x, precision ) + cs + qgsDoubleToString( y, precision ) );
+          QString coordString = qgsDoubleToString( x, precision ) + cs + qgsDoubleToString( y, precision );
+
+          if ( hasZValue )
+          {
+            //wkbPtr += sizeof( double );
+            double z;
+            wkbPtr >> z;
+            coordString += cs + qgsDoubleToString(z, precision);
+          }
+
+          if ( hasMValue )
+          {
+            //wkbPtr += sizeof( double );
+            double m;
+            wkbPtr >> m;
+            coordString += cs + qgsDoubleToString(m, precision);
+          }
+
+          QDomText coordText = doc.createTextNode( coordString );
 
           coordElem.appendChild( coordText );
           pointElem.appendChild( coordElem );
 
-          if ( hasZValue )
-          {
-            wkbPtr += sizeof( double );
-          }
+
           pointMemberElem.appendChild( pointElem );
           multiPointElem.appendChild( pointMemberElem );
         }
         return multiPointElem;
       }
       case QgsWkbTypes::LineString25D:
-        hasZValue = true;
-        //intentional fall-through
-        FALLTHROUGH
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
       case QgsWkbTypes::LineString:
       {
         QDomElement lineStringElem = doc.createElement( QStringLiteral( "gml:LineString" ) );
@@ -1353,7 +1416,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
 
           if ( hasZValue )
           {
-            wkbPtr += sizeof( double );
+            //wkbPtr += sizeof( double );
+            double z;
+            wkbPtr >> z;
+            coordString += cs + qgsDoubleToString(z, precision);
+          }
+
+          if ( hasMValue )
+          {
+            //wkbPtr += sizeof( double );
+            double m;
+            wkbPtr >> m;
+            coordString += cs + qgsDoubleToString(m, precision);
           }
         }
         QDomText coordText = doc.createTextNode( coordString );
@@ -1362,9 +1436,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
         return lineStringElem;
       }
       case QgsWkbTypes::MultiLineString25D:
-        hasZValue = true;
-        //intentional fall-through
-        FALLTHROUGH
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
       case QgsWkbTypes::MultiLineString:
       {
         QDomElement multiLineStringElem = doc.createElement( QStringLiteral( "gml:MultiLineString" ) );
@@ -1407,7 +1490,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
 
             if ( hasZValue )
             {
-              wkbPtr += sizeof( double );
+              //wkbPtr += sizeof( double );
+              double z;
+              wkbPtr >> z;
+              coordString += cs + qgsDoubleToString(z, precision);
+            }
+
+            if ( hasMValue )
+            {
+              //wkbPtr += sizeof( double );
+              double m;
+              wkbPtr >> m;
+              coordString += cs + qgsDoubleToString(m, precision);
             }
           }
           QDomText coordText = doc.createTextNode( coordString );
@@ -1419,9 +1513,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
         return multiLineStringElem;
       }
       case QgsWkbTypes::Polygon25D:
-        hasZValue = true;
-        //intentional fall-through
-        FALLTHROUGH
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
       case QgsWkbTypes::Polygon:
       {
         QDomElement polygonElem = doc.createElement( QStringLiteral( "gml:Polygon" ) );
@@ -1471,7 +1574,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
             coordString += qgsDoubleToString( x, precision ) + cs + qgsDoubleToString( y, precision );
             if ( hasZValue )
             {
-              wkbPtr += sizeof( double );
+              //wkbPtr += sizeof( double );
+              double z;
+              wkbPtr >> z;
+              coordString += cs + qgsDoubleToString(z, precision);
+            }
+
+            if ( hasMValue )
+            {
+              //wkbPtr += sizeof( double );
+              double m;
+              wkbPtr >> m;
+              coordString += cs + qgsDoubleToString(m, precision);
             }
           }
           QDomText coordText = doc.createTextNode( coordString );
@@ -1484,9 +1598,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
         return polygonElem;
       }
       case QgsWkbTypes::MultiPolygon25D:
-        hasZValue = true;
-        //intentional fall-through
-        FALLTHROUGH
+        if ( QgsWkbTypes::hasZ( geometry.wkbType() ) )
+        {
+          hasZValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
+        if ( QgsWkbTypes::hasM( geometry.wkbType() ) )
+        {
+          hasMValue = true;
+          //intentional fall-through
+          FALLTHROUGH
+        }
       case QgsWkbTypes::MultiPolygon:
       {
         QDomElement multiPolygonElem = doc.createElement( QStringLiteral( "gml:MultiPolygon" ) );
@@ -1542,7 +1665,18 @@ QDomElement QgsOgcUtils::geometryToGML( const QgsGeometry &geometry,
 
               if ( hasZValue )
               {
-                wkbPtr += sizeof( double );
+                //wkbPtr += sizeof( double );
+                double z;
+                wkbPtr >> z;
+                coordString += cs + qgsDoubleToString(z, precision);
+              }
+
+              if ( hasMValue )
+              {
+                //wkbPtr += sizeof( double );
+                double m;
+                wkbPtr >> m;
+                coordString += cs + qgsDoubleToString(m, precision);
               }
             }
             QDomText coordText = doc.createTextNode( coordString );
