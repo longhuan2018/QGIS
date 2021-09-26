@@ -23,6 +23,7 @@
 #include "qgsexpression.h"
 #include "qgsexpressioncontextutils.h"
 
+
 QgsMeshAdvancedEditing::QgsMeshAdvancedEditing() = default;
 
 QgsMeshAdvancedEditing::~QgsMeshAdvancedEditing() = default;
@@ -47,8 +48,13 @@ void QgsMeshAdvancedEditing::clear()
   mInputVertices.clear();
   mInputFaces.clear();
   mMessage.clear();
-
+  mIsFinished = false;
   clearChanges();
+}
+
+bool QgsMeshAdvancedEditing::isFinished() const
+{
+  return mIsFinished;
 }
 
 static int vertexPositionInFace( int vertexIndex, const QgsMeshFace &face )
@@ -92,6 +98,8 @@ QgsTopologicalMesh::Changes QgsMeshEditRefineFaces::apply( QgsMeshEditor *meshEd
   }
 
   meshEditor->topologicalMesh().applyChanges( *this );
+
+  mIsFinished = true;
 
   return *this;
 }
@@ -608,7 +616,7 @@ bool QgsMeshTransformVerticesByExpression::calculate( QgsMeshLayer *layer )
   QSet<int> concernedFaces;
   mChangingVertexMap = QHash<int, int>();
 
-  std::unique_ptr<QgsExpressionContextScope> expScope( QgsExpressionContextUtils::meshExpressionScope() );
+  std::unique_ptr<QgsExpressionContextScope> expScope( QgsExpressionContextUtils::meshExpressionScope( QgsMesh::Vertex ) );
   QgsExpressionContext context;
   context.appendScope( expScope.release() );
   context.lastScope()->setVariable( QStringLiteral( "_mesh_layer" ), QVariant::fromValue( layer ) );
@@ -746,6 +754,7 @@ void QgsMeshTransformVerticesByExpression::setExpressions( const QString &expres
 QgsTopologicalMesh::Changes QgsMeshTransformVerticesByExpression::apply( QgsMeshEditor *meshEditor )
 {
   meshEditor->topologicalMesh().applyChanges( *this );
+  mIsFinished = true;
   return *this;
 }
 
@@ -772,4 +781,3 @@ QgsMeshVertex QgsMeshTransformVerticesByExpression::transformedVertex( QgsMeshLa
   else
     return layer->nativeMesh()->vertex( vertexIndex );
 }
-

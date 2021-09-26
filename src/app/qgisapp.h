@@ -149,6 +149,8 @@ class QgsDevToolsPanelWidget;
 class QgsDevToolWidgetFactory;
 class QgsNetworkLogger;
 class QgsNetworkLoggerWidgetFactory;
+class QgsMapToolCapture;
+
 #include <QMainWindow>
 #include <QToolBar>
 #include <QAbstractSocket>
@@ -1819,6 +1821,9 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     //! diagrams properties
     void diagramProperties();
 
+    //! Creates a new annotation layer
+    void createAnnotationLayer();
+
     //! Sets the CAD dock widget visible
     void setCadDockVisible( bool visible );
 
@@ -1984,6 +1989,8 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
 #ifdef HAVE_GEOREFERENCER
     void showGeoreferencer();
 #endif
+
+    void annotationItemTypeAdded( int id );
 
   signals:
 
@@ -2374,6 +2381,10 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      */
     void enableMeshEditingTools( bool enable );
 
+    /**
+     * Returns a list of all capture map tools.
+     */
+    QList< QgsMapToolCapture * > captureTools();
 
     QgisAppStyleSheet *mStyleSheetBuilder = nullptr;
 
@@ -2675,6 +2686,9 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QgsScopedOptionsWidgetFactory mCodeEditorWidgetFactory;
     QgsScopedOptionsWidgetFactory mBabelGpsDevicesWidgetFactory;
     QgsScopedOptionsWidgetFactory m3DOptionsWidgetFactory;
+
+    QMap< QString, QToolButton * > mAnnotationItemGroupToolButtons;
+    QAction *mAnnotationsItemInsertBefore = nullptr; // Used to insert annotation items at the appropriate location in the annotations toolbar
 
     class QgsCanvasRefreshBlocker
     {

@@ -72,6 +72,9 @@ QgsLayerStylingWidget::QgsLayerStylingWidget( QgsMapCanvas *canvas, QgsMessageBa
 {
   setupUi( this );
 
+  mContext.setMapCanvas( canvas );
+  mContext.setMessageBar( messageBar );
+
   mOptionsListWidget->setIconSize( QgisApp::instance()->iconSize( false ) );
   mOptionsListWidget->setMaximumWidth( static_cast< int >( mOptionsListWidget->iconSize().width() * 1.18 ) );
 
@@ -442,6 +445,7 @@ void QgsLayerStylingWidget::updateCurrentWidgetLayer()
     if ( panel )
     {
       panel->setDockMode( true );
+      panel->setMapLayerConfigWidgetContext( mContext );
       connect( panel, &QgsPanelWidget::widgetChanged, this, &QgsLayerStylingWidget::autoApply );
       mWidgetStack->setMainPanel( panel );
     }
@@ -668,11 +672,12 @@ void QgsLayerStylingWidget::updateCurrentWidgetLayer()
       }
 
       case QgsMapLayerType::PointCloudLayer:
+      case QgsMapLayerType::AnnotationLayer:
       {
         break;
       }
+
       case QgsMapLayerType::PluginLayer:
-      case QgsMapLayerType::AnnotationLayer:
       {
         mStackedWidget->setCurrentIndex( mNotSupportedPage );
         break;
@@ -693,6 +698,26 @@ void QgsLayerStylingWidget::setCurrentPage( QgsLayerStylingWidget::Page page )
       mOptionsListWidget->setCurrentRow( i );
       return;
     }
+  }
+}
+
+void QgsLayerStylingWidget::setAnnotationItem( QgsAnnotationLayer *layer, const QString &itemId )
+{
+  mContext.setAnnotationId( itemId );
+  if ( layer )
+    setLayer( layer );
+
+  if ( QgsMapLayerConfigWidget *configWidget = qobject_cast< QgsMapLayerConfigWidget * >( mWidgetStack->mainPanel() ) )
+  {
+    configWidget->setMapLayerConfigWidgetContext( mContext );
+  }
+}
+
+void QgsLayerStylingWidget::focusDefaultWidget()
+{
+  if ( QgsMapLayerConfigWidget *configWidget = qobject_cast< QgsMapLayerConfigWidget * >( mWidgetStack->mainPanel() ) )
+  {
+    configWidget->focusDefaultWidget();
   }
 }
 

@@ -560,7 +560,7 @@ void QgsVertexTool::cadCanvasReleaseEvent( QgsMapMouseEvent *e )
       {
         QgsCoordinateTransform ct = mCanvas->mapSettings().layerTransform( vlayer );
         if ( ct.isValid() )
-          layerRubberBandGeometry.transform( ct, QgsCoordinateTransform::ReverseTransform );
+          layerRubberBandGeometry.transform( ct, Qgis::TransformDirection::Reverse );
       }
       catch ( QgsCsException & )
       {
@@ -2199,14 +2199,16 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
       for ( QgsGeometry g : editGeom )
       {
         QgsGeometry p = QgsGeometry::fromPointXY( QgsPointXY( layerPoint.x(), layerPoint.y() ) );
-        if ( ( mapPointMatch->hasEdge() || mapPointMatch->hasMiddleSegment() ) && mapPointMatch->layer() && ( layer->crs() == mapPointMatch->layer()->crs() ) )
+        if ( ( ( mapPointMatch->hasEdge() || mapPointMatch->hasMiddleSegment() ) && mapPointMatch->layer() && layer->crs() == mapPointMatch->layer()->crs() )
+             || ( mapPointMatch->hasVertex() && !mapPointMatch->layer() && layer->crs() == mCanvas->mapSettings().destinationCrs() ) ) // also add topological points when snapped on intersection
         {
           if ( g.convertToType( QgsWkbTypes::PointGeometry, true ).contains( p ) )
           {
             if ( !layerPoint.is3D() )
               layerPoint.addZValue( defaultZValue() );
             layer->addTopologicalPoints( layerPoint );
-            mapPointMatch->layer()->addTopologicalPoints( layerPoint );
+            if ( mapPointMatch->layer() )
+              mapPointMatch->layer()->addTopologicalPoints( layerPoint );
           }
         }
         if ( QgsProject::instance()->avoidIntersectionsMode() != QgsProject::AvoidIntersectionsMode::AllowIntersections )
@@ -2510,7 +2512,6 @@ void QgsVertexTool::deleteVertex()
       std::sort( vertexIds.begin(), vertexIds.end(), std::greater<int>() );
       for ( int vertexId : vertexIds )
       {
-        QgsMessageLog::logMessage( "DELETE : fid:" + QString::number( fid ) + " ; vertexId:" + QString::number( vertexId ), "DEBUG" );
         if ( res != Qgis::VectorEditResult::EmptyGeometry )
           res = layer->deleteVertex( fid, vertexId );
         if ( res != Qgis::VectorEditResult::EmptyGeometry && res != Qgis::VectorEditResult::Success )

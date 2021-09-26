@@ -153,6 +153,7 @@ QgsMapCanvas::QgsMapCanvas( QWidget *parent )
   connect( QgsProject::instance(), &QgsProject::writeProject,
            this, &QgsMapCanvas::writeProject );
 
+  connect( QgsProject::instance()->mainAnnotationLayer(), &QgsMapLayer::repaintRequested, this, &QgsMapCanvas::layerRepaintRequested );
   connect( QgsProject::instance()->mapThemeCollection(), &QgsMapThemeCollection::mapThemeChanged, this, &QgsMapCanvas::mapThemeChanged );
   connect( QgsProject::instance()->mapThemeCollection(), &QgsMapThemeCollection::mapThemeRenamed, this, &QgsMapCanvas::mapThemeRenamed );
   connect( QgsProject::instance()->mapThemeCollection(), &QgsMapThemeCollection::mapThemesChanged, this, &QgsMapCanvas::projectThemesChanged );
@@ -253,12 +254,29 @@ QgsMapCanvas::~QgsMapCanvas()
   }
   mLastNonZoomMapTool = nullptr;
 
+  cancelJobs();
+
+  // delete canvas items prior to deleting the canvas
+  // because they might try to update canvas when it's
+  // already being destructed, ends with segfault
+  qDeleteAll( mScene->items() );
+
+  mScene->deleteLater();  // crashes in python tests on windows
+
+  delete mCache;
+}
+
+
+void QgsMapCanvas::cancelJobs()
+{
+
   // rendering job may still end up writing into canvas map item
   // so kill it before deleting canvas items
   if ( mJob )
   {
     whileBlocking( mJob )->cancel();
     delete mJob;
+    mJob = nullptr;
   }
 
   QList< QgsMapRendererQImageJob * >::const_iterator previewJob = mPreviewJobs.constBegin();
@@ -270,16 +288,8 @@ QgsMapCanvas::~QgsMapCanvas()
       delete *previewJob;
     }
   }
-
-  // delete canvas items prior to deleting the canvas
-  // because they might try to update canvas when it's
-  // already being destructed, ends with segfault
-  qDeleteAll( mScene->items() );
-
-  mScene->deleteLater();  // crashes in python tests on windows
-
-  delete mCache;
 }
+
 
 void QgsMapCanvas::setMagnificationFactor( double factor, const QgsPointXY *center )
 {
@@ -495,14 +505,13 @@ void QgsMapCanvas::setCachingEnabled( bool enabled )
   if ( enabled )
   {
     mCache = new QgsMapRendererCache;
-    mPreviousRenderedItemResults = std::make_unique< QgsRenderedItemResults >();
   }
   else
   {
     delete mCache;
     mCache = nullptr;
-    mPreviousRenderedItemResults.reset();
   }
+  mPreviousRenderedItemResults.reset();
 }
 
 bool QgsMapCanvas::isCachingEnabled() const
@@ -516,7 +525,9 @@ void QgsMapCanvas::clearCache()
     mCache->clear();
 
   if ( mPreviousRenderedItemResults )
-    mPreviousRenderedItemResults = std::make_unique< QgsRenderedItemResults >();
+    mPreviousRenderedItemResults.reset();
+  if ( mRenderedItemResults )
+    mRenderedItemResults.reset();
 }
 
 void QgsMapCanvas::setParallelRenderingEnabled( bool enabled )
@@ -723,12 +734,20 @@ void QgsMapCanvas::rendererJobFinished()
       // also transfer any results from previous renders which happened before this
       renderedItemResults->transferResults( mPreviousRenderedItemResults.get(), mJob->layersRedrawnFromCache() );
     }
+
+    if ( mCache && !mPreviousRenderedItemResults )
+      mPreviousRenderedItemResults = std::make_unique< QgsRenderedItemResults >( mJob->mapSettings().extent() );
+
     if ( mRenderedItemResults && mPreviousRenderedItemResults )
     {
       // for other layers which ARE present in the most recent rendered item results BUT were not part of this render, we
       // store the results in a temporary store in case they are later switched back on and the layer's image is taken
       // from the cache
       mPreviousRenderedItemResults->transferResults( mRenderedItemResults.get() );
+    }
+    if ( mPreviousRenderedItemResults )
+    {
+      mPreviousRenderedItemResults->eraseResultsFromLayers( mJob->mapSettings().layerIds() );
     }
 
     mRenderedItemResults = std::move( renderedItemResults );
@@ -1776,9 +1795,20 @@ void QgsMapCanvas::keyPressEvent( QKeyEvent *e )
     return;
   }
 
+  // Don't want to interfer with mouse events
   if ( ! mCanvasProperties->mouseButtonDown )
   {
-    // Don't want to interfer with mouse events
+    // this is backwards, but we can't change now without breaking api because
+    // forever QgsMapTools have had to explicitly mark events as ignored in order to
+    // indicate that they've consumed the event and that the default behavior should not
+    // be applied..!
+    e->accept();
+    if ( mMapTool )
+    {
+      mMapTool->keyPressEvent( e );
+      if ( !e->isAccepted() ) // map tool consumed event
+        return;
+    }
 
     QgsRectangle currentExtent = mapSettings().visibleExtent();
     double dx = std::fabs( currentExtent.width() / 4 );
@@ -1809,8 +1839,6 @@ void QgsMapCanvas::keyPressEvent( QKeyEvent *e )
         setCenter( center() - QgsVector( 0, dy ).rotateBy( rotation() * M_PI / 180.0 ) );
         refresh();
         break;
-
-
 
       case Qt::Key_Space:
         QgsDebugMsgLevel( QStringLiteral( "Pressing pan selector" ), 2 );
@@ -1848,19 +1876,16 @@ void QgsMapCanvas::keyPressEvent( QKeyEvent *e )
 
       default:
         // Pass it on
-        if ( mMapTool )
+        if ( !mMapTool )
         {
-          mMapTool->keyPressEvent( e );
+          e->ignore();
+          QgsDebugMsgLevel( "Ignoring key: " + QString::number( e->key() ), 2 );
         }
-        else e->ignore();
-
-        QgsDebugMsgLevel( "Ignoring key: " + QString::number( e->key() ), 2 );
     }
   }
 
   emit keyPressed( e );
-
-} //keyPressEvent()
+}
 
 void QgsMapCanvas::keyReleaseEvent( QKeyEvent *e )
 {
@@ -1927,14 +1952,14 @@ void QgsMapCanvas::endZoomRect( QPoint pos )
   mZoomRect.setRight( pos.x() );
   mZoomRect.setBottom( pos.y() );
 
+  //account for bottom right -> top left dragging
+  mZoomRect = mZoomRect.normalized();
+
   if ( mZoomRect.width() < 5 && mZoomRect.height() < 5 )
   {
     //probably a mistake - would result in huge zoom!
     return;
   }
-
-  //account for bottom right -> top left dragging
-  mZoomRect = mZoomRect.normalized();
 
   // set center and zoom
   const QSize &zoomRectSize = mZoomRect.size();

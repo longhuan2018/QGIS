@@ -44,6 +44,8 @@ class CORE_EXPORT QgsAnnotationMarkerItem : public QgsAnnotationItem
     bool writeXml( QDomElement &element, QDomDocument &document, const QgsReadWriteContext &context ) const override;
     Qgis::AnnotationItemFlags flags() const override;
     QList< QgsAnnotationItemNode > nodes() const override;
+    Qgis::AnnotationItemEditOperationResult applyEdit( QgsAbstractAnnotationItemEditOperation *operation ) override;
+    QgsAnnotationItemEditOperationTransientResults *transientEditResults( QgsAbstractAnnotationItemEditOperation *operation ) override SIP_FACTORY;
 
     /**
      * Creates a new marker annotation item.

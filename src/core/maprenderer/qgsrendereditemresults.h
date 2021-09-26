@@ -20,14 +20,15 @@
 
 #include "qgis_core.h"
 #include "qgis_sip.h"
+#include "qgsrectangle.h"
 #include <memory>
 #include <QList>
 #include <vector>
+#include <unordered_map>
 
 class QgsRenderedItemDetails;
 class QgsRenderContext;
 class QgsRenderedAnnotationItemDetails;
-class QgsRectangle;
 
 ///@cond PRIVATE
 class QgsRenderedItemResultsSpatialIndex;
@@ -41,7 +42,14 @@ class QgsRenderedItemResultsSpatialIndex;
 class CORE_EXPORT QgsRenderedItemResults
 {
   public:
-    QgsRenderedItemResults();
+
+    /**
+     * Constructor for QgsRenderedItemResults.
+     *
+     * The \a extent argument can be used to specify an expected maximal extent for items which
+     * will be stored in the results. This helps to optimise the spatial indices used by the object.
+     */
+    QgsRenderedItemResults( const QgsRectangle &extent = QgsRectangle() );
     ~QgsRenderedItemResults();
 
     //! QgsRenderedItemResults cannot be copied.
@@ -90,12 +98,19 @@ class CORE_EXPORT QgsRenderedItemResults
      */
     void transferResults( QgsRenderedItemResults *other );
 
+    /**
+     * Erases results from layers matching those in the specified list of layers IDs.
+     */
+    void eraseResultsFromLayers( const QStringList &layerIds );
+
   private:
 #ifdef SIP_RUN
     QgsRenderedItemResults( const QgsRenderedItemResults & );
 #endif
 
-    std::vector< std::unique_ptr< QgsRenderedItemDetails > > mDetails;
+    QgsRectangle mExtent;
+
+    std::unordered_map< QString, std::vector< std::unique_ptr< QgsRenderedItemDetails > > > mDetails;
     std::unique_ptr< QgsRenderedItemResultsSpatialIndex > mAnnotationItemsIndex;
 
 };

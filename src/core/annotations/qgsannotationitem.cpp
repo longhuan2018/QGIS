@@ -23,7 +23,40 @@ Qgis::AnnotationItemFlags QgsAnnotationItem::flags() const
   return Qgis::AnnotationItemFlags();
 }
 
+Qgis::AnnotationItemEditOperationResult QgsAnnotationItem::applyEdit( QgsAbstractAnnotationItemEditOperation * )
+{
+  return Qgis::AnnotationItemEditOperationResult::Invalid;
+}
+
+QgsAnnotationItemEditOperationTransientResults *QgsAnnotationItem::transientEditResults( QgsAbstractAnnotationItemEditOperation * )
+{
+  return nullptr;
+}
+
 QList<QgsAnnotationItemNode> QgsAnnotationItem::nodes() const
 {
   return {};
+}
+
+void QgsAnnotationItem::copyCommonProperties( const QgsAnnotationItem *other )
+{
+  setZIndex( other->zIndex() );
+  setUseSymbologyReferenceScale( other->useSymbologyReferenceScale() );
+  setSymbologyReferenceScale( other->symbologyReferenceScale() );
+}
+
+bool QgsAnnotationItem::writeCommonProperties( QDomElement &element, QDomDocument &, const QgsReadWriteContext & ) const
+{
+  element.setAttribute( QStringLiteral( "zIndex" ), zIndex() );
+  element.setAttribute( QStringLiteral( "useReferenceScale" ), useSymbologyReferenceScale() ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
+  element.setAttribute( QStringLiteral( "referenceScale" ), qgsDoubleToString( symbologyReferenceScale() ) );
+  return true;
+}
+
+bool QgsAnnotationItem::readCommonProperties( const QDomElement &element, const QgsReadWriteContext & )
+{
+  setZIndex( element.attribute( QStringLiteral( "zIndex" ) ).toInt() );
+  setUseSymbologyReferenceScale( element.attribute( QStringLiteral( "useReferenceScale" ), QStringLiteral( "0" ) ).toInt() );
+  setSymbologyReferenceScale( element.attribute( QStringLiteral( "referenceScale" ) ).toDouble() );
+  return true;
 }

@@ -925,11 +925,12 @@ bool QgsMeshLayer::startFrameEditing( const QgsCoordinateTransform &transform )
   // All dataset group are removed and replace by a unique virtual dataset group that provide vertices elevation value.
   mExtraDatasetUri.clear();
   mDatasetGroupStore.reset( new QgsMeshDatasetGroupStore( this ) );
-  mDatasetGroupStore->addDatasetGroup( new QgsMeshVerticesElevationDatasetGroup( tr( "vertices Z value" ), mNativeMesh.get() ) );
+  mDatasetGroupStore->addDatasetGroup( mMeshEditor->createZValueDatasetGroup() );
   resetDatasetGroupTreeItem();
 
   connect( mMeshEditor, &QgsMeshEditor::meshEdited, this, &QgsMeshLayer::onMeshEdited );
 
+  emit dataChanged();
   emit editingStarted();
 
   return true;
@@ -938,7 +939,10 @@ bool QgsMeshLayer::startFrameEditing( const QgsCoordinateTransform &transform )
 bool QgsMeshLayer::commitFrameEditing( const QgsCoordinateTransform &transform, bool continueEditing )
 {
   if ( !mMeshEditor->checkConsistency() )
+  {
+    QgsMessageLog::logMessage( QObject::tr( "Mesh layer \"%1\" not support mesh editing" ).arg( name() ), QString(), Qgis::MessageLevel::Critical );
     return false;
+  }
 
   stopFrameEditing( transform );
 
@@ -973,12 +977,16 @@ bool QgsMeshLayer::rollBackFrameEditing( const QgsCoordinateTransform &transform
   if ( !mDataProvider )
     return false;
 
+  mTriangularMeshes.clear();
   mDataProvider->reloadData();
   mDataProvider->populateMesh( mNativeMesh.get() );
   updateTriangularMesh( transform );
+  mRendererCache.reset( new QgsMeshLayerRendererCache() );
+  trigger3DUpdate();
 
   if ( continueEditing )
   {
+    mMeshEditor->resetTriangularMesh( triangularMesh() );
     return mMeshEditor->initialize() == QgsMeshEditingError();
   }
   else
@@ -990,6 +998,7 @@ bool QgsMeshLayer::rollBackFrameEditing( const QgsCoordinateTransform &transform
     mDatasetGroupStore.reset( new QgsMeshDatasetGroupStore( this ) );
     mDatasetGroupStore->setPersistentProvider( mDataProvider, QStringList() );
     resetDatasetGroupTreeItem();
+    emit dataChanged();
     return true;
   }
 }
@@ -1002,6 +1011,23 @@ void QgsMeshLayer::stopFrameEditing( const QgsCoordinateTransform &transform )
   mMeshEditor->stopEditing();
   mTriangularMeshes.at( 0 )->update( mNativeMesh.get(), transform );
   mRendererCache.reset( new QgsMeshLayerRendererCache() );
+}
+
+bool QgsMeshLayer::reindex( const QgsCoordinateTransform &transform, bool renumber )
+{
+  if ( !mMeshEditor )
+    return false;
+
+  if ( !mMeshEditor->reindex( renumber ) )
+    return false;
+
+  mTriangularMeshes.clear();
+  mTriangularMeshes.emplace_back( new QgsTriangularMesh );
+  mTriangularMeshes.at( 0 )->update( mNativeMesh.get(), transform );
+  mRendererCache.reset( new QgsMeshLayerRendererCache() );
+  mMeshEditor->resetTriangularMesh( mTriangularMeshes.at( 0 ).get() );
+
+  return true;
 }
 
 QgsMeshEditor *QgsMeshLayer::meshEditor()
@@ -1034,7 +1060,7 @@ bool QgsMeshLayer::contains( const QgsMesh::ElementType &type ) const
 int QgsMeshLayer::meshVertexCount() const
 {
   if ( mMeshEditor )
-    return mNativeMesh->vertexCount();
+    return mMeshEditor->validVerticesCount();
   else if ( mDataProvider )
     return mDataProvider->vertexCount();
   else return 0;
@@ -1043,7 +1069,7 @@ int QgsMeshLayer::meshVertexCount() const
 int QgsMeshLayer::meshFaceCount() const
 {
   if ( mMeshEditor )
-    return mNativeMesh->faceCount();
+    return mMeshEditor->validFacesCount();
   else if ( mDataProvider )
     return mDataProvider->faceCount();
   else return 0;
@@ -1139,7 +1165,7 @@ QgsPointXY QgsMeshLayer::snapOnElement( QgsMesh::ElementType elementType, const 
   return QgsPointXY(); // avoid warnings
 }
 
-QList<int> QgsMeshLayer::selectVerticesByExpression( const QString &expressionString, const QgsExpressionContext &expressionContext )
+QList<int> QgsMeshLayer::selectVerticesByExpression( QgsExpression expression )
 {
   if ( !mNativeMesh )
   {
@@ -1152,11 +1178,8 @@ QList<int> QgsMeshLayer::selectVerticesByExpression( const QString &expressionSt
   if ( !mNativeMesh )
     return ret;
 
-  QgsExpression expression( expressionString );
-  QgsExpressionContext context = expressionContext;
-
-  std::unique_ptr<QgsExpressionContextScope> expScope( QgsExpressionContextUtils::meshExpressionScope() );
-
+  QgsExpressionContext context;
+  std::unique_ptr<QgsExpressionContextScope> expScope( QgsExpressionContextUtils::meshExpressionScope( QgsMesh::Vertex ) );
   context.appendScope( expScope.release() );
   context.lastScope()->setVariable( QStringLiteral( "_mesh_layer" ), QVariant::fromValue( this ) );
 
@@ -1165,6 +1188,37 @@ QList<int> QgsMeshLayer::selectVerticesByExpression( const QString &expressionSt
   for ( int i = 0; i < mNativeMesh->vertexCount(); ++i )
   {
     context.lastScope()->setVariable( QStringLiteral( "_mesh_vertex_index" ), i, false );
+
+    if ( expression.evaluate( &context ).toBool() )
+      ret.append( i );
+  }
+
+  return ret;
+}
+
+QList<int> QgsMeshLayer::selectFacesByExpression( QgsExpression expression )
+{
+  if ( !mNativeMesh )
+  {
+    // lazy loading of mesh data
+    fillNativeMesh();
+  }
+
+  QList<int> ret;
+
+  if ( !mNativeMesh )
+    return ret;
+
+  QgsExpressionContext context;
+  std::unique_ptr<QgsExpressionContextScope> expScope( QgsExpressionContextUtils::meshExpressionScope( QgsMesh::Face ) );
+  context.appendScope( expScope.release() );
+  context.lastScope()->setVariable( QStringLiteral( "_mesh_layer" ), QVariant::fromValue( this ) );
+
+  expression.prepare( &context );
+
+  for ( int i = 0; i < mNativeMesh->faceCount(); ++i )
+  {
+    context.lastScope()->setVariable( QStringLiteral( "_mesh_face_index" ), i, false );
 
     if ( expression.evaluate( &context ).toBool() )
       ret.append( i );
@@ -1493,8 +1547,9 @@ bool QgsMeshLayer::writeXml( QDomNode &layer_node, QDomDocument &document, const
   elemStaticDataset.setAttribute( QStringLiteral( "vector" ), mStaticVectorDatasetIndex );
   layer_node.appendChild( elemStaticDataset );
 
-  // write dataset group store
-  layer_node.appendChild( mDatasetGroupStore->writeXml( document, context ) );
+  // write dataset group store if not in edting mode
+  if ( !isEditable() )
+    layer_node.appendChild( mDatasetGroupStore->writeXml( document, context ) );
 
   // renderer specific settings
   QString errorMsg;
