@@ -23,7 +23,14 @@ Stores collated details of rendered items during a map rendering operation.
 #include "qgsrendereditemresults.h"
 %End
   public:
-    QgsRenderedItemResults();
+
+    QgsRenderedItemResults( const QgsRectangle &extent = QgsRectangle() );
+%Docstring
+Constructor for QgsRenderedItemResults.
+
+The ``extent`` argument can be used to specify an expected maximal extent for items which
+will be stored in the results. This helps to optimise the spatial indices used by the object.
+%End
     ~QgsRenderedItemResults();
 
 
@@ -70,6 +77,11 @@ Items are removed from ``other`` and transferred to this object.
 .. warning::
 
    After calling this method the ``other`` results will be left in an undefined state.
+%End
+
+    void eraseResultsFromLayers( const QStringList &layerIds );
+%Docstring
+Erases results from layers matching those in the specified list of layers IDs.
 %End
 
   private:

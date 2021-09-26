@@ -65,21 +65,31 @@ void QgsGlowEffect::draw( QgsRenderContext &context )
   dtProps.useMaxDistance = false;
   dtProps.shadeExterior = shadeExterior();
   dtProps.ramp = ramp;
-  QgsImageOperation::distanceTransform( im, dtProps );
+  QgsImageOperation::distanceTransform( im, dtProps, context.feedback() );
+
+  if ( context.feedback() && context.feedback()->isCanceled() )
+    return;
 
   const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale ) );
   if ( blurLevel <= 16 )
   {
-    QgsImageOperation::stackBlur( im, blurLevel );
+    QgsImageOperation::stackBlur( im, blurLevel, false, context.feedback() );
   }
   else
   {
-    QImage *imb = QgsImageOperation::gaussianBlur( im, blurLevel );
-    im = QImage( *imb );
+    QImage *imb = QgsImageOperation::gaussianBlur( im, blurLevel, context.feedback() );
+    if ( !imb->isNull() )
+      im = QImage( *imb );
     delete imb;
   }
 
-  QgsImageOperation::multiplyOpacity( im, mOpacity );
+  if ( context.feedback() && context.feedback()->isCanceled() )
+    return;
+
+  QgsImageOperation::multiplyOpacity( im, mOpacity, context.feedback() );
+
+  if ( context.feedback() && context.feedback()->isCanceled() )
+    return;
 
   if ( !shadeExterior() )
   {

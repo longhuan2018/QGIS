@@ -23,6 +23,10 @@
 #include "qgspainting.h"
 #include "qgsmaplayerfactory.h"
 #include "qgsfeedback.h"
+#include "qgsannotationitemeditoperation.h"
+#include "qgspainteffect.h"
+#include "qgseffectstack.h"
+#include "qgspainteffectregistry.h"
 #include <QUuid>
 #include "RTree.h"
 
@@ -104,6 +108,9 @@ QgsAnnotationLayer::QgsAnnotationLayer( const QString &name, const LayerOptions 
   mShouldValidateCrs = false;
   mValid = true;
   mDataProvider = new QgsAnnotationLayerDataProvider( QgsDataProvider::ProviderOptions(), QgsDataProvider::ReadFlags() );
+
+  mPaintEffect.reset( QgsPaintEffectRegistry::defaultStack() );
+  mPaintEffect->setEnabled( false );
 }
 
 QgsAnnotationLayer::~QgsAnnotationLayer()
@@ -133,6 +140,32 @@ QString QgsAnnotationLayer::addItem( QgsAnnotationItem *item )
   triggerRepaint();
 
   return uuid;
+}
+
+void QgsAnnotationLayer::replaceItem( const QString &id, QgsAnnotationItem *item )
+{
+  std::unique_ptr< QgsAnnotationItem> prevItem( mItems.take( id ) );
+
+  if ( prevItem )
+  {
+    auto it = mNonIndexedItems.find( id );
+    if ( it == mNonIndexedItems.end() )
+    {
+      mSpatialIndex->remove( id, prevItem->boundingBox() );
+    }
+    else
+    {
+      mNonIndexedItems.erase( it );
+    }
+  }
+
+  mItems.insert( id, item );
+  if ( item->flags() & Qgis::AnnotationItemFlag::ScaleDependentBoundingBox )
+    mNonIndexedItems.insert( id );
+  else
+    mSpatialIndex->insert( id, item->boundingBox() );
+
+  triggerRepaint();
 }
 
 bool QgsAnnotationLayer::removeItem( const QString &id )
@@ -205,6 +238,42 @@ QStringList QgsAnnotationLayer::itemsInBounds( const QgsRectangle &bounds, QgsRe
   return res;
 }
 
+Qgis::AnnotationItemEditOperationResult QgsAnnotationLayer::applyEdit( QgsAbstractAnnotationItemEditOperation *operation )
+{
+  Qgis::AnnotationItemEditOperationResult res = Qgis::AnnotationItemEditOperationResult::Invalid;
+  if ( QgsAnnotationItem *targetItem = item( operation->itemId() ) )
+  {
+    // remove item from index if present
+    auto it = mNonIndexedItems.find( operation->itemId() );
+    if ( it == mNonIndexedItems.end() )
+    {
+      mSpatialIndex->remove( operation->itemId(), targetItem->boundingBox() );
+    }
+    res = targetItem->applyEdit( operation );
+
+    switch ( res )
+    {
+      case Qgis::AnnotationItemEditOperationResult::Success:
+      case Qgis::AnnotationItemEditOperationResult::Invalid:
+        // re-add to index if possible
+        if ( !( targetItem->flags() & Qgis::AnnotationItemFlag::ScaleDependentBoundingBox ) )
+          mSpatialIndex->insert( operation->itemId(), targetItem->boundingBox() );
+        break;
+
+      case Qgis::AnnotationItemEditOperationResult::ItemCleared:
+        // item needs removing from layer
+        delete mItems.take( operation->itemId() );
+        mNonIndexedItems.remove( operation->itemId() );
+        break;
+    }
+  }
+
+  if ( res != Qgis::AnnotationItemEditOperationResult::Invalid )
+    triggerRepaint();
+
+  return res;
+}
+
 Qgis::MapLayerProperties QgsAnnotationLayer::properties() const
 {
   // annotation layers are always editable
@@ -225,6 +294,9 @@ QgsAnnotationLayer *QgsAnnotationLayer::clone() const
     else
       layer->mSpatialIndex->insert( it.key(), ( *it )->boundingBox() );
   }
+
+  if ( mPaintEffect )
+    layer->setPaintEffect( mPaintEffect->clone() );
 
   return layer.release();
 }
@@ -346,6 +418,11 @@ bool QgsAnnotationLayer::writeSymbology( QDomNode &node, QDomDocument &doc, QStr
     const QDomText blendModeText = doc.createTextNode( QString::number( QgsPainting::getBlendModeEnum( blendMode() ) ) );
     blendModeElem.appendChild( blendModeText );
     node.appendChild( blendModeElem );
+
+    QDomElement paintEffectElem  = doc.createElement( QStringLiteral( "paintEffect" ) );
+    if ( mPaintEffect && !QgsPaintEffectRegistry::isDefaultStack( mPaintEffect.get() ) )
+      mPaintEffect->saveProperties( doc, paintEffectElem );
+    node.appendChild( paintEffectElem );
   }
 
   return true;
@@ -372,6 +449,17 @@ bool QgsAnnotationLayer::readSymbology( const QDomNode &node, QString &, QgsRead
       const QDomElement e = blendModeNode.toElement();
       setBlendMode( QgsPainting::getCompositionMode( static_cast< QgsPainting::BlendMode >( e.text().toInt() ) ) );
     }
+
+    //restore layer effect
+    const QDomNode paintEffectNode = node.namedItem( QStringLiteral( "paintEffect" ) );
+    if ( !paintEffectNode.isNull() )
+    {
+      const QDomElement effectElem = paintEffectNode.firstChildElement( QStringLiteral( "effect" ) );
+      if ( !effectElem.isNull() )
+      {
+        setPaintEffect( QgsApplication::paintEffectRegistry()->createEffect( effectElem ) );
+      }
+    }
   }
 
   return true;
@@ -396,6 +484,67 @@ QgsDataProvider *QgsAnnotationLayer::dataProvider()
 const QgsDataProvider *QgsAnnotationLayer::dataProvider() const
 {
   return mDataProvider;
+}
+
+QString QgsAnnotationLayer::htmlMetadata() const
+{
+  QString metadata = QStringLiteral( "<html>\n<body>\n<h1>" ) + tr( "General" ) + QStringLiteral( "</h1>\n<hr>\n" ) + QStringLiteral( "<table class=\"list-view\">\n" );
+
+  metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Name" ) + QStringLiteral( "</td><td>" ) + name() + QStringLiteral( "</td></tr>\n" );
+
+  // Extent
+  metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Extent" ) + QStringLiteral( "</td><td>" ) + extent().toString() + QStringLiteral( "</td></tr>\n" );
+
+  // item count
+  QLocale locale = QLocale();
+  locale.setNumberOptions( locale.numberOptions() &= ~QLocale::NumberOption::OmitGroupSeparator );
+  const int itemCount = mItems.size();
+  metadata += QStringLiteral( "<tr><td class=\"highlight\">" )
+              + tr( "Item count" ) + QStringLiteral( "</td><td>" )
+              + locale.toString( static_cast<qlonglong>( itemCount ) )
+              + QStringLiteral( "</td></tr>\n" );
+  metadata += QLatin1String( "</table>\n<br><br>" );
+
+  // CRS
+  metadata += crsHtmlMetadata();
+
+  // items section
+  metadata += QStringLiteral( "<h1>" ) + tr( "Items" ) + QStringLiteral( "</h1>\n<hr>\n" );
+
+  metadata += QLatin1String( "<table width=\"100%\" class=\"tabular-view\">\n" );
+  metadata += QLatin1String( "<tr><th>" ) + tr( "Type" ) + QLatin1String( "</th><th>" ) + tr( "Count" ) + QLatin1String( "</th></tr>\n" );
+
+  QMap< QString, int > itemCounts;
+  for ( auto it = mItems.constBegin(); it != mItems.constEnd(); ++it )
+  {
+    itemCounts[ it.value()->type() ]++;
+  }
+
+  const QMap<QString, QString> itemTypes = QgsApplication::annotationItemRegistry()->itemTypes();
+  int i = 0;
+  for ( auto it = itemTypes.begin(); it != itemTypes.end(); ++it )
+  {
+    QString rowClass;
+    if ( i % 2 )
+      rowClass = QStringLiteral( "class=\"odd-row\"" );
+    metadata += QLatin1String( "<tr " ) + rowClass + QLatin1String( "><td>" ) + it.value() + QLatin1String( "</td><td>" ) + locale.toString( static_cast<qlonglong>( itemCounts.value( it.key() ) ) ) + QLatin1String( "</td></tr>\n" );
+    i++;
+  }
+
+  metadata += QLatin1String( "</table>\n<br><br>" );
+
+  metadata += QLatin1String( "\n</body>\n</html>\n" );
+  return metadata;
+}
+
+QgsPaintEffect *QgsAnnotationLayer::paintEffect() const
+{
+  return mPaintEffect.get();
+}
+
+void QgsAnnotationLayer::setPaintEffect( QgsPaintEffect *effect )
+{
+  mPaintEffect.reset( effect );
 }
 
 

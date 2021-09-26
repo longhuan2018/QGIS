@@ -247,7 +247,7 @@ bool QgsGeometryCheckerResultTab::exportErrorsDo( const QString &file )
 {
   QList< QPair<QString, QString> > attributes;
   attributes.append( qMakePair( QStringLiteral( "Layer" ), QStringLiteral( "String;30;" ) ) );
-  attributes.append( qMakePair( QStringLiteral( "FeatureID" ), QStringLiteral( "String;10;" ) ) );
+  attributes.append( qMakePair( QStringLiteral( "FeatureID" ), QStringLiteral( "String;20;" ) ) );
   attributes.append( qMakePair( QStringLiteral( "ErrorDesc" ), QStringLiteral( "String;80;" ) ) );
 
   QFileInfo fi( file );
@@ -333,7 +333,10 @@ void QgsGeometryCheckerResultTab::highlightErrors( bool current )
 
   if ( current )
   {
-    items.append( ui.tableWidgetErrors->currentItem() );
+    if ( QTableWidgetItem *item = ui.tableWidgetErrors->currentItem() )
+    {
+      items.append( item );
+    }
   }
   else
   {
@@ -347,9 +350,11 @@ void QgsGeometryCheckerResultTab::highlightErrors( bool current )
     if ( ui.checkBoxHighlight->isChecked() && !geom.isNull() )
     {
       QgsRubberBand *featureRubberBand = new QgsRubberBand( mIface->mapCanvas() );
-      featureRubberBand->addGeometry( geom, nullptr );
+      featureRubberBand->setToGeometry( geom, nullptr );
       featureRubberBand->setWidth( 5 );
-      featureRubberBand->setColor( Qt::yellow );
+      QColor color( Qt::yellow );
+      color.setAlpha( 43 );
+      featureRubberBand->setColor( color );
       mCurrentRubberBands.append( featureRubberBand );
     }
 

@@ -157,7 +157,6 @@ QgsVectorLayer::QgsVectorLayer( const QString &vectorLayerPath,
                                 const QgsVectorLayer::LayerOptions &options )
   : QgsMapLayer( QgsMapLayerType::VectorLayer, baseName, vectorLayerPath )
   , mTemporalProperties( new QgsVectorLayerTemporalProperties( this ) )
-  , mServerProperties( new QgsVectorLayerServerProperties( this ) )
   , mAuxiliaryLayer( nullptr )
   , mAuxiliaryLayerKey( QString() )
   , mReadExtentFromXml( options.readExtentFromXml )
@@ -1194,8 +1193,7 @@ bool QgsVectorLayer::deleteSelectedFeatures( int *deletedCount, QgsVectorLayer::
   int count = mSelectedFeatureIds.size();
   // Make a copy since deleteFeature modifies mSelectedFeatureIds
   QgsFeatureIds selectedFeatures( mSelectedFeatureIds );
-  const auto constSelectedFeatures = selectedFeatures;
-  for ( QgsFeatureId fid : constSelectedFeatures )
+  for ( QgsFeatureId fid : std::as_const( selectedFeatures ) )
   {
     deleted += deleteFeature( fid, context );  // removes from selection
   }
@@ -1968,7 +1966,7 @@ bool QgsVectorLayer::writeXml( QDomNode &layer_node,
   }
   layer_node.appendChild( asElem );
 
-  // save QGIS Server WMS Dimension definitions
+  // save QGIS Server properties (WMS Dimension, metadata URLS...)
   mServerProperties->writeXml( layer_node, document );
 
   // renderer specific settings
@@ -3385,7 +3383,6 @@ bool QgsVectorLayer::deleteFeature( QgsFeatureId fid, QgsVectorLayer::DeleteCont
 
   if ( res )
   {
-    mSelectedFeatureIds.remove( fid ); // remove it from selection
     updateExtents();
   }
 
@@ -3822,6 +3819,10 @@ void QgsVectorLayer::endEditCommand()
   mEditCommandActive = false;
   if ( !mDeletedFids.isEmpty() )
   {
+    if ( selectedFeatureCount() > 0 )
+    {
+      mSelectedFeatureIds.subtract( mDeletedFids );
+    }
     emit featuresDeleted( mDeletedFids );
     mDeletedFids.clear();
   }
@@ -5277,9 +5278,14 @@ void QgsVectorLayer::onJoinedFieldsChanged()
 void QgsVectorLayer::onFeatureDeleted( QgsFeatureId fid )
 {
   if ( mEditCommandActive )
+  {
     mDeletedFids << fid;
+  }
   else
+  {
+    mSelectedFeatureIds.remove( fid );
     emit featuresDeleted( QgsFeatureIds() << fid );
+  }
 
   emit featureDeleted( fid );
 }

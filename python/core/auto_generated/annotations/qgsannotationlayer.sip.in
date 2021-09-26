@@ -11,6 +11,8 @@
 
 
 
+
+
 class QgsAnnotationLayer : QgsMapLayer
 {
 %Docstring(signature="appended")
@@ -70,6 +72,15 @@ Ownership of ``item`` is transferred to the layer.
 Returns the unique ID assigned to the item.
 %End
 
+    void replaceItem( const QString &id, QgsAnnotationItem *item /Transfer/ );
+%Docstring
+Replaces the existing item with matching ``id`` with a new ``item``.
+
+Ownership of ``item`` is transferred to the layer.
+
+.. versionadded:: 3.22
+%End
+
     bool removeItem( const QString &id );
 %Docstring
 Removes (and deletes) the item with matching ``id``.
@@ -110,6 +121,15 @@ The optional ``feedback`` argument can be used to cancel the search early.
 .. versionadded:: 3.22
 %End
 
+    Qgis::AnnotationItemEditOperationResult applyEdit( QgsAbstractAnnotationItemEditOperation *operation );
+%Docstring
+Applies an edit ``operation`` to the layer.
+
+Returns ``True`` if the operation was successfully applied.
+
+.. versionadded:: 3.22
+%End
+
     virtual Qgis::MapLayerProperties properties() const;
 
     virtual QgsAnnotationLayer *clone() const /Factory/;
@@ -134,6 +154,28 @@ The optional ``feedback`` argument can be used to cancel the search early.
 
     virtual QgsDataProvider *dataProvider();
 
+    virtual QString htmlMetadata() const;
+
+
+    QgsPaintEffect *paintEffect() const;
+%Docstring
+Returns the current paint effect for the layer.
+
+.. seealso:: :py:func:`setPaintEffect`
+
+.. versionadded:: 3.22
+%End
+
+    void setPaintEffect( QgsPaintEffect *effect /Transfer/ );
+%Docstring
+Sets the current paint ``effect`` for the layer.
+
+Ownership is transferred to the renderer.
+
+.. seealso:: :py:func:`paintEffect`
+
+.. versionadded:: 3.22
+%End
 
 };
 

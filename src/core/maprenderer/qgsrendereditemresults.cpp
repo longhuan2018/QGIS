@@ -26,6 +26,15 @@ class QgsRenderedItemResultsSpatialIndex : public RTree<const QgsRenderedItemDet
 {
   public:
 
+    explicit QgsRenderedItemResultsSpatialIndex( const QgsRectangle &maxBounds )
+      : mXMin( maxBounds.xMinimum() )
+      , mYMin( maxBounds.yMinimum() )
+      , mXRes( ( std::numeric_limits< float >::max() - 1 ) / ( maxBounds.xMaximum() - maxBounds.xMinimum() ) )
+      , mYRes( ( std::numeric_limits< float >::max() - 1 ) / ( maxBounds.yMaximum() - maxBounds.yMinimum() ) )
+      , mMaxBounds( maxBounds )
+      , mUseScale( !maxBounds.isNull() )
+    {}
+
     void insert( const QgsRenderedItemDetails *details, const QgsRectangle &bounds )
     {
       std::array< float, 4 > scaledBounds = scaleBounds( bounds );
@@ -59,9 +68,25 @@ class QgsRenderedItemResultsSpatialIndex : public RTree<const QgsRenderedItemDet
     }
 
   private:
+    double mXMin = 0;
+    double mYMin = 0;
+    double mXRes = 1;
+    double mYRes = 1;
+    QgsRectangle mMaxBounds;
+    bool mUseScale = false;
+
     std::array<float, 4> scaleBounds( const QgsRectangle &bounds ) const
     {
-      return
+      if ( mUseScale )
+        return
+      {
+        static_cast< float >( ( std::max( bounds.xMinimum(), mMaxBounds.xMinimum() ) - mXMin ) / mXRes ),
+        static_cast< float >( ( std::max( bounds.yMinimum(), mMaxBounds.yMinimum() ) - mYMin ) / mYRes ),
+        static_cast< float >( ( std::min( bounds.xMaximum(), mMaxBounds.xMaximum() ) - mXMin ) / mXRes ),
+        static_cast< float >( ( std::min( bounds.yMaximum(), mMaxBounds.yMaximum() ) - mYMin ) / mYRes )
+      };
+      else
+        return
       {
         static_cast< float >( bounds.xMinimum() ),
         static_cast< float >( bounds.yMinimum() ),
@@ -72,8 +97,9 @@ class QgsRenderedItemResultsSpatialIndex : public RTree<const QgsRenderedItemDet
 };
 ///@endcond
 
-QgsRenderedItemResults::QgsRenderedItemResults()
-  : mAnnotationItemsIndex( std::make_unique< QgsRenderedItemResultsSpatialIndex >() )
+QgsRenderedItemResults::QgsRenderedItemResults( const QgsRectangle &extent )
+  : mExtent( extent.buffered( std::max( extent.width(), extent.height() ) * 1000 ) ) // RTree goes crazy if we insert geometries outside the bounds, so buffer them right out to be safe
+  , mAnnotationItemsIndex( std::make_unique< QgsRenderedItemResultsSpatialIndex >( mExtent ) )
 {
 
 }
@@ -83,12 +109,13 @@ QgsRenderedItemResults::~QgsRenderedItemResults() = default;
 QList<QgsRenderedItemDetails *> QgsRenderedItemResults::renderedItems() const
 {
   QList< QgsRenderedItemDetails * > res;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-  res.reserve( static_cast< int >( mDetails.size() ) );
-#else
-  res.reserve( mDetails.size() );
-#endif
-  std::transform( mDetails.begin(), mDetails.end(), std::back_inserter( res ), []( const auto & detail ) {return detail.get();} );
+  for ( const auto &it : mDetails )
+  {
+    std::transform( it.second.begin(), it.second.end(), std::back_inserter( res ), []( const auto & detail )
+    {
+      return detail.get();
+    } );
+  }
   return res;
 }
 
@@ -122,39 +149,58 @@ void QgsRenderedItemResults::appendResults( const QList<QgsRenderedItemDetails *
     if ( QgsRenderedAnnotationItemDetails *annotationDetails = dynamic_cast< QgsRenderedAnnotationItemDetails * >( details ) )
       mAnnotationItemsIndex->insert( annotationDetails, annotationDetails->boundingBox() );
 
-    mDetails.emplace_back( std::unique_ptr< QgsRenderedItemDetails >( details ) );
+
+    mDetails[ details->layerId() ].emplace_back( std::unique_ptr< QgsRenderedItemDetails >( details ) );
   }
 }
 
 void QgsRenderedItemResults::transferResults( QgsRenderedItemResults *other, const QStringList &layerIds )
 {
-  for ( auto it = other->mDetails.begin(); it != other->mDetails.end(); )
+  for ( const QString &layerId : layerIds )
   {
-    if ( layerIds.contains( ( *it )->layerId() ) )
+    auto otherLayerIt = other->mDetails.find( layerId );
+    if ( otherLayerIt == other->mDetails.end() )
+      continue;
+
+    std::vector< std::unique_ptr< QgsRenderedItemDetails > > &source = otherLayerIt->second;
+
+    for ( std::unique_ptr< QgsRenderedItemDetails > &details : source )
     {
-      if ( QgsRenderedAnnotationItemDetails *annotationDetails = dynamic_cast< QgsRenderedAnnotationItemDetails * >( ( *it ).get() ) )
+      if ( QgsRenderedAnnotationItemDetails *annotationDetails = dynamic_cast< QgsRenderedAnnotationItemDetails * >( details.get() ) )
         mAnnotationItemsIndex->insert( annotationDetails, annotationDetails->boundingBox() );
 
-      mDetails.emplace_back( std::move( *it ) );
-      other->mDetails.erase( it );
+      mDetails[layerId].emplace_back( std::move( details ) );
     }
-    else
-    {
-      it++;
-    }
+
+    other->mDetails.erase( otherLayerIt );
   }
 }
 
 void QgsRenderedItemResults::transferResults( QgsRenderedItemResults *other )
 {
-  for ( auto it = other->mDetails.begin(); it != other->mDetails.end(); ++it )
+  for ( auto layerIt = other->mDetails.begin(); layerIt != other->mDetails.end(); ++layerIt )
   {
-    if ( QgsRenderedAnnotationItemDetails *annotationDetails = dynamic_cast< QgsRenderedAnnotationItemDetails * >( ( *it ).get() ) )
-      mAnnotationItemsIndex->insert( annotationDetails, annotationDetails->boundingBox() );
+    std::vector< std::unique_ptr< QgsRenderedItemDetails > > &dest = mDetails[layerIt->first];
+    dest.reserve( layerIt->second.size() );
+    for ( auto it = layerIt->second.begin(); it != layerIt->second.end(); ++it )
+    {
+      if ( QgsRenderedAnnotationItemDetails *annotationDetails = dynamic_cast< QgsRenderedAnnotationItemDetails * >( ( *it ).get() ) )
+        mAnnotationItemsIndex->insert( annotationDetails, annotationDetails->boundingBox() );
 
-    mDetails.emplace_back( std::move( *it ) );
+      dest.emplace_back( std::move( *it ) );
+    }
   }
   other->mDetails.clear();
+}
+
+void QgsRenderedItemResults::eraseResultsFromLayers( const QStringList &layerIds )
+{
+  for ( const QString &layerId : layerIds )
+  {
+    auto it = mDetails.find( layerId );
+    if ( it != mDetails.end() )
+      mDetails.erase( it );
+  }
 }
 
 

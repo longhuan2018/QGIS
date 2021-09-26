@@ -153,6 +153,13 @@ The development version
     typedef QFlags<Qgis::SymbolPreviewFlag> SymbolPreviewFlags;
 
 
+    enum class SymbolLayerFlag
+    {
+      DisableFeatureClipping,
+    };
+    typedef QFlags<Qgis::SymbolLayerFlag> SymbolLayerFlags;
+
+
     enum class BrowserItemType
       {
       Collection,
@@ -480,9 +487,68 @@ The development version
     typedef QFlags<Qgis::AnnotationItemFlag> AnnotationItemFlags;
 
 
+    enum class AnnotationItemGuiFlag
+    {
+      FlagNoCreationTools,
+    };
+    typedef QFlags<Qgis::AnnotationItemGuiFlag> AnnotationItemGuiFlags;
+
+
     enum class AnnotationItemNodeType
     {
       VertexHandle,
+    };
+
+    enum class AnnotationItemEditOperationResult
+    {
+      Success,
+      Invalid,
+      ItemCleared,
+    };
+
+    enum class VectorTemporalMode
+      {
+      FixedTemporalRange,
+      FeatureDateTimeInstantFromField,
+      FeatureDateTimeStartAndEndFromFields,
+      FeatureDateTimeStartAndDurationFromFields,
+      FeatureDateTimeStartAndEndFromExpressions,
+      RedrawLayerOnly,
+    };
+
+    enum class VectorTemporalLimitMode
+    {
+      IncludeBeginExcludeEnd,
+      IncludeBeginIncludeEnd,
+    };
+
+    enum class VectorDataProviderTemporalMode
+      {
+      HasFixedTemporalRange,
+      StoresFeatureDateTimeInstantInField,
+      StoresFeatureDateTimeStartAndEndInSeparateFields,
+    };
+
+    enum class RasterTemporalMode
+      {
+      FixedTemporalRange,
+      TemporalRangeFromDataProvider,
+      RedrawLayerOnly,
+    };
+
+    enum class TemporalIntervalMatchMethod
+      {
+      MatchUsingWholeRange,
+      MatchExactUsingStartOfRange,
+      MatchExactUsingEndOfRange,
+      FindClosestMatchToStartOfRange,
+      FindClosestMatchToEndOfRange
+    };
+
+    enum class TransformDirection
+      {
+      Forward,
+      Reverse
     };
 
     static const double DEFAULT_SEARCH_RADIUS_MM;
@@ -556,6 +622,8 @@ QFlags<Qgis::SymbolFlag> operator|(Qgis::SymbolFlag f1, QFlags<Qgis::SymbolFlag>
 
 QFlags<Qgis::SymbolPreviewFlag> operator|(Qgis::SymbolPreviewFlag f1, QFlags<Qgis::SymbolPreviewFlag> f2);
 
+QFlags<Qgis::SymbolLayerFlag> operator|(Qgis::SymbolLayerFlag f1, QFlags<Qgis::SymbolLayerFlag> f2);
+
 QFlags<Qgis::BrowserItemCapability> operator|(Qgis::BrowserItemCapability f1, QFlags<Qgis::BrowserItemCapability> f2);
 
 QFlags<Qgis::SublayerQueryFlag> operator|(Qgis::SublayerQueryFlag f1, QFlags<Qgis::SublayerQueryFlag> f2);
@@ -573,6 +641,8 @@ QFlags<Qgis::GeometryValidityFlag> operator|(Qgis::GeometryValidityFlag f1, QFla
 QFlags<Qgis::FileOperationFlag> operator|(Qgis::FileOperationFlag f1, QFlags<Qgis::FileOperationFlag> f2);
 
 QFlags<Qgis::AnnotationItemFlag> operator|(Qgis::AnnotationItemFlag f1, QFlags<Qgis::AnnotationItemFlag> f2);
+
+QFlags<Qgis::AnnotationItemGuiFlag> operator|(Qgis::AnnotationItemGuiFlag f1, QFlags<Qgis::AnnotationItemGuiFlag> f2);
 
 
 
