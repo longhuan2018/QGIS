@@ -1042,7 +1042,11 @@ OGRwkbGeometryType QgsOgrProvider::getOgrGeomType( const QString &driverName, OG
     // In such cases, we use virtual sublayers for each geometry if the layer contains
     // multiple geometries (see subLayers) otherwise we guess geometry type from the first
     // feature that has a geometry (limit us to a few features, not the whole layer)
-    if ( geomType == wkbUnknown )
+    //
+    // For ESRI formats with a GeometryCollection25D type we also query features for the geometry type,
+    // as they may be ESRI MultiPatch files which we want to report as MultiPolygon25D types
+    if ( geomType == wkbUnknown
+         || ( geomType == wkbGeometryCollection25D && ( driverName == QLatin1String( "ESRI Shapefile" ) || driverName == QLatin1String( "OpenFileGDB" ) || driverName == QLatin1String( "FileGDB" ) ) ) )
     {
       geomType = wkbNone;
       OGR_L_ResetReading( ogrLayer );
@@ -1057,9 +1061,9 @@ OGRwkbGeometryType QgsOgrProvider::getOgrGeomType( const QString &driverName, OG
         {
           geomType = OGR_G_GetGeometryType( geometry );
 
-          // Shapefile MultiPatch can be reported as GeometryCollectionZ of TINZ
+          // ESRI MultiPatch can be reported as GeometryCollectionZ of TINZ
           if ( wkbFlatten( geomType ) == wkbGeometryCollection &&
-               driverName == QLatin1String( "ESRI Shapefile" )  &&
+               ( driverName == QLatin1String( "ESRI Shapefile" ) || driverName == QLatin1String( "OpenFileGDB" ) || driverName == QLatin1String( "FileGDB" ) ) &&
                OGR_G_GetGeometryCount( geometry ) >= 1 &&
                wkbFlatten( OGR_G_GetGeometryType( OGR_G_GetGeometryRef( geometry, 0 ) ) ) == wkbTIN )
           {
@@ -7083,16 +7087,16 @@ bool QgsOgrProviderUtils::deleteLayer( const QString &uri, QString &errCause )
                                  openOptions );
 
 
-  GDALDatasetH hDS = GDALOpenEx( filePath.toUtf8().constData(), GDAL_OF_RASTER | GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( filePath.toUtf8().constData(), GDAL_OF_RASTER | GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
   if ( hDS  && ( ! layerName.isEmpty() || layerIndex != -1 ) )
   {
     // If we have got a name we convert it into an index
     if ( ! layerName.isEmpty() )
     {
       layerIndex = -1;
-      for ( int i = 0; i < GDALDatasetGetLayerCount( hDS ); i++ )
+      for ( int i = 0; i < GDALDatasetGetLayerCount( hDS.get() ); i++ )
       {
-        OGRLayerH hL = GDALDatasetGetLayer( hDS, i );
+        OGRLayerH hL = GDALDatasetGetLayer( hDS.get(), i );
         if ( layerName == QString::fromUtf8( OGR_L_GetName( hL ) ) )
         {
           layerIndex = i;
@@ -7103,7 +7107,7 @@ bool QgsOgrProviderUtils::deleteLayer( const QString &uri, QString &errCause )
     // Do delete!
     if ( layerIndex != -1 )
     {
-      OGRErr error = GDALDatasetDeleteLayer( hDS, layerIndex );
+      OGRErr error = GDALDatasetDeleteLayer( hDS.get(), layerIndex );
       switch ( error )
       {
         case OGRERR_NOT_ENOUGH_DATA:
@@ -7133,7 +7137,6 @@ bool QgsOgrProviderUtils::deleteLayer( const QString &uri, QString &errCause )
         case OGRERR_NON_EXISTING_FEATURE:
           errCause = QObject::tr( "Non existing feature" );
           break;
-        default:
         case OGRERR_NONE:
           errCause = QObject::tr( "Success" );
           break;
