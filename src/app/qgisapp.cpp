@@ -287,7 +287,7 @@ Q_GUI_EXPORT extern int qt_defaultDpiX();
 #include "qgsnativealgorithms.h"
 #include "qgsnewvectorlayerdialog.h"
 #include "qgsnewmemorylayerdialog.h"
-#include "qgsoptions.h"
+#include "options/qgsoptions.h"
 #include "qgspluginlayer.h"
 #include "qgspluginlayerregistry.h"
 #include "qgspluginmanager.h"
@@ -1071,9 +1071,9 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   connect( showBookmarksDock, &QShortcut::activated, mBookMarksDockWidget, &QgsDockWidget::toggleUserVisible );
   showBookmarksDock->setObjectName( QStringLiteral( "ShowBookmarksPanel" ) );
   showBookmarksDock->setWhatsThis( tr( "Show Bookmarks Panel" ) );
-    if (mActionShowBookmarkManager) mBookMarksDockWidget->setToggleVisibilityAction(mActionShowBookmarkManager);
+  if (mActionShowBookmarkManager) mBookMarksDockWidget->setToggleVisibilityAction( mActionShowBookmarkManager );
 
-    if (mActionShowBookmarks) connect(mActionShowBookmarks, &QAction::triggered, this, [=] { showBookmarks(); });
+  if (mActionShowBookmarks) connect( mActionShowBookmarks, &QAction::triggered, this, [ = ] { showBookmarks(); } );
 
   endProfile();
   }
@@ -1165,7 +1165,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   mMapStyleWidget = new QgsLayerStylingWidget( mMapCanvas, mInfoBar, mMapLayerPanelFactories );
   mMapStylingDock->setWidget( mMapStyleWidget );
   connect( mMapStyleWidget, &QgsLayerStylingWidget::styleChanged, this, &QgisApp::updateLabelToolButtons );
-  if (mActionStyleDock) connect(mMapStylingDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked);
+  if (mActionStyleDock) connect( mMapStylingDock, &QDockWidget::visibilityChanged, mActionStyleDock, &QAction::setChecked );
 
   addDockWidget( Qt::RightDockWidgetArea, mMapStylingDock );
   mMapStylingDock->hide();
@@ -1233,7 +1233,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   mTemporalControllerWidget->setObjectName( QStringLiteral( "Temporal Controller" ) );
   addDockWidget( Qt::TopDockWidgetArea, mTemporalControllerWidget );
   mTemporalControllerWidget->hide();
-    if (mActionTemporalController) mTemporalControllerWidget->setToggleVisibilityAction(mActionTemporalController);
+  if (mActionTemporalController) mTemporalControllerWidget->setToggleVisibilityAction( mActionTemporalController );
 
   mMapCanvas->setTemporalController( mTemporalControllerWidget->temporalController() );
   }
@@ -1543,7 +1543,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   QgsStyle::defaultStyle();
   endProfile();
 
-  if (mSplash) mSplash->showMessage(mCaption + tr("QGIS Ready!"), Qt::AlignHCenter | Qt::AlignBottom);
+  if (mSplash) mSplash->showMessage(mCaption + tr( "QGIS Ready!" ), Qt::AlignHCenter | Qt::AlignBottom );
 
   QgsMessageLog::logMessage( QgsApplication::showSettings(), QString(), Qgis::Info );
 
@@ -1564,7 +1564,7 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   mFullScreenMode = false;
   mPrevScreenModeMaximized = false;
   startProfile( tr( "Show main window" ) );
-  show();
+  //show();
   qApp->processEvents();
   endProfile();
 
@@ -1677,8 +1677,8 @@ bool QgisApp::initUI(const QString& caption, bool restorePlugins, bool skipVersi
   setupDuplicateFeaturesAction();
 
   // support for project storage
-  if(mProjectFromStorageMenu) connect(mProjectFromStorageMenu, &QMenu::aboutToShow, this, [this] { populateProjectStorageMenu(mProjectFromStorageMenu, false); });
-  if(mProjectToStorageMenu) connect(mProjectToStorageMenu, &QMenu::aboutToShow, this, [this] { populateProjectStorageMenu(mProjectToStorageMenu, true); });
+  if(mProjectFromStorageMenu) connect( mProjectFromStorageMenu, &QMenu::aboutToShow, this, [this] { populateProjectStorageMenu( mProjectFromStorageMenu, false ); } );
+  if(mProjectToStorageMenu) connect( mProjectToStorageMenu, &QMenu::aboutToShow, this, [this] { populateProjectStorageMenu( mProjectToStorageMenu, true ); } );
 
   if (mPanelMenu)
   {
@@ -3176,8 +3176,8 @@ void QgisApp::createMenus()
   if ( layout != QDialogButtonBox::KdeLayout )
   {
     if(mViewMenu) mViewMenu->addSeparator();
-    if(mViewMenu && mPanelMenu) mViewMenu->addMenu( mPanelMenu );
-    if(mViewMenu && mToolbarMenu) mViewMenu->addMenu( mToolbarMenu );
+    if(mViewMenu) mViewMenu->addMenu( mPanelMenu );
+    if(mViewMenu) mViewMenu->addMenu( mToolbarMenu );
     if(mViewMenu && mActionToggleFullScreen) mViewMenu->addAction( mActionToggleFullScreen );
     if(mViewMenu && mActionTogglePanelsVisibility) mViewMenu->addAction( mActionTogglePanelsVisibility );
     if(mViewMenu && mActionToggleMapOnly) mViewMenu->addAction( mActionToggleMapOnly );
@@ -3186,8 +3186,8 @@ void QgisApp::createMenus()
   {
     // on the top of the settings menu
     QAction *before = mSettingsMenu->actions().at( 0 );
-    if(mPanelMenu) mSettingsMenu->insertMenu( before, mPanelMenu );
-    if(mToolbarMenu) mSettingsMenu->insertMenu( before, mToolbarMenu );
+    mSettingsMenu->insertMenu( before, mPanelMenu );
+    mSettingsMenu->insertMenu( before, mToolbarMenu );
     if(mActionToggleFullScreen) mSettingsMenu->insertAction( before, mActionToggleFullScreen );
     if(mActionTogglePanelsVisibility) mSettingsMenu->insertAction( before, mActionTogglePanelsVisibility );
     if(mActionToggleMapOnly) mSettingsMenu->insertAction( before, mActionToggleMapOnly );
@@ -3344,7 +3344,7 @@ void QgisApp::createToolBars()
   // sort actions in toolbar menu
   std::sort( toolbarMenuActions.begin(), toolbarMenuActions.end(), cmpByText_ );
 
-  mToolbarMenu->addActions( toolbarMenuActions );
+  if(mToolbarMenu) mToolbarMenu->addActions( toolbarMenuActions );
 
   // advanced selection tool button
   QToolButton *bt = new QToolButton( mSelectionToolBar );
@@ -3499,7 +3499,7 @@ void QgisApp::createToolBars()
 
   // vector layer edits tool buttons
   QToolButton *tbAllEdits = qobject_cast<QToolButton *>( mDigitizeToolBar->widgetForAction( mActionAllEdits ) );
-  tbAllEdits->setPopupMode( QToolButton::InstantPopup );
+  if(tbAllEdits) tbAllEdits->setPopupMode( QToolButton::InstantPopup );
 
   // new layer tool button
 
@@ -3770,6 +3770,8 @@ void QgisApp::createToolBars()
 
   // vertex tool button
   QToolButton *vertexToolButton = qobject_cast<QToolButton *>( mDigitizeToolBar->widgetForAction( mActionVertexTool ) );
+  if( vertexToolButton )
+  {
   vertexToolButton->setPopupMode( QToolButton::MenuButtonPopup );
   vertexToolButton->addAction( mActionVertexTool );
   vertexToolButton->addAction( mActionVertexToolActiveLayer );
@@ -3785,6 +3787,7 @@ void QgisApp::createToolBars()
   }
   vertexToolButton->setDefaultAction( defActionVertexTool );
   connect( vertexToolButton, &QToolButton::triggered, this, &QgisApp::toolButtonActionTriggered );
+  }
 
   bt = new QToolButton();
   bt->setPopupMode( QToolButton::MenuButtonPopup );
@@ -8004,7 +8007,7 @@ void QgisApp::addWindow( QAction *action )
 {
 #ifdef Q_OS_MAC
   mWindowActions->addAction( action );
-  mWindowMenu->addAction( action );
+  if(mWindowMenu) mWindowMenu->addAction( action );
   action->setCheckable( true );
   action->setChecked( true );
 #else
@@ -8016,7 +8019,7 @@ void QgisApp::removeWindow( QAction *action )
 {
 #ifdef Q_OS_MAC
   mWindowActions->removeAction( action );
-  mWindowMenu->removeAction( action );
+  if(mWindowMenu) mWindowMenu->removeAction( action );
 #else
   Q_UNUSED( action )
 #endif
@@ -8230,7 +8233,8 @@ void QgisApp::updateDefaultFeatureAction( QAction *action )
 
 void QgisApp::refreshFeatureActions()
 {
-  if(mFeatureActionMenu) mFeatureActionMenu->clear();
+  if( !mFeatureActionMenu ) return;
+  mFeatureActionMenu->clear();
 
   QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( activeLayer() );
   if ( !vlayer )
@@ -8246,11 +8250,11 @@ void QgisApp::refreshFeatureActions()
     QString actionTitle = !action.shortTitle().isEmpty() ? action.shortTitle() : action.icon().isNull() ? action.name() : QString();
     QAction *qAction = new QAction( action.icon(), actionTitle, mFeatureActionMenu );
     qAction->setData( QVariant::fromValue<QgsAction>( action ) );
-    if(mFeatureActionMenu) mFeatureActionMenu->addAction( qAction );
+    mFeatureActionMenu->addAction( qAction );
 
     if ( action.name() == vlayer->actions()->defaultAction( QStringLiteral( "Canvas" ) ).name() )
     {
-      if(mFeatureActionMenu) mFeatureActionMenu->setActiveAction( qAction );
+      mFeatureActionMenu->setActiveAction( qAction );
     }
   }
 
@@ -8259,19 +8263,19 @@ void QgisApp::refreshFeatureActions()
   if ( !actions.isEmpty() && !registeredActions.empty() )
   {
     //add a separator between user defined and standard actions
-    if(mFeatureActionMenu) mFeatureActionMenu->addSeparator();
+    mFeatureActionMenu->addSeparator();
   }
 
   for ( int i = 0; i < registeredActions.size(); i++ )
   {
-    if(mFeatureActionMenu) mFeatureActionMenu->addAction( registeredActions.at( i ) );
+    mFeatureActionMenu->addAction( registeredActions.at( i ) );
     if ( registeredActions.at( i ) == QgsGui::mapLayerActionRegistry()->defaultActionForLayer( vlayer ) )
     {
-      if(mFeatureActionMenu) mFeatureActionMenu->setActiveAction( registeredActions.at( i ) );
+      mFeatureActionMenu->setActiveAction( registeredActions.at( i ) );
     }
   }
 
-  if(mFeatureActionMenu) updateDefaultFeatureAction( mFeatureActionMenu->activeAction() );
+  updateDefaultFeatureAction( mFeatureActionMenu->activeAction() );
 }
 
 void QgisApp::changeDataSource( QgsMapLayer *layer )
@@ -8585,17 +8589,17 @@ void QgisApp::labeling()
 
 void QgisApp::setMapStyleDockLayer( QgsMapLayer *layer )
 {
-  if ( !layer )
+  if ( !layer || !mMapStyleWidget )
   {
     return;
   }
 
-  if (mMapStyleWidget) mMapStyleWidget->setEnabled( true );
+  mMapStyleWidget->setEnabled( true );
   // We don't set the layer if the dock isn't open mainly to save
   // the extra work if it's not needed
-  if (mMapStylingDock && mMapStylingDock->isVisible() )
+  if ( mMapStylingDock->isVisible() )
   {
-    if (mMapStyleWidget) mMapStyleWidget->setLayer( layer );
+    mMapStyleWidget->setLayer( layer );
   }
 }
 
@@ -10198,7 +10202,7 @@ void QgisApp::enableDigitizeWithCurveAction( bool enable )
             mMapCanvas->mapTool() == mMapTools.mSplitFeatures;
 
   bool isChecked = settings.value( QStringLiteral( "UI/digitizeWithCurve" ) ).toInt() && enable;
-  if(mActionDigitizeWithCurve) mActionDigitizeWithCurve->setChecked( isChecked );
+  if (mActionDigitizeWithCurve) mActionDigitizeWithCurve->setChecked( isChecked );
   if (mActionDigitizeWithCurve) mActionDigitizeWithCurve->setEnabled( enable );
 
   mMapTools.mAddFeature->setCircularDigitizingEnabled( isChecked );
@@ -14400,17 +14404,17 @@ void QgisApp::legendLayerSelectionChanged()
 
   if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setEnabled( false );
   if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setVectorLayer( nullptr );
-  if ( selectedLayers.size() == 1 )
+  if ( selectedLayers.size() == 1 && mLegendExpressionFilterButton )
   {
     QgsLayerTreeLayer *l = selectedLayers.front();
     if ( l->layer() && l->layer()->type() == QgsMapLayerType::VectorLayer )
     {
-      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setEnabled( true );
+      mLegendExpressionFilterButton->setEnabled( true );
       bool exprEnabled;
       QString expr = QgsLayerTreeUtils::legendFilterByExpression( *l, &exprEnabled );
-      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setExpressionText( expr );
-      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setVectorLayer( qobject_cast<QgsVectorLayer *>( l->layer() ) );
-      if(mLegendExpressionFilterButton) mLegendExpressionFilterButton->setChecked( exprEnabled );
+      mLegendExpressionFilterButton->setExpressionText( expr );
+      mLegendExpressionFilterButton->setVectorLayer( qobject_cast<QgsVectorLayer *>( l->layer() ) );
+      mLegendExpressionFilterButton->setChecked( exprEnabled );
     }
   }
 
