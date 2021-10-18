@@ -2088,6 +2088,22 @@ class PyQgsOGRProvider(unittest.TestCase):
                                {'name': 'virts_geometry_columns_field_infos', 'systemTable': True},
                                {'name': 'virts_geometry_columns_statistics', 'systemTable': True}])
 
+        # metadata.xml file next to tdenv?.adf file -- this is a subcomponent of an ESRI tin layer, should not be exposed
+        res = metadata.querySublayers(
+            os.path.join(TEST_DATA_DIR, 'esri_tin', 'metadata.xml'))
+        self.assertFalse(res)
+
+        # ESRI Arcinfo file
+        res = metadata.querySublayers(os.path.join(TEST_DATA_DIR, 'esri_coverage', 'testpolyavc'))
+        self.assertEqual(len(res), 4)
+        self.assertEqual(res[0].layerNumber(), 0)
+        self.assertEqual(res[0].name(), "ARC")
+        self.assertEqual(res[0].description(), "")
+        self.assertEqual(res[0].uri(), '{}|layername=ARC'.format(os.path.join(TEST_DATA_DIR, 'esri_coverage', 'testpolyavc')))
+        self.assertEqual(res[0].providerKey(), "ogr")
+        self.assertEqual(res[0].type(), QgsMapLayerType.VectorLayer)
+        self.assertFalse(res[0].skippedContainerScan())
+
     @unittest.skipIf(int(gdal.VersionInfo('VERSION_NUM')) < GDAL_COMPUTE_VERSION(3, 4, 0), "GDAL 3.4 required")
     def test_provider_sublayer_details_hierarchy(self):
         """
@@ -2224,6 +2240,23 @@ class PyQgsOGRProvider(unittest.TestCase):
         res = metadata.querySublayers(os.path.join(TEST_DATA_DIR, "/raster/hub13263.vrt"), Qgis.SublayerQueryFlag.FastScan)
         self.assertEqual(len(res), 0)
 
+        # metadata.xml file next to tdenv?.adf file -- this is a subcomponent of an ESRI tin layer, should not be exposed
+        res = metadata.querySublayers(
+            os.path.join(TEST_DATA_DIR, 'esri_tin', 'metadata.xml'), Qgis.SublayerQueryFlag.FastScan)
+        self.assertFalse(res)
+
+        # ESRI Arcinfo file
+        res = metadata.querySublayers(
+            os.path.join(TEST_DATA_DIR, 'esri_coverage', 'testpolyavc'), Qgis.SublayerQueryFlag.FastScan)
+        self.assertEqual(len(res), 4)
+        self.assertEqual(res[0].layerNumber(), 0)
+        self.assertEqual(res[0].name(), "ARC")
+        self.assertEqual(res[0].description(), "")
+        self.assertEqual(res[0].uri(), '{}|layername=ARC'.format(os.path.join(TEST_DATA_DIR, 'esri_coverage', 'testpolyavc')))
+        self.assertEqual(res[0].providerKey(), "ogr")
+        self.assertEqual(res[0].type(), QgsMapLayerType.VectorLayer)
+        self.assertFalse(res[0].skippedContainerScan())
+
     def test_provider_sidecar_files_for_uri(self):
         """
         Test retrieving sidecar files for uris
@@ -2246,6 +2279,77 @@ class PyQgsOGRProvider(unittest.TestCase):
         self.assertEqual(metadata.sidecarFilesForUri('/home/me/special.gml'),
                          ['/home/me/special.gfs', '/home/me/special.xsd'])
         self.assertEqual(metadata.sidecarFilesForUri('/home/me/special.csv'), ['/home/me/special.csvt'])
+
+    def testGeoJsonFieldOrder(self):
+        """Test issue GH #45139"""
+
+        d = QTemporaryDir()
+        json_path = os.path.join(d.path(), 'test.geojson')
+        with open(json_path, 'w+') as f:
+            f.write("""
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [11.1215698,46.0677293]
+                        },
+                        "properties": {
+                            "A": "A",
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [11.1214686,46.0677385]
+                        },
+                        "properties": {
+                            "A": "A",
+                            "B": "B",
+                        }
+                    }
+                ]
+            }
+            """)
+
+        vl = QgsVectorLayer(json_path, 'json')
+        self.assertTrue(vl.isValid())
+        self.assertEqual(vl.featureCount(), 2)
+        self.assertEqual(vl.fields().names(), ['A', 'B'])
+
+        # Append a field
+        self.assertTrue(vl.startEditing())
+        self.assertTrue(vl.addAttribute(QgsField('C', QVariant.String)))
+
+        for f in vl.getFeatures():
+            vl.changeAttributeValue(f.id(), 2, 'C')
+
+        self.assertEqual(vl.fields().names(), ['A', 'B', 'C'])
+
+        features = [f for f in vl.getFeatures()]
+
+        self.assertEqual(features[0].attribute('B'), NULL)
+        self.assertEqual(features[0].attribute('C'), 'C')
+        self.assertEqual(features[1].attribute('B'), 'B')
+        self.assertEqual(features[1].attribute('C'), 'C')
+
+        self.assertTrue(vl.commitChanges())
+
+        # This has been fixed in GDAL >= 3.4
+        if int(gdal.VersionInfo('VERSION_NUM')) >= GDAL_COMPUTE_VERSION(3, 4, 0):
+            self.assertEqual(vl.fields().names(), ['A', 'B', 'C'])
+        else:
+            self.assertEqual(vl.fields().names(), ['A', 'C', 'B'])
+
+        features = [f for f in vl.getFeatures()]
+
+        self.assertEqual(features[0].attribute('B'), NULL)
+        self.assertEqual(features[0].attribute('C'), 'C')
+        self.assertEqual(features[1].attribute('B'), 'B')
+        self.assertEqual(features[1].attribute('C'), 'C')
 
 
 if __name__ == '__main__':
