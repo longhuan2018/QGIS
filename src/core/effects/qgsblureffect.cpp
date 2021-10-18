@@ -45,7 +45,8 @@ void QgsBlurEffect::draw( QgsRenderContext &context )
 
 void QgsBlurEffect::drawStackBlur( QgsRenderContext &context )
 {
-  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale ) );
+  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale, Qgis::RenderSubcomponentProperty::BlurSize ) );
+
   QImage im = sourceAsImage( context )->copy();
   QgsImageOperation::stackBlur( im, blurLevel, false, context.feedback() );
   drawBlurredImage( context, im );
@@ -53,7 +54,8 @@ void QgsBlurEffect::drawStackBlur( QgsRenderContext &context )
 
 void QgsBlurEffect::drawGaussianBlur( QgsRenderContext &context )
 {
-  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale ) );
+  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale, Qgis::RenderSubcomponentProperty::BlurSize ) );
+
   QImage *im = QgsImageOperation::gaussianBlur( *sourceAsImage( context ), blurLevel, context.feedback() );
   if ( !im->isNull() )
     drawBlurredImage( context, *im );
@@ -139,7 +141,8 @@ QgsBlurEffect *QgsBlurEffect::clone() const
 
 QRectF QgsBlurEffect::boundingRect( const QRectF &rect, const QgsRenderContext &context ) const
 {
-  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale ) );
+  const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale, Qgis::RenderSubcomponentProperty::BlurSize ) );
+
   //plus possible extension due to blur, with a couple of extra pixels thrown in for safety
   const double spread = blurLevel * 2.0 + 10;
   return rect.adjusted( -spread, -spread, spread, spread );

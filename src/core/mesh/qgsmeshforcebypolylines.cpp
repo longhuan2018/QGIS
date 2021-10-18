@@ -619,8 +619,6 @@ bool QgsMeshEditForceByLine::buildForcedElements()
               mIsFinished = true;
               return false;
             }
-
-            leftFace = currentFaceIndex;
           }
           else
             currentEdge = {mHoleOnLeft.last(), mHoleOnRight.last()};
@@ -1096,6 +1094,11 @@ bool QgsMeshEditForceByLine::finishForcingLine()
   return true;
 }
 
+
+QString QgsMeshEditForceByPolylines::text() const
+{
+  return QObject::tr( "Force mesh by polyline" );
+}
 
 bool QgsMeshEditForceByPolylines::isFinished() const
 {

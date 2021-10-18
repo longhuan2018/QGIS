@@ -765,6 +765,7 @@ set(QGIS_CORE_SRCS
   geometry/qgsregularpolygon.cpp
   geometry/qgssurface.cpp
   geometry/qgstriangle.cpp
+  geometry/qgsvertexid.cpp
   geometry/qgswkbptr.cpp
   geometry/qgswkbtypes.cpp
   geometry/qgsray3d.cpp
@@ -1300,6 +1301,7 @@ set(QGIS_CORE_HDRS
   geometry/qgsregularpolygon.h
   geometry/qgssurface.h
   geometry/qgstriangle.h
+  geometry/qgsvertexid.h
   geometry/qgswkbptr.h
   geometry/qgswkbtypes.h
   geometry/qgsray3d.h
@@ -2087,7 +2089,6 @@ target_link_libraries(qgis_core
   ${QT_VERSION_BASE}::Xml
   ${QT_VERSION_BASE}::Widgets
   ${QT_VERSION_BASE}::Svg
-  ${QT_VERSION_BASE}::PrintSupport
   ${QT_VERSION_BASE}::Network
   ${QT_VERSION_BASE}::Sql
   ${QT_VERSION_BASE}::Concurrent
@@ -2105,6 +2106,9 @@ target_link_libraries(qgis_core
   ${ZLIB_LIBRARIES}
   ${EXIV2_LIBRARY}
 )
+if (NOT IOS)
+  target_link_libraries(qgis_core ${QT_VERSION_BASE}::PrintSupport)
+endif()
 
 if (WITH_SPATIALITE)
   target_link_libraries(qgis_core ${SPATIALITE_LIBRARY})
