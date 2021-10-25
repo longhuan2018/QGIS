@@ -20,6 +20,12 @@
 
 #include "qgsmeshdataprovider.h"
 
+#if defined(_MSC_VER)
+template CORE_EXPORT QVector<int> SIP_SKIP;
+template CORE_EXPORT QList<int> SIP_SKIP;
+template CORE_EXPORT QVector<QVector<int>> SIP_SKIP;
+#endif
+
 SIP_NO_FILE
 
 class QgsMeshEditingError;
@@ -53,7 +59,7 @@ class CORE_EXPORT QgsTopologicalMesh
      *
      * \since QGIS 3.22
      */
-    class TopologicalFaces
+    class CORE_EXPORT TopologicalFaces
     {
       public:
 
@@ -87,7 +93,7 @@ class CORE_EXPORT QgsTopologicalMesh
      *
      * \since QGIS 3.22
      */
-    class Changes
+    class CORE_EXPORT Changes
     {
       public:
 

@@ -387,6 +387,34 @@ Qt::BrushStyle QgsSymbolLayerUtils::decodeSldBrushStyle( const QString &str )
   return Qt::NoBrush;
 }
 
+Qgis::SymbolCoordinateReference QgsSymbolLayerUtils::decodeCoordinateReference( const QString &string, bool *ok )
+{
+  const QString compareString = string.trimmed();
+  if ( ok )
+    *ok = true;
+
+  if ( compareString.compare( QLatin1String( "feature" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::SymbolCoordinateReference::Feature;
+  else if ( compareString.compare( QLatin1String( "viewport" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::SymbolCoordinateReference::Viewport;
+
+  if ( ok )
+    *ok = false;
+  return  Qgis::SymbolCoordinateReference::Feature;
+}
+
+QString QgsSymbolLayerUtils::encodeCoordinateReference( Qgis::SymbolCoordinateReference coordinateReference )
+{
+  switch ( coordinateReference )
+  {
+    case Qgis::SymbolCoordinateReference::Feature:
+      return QStringLiteral( "feature" );
+    case Qgis::SymbolCoordinateReference::Viewport:
+      return QStringLiteral( "viewport" );
+  }
+  return QString(); // no warnings
+}
+
 QgsArrowSymbolLayer::HeadType QgsSymbolLayerUtils::decodeArrowHeadType( const QVariant &value, bool *ok )
 {
   if ( ok )
@@ -435,6 +463,42 @@ QgsArrowSymbolLayer::ArrowType QgsSymbolLayerUtils::decodeArrowType( const QVari
   if ( ok )
     *ok = false;
   return QgsArrowSymbolLayer::ArrowPlain;
+}
+
+Qgis::MarkerClipMode QgsSymbolLayerUtils::decodeMarkerClipMode( const QString &string, bool *ok )
+{
+  const QString compareString = string.trimmed();
+  if ( ok )
+    *ok = true;
+
+  if ( compareString.compare( QLatin1String( "no" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::MarkerClipMode::NoClipping;
+  else if ( compareString.compare( QLatin1String( "shape" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::MarkerClipMode::Shape;
+  else if ( compareString.compare( QLatin1String( "centroid_within" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::MarkerClipMode::CentroidWithin;
+  else if ( compareString.compare( QLatin1String( "completely_within" ), Qt::CaseInsensitive ) == 0 )
+    return Qgis::MarkerClipMode::CompletelyWithin;
+
+  if ( ok )
+    *ok = false;
+  return  Qgis::MarkerClipMode::Shape;
+}
+
+QString QgsSymbolLayerUtils::encodeMarkerClipMode( Qgis::MarkerClipMode mode )
+{
+  switch ( mode )
+  {
+    case Qgis::MarkerClipMode::NoClipping:
+      return QStringLiteral( "no" );
+    case Qgis::MarkerClipMode::Shape:
+      return QStringLiteral( "shape" );
+    case Qgis::MarkerClipMode::CentroidWithin:
+      return QStringLiteral( "centroid_within" );
+    case Qgis::MarkerClipMode::CompletelyWithin:
+      return QStringLiteral( "completely_within" );
+  }
+  return QString(); // no warnings
 }
 
 QString QgsSymbolLayerUtils::encodePoint( QPointF point )
@@ -1104,22 +1168,40 @@ QgsSymbol *QgsSymbolLayerUtils::loadSymbol( const QDomElement &element, const Qg
       }
       else
       {
-        QgsSymbolLayer *layer = loadSymbolLayer( e, context );
-
-        if ( layer )
+        if ( QgsSymbolLayer *layer = loadSymbolLayer( e, context ) )
         {
           // Dealing with sub-symbols nested into a layer
           const QDomElement s = e.firstChildElement( QStringLiteral( "symbol" ) );
           if ( !s.isNull() )
           {
-            QgsSymbol *subSymbol = loadSymbol( s, context );
-            const bool res = layer->setSubSymbol( subSymbol );
-            if ( !res )
+            std::unique_ptr< QgsSymbol > subSymbol( loadSymbol( s, context ) );
+            // special handling for SVG fill symbol layer -- upgrade the subsymbol which
+            // was historically used for the fill stroke to be dedicated symbol layer instead
+            // in order to match the behavior of all other fill symbol layer types
+            if ( dynamic_cast< QgsSVGFillSymbolLayer * >( layer ) )
             {
-              QgsDebugMsg( "symbol layer refused subsymbol: " + s.attribute( "name" ) );
+              // add the SVG fill first
+              layers.append( layer );
+              // then add the layers from the subsymbol stroke outline on top
+              for ( int i = 0; i < subSymbol->symbolLayerCount(); ++i )
+              {
+                layers.append( subSymbol->symbolLayer( i )->clone() );
+              }
+            }
+            else
+            {
+              const bool res = layer->setSubSymbol( subSymbol.release() );
+              if ( !res )
+              {
+                QgsDebugMsg( QStringLiteral( "symbol layer refused subsymbol: " ) + s.attribute( "name" ) );
+              }
+              layers.append( layer );
             }
           }
-          layers.append( layer );
+          else
+          {
+            layers.append( layer );
+          }
         }
       }
     }
@@ -2044,7 +2126,7 @@ bool QgsSymbolLayerUtils::fillFromSld( QDomElement &element, Qt::BrushStyle &bru
     QgsStringMap svgParams = getSvgParameterList( element );
     for ( QgsStringMap::iterator it = svgParams.begin(); it != svgParams.end(); ++it )
     {
-      QgsDebugMsg( QStringLiteral( "found SvgParameter %1: %2" ).arg( it.key(), it.value() ) );
+      QgsDebugMsgLevel( QStringLiteral( "found SvgParameter %1: %2" ).arg( it.key(), it.value() ), 2 );
 
       if ( it.key() == QLatin1String( "fill" ) )
         color = QColor( it.value() );
@@ -2190,7 +2272,7 @@ bool QgsSymbolLayerUtils::lineFromSld( QDomElement &element,
   QgsStringMap svgParams = getSvgParameterList( element );
   for ( QgsStringMap::iterator it = svgParams.begin(); it != svgParams.end(); ++it )
   {
-    QgsDebugMsg( QStringLiteral( "found SvgParameter %1: %2" ).arg( it.key(), it.value() ) );
+    QgsDebugMsgLevel( QStringLiteral( "found SvgParameter %1: %2" ).arg( it.key(), it.value() ), 2 );
 
     if ( it.key() == QLatin1String( "stroke" ) )
     {
@@ -2274,7 +2356,7 @@ bool QgsSymbolLayerUtils::lineFromSld( QDomElement &element,
           }
           else
           {
-            QgsDebugMsg( QStringLiteral( "custom dash pattern required but not provided. Using default dash pattern." ) );
+            QgsDebugMsgLevel( QStringLiteral( "custom dash pattern required but not provided. Using default dash pattern." ), 2 );
             penStyle = Qt::DashLine;
           }
         }
@@ -2530,7 +2612,7 @@ bool QgsSymbolLayerUtils::wellKnownMarkerFromSld( QDomElement &element,
   if ( !wellKnownNameElem.isNull() )
   {
     name = wellKnownNameElem.firstChild().nodeValue();
-    QgsDebugMsg( "found Mark with well known name: " + name );
+    QgsDebugMsgLevel( "found Mark with well known name: " + name, 2 );
   }
 
   // <Fill>
@@ -2946,7 +3028,7 @@ QgsStringMap QgsSymbolLayerUtils::getSvgParameterList( QDomElement &element )
         if ( paramElem.firstChild().nodeType() == QDomNode::ElementNode &&
              paramElem.firstChild().localName() == QLatin1String( "Literal" ) )
         {
-          QgsDebugMsg( paramElem.firstChild().localName() );
+          QgsDebugMsgLevel( paramElem.firstChild().localName(), 3 );
           value = paramElem.firstChild().firstChild().nodeValue();
         }
         else
@@ -4530,7 +4612,7 @@ QList<double> QgsSymbolLayerUtils::prettyBreaks( double minimum, double maximum,
   {
     end = end + 1;
   }
-  QgsDebugMsg( QStringLiteral( "pretty classes: %1" ).arg( end ) );
+  QgsDebugMsgLevel( QStringLiteral( "pretty classes: %1" ).arg( end ), 3 );
 
   // If we don't have quite enough labels, extend the range out
   // to make more (these labels are beyond the data :()
