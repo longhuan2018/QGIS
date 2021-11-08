@@ -57,7 +57,10 @@ bool QgsMapToolAddFeature::addFeature( QgsVectorLayer *vlayer, const QgsFeature 
   QgsExpressionContextScope *scope = QgsExpressionContextUtils::mapToolCaptureScope( snappingMatches() );
   QgsFeatureAction *action = new QgsFeatureAction( tr( "add feature" ), feat, vlayer, QString(), -1, this );
   if ( QgsRubberBand *rb = takeRubberBand() )
-    connect( action, &QgsFeatureAction::addFeatureFinished, rb, &QgsRubberBand::deleteLater );
+    connect(action, &QgsFeatureAction::addFeatureFinished, this, [this, rb, feat] {
+    rb->deleteLater();
+    emit digitizingCompleted(feat);
+  });// rb, & QgsRubberBand::deleteLater);
   bool res = action->addFeature( defaultAttributes, showModal, scope );
   if ( showModal )
     delete action;

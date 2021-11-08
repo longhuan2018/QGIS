@@ -329,14 +329,18 @@ void QgsFeaturePickerModelBase::updateCompleter()
     }
 
     // Remove all entries (except for extra entry if existent)
-    beginRemoveRows( QModelIndex(), firstRow, mEntries.size() - firstRow );
-    mEntries.remove( firstRow, mEntries.size() - firstRow );
+    bool canRemove = rowCount(QModelIndex())>0;
+    if (canRemove)
+    {
+      beginRemoveRows(QModelIndex(), firstRow, mEntries.size() - firstRow);
+      mEntries.remove(firstRow, mEntries.size() - firstRow);
+    }
 
     // if we remove all rows before endRemoveRows, setExtraIdentifierValuesUnguarded will be called
     // and a null value will be added to mEntries, so we block setExtraIdentifierValuesUnguarded call
 
     mIsSettingExtraIdentifierValue = true;
-    endRemoveRows();
+    if (canRemove) endRemoveRows();
     mIsSettingExtraIdentifierValue = false;
 
     if ( currentEntryInNewList == -1 )
