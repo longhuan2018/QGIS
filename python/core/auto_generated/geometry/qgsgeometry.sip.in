@@ -384,6 +384,8 @@ Returns the planar, 2-dimensional area of the geometry.
 %Docstring
 Returns the planar, 2-dimensional length of geometry.
 
+If the geometry is a polygon geometry then the perimeter of the polygon will be returned.
+
 .. warning::
 
    QgsGeometry objects are inherently Cartesian/planar geometries, and the length
@@ -1132,6 +1134,25 @@ Optionally, a specific random ``seed`` can be used when generating points. If ``
 is 0, then a completely random sequence of points will be generated.
 
 .. seealso:: :py:func:`squareWaves`
+
+.. versionadded:: 3.24
+%End
+
+    QgsGeometry applyDashPattern( const QVector< double > &pattern,
+                                  Qgis::DashPatternLineEndingRule startRule = Qgis::DashPatternLineEndingRule::NoRule,
+                                  Qgis::DashPatternLineEndingRule endRule = Qgis::DashPatternLineEndingRule::NoRule,
+                                  Qgis::DashPatternSizeAdjustment adjustment = Qgis::DashPatternSizeAdjustment::ScaleBothDashAndGap,
+                                  double patternOffset = 0 ) const;
+%Docstring
+Applies a dash pattern to a geometry, returning a MultiLineString geometry which is the
+input geometry stroked along each line/ring with the specified ``pattern``.
+
+The ``startRule`` and ``endRule`` options can be set to control how the dash pattern is adjusted
+at line endings. If a ``startRule`` or ``endRule`` is set, the ``adjustment`` option defines whether
+both dash and gaps, or only dash or gap sizes are adjusted to apply the rules.
+
+The ``patternOffset`` option specifies how far along the pattern the result should start at.
+The offset is applied AFTER any start/end rules are applied.
 
 .. versionadded:: 3.24
 %End
@@ -2283,7 +2304,38 @@ Forces geometries to respect the Right-Hand-Rule, in which the area that is boun
 is to the right of the boundary. In particular, the exterior ring is oriented in a clockwise direction
 and the interior rings in a counter-clockwise direction.
 
+.. warning::
+
+   Due to the conflicting definitions of the right-hand-rule in general use, it is recommended
+   to use the explicit :py:func:`~QgsGeometry.forcePolygonClockwise` or :py:func:`~QgsGeometry.forcePolygonCounterClockwise` methods instead.
+
+.. seealso:: :py:func:`forcePolygonClockwise`
+
+.. seealso:: :py:func:`forcePolygonCounterClockwise`
+
 .. versionadded:: 3.6
+%End
+
+    QgsGeometry forcePolygonClockwise() const;
+%Docstring
+Forces geometries to respect the exterior ring is clockwise, interior rings are counter-clockwise convention.
+
+This convention is used primarily by ESRI software.
+
+.. seealso:: :py:func:`forcePolygonCounterClockwise`
+
+.. versionadded:: 3.24
+%End
+
+    QgsGeometry forcePolygonCounterClockwise() const;
+%Docstring
+Forces geometries to respect the exterior ring is counter-clockwise, interior rings are clockwise convention.
+
+This convention matches the OGC Simple Features specification.
+
+.. seealso:: :py:func:`forcePolygonClockwise`
+
+.. versionadded:: 3.24
 %End
 
     class Error

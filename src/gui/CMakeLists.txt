@@ -361,6 +361,7 @@ set(QGIS_GUI_SRCS
   processing/models/qgsmodelviewtooltemporarymousepan.cpp
   processing/models/qgsmodelviewtoolzoom.cpp
 
+  providers/qgsabstractdbsourceselect.cpp
   providers/qgspointcloudproviderguimetadata.cpp
   providers/qgspointcloudsourceselect.cpp
 
@@ -495,6 +496,7 @@ set(QGIS_GUI_SRCS
   qgshighlightablelineedit.cpp
   qgshistogramwidget.cpp
   qgshelp.cpp
+  qgshttpheaderwidget.cpp
   qgsidentifymenu.cpp
   qgsimagedroptextedit.cpp
   qgsinstallgridshiftdialog.cpp
@@ -746,6 +748,7 @@ set(QGIS_GUI_HDRS
   qgshighlightablecombobox.h
   qgshighlightablelineedit.h
   qgshistogramwidget.h
+  qgshttpheaderwidget.h
   qgsidentifymenu.h
   qgsimagedroptextedit.h
   qgsinstallgridshiftdialog.h
@@ -1180,6 +1183,7 @@ set(QGIS_GUI_HDRS
   processing/models/qgsmodelviewtooltemporarymousepan.h
   processing/models/qgsmodelviewtoolzoom.h
 
+  providers/qgsabstractdbsourceselect.h
   providers/qgspointcloudsourceselect.h
   providers/qgspointcloudproviderguimetadata.h
 
@@ -1345,6 +1349,7 @@ set(QGIS_GUI_UI_HDRS
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsexpressionselectiondialogbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsfeaturefilterwidget.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsgenericprojectionselectorbase.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgshttpheaderwidget.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsmessagelogviewer.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsmessageviewer.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsnewvectortabledialogbase.h
@@ -1544,8 +1549,22 @@ endif()
 if (FORCE_STATIC_LIBS)
   target_link_libraries(qgis_gui
     provider_wms_gui_a
-    provider_postgres_gui_a
+    provider_wcs_gui_a
+    provider_delimitedtext_gui_a
+    provider_arcgisfeatureserver_gui_a
   )
+  if (HAVE_SPATIALITE)
+    target_link_libraries(qgis_gui
+      provider_spatialite_gui_a
+      provider_wfs_gui_a
+      provider_virtuallayer_gui_a
+    )
+  endif()
+  if (HAVE_POSTGRESQL)
+    target_link_libraries(qgis_gui
+      provider_postgres_gui_a
+    )
+  endif()
 endif()
 
 if(ENABLE_MODELTEST)

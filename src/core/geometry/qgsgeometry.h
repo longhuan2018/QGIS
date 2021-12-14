@@ -419,6 +419,8 @@ class CORE_EXPORT QgsGeometry
     /**
      * Returns the planar, 2-dimensional length of geometry.
      *
+     * If the geometry is a polygon geometry then the perimeter of the polygon will be returned.
+     *
      * \warning QgsGeometry objects are inherently Cartesian/planar geometries, and the length
      * returned by this method is calculated using strictly Cartesian mathematics. In contrast,
      * the QgsDistanceArea class exposes methods for calculating the lengths of geometries using
@@ -1168,6 +1170,25 @@ class CORE_EXPORT QgsGeometry
      * \since QGIS 3.24
      */
     QgsGeometry roundWavesRandomized( double minimumWavelength, double maximumWavelength, double minimumAmplitude, double maximumAmplitude, unsigned long seed = 0 ) const;
+
+    /**
+     * Applies a dash pattern to a geometry, returning a MultiLineString geometry which is the
+     * input geometry stroked along each line/ring with the specified \a pattern.
+     *
+     * The \a startRule and \a endRule options can be set to control how the dash pattern is adjusted
+     * at line endings. If a \a startRule or \a endRule is set, the \a adjustment option defines whether
+     * both dash and gaps, or only dash or gap sizes are adjusted to apply the rules.
+     *
+     * The \a patternOffset option specifies how far along the pattern the result should start at.
+     * The offset is applied AFTER any start/end rules are applied.
+     *
+     * \since QGIS 3.24
+     */
+    QgsGeometry applyDashPattern( const QVector< double > &pattern,
+                                  Qgis::DashPatternLineEndingRule startRule = Qgis::DashPatternLineEndingRule::NoRule,
+                                  Qgis::DashPatternLineEndingRule endRule = Qgis::DashPatternLineEndingRule::NoRule,
+                                  Qgis::DashPatternSizeAdjustment adjustment = Qgis::DashPatternSizeAdjustment::ScaleBothDashAndGap,
+                                  double patternOffset = 0 ) const;
 
     /**
      * Returns a new geometry with all points or vertices snapped to the closest point of the grid.
@@ -2343,9 +2364,34 @@ class CORE_EXPORT QgsGeometry
      * is to the right of the boundary. In particular, the exterior ring is oriented in a clockwise direction
      * and the interior rings in a counter-clockwise direction.
      *
+     * \warning Due to the conflicting definitions of the right-hand-rule in general use, it is recommended
+     * to use the explicit forcePolygonClockwise() or forcePolygonCounterClockwise() methods instead.
+     *
+     * \see forcePolygonClockwise()
+     * \see forcePolygonCounterClockwise()
      * \since QGIS 3.6
      */
     QgsGeometry forceRHR() const;
+
+    /**
+     * Forces geometries to respect the exterior ring is clockwise, interior rings are counter-clockwise convention.
+     *
+     * This convention is used primarily by ESRI software.
+     *
+     * \see forcePolygonCounterClockwise()
+     * \since QGIS 3.24
+     */
+    QgsGeometry forcePolygonClockwise() const;
+
+    /**
+     * Forces geometries to respect the exterior ring is counter-clockwise, interior rings are clockwise convention.
+     *
+     * This convention matches the OGC Simple Features specification.
+     *
+     * \see forcePolygonClockwise()
+     * \since QGIS 3.24
+     */
+    QgsGeometry forcePolygonCounterClockwise() const;
 
     /**
      * \ingroup core

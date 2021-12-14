@@ -709,7 +709,7 @@ static QList<QgsMapToolIdentify::IdentifyResult> searchFeatureOnMap( QgsMapMouse
   double x = mapPoint.x(), y = mapPoint.y();
   const double sr = QgsMapTool::searchRadiusMU( canvas );
 
-  const QList<QgsMapLayer *> layers = canvas->layers();
+  const QList<QgsMapLayer *> layers = canvas->layers( true );
   for ( QgsMapLayer *layer : layers )
   {
     if ( layer->type() == QgsMapLayerType::VectorLayer )
@@ -732,7 +732,7 @@ static QList<QgsMapToolIdentify::IdentifyResult> searchFeatureOnMap( QgsMapMouse
         {
           rect = transform.transformBoundingBox( rect, Qgis::TransformDirection::Reverse );
         }
-        catch ( QgsCsException &exception )
+        catch ( QgsCsException & )
         {
           QgsDebugMsg( QStringLiteral( "Could not transform geometry to layer CRS" ) );
         }
@@ -772,7 +772,7 @@ void QgsMapToolEditMeshFrame::forceByLineBySelectedFeature( QgsMapMouseEvent *e 
     {
       geom.transform( transform );
     }
-    catch ( QgsCsException &exception )
+    catch ( QgsCsException & )
     {
       QgsDebugMsg( QStringLiteral( "Could not transform geometry to layer CRS" ) );
     }
@@ -901,8 +901,9 @@ void QgsMapToolEditMeshFrame::cadCanvasMoveEvent( QgsMapMouseEvent *e )
       }
       else if ( matchPoint.isValid() && matchPoint.layer() && QgsWkbTypes::hasZ( matchPoint.layer()->wkbType() ) )
       {
+        mForceByLineRubberBand->movePoint( mapPoint );
         if ( mZValueWidget )
-          mZValueWidget->setZValue( e->mapPointMatch().interpolatedPoint().z() );
+          mZValueWidget->setZValue( e->mapPointMatch().interpolatedPoint( mCanvas->mapSettings().destinationCrs() ).z() );
       }
       else
       {
@@ -1052,8 +1053,11 @@ void QgsMapToolEditMeshFrame::cadCanvasReleaseEvent( QgsMapMouseEvent *e )
           if ( e->mapPointMatch().isValid() &&
                QgsWkbTypes::hasZ( e->mapPointMatch().layer()->wkbType() ) )
           {
+            const QgsMeshVertex mapPointInMapCoordinate =
+              QgsMeshVertex( mapPoint.x(), mapPoint.y(), e->mapPointMatch().interpolatedPoint( mCanvas->mapSettings().destinationCrs() ).z() );
+
             const QgsMeshVertex &mapPointInNativeCoordinate =
-              mCurrentLayer->triangularMesh()->triangularToNativeCoordinates( QgsMeshVertex( mapPoint.x(), mapPoint.y(), e->mapPointMatch().interpolatedPoint().z() ) );
+              mCurrentLayer->triangularMesh()->triangularToNativeCoordinates( mapPointInMapCoordinate ) ;
             mCurrentEditor->changeCoordinates( verticesIndexes,
                                                QList<QgsPoint>()
                                                << mapPointInNativeCoordinate ) ;
@@ -2046,8 +2050,6 @@ void QgsMapToolEditMeshFrame::prepareSelection()
   }
 
   mConcernedFaceBySelection.clear();
-  QMap<int, SelectedVertexData> movingVertices;
-
 
   double xMin = std::numeric_limits<double>::max();
   double xMax = -std::numeric_limits<double>::max();
@@ -2285,6 +2287,8 @@ void QgsMapToolEditMeshFrame::forceByLineReleaseEvent( QgsMapMouseEvent *e )
 
   if ( e->button() == Qt::LeftButton )
   {
+    double zValue = currentZValue();
+
     if ( mCurrentVertexIndex != -1 )
     {
       const QgsPointXY currentPoint =   mapVertexXY( mCurrentVertexIndex );
@@ -2294,10 +2298,16 @@ void QgsMapToolEditMeshFrame::forceByLineReleaseEvent( QgsMapMouseEvent *e )
     }
     else
     {
+      if ( e->mapPointMatch().isValid() )
+      {
+        QgsPoint layerPoint =  e->mapPointMatch().interpolatedPoint( mCanvas->mapSettings().destinationCrs() );
+        zValue = layerPoint.z();
+      }
+
       mForceByLineRubberBand->addPoint( mapPoint );
     }
 
-    mForcingLineZValue.append( currentZValue() );
+    mForcingLineZValue.append( zValue );
   }
   else if ( e->button() == Qt::RightButton )
   {

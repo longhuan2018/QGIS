@@ -315,6 +315,8 @@ void qgisCrash( int signal )
 {
   fprintf( stderr, "QGIS died on signal %d", signal );
 
+  QgsCrashHandler::handle( 0 );
+
   if ( access( "/usr/bin/gdb", X_OK ) == 0 )
   {
     // take full stacktrace using gdb
@@ -1032,7 +1034,10 @@ int main( int argc, char *argv[] )
     QgsApplication::setTranslation( translationCode );
   }
 
-  QgsApplication myApp( argc, argv, myUseGuiFlag );
+  QgsApplication myApp( argc, argv, myUseGuiFlag, QString(), QStringLiteral( "desktop" ) );
+
+  // Set locale to emit QgsApplication's localeChanged signal
+  myApp.setLocale( QLocale() );
 
   //write the log messages written before creating QgsApplication
   for ( const QString &preApplicationLogMessage : std::as_const( preApplicationLogMessages ) )

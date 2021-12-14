@@ -372,6 +372,16 @@ QString QgsVectorLayer::capabilitiesString() const
   return QString();
 }
 
+bool QgsVectorLayer::isSqlQuery() const
+{
+  return mDataProvider && mDataProvider->isSqlQuery();
+}
+
+Qgis::VectorLayerTypeFlags QgsVectorLayer::vectorLayerTypeFlags() const
+{
+  return mDataProvider ? mDataProvider->vectorLayerTypeFlags() : Qgis::VectorLayerTypeFlags();
+}
+
 QString QgsVectorLayer::dataComment() const
 {
   if ( mDataProvider )
@@ -3475,7 +3485,15 @@ bool QgsVectorLayer::commitChanges( bool stopEditing )
   if ( !mAllowCommit )
     return false;
 
+  mCommitChangesActive = true;
   bool success = mEditBuffer->commitChanges( mCommitErrors );
+  mCommitChangesActive = false;
+
+  if ( !mDeletedFids.empty() )
+  {
+    emit featuresDeleted( mDeletedFids );
+    mDeletedFids.clear();
+  }
 
   if ( success )
   {
@@ -3896,6 +3914,9 @@ void QgsVectorLayer::removeExpressionField( int index )
 
 QString QgsVectorLayer::expressionField( int index ) const
 {
+  if ( mFields.fieldOrigin( index ) != QgsFields::OriginExpression )
+    return QString();
+
   int oi = mFields.fieldOriginIndex( index );
   if ( oi < 0 || oi >= mExpressionFieldBuffer->expressions().size() )
     return QString();
@@ -5286,7 +5307,7 @@ void QgsVectorLayer::onJoinedFieldsChanged()
 
 void QgsVectorLayer::onFeatureDeleted( QgsFeatureId fid )
 {
-  if ( mEditCommandActive )
+  if ( mEditCommandActive  || mCommitChangesActive )
   {
     mDeletedFids << fid;
   }
