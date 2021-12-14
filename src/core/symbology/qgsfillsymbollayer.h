@@ -1411,6 +1411,7 @@ class CORE_EXPORT QgsLinePatternFillSymbolLayer: public QgsImageFillSymbolLayer
     QString layerType() const override;
     void startRender( QgsSymbolRenderContext &context ) override;
     void stopRender( QgsSymbolRenderContext &context ) override;
+    void renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, QgsSymbolRenderContext &context ) override;
     QVariantMap properties() const override;
     QgsLinePatternFillSymbolLayer *clone() const override SIP_FACTORY;
     void toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const override;
@@ -1594,6 +1595,22 @@ class CORE_EXPORT QgsLinePatternFillSymbolLayer: public QgsImageFillSymbolLayer
      */
     const QgsMapUnitScale &offsetMapUnitScale() const { return mOffsetMapUnitScale; }
 
+    /**
+     * Returns the line clipping mode, which defines how lines are clipped at the edges of shapes.
+     *
+     * \see setClipMode()
+     * \since QGIS 3.24
+     */
+    Qgis::LineClipMode clipMode() const { return mClipMode; }
+
+    /**
+     * Sets the line clipping \a mode, which defines how lines are clipped at the edges of shapes.
+     *
+     * \see clipMode()
+     * \since QGIS 3.24
+     */
+    void setClipMode( Qgis::LineClipMode mode ) { mClipMode = mode; }
+
     void setOutputUnit( QgsUnitTypes::RenderUnit unit ) override;
     QgsUnitTypes::RenderUnit outputUnit() const override;
     bool usesMapUnits() const override;
@@ -1603,6 +1620,8 @@ class CORE_EXPORT QgsLinePatternFillSymbolLayer: public QgsImageFillSymbolLayer
     QgsSymbol *subSymbol() override;
     QSet<QString> usedAttributes( const QgsRenderContext &context ) const override;
     bool hasDataDefinedProperties() const override;
+    void startFeatureRender( const QgsFeature &feature, QgsRenderContext &context ) override;
+    void stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context ) override;
 
   protected:
 
@@ -1624,6 +1643,8 @@ class CORE_EXPORT QgsLinePatternFillSymbolLayer: public QgsImageFillSymbolLayer
     QgsUnitTypes::RenderUnit mOffsetUnit = QgsUnitTypes::RenderMillimeters;
     QgsMapUnitScale mOffsetMapUnitScale;
 
+    bool mRenderUsingLines = false;
+
 #ifdef SIP_RUN
     QgsLinePatternFillSymbolLayer( const QgsLinePatternFillSymbolLayer &other );
 #endif
@@ -1632,7 +1653,9 @@ class CORE_EXPORT QgsLinePatternFillSymbolLayer: public QgsImageFillSymbolLayer
     void applyPattern( const QgsSymbolRenderContext &context, QBrush &brush, double lineAngle, double distance );
 
     //! Fill line
-    QgsLineSymbol *mFillLineSymbol = nullptr;
+    std::unique_ptr< QgsLineSymbol > mFillLineSymbol;
+
+    Qgis::LineClipMode mClipMode = Qgis::LineClipMode::ClipPainterOnly;
 };
 
 /**
@@ -1657,6 +1680,8 @@ class CORE_EXPORT QgsPointPatternFillSymbolLayer: public QgsImageFillSymbolLayer
     QString layerType() const override;
     void startRender( QgsSymbolRenderContext &context ) override;
     void stopRender( QgsSymbolRenderContext &context ) override;
+    void startFeatureRender( const QgsFeature &feature, QgsRenderContext &context ) override;
+    void stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context ) override;
     void renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, QgsSymbolRenderContext &context ) override;
     QVariantMap properties() const override;
     QgsPointPatternFillSymbolLayer *clone() const override SIP_FACTORY;
@@ -2496,9 +2521,6 @@ class CORE_EXPORT QgsCentroidFillSymbolLayer : public QgsFillSymbolLayer
 
     bool mRenderingFeature = false;
     double mFeatureSymbolOpacity = 1;
-
-    QgsFeatureId mCurrentFeatureId = -1;
-    int mBiggestPartIndex = -1;
 
   private:
 #ifdef SIP_RUN

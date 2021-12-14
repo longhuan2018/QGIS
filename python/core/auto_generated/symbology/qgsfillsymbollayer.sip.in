@@ -1535,6 +1535,8 @@ ownership of the returned object.
 
     virtual void stopRender( QgsSymbolRenderContext &context );
 
+    virtual void renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, QgsSymbolRenderContext &context );
+
     virtual QVariantMap properties() const;
 
     virtual QgsLinePatternFillSymbolLayer *clone() const /Factory/;
@@ -1747,6 +1749,24 @@ Returns the map unit scale for the pattern's line offset.
 .. seealso:: :py:func:`offsetUnit`
 %End
 
+    Qgis::LineClipMode clipMode() const;
+%Docstring
+Returns the line clipping mode, which defines how lines are clipped at the edges of shapes.
+
+.. seealso:: :py:func:`setClipMode`
+
+.. versionadded:: 3.24
+%End
+
+    void setClipMode( Qgis::LineClipMode mode );
+%Docstring
+Sets the line clipping ``mode``, which defines how lines are clipped at the edges of shapes.
+
+.. seealso:: :py:func:`clipMode`
+
+.. versionadded:: 3.24
+%End
+
     virtual void setOutputUnit( QgsUnitTypes::RenderUnit unit );
 
     virtual QgsUnitTypes::RenderUnit outputUnit() const;
@@ -1764,6 +1784,10 @@ Returns the map unit scale for the pattern's line offset.
     virtual QSet<QString> usedAttributes( const QgsRenderContext &context ) const;
 
     virtual bool hasDataDefinedProperties() const;
+
+    virtual void startFeatureRender( const QgsFeature &feature, QgsRenderContext &context );
+
+    virtual void stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context );
 
 
   protected:
@@ -1801,6 +1825,10 @@ Caller takes ownership of the returned symbol layer.
     virtual void startRender( QgsSymbolRenderContext &context );
 
     virtual void stopRender( QgsSymbolRenderContext &context );
+
+    virtual void startFeatureRender( const QgsFeature &feature, QgsRenderContext &context );
+
+    virtual void stopFeatureRender( const QgsFeature &feature, QgsRenderContext &context );
 
     virtual void renderPolygon( const QPolygonF &points, const QVector<QPolygonF> *rings, QgsSymbolRenderContext &context );
 
@@ -2765,7 +2793,6 @@ Sets whether point markers should be ``clipped`` to the current part boundary on
 
 
   protected:
-
 
 
 

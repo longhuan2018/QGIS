@@ -2970,7 +2970,9 @@ void QgsRasterMarkerSymbolLayer::renderPoint( QPointF point, QgsSymbolRenderCont
   if ( !img.isNull() )
   {
     if ( context.selected() )
+    {
       QgsImageOperation::adjustHueSaturation( img, 1.0, context.renderContext().selectionColor(), 1.0, context.renderContext().feedback() );
+    }
 
     p->drawImage( -img.width() / 2.0, -img.height() / 2.0, img );
   }
@@ -3198,7 +3200,6 @@ QgsFontMarkerSymbolLayer::~QgsFontMarkerSymbolLayer() = default;
 QgsSymbolLayer *QgsFontMarkerSymbolLayer::create( const QVariantMap &props )
 {
   QString fontFamily = DEFAULT_FONTMARKER_FONT;
-  const QString fontStyle = DEFAULT_FONTMARKER_FONT;
   QString string = DEFAULT_FONTMARKER_CHR;
   double pointSize = DEFAULT_FONTMARKER_SIZE;
   QColor color = DEFAULT_FONTMARKER_COLOR;

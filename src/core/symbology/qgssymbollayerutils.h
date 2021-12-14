@@ -145,6 +145,26 @@ class CORE_EXPORT QgsSymbolLayerUtils
     static QString encodeMarkerClipMode( Qgis::MarkerClipMode mode );
 
     /**
+     * Decodes a \a string representing a line clip mode.
+     *
+     * \param string string to decode
+     * \param ok will be set to TRUE if \a string was successfully decoded
+     * \returns decoded line clip mode
+     *
+     * \see encodeLineClipMode()
+     * \since QGIS 3.24
+     */
+    static Qgis::LineClipMode decodeLineClipMode( const QString &string, bool *ok SIP_OUT = nullptr );
+
+    /**
+     * Encodes a line clip \a mode to a string.
+     *
+     * \see decodeLineClipMode()
+     * \since QGIS 3.24
+     */
+    static QString encodeLineClipMode( Qgis::LineClipMode mode );
+
+    /**
      * Encodes a QPointF to a string.
      * \see decodePoint()
      * \see encodeSize()
@@ -289,11 +309,12 @@ class CORE_EXPORT QgsSymbolLayerUtils
      * \param units size units
      * \param size target size of preview picture
      * \param scale map unit scale for preview
+     * \param parentSymbolType since QGIS 3.22, can be used to specify the parent symbol type so that geometry generator preview icons are correctly calculated
      * \returns QPicture containing symbol layer preview
      * \see symbolLayerPreviewIcon()
      * \since QGIS 2.9
      */
-    static QPicture symbolLayerPreviewPicture( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit units, QSize size, const QgsMapUnitScale &scale = QgsMapUnitScale() );
+    static QPicture symbolLayerPreviewPicture( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit units, QSize size, const QgsMapUnitScale &scale = QgsMapUnitScale(), Qgis::SymbolType parentSymbolType = Qgis::SymbolType::Hybrid );
 
     /**
      * Draws a symbol layer preview to an icon.

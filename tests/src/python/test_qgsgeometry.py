@@ -931,18 +931,29 @@ class TestQgsGeometry(unittest.TestCase):
                 result = geom.constGet().area()
                 self.assertAlmostEqual(result, exp, 5,
                                        "Area {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
+                result = geom.area()
+                self.assertAlmostEqual(result, exp, 5,
+                                       "Length {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
 
                 # test length calculation
                 exp = float(row['length'])
                 result = geom.constGet().length()
                 self.assertAlmostEqual(result, exp, 5,
                                        "Length {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
+                if geom.type() != QgsWkbTypes.PolygonGeometry:
+                    result = geom.length()
+                    self.assertAlmostEqual(result, exp, 5,
+                                           "Length {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
 
                 # test perimeter calculation
                 exp = float(row['perimeter'])
                 result = geom.constGet().perimeter()
                 self.assertAlmostEqual(result, exp, 5,
                                        "Perimeter {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
+                if geom.type() == QgsWkbTypes.PolygonGeometry:
+                    result = geom.length()
+                    self.assertAlmostEqual(result, exp, 5,
+                                           "Length {}: mismatch Expected:\n{}\nGot:\n{}\n".format(i + 1, exp, result))
 
     def testCollection(self):
         g = QgsGeometry.fromWkt('MultiLineString EMPTY')
@@ -2847,7 +2858,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # circular string
         geom = QgsGeometry.fromWkt('CircularString (1 5, 6 2, 7 3)')
-        assert geom.constGet().addZValue(2)
+        assert geom.get().addZValue(2)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.CircularStringZ)
         expWkt = 'CircularStringZ (1 5 2, 6 2 2, 7 3 2)'
         wkt = geom.asWkt()
@@ -2857,7 +2868,7 @@ class TestQgsGeometry(unittest.TestCase):
         # compound curve
         geom = QgsGeometry.fromWkt(
             'CompoundCurve ((5 3, 5 13),CircularString (5 13, 7 15, 9 13),(9 13, 9 3),CircularString (9 3, 7 1, 5 3))')
-        assert geom.constGet().addZValue(2)
+        assert geom.get().addZValue(2)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.CompoundCurveZ)
         expWkt = 'CompoundCurveZ ((5 3 2, 5 13 2),CircularStringZ (5 13 2, 7 15 2, 9 13 2),(9 13 2, 9 3 2),CircularStringZ (9 3 2, 7 1 2, 5 3 2))'
         wkt = geom.asWkt()
@@ -2866,7 +2877,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # curve polygon
         geom = QgsGeometry.fromWkt('Polygon ((0 0, 1 0, 1 1, 2 1, 2 2, 0 2, 0 0))')
-        assert geom.constGet().addZValue(3)
+        assert geom.get().addZValue(3)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.PolygonZ)
         self.assertEqual(geom.wkbType(), QgsWkbTypes.PolygonZ)
         expWkt = 'PolygonZ ((0 0 3, 1 0 3, 1 1 3, 2 1 3, 2 2 3, 0 2 3, 0 0 3))'
@@ -2876,7 +2887,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # geometry collection
         geom = QgsGeometry.fromWkt('MultiPoint ((1 2),(2 3))')
-        assert geom.constGet().addZValue(4)
+        assert geom.get().addZValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.MultiPointZ)
         self.assertEqual(geom.wkbType(), QgsWkbTypes.MultiPointZ)
         expWkt = 'MultiPointZ ((1 2 4),(2 3 4))'
@@ -2886,7 +2897,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # LineString
         geom = QgsGeometry.fromWkt('LineString (1 2, 2 3)')
-        assert geom.constGet().addZValue(4)
+        assert geom.get().addZValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.LineStringZ)
         self.assertEqual(geom.wkbType(), QgsWkbTypes.LineStringZ)
         expWkt = 'LineStringZ (1 2 4, 2 3 4)'
@@ -2896,7 +2907,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # Point
         geom = QgsGeometry.fromWkt('Point (1 2)')
-        assert geom.constGet().addZValue(4)
+        assert geom.get().addZValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.PointZ)
         self.assertEqual(geom.wkbType(), QgsWkbTypes.PointZ)
         expWkt = 'PointZ (1 2 4)'
@@ -2908,7 +2919,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # circular string
         geom = QgsGeometry.fromWkt('CircularString (1 5, 6 2, 7 3)')
-        assert geom.constGet().addMValue(2)
+        assert geom.get().addMValue(2)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.CircularStringM)
         expWkt = 'CircularStringM (1 5 2, 6 2 2, 7 3 2)'
         wkt = geom.asWkt()
@@ -2918,7 +2929,7 @@ class TestQgsGeometry(unittest.TestCase):
         # compound curve
         geom = QgsGeometry.fromWkt(
             'CompoundCurve ((5 3, 5 13),CircularString (5 13, 7 15, 9 13),(9 13, 9 3),CircularString (9 3, 7 1, 5 3))')
-        assert geom.constGet().addMValue(2)
+        assert geom.get().addMValue(2)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.CompoundCurveM)
         expWkt = 'CompoundCurveM ((5 3 2, 5 13 2),CircularStringM (5 13 2, 7 15 2, 9 13 2),(9 13 2, 9 3 2),CircularStringM (9 3 2, 7 1 2, 5 3 2))'
         wkt = geom.asWkt()
@@ -2927,7 +2938,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # curve polygon
         geom = QgsGeometry.fromWkt('Polygon ((0 0, 1 0, 1 1, 2 1, 2 2, 0 2, 0 0))')
-        assert geom.constGet().addMValue(3)
+        assert geom.get().addMValue(3)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.PolygonM)
         expWkt = 'PolygonM ((0 0 3, 1 0 3, 1 1 3, 2 1 3, 2 2 3, 0 2 3, 0 0 3))'
         wkt = geom.asWkt()
@@ -2936,7 +2947,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # geometry collection
         geom = QgsGeometry.fromWkt('MultiPoint ((1 2),(2 3))')
-        assert geom.constGet().addMValue(4)
+        assert geom.get().addMValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.MultiPointM)
         expWkt = 'MultiPointM ((1 2 4),(2 3 4))'
         wkt = geom.asWkt()
@@ -2945,7 +2956,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # LineString
         geom = QgsGeometry.fromWkt('LineString (1 2, 2 3)')
-        assert geom.constGet().addMValue(4)
+        assert geom.get().addMValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.LineStringM)
         expWkt = 'LineStringM (1 2 4, 2 3 4)'
         wkt = geom.asWkt()
@@ -2954,7 +2965,7 @@ class TestQgsGeometry(unittest.TestCase):
 
         # Point
         geom = QgsGeometry.fromWkt('Point (1 2)')
-        assert geom.constGet().addMValue(4)
+        assert geom.get().addMValue(4)
         self.assertEqual(geom.constGet().wkbType(), QgsWkbTypes.PointM)
         expWkt = 'PointM (1 2 4)'
         wkt = geom.asWkt()
@@ -3142,6 +3153,69 @@ class TestQgsGeometry(unittest.TestCase):
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.TriangleZ), QgsWkbTypes.MultiPolygonZ)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.TriangleM), QgsWkbTypes.MultiPolygonM)
         self.assertEqual(QgsWkbTypes.multiType(QgsWkbTypes.TriangleZM), QgsWkbTypes.MultiPolygonZM)
+
+        # test promoteNonPointTypesToMulti method
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Unknown), QgsWkbTypes.Unknown)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Point), QgsWkbTypes.Point)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PointZ), QgsWkbTypes.PointZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PointM), QgsWkbTypes.PointM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PointZM), QgsWkbTypes.PointZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPoint), QgsWkbTypes.MultiPoint)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPointZ), QgsWkbTypes.MultiPointZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPointM), QgsWkbTypes.MultiPointM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPointZM), QgsWkbTypes.MultiPointZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.LineString), QgsWkbTypes.MultiLineString)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.LineStringZ), QgsWkbTypes.MultiLineStringZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.LineStringM), QgsWkbTypes.MultiLineStringM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.LineStringZM), QgsWkbTypes.MultiLineStringZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiLineString), QgsWkbTypes.MultiLineString)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiLineStringZ), QgsWkbTypes.MultiLineStringZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiLineStringM), QgsWkbTypes.MultiLineStringM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiLineStringZM), QgsWkbTypes.MultiLineStringZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Polygon), QgsWkbTypes.MultiPolygon)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PolygonZ), QgsWkbTypes.MultiPolygonZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PolygonM), QgsWkbTypes.MultiPolygonM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.PolygonZM), QgsWkbTypes.MultiPolygonZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPolygon), QgsWkbTypes.MultiPolygon)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPolygonZ), QgsWkbTypes.MultiPolygonZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPolygonM), QgsWkbTypes.MultiPolygonM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPolygonZM), QgsWkbTypes.MultiPolygonZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.GeometryCollection), QgsWkbTypes.GeometryCollection)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.GeometryCollectionZ), QgsWkbTypes.GeometryCollectionZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.GeometryCollectionM), QgsWkbTypes.GeometryCollectionM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.GeometryCollectionZM), QgsWkbTypes.GeometryCollectionZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CircularString), QgsWkbTypes.MultiCurve)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CircularStringZ), QgsWkbTypes.MultiCurveZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CircularStringM), QgsWkbTypes.MultiCurveM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CircularStringZM), QgsWkbTypes.MultiCurveZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CompoundCurve), QgsWkbTypes.MultiCurve)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CompoundCurveZ), QgsWkbTypes.MultiCurveZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CompoundCurveM), QgsWkbTypes.MultiCurveM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CompoundCurveZM), QgsWkbTypes.MultiCurveZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CurvePolygon), QgsWkbTypes.MultiSurface)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CurvePolygonZ), QgsWkbTypes.MultiSurfaceZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CurvePolygonM), QgsWkbTypes.MultiSurfaceM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.CurvePolygonZM), QgsWkbTypes.MultiSurfaceZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiCurve), QgsWkbTypes.MultiCurve)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiCurveZ), QgsWkbTypes.MultiCurveZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiCurveM), QgsWkbTypes.MultiCurveM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiCurveZM), QgsWkbTypes.MultiCurveZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiSurface), QgsWkbTypes.MultiSurface)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiSurfaceZ), QgsWkbTypes.MultiSurfaceZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiSurfaceM), QgsWkbTypes.MultiSurfaceM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiSurfaceZM), QgsWkbTypes.MultiSurfaceZM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.NoGeometry), QgsWkbTypes.NoGeometry)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Point25D), QgsWkbTypes.Point25D)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.LineString25D), QgsWkbTypes.MultiLineString25D)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Polygon25D), QgsWkbTypes.MultiPolygon25D)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPoint25D), QgsWkbTypes.MultiPoint25D)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiLineString25D), QgsWkbTypes.MultiLineString25D)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.MultiPolygon25D), QgsWkbTypes.MultiPolygon25D)
+        # until we have tin types, these should return multipolygons
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.Triangle), QgsWkbTypes.MultiPolygon)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.TriangleZ), QgsWkbTypes.MultiPolygonZ)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.TriangleM), QgsWkbTypes.MultiPolygonM)
+        self.assertEqual(QgsWkbTypes.promoteNonPointTypesToMulti(QgsWkbTypes.TriangleZM), QgsWkbTypes.MultiPolygonZM)
 
         # test curveType method
         self.assertEqual(QgsWkbTypes.curveType(QgsWkbTypes.Unknown), QgsWkbTypes.Unknown)
@@ -5847,6 +5921,46 @@ class TestQgsGeometry(unittest.TestCase):
             self.assertEqual(res.asWkt(1), t[1],
                              "mismatch for {}, expected:\n{}\nGot:\n{}\n".format(t[0], t[1], res.asWkt(1)))
 
+    def testForceCW(self):
+        tests = [
+            ["", ""],
+            ["Point (100 100)", "Point (100 100)"],
+            ["LINESTRING (0 0, 0 100, 100 100)", "LineString (0 0, 0 100, 100 100)"],
+            ["LINESTRING (100 100, 0 100, 0 0)", "LineString (100 100, 0 100, 0 0)"],
+            ["POLYGON((-1 -1, 4 0, 4 2, 0 2, -1 -1))", "Polygon ((-1 -1, 0 2, 4 2, 4 0, -1 -1))"],
+            [
+                "MULTIPOLYGON(Polygon((-1 -1, 4 0, 4 2, 0 2, -1 -1)),Polygon((100 100, 200 100, 200 200, 100 200, 100 100)))",
+                "MultiPolygon (((-1 -1, 0 2, 4 2, 4 0, -1 -1)),((100 100, 100 200, 200 200, 200 100, 100 100)))"],
+            [
+                "GeometryCollection(Polygon((-1 -1, 4 0, 4 2, 0 2, -1 -1)),Polygon((100 100, 200 100, 200 200, 100 200, 100 100)))",
+                "GeometryCollection (Polygon ((-1 -1, 0 2, 4 2, 4 0, -1 -1)),Polygon ((100 100, 100 200, 200 200, 200 100, 100 100)))"]
+        ]
+        for t in tests:
+            g1 = QgsGeometry.fromWkt(t[0])
+            res = g1.forcePolygonClockwise()
+            self.assertEqual(res.asWkt(1), t[1],
+                             "mismatch for {}, expected:\n{}\nGot:\n{}\n".format(t[0], t[1], res.asWkt(1)))
+
+    def testForceCCW(self):
+        tests = [
+            ["", ""],
+            ["Point (100 100)", "Point (100 100)"],
+            ["LINESTRING (0 0, 0 100, 100 100)", "LineString (0 0, 0 100, 100 100)"],
+            ["LINESTRING (100 100, 0 100, 0 0)", "LineString (100 100, 0 100, 0 0)"],
+            ["POLYGON((-1 -1, 4 0, 4 2, 0 2, -1 -1))", "Polygon ((-1 -1, 4 0, 4 2, 0 2, -1 -1))"],
+            [
+                "MULTIPOLYGON(Polygon((-1 -1, 4 0, 4 2, 0 2, -1 -1)),Polygon((100 100, 200 100, 200 200, 100 200, 100 100)))",
+                "MultiPolygon (((-1 -1, 4 0, 4 2, 0 2, -1 -1)),((100 100, 200 100, 200 200, 100 200, 100 100)))"],
+            [
+                "GeometryCollection(Polygon((-1 -1, 4 0, 4 2, 0 2, -1 -1)),Polygon((100 100, 200 100, 200 200, 100 200, 100 100)))",
+                "GeometryCollection (Polygon ((-1 -1, 4 0, 4 2, 0 2, -1 -1)),Polygon ((100 100, 200 100, 200 200, 100 200, 100 100)))"]
+        ]
+        for t in tests:
+            g1 = QgsGeometry.fromWkt(t[0])
+            res = g1.forcePolygonCounterClockwise()
+            self.assertEqual(res.asWkt(1), t[1],
+                             "mismatch for {}, expected:\n{}\nGot:\n{}\n".format(t[0], t[1], res.asWkt(1)))
+
     def testLineStringFromBezier(self):
         tests = [
             [QgsPoint(1, 1), QgsPoint(10, 1), QgsPoint(10, 10), QgsPoint(20, 10), 5,
@@ -6331,6 +6445,11 @@ class TestQgsGeometry(unittest.TestCase):
         self.assertEqual(QgsGeometry.fromWkt('Point (1 1)').roundWavesRandomized(1, 2, 2, 3, 1).asWkt(3), 'Point (1 1)')
         self.assertEqual(QgsGeometry.fromWkt('LineString (1 1)').roundWavesRandomized(1, 2, 2, 3, 1).asWkt(3),
                          '')  # just don't crash!
+
+        # very short line compared to minimum wavelength
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 2 1)').roundWavesRandomized(5, 6, 3, 5, 1).asWkt(3),
+                         'LineString (1 1, 1.132 1.674, 1.265 2.199, 1.396 2.573, 1.521 2.798, 1.639 2.873, 1.745 2.798, 1.838 2.573, 1.913 2.199, 1.968 1.674, 2 1)')
+
         self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').roundWavesRandomized(1, 2, 2, 3, 1).asWkt(3),
                          'LineString (1 1, 1.04 0.552, 1.085 0.113, 1.135 -0.308, 1.187 -0.702, 1.242 -1.061, 1.296 -1.374, 1.348 -1.633, 1.398 -1.829, 1.444 -1.954, 1.483 -1.997, 1.56 -1.829, 1.623 -1.374, 1.676 -0.702, 1.722 0.113, 1.765 1.001, 1.808 1.888, 1.854 2.704, 1.907 3.375, 1.97 3.831, 2.047 3.999, 2.131 3.848, 2.2 3.438, 2.259 2.834, 2.309 2.1, 2.356 1.301, 2.403 0.503, 2.454 -0.231, 2.512 -0.835, 2.581 -1.246, 2.665 -1.397, 2.76 -1.255, 2.837 -0.87, 2.903 -0.302, 2.959 0.387, 3.012 1.137, 3.065 1.886, 3.122 2.575, 3.187 3.143, 3.265 3.528, 3.359 3.67, 3.491 3.515, 3.599 3.096, 3.69 2.478, 3.77 1.728, 3.843 0.912, 3.917 0.095, 3.996 -0.655, 4.087 -1.273, 4.195 -1.692, 4.327 -1.846, 4.416 -1.696, 4.49 -1.288, 4.552 -0.686, 4.605 0.044, 4.655 0.839, 4.705 1.634, 4.759 2.364, 4.821 2.966, 4.894 3.374, 4.984 3.525, 5.082 3.391, 5.163 3.03, 5.23 2.498, 5.29 1.851, 5.344 1.147, 5.399 0.444, 5.459 -0.203, 5.526 -0.735, 5.607 -1.096, 5.705 -1.23, 5.81 -1.086, 5.896 -0.695, 5.968 -0.119, 6.031 0.581, 6.089 1.342, 6.147 2.103, 6.21 2.803, 6.282 3.379, 6.368 3.77, 6.473 3.914, 6.572 3.764, 6.653 3.358, 6.722 2.76, 6.781 2.033, 6.837 1.242, 6.892 0.451, 6.952 -0.276, 7.02 -0.875, 7.102 -1.281, 7.201 -1.431, 7.333 -1.285, 7.442 -0.889, 7.533 -0.306, 7.612 0.403, 7.686 1.174, 7.76 1.945, 7.839 2.653, 7.93 3.237, 8.039 3.633, 8.171 3.778, 8.287 3.622, 8.383 3.198, 8.464 2.573, 8.534 1.814, 8.6 0.988, 8.665 0.162, 8.735 -0.597, 8.816 -1.222, 8.912 -1.646, 9.029 -1.803, 9.103 -1.654, 9.164 -1.249, 9.216 -0.653, 9.26 0.07, 9.302 0.858, 9.343 1.645, 9.388 2.369, 9.44 2.965, 9.501 3.369, 9.575 3.518, 9.61 3.482, 9.65 3.377, 9.694 3.212, 9.74 2.994, 9.788 2.731, 9.835 2.43, 9.881 2.099, 9.925 1.745, 9.965 1.376, 10 1)')
         self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').roundWavesRandomized(5, 6, 2, 3, 1).asWkt(3),
@@ -6359,6 +6478,116 @@ class TestQgsGeometry(unittest.TestCase):
                                                                                                                   1).asWkt(
             3),
             'MultiPolygon (((1 1, 1.122 0.955, 1.261 0.911, 1.414 0.869, 1.575 0.83, 1.742 0.794, 1.908 0.763, 2.069 0.737, 2.222 0.717, 2.362 0.705, 2.483 0.7, 2.832 0.717, 3.119 0.763, 3.36 0.83, 3.57 0.911, 3.765 1, 3.96 1.089, 4.17 1.17, 4.411 1.238, 4.698 1.283, 5.047 1.3, 5.403 1.285, 5.696 1.244, 5.943 1.183, 6.157 1.11, 6.356 1.03, 6.555 0.95, 6.77 0.877, 7.016 0.816, 7.309 0.775, 7.665 0.76, 8.031 0.775, 8.328 0.814, 8.57 0.872, 8.767 0.945, 8.934 1.025, 9.082 1.109, 9.223 1.189, 9.37 1.262, 9.536 1.32, 9.733 1.359, 9.748 1.763, 9.79 2.095, 9.852 2.374, 9.927 2.618, 10.009 2.843, 10.09 3.069, 10.165 3.312, 10.227 3.591, 10.269 3.923, 10.285 4.327, 10.27 4.688, 10.229 4.986, 10.169 5.236, 10.096 5.453, 10.016 5.655, 9.937 5.857, 9.864 6.075, 9.803 6.325, 9.763 6.622, 9.748 6.984, 9.761 7.354, 9.797 7.659, 9.85 7.914, 9.915 8.138, 9.985 8.344, 10.056 8.551, 10.12 8.775, 10.174 9.03, 10.21 9.335, 10.223 9.705, 9.866 9.831, 9.572 9.904, 9.324 9.934, 9.106 9.93, 8.902 9.901, 8.696 9.857, 8.472 9.806, 8.213 9.758, 7.904 9.722, 7.527 9.709, 7.156 9.724, 6.851 9.764, 6.594 9.824, 6.371 9.897, 6.163 9.976, 5.956 10.055, 5.732 10.128, 5.476 10.187, 5.17 10.228, 4.799 10.243, 4.395 10.228, 4.062 10.189, 3.783 10.131, 3.54 10.06, 3.314 9.983, 3.088 9.906, 2.845 9.835, 2.566 9.776, 2.233 9.737, 1.829 9.722, 1.664 9.634, 1.502 9.554, 1.346 9.472, 1.2 9.378, 1.068 9.262, 0.951 9.112, 0.855 8.919, 0.782 8.671, 0.736 8.359, 0.72 7.971, 0.735 7.625, 0.775 7.34, 0.835 7.1, 0.907 6.892, 0.986 6.698, 1.065 6.505, 1.137 6.296, 1.196 6.056, 1.237 5.771, 1.252 5.425, 1.237 5.026, 1.196 4.698, 1.136 4.422, 1.064 4.182, 0.984 3.959, 0.905 3.736, 0.833 3.495, 0.773 3.22, 0.732 2.891, 0.717 2.492, 0.729 2.272, 0.746 2.055, 0.769 1.846, 0.796 1.651, 0.826 1.473, 0.859 1.317, 0.894 1.187, 0.93 1.088, 0.965 1.024, 1 1)),((20 20, 20.031 20.116, 20.061 20.25, 20.09 20.396, 20.117 20.55, 20.142 20.709, 20.163 20.868, 20.181 21.022, 20.194 21.168, 20.203 21.301, 20.206 21.418, 20.193 21.798, 20.157 22.111, 20.104 22.374, 20.039 22.603, 19.969 22.816, 19.899 23.028, 19.835 23.258, 19.782 23.521, 19.746 23.834, 19.733 24.214, 19.746 24.582, 19.783 24.885, 19.838 25.14, 19.904 25.361, 19.976 25.567, 20.048 25.773, 20.115 25.995, 20.169 26.249, 20.206 26.552, 20.22 26.92, 20.208 27.28, 20.175 27.576, 20.126 27.825, 20.067 28.041, 20.003 28.242, 19.939 28.443, 19.88 28.66, 19.831 28.909, 19.798 29.205, 19.786 29.565, 20.071 29.52, 20.288 29.461, 20.454 29.384, 20.585 29.286, 20.698 29.164, 20.809 29.015, 20.935 28.837, 21.092 28.626, 21.297 28.379, 21.566 28.092, 21.818 27.86, 22.045 27.688, 22.252 27.561, 22.446 27.463, 22.634 27.381, 22.822 27.298, 23.017 27.2, 23.224 27.073, 23.45 26.901, 23.702 26.669, 23.965 26.387, 24.163 26.136, 24.312 25.909, 24.428 25.698, 24.529 25.494, 24.63 25.29, 24.746 25.079, 24.896 24.852, 25.093 24.601, 25.356 24.319, 25.627 24.066, 25.866 23.875, 26.083 23.73, 26.285 23.615, 26.478 23.516, 26.672 23.417, 26.873 23.303, 27.09 23.158, 27.33 22.966, 27.601 22.713, 27.835 22.46, 28.011 22.234, 28.143 22.028, 28.245 21.836, 28.332 21.651, 28.419 21.465, 28.521 21.273, 28.652 21.067, 28.828 20.841, 29.063 20.588, 29.263 20.481, 29.415 20.366, 29.516 20.248, 29.563 20.131, 29.552 20.021, 29.482 19.921, 29.347 19.835, 29.146 19.768, 28.875 19.725, 28.53 19.71, 28.182 19.725, 27.896 19.766, 27.655 19.827, 27.445 19.901, 27.25 19.981, 27.056 20.061, 26.846 20.135, 26.605 20.196, 26.319 20.237, 25.971 20.252, 25.625 20.237, 25.34 20.196, 25.101 20.135, 24.893 20.061, 24.7 19.98, 24.507 19.9, 24.298 19.826, 24.059 19.765, 23.774 19.724, 23.429 19.708, 23.027 19.723, 22.696 19.763, 22.418 19.821, 22.176 19.892, 21.951 19.969, 21.727 20.046, 21.484 20.117, 21.206 20.176, 20.875 20.215, 20.474 20.23, 20.435 20.227, 20.39 20.217, 20.341 20.202, 20.29 20.182, 20.237 20.158, 20.184 20.131, 20.132 20.1, 20.083 20.068, 20.039 20.034, 20 20)))')
+
+    def testApplyDashPattern(self):
+        """Test apply dash pattern"""
+        self.assertEqual(QgsGeometry.fromWkt('Point (1 1)').applyDashPattern([1, 2]).asWkt(3), 'Point (1 1)')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1)').applyDashPattern([1, 2]).asWkt(3), '')  # don't crash!
+        self.assertEqual(QgsGeometry.fromWkt('LineString EMPTY').applyDashPattern([1, 2]).asWkt(3), '')  # don't crash!
+        self.assertEqual(QgsGeometry.fromWkt('Polygon EMPTY').applyDashPattern([1, 2]).asWkt(3), '')  # don't crash!
+
+        # bad pattern length
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10)').applyDashPattern([1, 2, 3]).asWkt(3), '')  # don't crash!
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2]).asWkt(3),
+                         'MultiLineString ((1 1, 2 1),(4 1, 5 1),(7 1, 8 1),(10 1, 10 1, 10 1))')
+
+        # pattern ends on gap
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1]).asWkt(3),
+                         'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1))')
+
+        # pattern ends on dash
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1.1, 1, 0.5, 0.1]).asWkt(3),
+                         'MultiLineString ((1 1, 2.1 1),(3.1 1, 3.6 1),(3.7 1, 4.8 1),(5.8 1, 6.3 1),(6.4 1, 7.5 1),(8.5 1, 9 1),(9.1 1, 10 1, 10 1))')
+
+        # pattern rules
+
+        # start rule only
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.HalfDash).asWkt(3),
+                         'MultiLineString ((1 1, 1.5 1),(3.5 1, 4 1),(4.1 1, 5.1 1),(7.1 1, 7.6 1),(7.7 1, 8.7 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.FullGap).asWkt(3),
+                         'MultiLineString ((1.1 1, 2.1 1),(4.1 1, 4.6 1),(4.7 1, 5.7 1),(7.7 1, 8.2 1),(8.3 1, 9.3 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.HalfGap).asWkt(3),
+                         'MultiLineString ((1.05 1, 2.05 1),(4.05 1, 4.55 1),(4.65 1, 5.65 1),(7.65 1, 8.15 1),(8.25 1, 9.25 1))')
+
+        # end rule only
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], endRule=Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1 1, 1.841 1),(3.523 1, 3.944 1),(4.028 1, 4.869 1),(6.551 1, 6.972 1),(7.056 1, 7.897 1),(9.579 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], endRule=Qgis.DashPatternLineEndingRule.HalfDash).asWkt(3),
+                         'MultiLineString ((1 1, 1.861 1),(3.584 1, 4.014 1),(4.1 1, 4.962 1),(6.684 1, 7.115 1),(7.201 1, 8.062 1),(9.785 1, 10 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], endRule=Qgis.DashPatternLineEndingRule.FullGap).asWkt(3),
+                         'MultiLineString ((1 1, 1.833 1),(3.5 1, 3.917 1),(4 1, 4.833 1),(6.5 1, 6.917 1),(7 1, 7.833 1),(9.5 1, 9.917 1),(10 1, 10 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], endRule=Qgis.DashPatternLineEndingRule.HalfGap).asWkt(3),
+                         'MultiLineString ((1 1, 1.837 1),(3.512 1, 3.93 1),(4.014 1, 4.851 1),(6.526 1, 6.944 1),(7.028 1, 7.865 1),(9.54 1, 9.958 1))')
+
+        # start and end rules
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1 1, 1.841 1),(3.523 1, 3.944 1),(4.028 1, 4.869 1),(6.551 1, 6.972 1),(7.056 1, 7.897 1),(9.579 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.HalfDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1 1, 1.441 1),(3.206 1, 3.647 1),(3.735 1, 4.618 1),(6.382 1, 6.824 1),(6.912 1, 7.794 1),(9.559 1, 10 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.FullGap,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1.083 1, 1.917 1),(3.583 1, 4 1),(4.083 1, 4.917 1),(6.583 1, 7 1),(7.083 1, 7.917 1),(9.583 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1], Qgis.DashPatternLineEndingRule.HalfGap,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1.042 1, 1.879 1),(3.553 1, 3.972 1),(4.056 1, 4.893 1),(6.567 1, 6.986 1),(7.07 1, 7.907 1),(9.581 1, 10 1))')
+
+        # adjustment rule
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternSizeAdjustment.ScaleDashOnly).asWkt(3),
+                         'MultiLineString ((1 1, 1.622 1),(3.622 1, 3.933 1),(4.033 1, 4.656 1),(6.656 1, 6.967 1),(7.067 1, 7.689 1),(9.689 1, 10 1, 10 1))')
+
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternSizeAdjustment.ScaleGapOnly).asWkt(3),
+                         'MultiLineString ((1 1, 2 1),(3.452 1, 3.952 1),(4.024 1, 5.024 1),(6.476 1, 6.976 1),(7.048 1, 8.048 1),(9.5 1, 10 1, 10 1))')
+
+        # pattern offset
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        patternOffset=15).asWkt(3),
+                         'MultiLineString ((1 1, 1.336 1),(3.019 1, 3.439 1),(3.523 1, 4.364 1),(6.047 1, 6.467 1),(6.551 1, 7.393 1),(9.075 1, 9.495 1),(9.579 1, 10 1, 10 1))')
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                        patternOffset=-15).asWkt(3),
+                         'MultiLineString ((1 1, 1.421 1),(1.505 1, 2.346 1),(4.028 1, 4.449 1),(4.533 1, 5.374 1),(7.056 1, 7.477 1),(7.561 1, 8.402 1))')
+
+        # short line compared to pattern length
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 4 1)').applyDashPattern([1, 2, 0.5, 0.1],
+                                                                                       Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                       Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                       Qgis.DashPatternSizeAdjustment.ScaleDashOnly).asWkt(3),
+                         'MultiLineString ((1 1, 1.667 1),(3.667 1, 4 1))')
+
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 2 1)').applyDashPattern([1, 2],
+                                                                                       Qgis.DashPatternLineEndingRule.FullDash,
+                                                                                       Qgis.DashPatternLineEndingRule.FullDash).asWkt(3),
+                         'MultiLineString ((1 1, 2 1))')
+
+        self.assertEqual(QgsGeometry.fromWkt('LineString (1 1, 10 1, 10 10)').applyDashPattern([1, 2, 0.5, 0.1]).asWkt(3),
+                         'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1),(10 2.2, 10 2.7),(10 2.8, 10 3.8),(10 5.8, 10 6.3),(10 6.4, 10 7.4),(10 9.4, 10 9.9),(10 10, 10 10, 10 10))')
+
+        self.assertEqual(
+            QgsGeometry.fromWkt('MultiLineString ((1 1, 10 1),(10 10, 0 10))').applyDashPattern([1, 2, 0.5, 0.1]).asWkt(3),
+            'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1),(10 10, 9 10),(7 10, 6.5 10),(6.4 10, 5.4 10),(3.4 10, 2.9 10),(2.8 10, 1.8 10))')
+
+        self.assertEqual(
+            QgsGeometry.fromWkt('Polygon ((1 1, 10 1, 10 10, 1 10, 1 1),(3 4, 8 4, 7 7, 4 6, 3 4))').applyDashPattern([1, 2, 0.5, 0.1]).asWkt(
+                3),
+            'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1),(10 2.2, 10 2.7),(10 2.8, 10 3.8),(10 5.8, 10 6.3),(10 6.4, 10 7.4),(10 9.4, 10 9.9),(10 10, 10 10, 9 10),(7 10, 6.5 10),(6.4 10, 5.4 10),(3.4 10, 2.9 10),(2.8 10, 1.8 10),(1 8.8, 1 8.3),(1 8.2, 1 7.2),(1 5.2, 1 4.7),(1 4.6, 1 3.6),(1 1.6, 1 1.1),(1 1, 1 1, 1 1),(3 4, 4 4),(6 4, 6.5 4),(6.6 4, 7.6 4),(7.494 5.518, 7.336 5.992),(7.304 6.087, 7 7, 6.964 6.988),(5.067 6.356, 4.593 6.198),(4.498 6.166, 4 6, 3.787 5.575))')
+        self.assertEqual(QgsGeometry.fromWkt(
+            'MultiPolygon (((1 1, 10 1, 10 10, 1 10, 1 1)),((20 20, 20 30, 30 20, 20 20)))').applyDashPattern([1, 2, 0.5, 0.1]).asWkt(
+            3),
+            'MultiLineString ((1 1, 2 1),(4 1, 4.5 1),(4.6 1, 5.6 1),(7.6 1, 8.1 1),(8.2 1, 9.2 1),(10 2.2, 10 2.7),(10 2.8, 10 3.8),(10 5.8, 10 6.3),(10 6.4, 10 7.4),(10 9.4, 10 9.9),(10 10, 10 10, 9 10),(7 10, 6.5 10),(6.4 10, 5.4 10),(3.4 10, 2.9 10),(2.8 10, 1.8 10),(1 8.8, 1 8.3),(1 8.2, 1 7.2),(1 5.2, 1 4.7),(1 4.6, 1 3.6),(1 1.6, 1 1.1),(1 1, 1 1, 1 1),(20 20, 20 21),(20 23, 20 23.5),(20 23.6, 20 24.6),(20 26.6, 20 27.1),(20 27.2, 20 28.2),(20.141 29.859, 20.495 29.505),(20.566 29.434, 21.273 28.727),(22.687 27.313, 23.041 26.959),(23.111 26.889, 23.818 26.182),(25.233 24.767, 25.586 24.414),(25.657 24.343, 26.364 23.636),(27.778 22.222, 28.132 21.868),(28.202 21.798, 28.91 21.09),(29.542 20, 29.042 20),(28.942 20, 27.942 20),(25.942 20, 25.442 20),(25.342 20, 24.342 20),(22.342 20, 21.842 20),(21.742 20, 20.742 20))')
 
     def testGeosCrash(self):
         # test we don't crash when geos returns a point geometry with no points
@@ -6568,7 +6797,7 @@ class TestQgsGeometry(unittest.TestCase):
             geom = QgsGeometry.fromWkt(test['wkt'])
             self.assertTrue(geom and not geom.isNull(), 'Could not create geometry {}'.format(test['wkt']))
             rendered_image = self.renderGeometry(geom, test['use_pen'])
-            assert self.imageCheck(test['name'], test['reference_image'], rendered_image)
+            self.assertTrue(self.imageCheck(test['name'], test['reference_image'], rendered_image), test['name'])
 
             if hasattr(geom.constGet(), 'addToPainterPath'):
                 # also check using painter path
@@ -6577,11 +6806,10 @@ class TestQgsGeometry(unittest.TestCase):
 
             if 'as_polygon_reference_image' in test:
                 rendered_image = self.renderGeometry(geom, False, True)
-                assert self.imageCheck(test['name'] + '_aspolygon', test['as_polygon_reference_image'], rendered_image)
+                self.assertTrue(self.imageCheck(test['name'] + '_aspolygon', test['as_polygon_reference_image'], rendered_image), test['name'] + '_aspolygon')
 
     def testGeometryAsQPainterPath(self):
         '''Tests conversion of different geometries to QPainterPath, including bad/odd geometries.'''
-
         empty_multipolygon = QgsMultiPolygon()
         empty_multipolygon.addGeometry(QgsPolygon())
         empty_polygon = QgsPolygon()

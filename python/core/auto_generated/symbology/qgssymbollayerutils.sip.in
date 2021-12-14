@@ -118,6 +118,29 @@ Encodes a marker clip ``mode`` to a string.
 .. versionadded:: 3.24
 %End
 
+    static Qgis::LineClipMode decodeLineClipMode( const QString &string, bool *ok /Out/ = 0 );
+%Docstring
+Decodes a ``string`` representing a line clip mode.
+
+:param string: string to decode
+
+:return: - decoded line clip mode
+         - ok: will be set to ``True`` if ``string`` was successfully decoded
+
+.. seealso:: :py:func:`encodeLineClipMode`
+
+.. versionadded:: 3.24
+%End
+
+    static QString encodeLineClipMode( Qgis::LineClipMode mode );
+%Docstring
+Encodes a line clip ``mode`` to a string.
+
+.. seealso:: :py:func:`decodeLineClipMode`
+
+.. versionadded:: 3.24
+%End
+
     static QString encodePoint( QPointF point );
 %Docstring
 Encodes a QPointF to a string.
@@ -298,7 +321,7 @@ Returns a pixmap preview for a color ramp.
 .. seealso:: :py:func:`symbolPreviewIcon`
 %End
 
-    static QPicture symbolLayerPreviewPicture( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit units, QSize size, const QgsMapUnitScale &scale = QgsMapUnitScale() );
+    static QPicture symbolLayerPreviewPicture( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit units, QSize size, const QgsMapUnitScale &scale = QgsMapUnitScale(), Qgis::SymbolType parentSymbolType = Qgis::SymbolType::Hybrid );
 %Docstring
 Draws a symbol layer preview to a QPicture
 
@@ -306,6 +329,7 @@ Draws a symbol layer preview to a QPicture
 :param units: size units
 :param size: target size of preview picture
 :param scale: map unit scale for preview
+:param parentSymbolType: since QGIS 3.22, can be used to specify the parent symbol type so that geometry generator preview icons are correctly calculated
 
 :return: QPicture containing symbol layer preview
 
