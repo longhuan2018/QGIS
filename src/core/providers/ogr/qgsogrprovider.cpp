@@ -6690,6 +6690,7 @@ bool QgsOgrProviderMetadata::saveStyle(
   OGR_L_SetAttributeFilter( hLayer, checkQuery.toUtf8().constData() );
   OGR_L_ResetReading( hLayer );
   gdal::ogr_feature_unique_ptr hFeature( OGR_L_GetNextFeature( hLayer ) );
+  OGR_L_ResetReading( hLayer );
   bool bNew = true;
 
   if ( hFeature )
@@ -6901,6 +6902,7 @@ QString QgsOgrProviderMetadata::loadStyle( const QString &uri, QString &errCause
 
     }
   }
+  OGR_L_ResetReading( hLayer );
 
   return styleQML;
 }
@@ -7063,6 +7065,7 @@ QString QgsOgrProviderMetadata::getStyleById( const QString &uri, QString styleI
   QString styleQML( QString::fromUtf8(
                       OGR_F_GetFieldAsString( hFeature.get(),
                           OGR_FD_GetFieldIndex( hLayerDefn, "styleQML" ) ) ) );
+  OGR_L_ResetReading( hLayer );
 
   return styleQML;
 }

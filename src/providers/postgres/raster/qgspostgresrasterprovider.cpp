@@ -1094,7 +1094,7 @@ bool QgsPostgresRasterProvider::init()
         QgsPolygon p;
         // Strip \x
         const QByteArray hexAscii { result.PQgetvalue( 0, 5 ).toLatin1().mid( 2 ) };
-        const QByteArray hexBin = QByteArray::fromHex(hexAscii);
+        const QByteArray hexBin = QByteArray::fromHex( hexAscii );
         QgsConstWkbPtr ptr { hexBin };
 
         if ( hexAscii.isEmpty() || ! p.fromWkb( ptr ) )
@@ -1108,7 +1108,7 @@ bool QgsPostgresRasterProvider::init()
 
           QgsPostgresResult extentResult( connectionRO()->PQexec( extentSql ) );
           const QByteArray extentHexAscii { extentResult.PQgetvalue( 0, 0 ).toLatin1() };
-          const QByteArray extentHexBin = QByteArray::fromHex(extentHexAscii);
+          const QByteArray extentHexBin = QByteArray::fromHex( extentHexAscii );
           QgsConstWkbPtr extentPtr { extentHexBin };
           if ( extentHexAscii.isEmpty() || ! p.fromWkb( extentPtr ) )
           {
@@ -1261,7 +1261,7 @@ bool QgsPostgresRasterProvider::init()
     QgsPolygon p;
     try
     {
-      const QByteArray hexBin = QByteArray::fromHex(result.PQgetvalue(0, 0).toLatin1());
+      const QByteArray hexBin = QByteArray::fromHex( result.PQgetvalue( 0, 0 ).toLatin1() );
       QgsConstWkbPtr ptr { hexBin };
       if ( ! p.fromWkb( ptr ) )
       {
