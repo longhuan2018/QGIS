@@ -306,6 +306,64 @@ QString QgsProcessingAlgorithm::asPythonCommand( const QVariantMap &parameters, 
   return s;
 }
 
+QString QgsProcessingAlgorithm::asQgisProcessCommand( const QVariantMap &parameters, QgsProcessingContext &context, bool &ok ) const
+{
+  ok = true;
+  QStringList parts;
+  parts.append( QStringLiteral( "qgis_process" ) );
+  parts.append( QStringLiteral( "run" ) );
+  parts.append( id() );
+
+  QgsProcessingContext::ProcessArgumentFlags argumentFlags;
+  // we only include the project path argument if a project is actually required by the algorithm
+  if ( flags() & FlagRequiresProject )
+    argumentFlags |= QgsProcessingContext::ProcessArgumentFlag::IncludeProjectPath;
+
+  parts.append( context.asQgisProcessArguments( argumentFlags ) );
+
+  for ( const QgsProcessingParameterDefinition *def : mParameters )
+  {
+    if ( def->flags() & QgsProcessingParameterDefinition::FlagHidden )
+      continue;
+
+    if ( !parameters.contains( def->name() ) )
+      continue;
+
+    const QStringList partValues = def->valueAsStringList( parameters.value( def->name() ), context, ok );
+    if ( !ok )
+      return QString();
+
+    for ( const QString &partValue : partValues )
+      parts << QStringLiteral( "--%1=%2" ).arg( def->name(), partValue );
+  }
+
+  return parts.join( ' ' );
+}
+
+QVariantMap QgsProcessingAlgorithm::asMap( const QVariantMap &parameters, QgsProcessingContext &context ) const
+{
+  QVariantMap properties = context.exportToMap();
+
+  // we only include the project path argument if a project is actually required by the algorithm
+  if ( !( flags() & FlagRequiresProject ) )
+    properties.remove( QStringLiteral( "project_path" ) );
+
+  QVariantMap paramValues;
+  for ( const QgsProcessingParameterDefinition *def : mParameters )
+  {
+    if ( def->flags() & QgsProcessingParameterDefinition::FlagHidden )
+      continue;
+
+    if ( !parameters.contains( def->name() ) )
+      continue;
+
+    paramValues.insert( def->name(), def->valueAsJsonObject( parameters.value( def->name() ), context ) );
+  }
+
+  properties.insert( QStringLiteral( "inputs" ), paramValues );
+  return properties;
+}
+
 bool QgsProcessingAlgorithm::addParameter( QgsProcessingParameterDefinition *definition, bool createOutput )
 {
   if ( !definition )

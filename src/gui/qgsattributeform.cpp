@@ -1234,9 +1234,9 @@ void QgsAttributeForm::registerContainerInformation( QgsAttributeForm::Container
   }
 }
 
-bool QgsAttributeForm::currentFormValidConstraints( QStringList &invalidFields, QStringList &descriptions )
+bool QgsAttributeForm::currentFormValidConstraints( QStringList &invalidFields, QStringList &descriptions ) const
 {
-  bool valid( true );
+  bool valid{ true };
 
   for ( QgsWidgetWrapper *ww : std::as_const( mWidgets ) )
   {
@@ -1251,6 +1251,27 @@ bool QgsAttributeForm::currentFormValidConstraints( QStringList &invalidFields, 
 
         if ( eww->isBlockingCommit() )
           valid = false; // continue to get all invalid fields
+      }
+    }
+  }
+
+  return valid;
+}
+
+bool QgsAttributeForm::currentFormValidHardConstraints( QStringList &invalidFields, QStringList &descriptions ) const
+{
+  bool valid{ true };
+
+  for ( QgsWidgetWrapper *ww : std::as_const( mWidgets ) )
+  {
+    QgsEditorWidgetWrapper *eww = qobject_cast<QgsEditorWidgetWrapper *>( ww );
+    if ( eww )
+    {
+      if ( eww->isBlockingCommit() )
+      {
+        invalidFields.append( eww->field().displayName() );
+        descriptions.append( eww->constraintFailureReason() );
+        valid = false; // continue to get all invalid fields
       }
     }
   }
@@ -1454,7 +1475,7 @@ void QgsAttributeForm::synchronizeState()
   if ( mMode != QgsAttributeEditorContext::SearchMode )
   {
     QStringList invalidFields, descriptions;
-    mValidConstraints = currentFormValidConstraints( invalidFields, descriptions );
+    mValidConstraints = currentFormValidHardConstraints( invalidFields, descriptions );
 
     if ( isEditable && mContext.formMode() == QgsAttributeEditorContext::Embed )
     {
@@ -1542,7 +1563,7 @@ void QgsAttributeForm::init()
   {
     QgsDebugMsg( QStringLiteral( "loading form: %1" ).arg( mLayer->editFormConfig().uiForm() ) );
     const QString path = mLayer->editFormConfig().uiForm();
-    QFile *file = QgsApplication::instance()->networkContentFetcherRegistry()->localFile( path );
+    QFile *file = QgsApplication::networkContentFetcherRegistry()->localFile( path );
     if ( file && file->open( QFile::ReadOnly ) )
     {
       QUiLoader loader;
@@ -2011,7 +2032,7 @@ void QgsAttributeForm::initPython()
       case QgsEditFormConfig::CodeSourceFile:
         if ( !initFilePath.isEmpty() )
         {
-          QFile *inputFile = QgsApplication::instance()->networkContentFetcherRegistry()->localFile( initFilePath );
+          QFile *inputFile = QgsApplication::networkContentFetcherRegistry()->localFile( initFilePath );
 
           if ( inputFile && inputFile->open( QFile::ReadOnly ) )
           {
