@@ -42,7 +42,6 @@ from qgis.gui import (QgsGui,
                       QgsProcessingContextGenerator)
 from qgis.utils import iface
 
-from processing.core.ProcessingLog import ProcessingLog
 from processing.core.ProcessingConfig import ProcessingConfig
 from processing.core.ProcessingResults import resultsList
 from processing.gui.ParametersPanel import ParametersPanel
@@ -65,6 +64,8 @@ class AlgorithmDialog(QgsProcessingAlgorithmDialogBase):
 
         self.context = None
         self.feedback = None
+        self.history_log_id = None
+        self.history_details = {}
 
         self.setAlgorithm(alg)
         self.setMainWidget(self.getParametersPanel(alg, self))
@@ -266,9 +267,16 @@ class AlgorithmDialog(QgsProcessingAlgorithmDialogBase):
                     self.cancelButton().setEnabled(False)
                     self.resetGui()
             else:
-                command = self.algorithm().asPythonCommand(parameters, self.context)
-                if command:
-                    ProcessingLog.addToLog(command)
+                self.history_details = {
+                    'python_command': self.algorithm().asPythonCommand(parameters, self.context),
+                    'algorithm_id': self.algorithm().id(),
+                    'parameters': self.algorithm().asMap(parameters, self.context)
+                }
+                process_command, command_ok = self.algorithm().asQgisProcessCommand(parameters, self.context)
+                if command_ok:
+                    self.history_details['process_command'] = process_command
+                self.history_log_id, _ = QgsGui.historyProviderRegistry().addEntry('processing', self.history_details)
+
                 QgsGui.instance().processingRecentAlgorithmLog().push(self.algorithm().id())
                 self.cancelButton().setEnabled(self.algorithm().flags() & QgsProcessingAlgorithm.FlagCanCancel)
 
@@ -283,6 +291,10 @@ class AlgorithmDialog(QgsProcessingAlgorithmDialogBase):
                         self.feedback.reportError(
                             self.tr(elapsed_time(start_time, 'Execution failed after')))
                     self.feedback.pushInfo('')
+
+                    if self.history_log_id is not None:
+                        self.history_details['results'] = results
+                        QgsGui.historyProviderRegistry().updateEntry(self.history_log_id, self.history_details)
 
                     if self.feedback_dialog is not None:
                         self.feedback_dialog.close()
