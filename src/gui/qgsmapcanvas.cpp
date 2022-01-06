@@ -242,12 +242,30 @@ QgsMapCanvas::~QgsMapCanvas()
   }
   mLastNonZoomMapTool = nullptr;
 
+  cancelJobs();
+
+  // delete canvas items prior to deleting the canvas
+  // because they might try to update canvas when it's
+  // already being destructed, ends with segfault
+  qDeleteAll( mScene->items() );
+
+  mScene->deleteLater();  // crashes in python tests on windows
+
+  delete mCache;
+  delete mLabelingResults;
+}
+
+
+void QgsMapCanvas::cancelJobs()
+{
+
   // rendering job may still end up writing into canvas map item
   // so kill it before deleting canvas items
   if ( mJob )
   {
     whileBlocking( mJob )->cancel();
     delete mJob;
+    mJob = nullptr;
   }
 
   QList< QgsMapRendererQImageJob * >::const_iterator previewJob = mPreviewJobs.constBegin();
@@ -259,17 +277,8 @@ QgsMapCanvas::~QgsMapCanvas()
       delete *previewJob;
     }
   }
-
-  // delete canvas items prior to deleting the canvas
-  // because they might try to update canvas when it's
-  // already being destructed, ends with segfault
-  qDeleteAll( mScene->items() );
-
-  mScene->deleteLater();  // crashes in python tests on windows
-
-  if(mCache) delete mCache;
-  if(mLabelingResults) delete mLabelingResults;
 }
+
 
 void QgsMapCanvas::setMagnificationFactor( double factor, const QgsPointXY *center )
 {
@@ -672,7 +681,7 @@ void QgsMapCanvas::rendererJobFinished()
     // connected to signal work with correct results
     if ( !mJob->usedCachedLabels() )
     {
-      if(mLabelingResults) delete mLabelingResults;
+      delete mLabelingResults;
       mLabelingResults = mJob->takeLabelingResults();
     }
 
