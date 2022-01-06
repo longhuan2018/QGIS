@@ -38,6 +38,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
+#include "qgsconfig.h"
 
 #if !defined(Q_OS_WIN)
 #include "sigwatch.h"
@@ -75,6 +76,7 @@ typedef SInt32 SRefCon;
 #include <sys/time.h>
 #endif
 
+#ifdef HAVE_CRASH_HANDLER
 #if defined(__GLIBC__) || defined(__FreeBSD__)
 #define QGIS_CRASH
 #include <unistd.h>
@@ -82,6 +84,7 @@ typedef SInt32 SRefCon;
 #include <csignal>
 #include <sys/wait.h>
 #include <cerrno>
+#endif
 #endif
 
 #include "qgscustomization.h"
@@ -104,7 +107,9 @@ typedef SInt32 SRefCon;
 #include "qgsmapthemes.h"
 #include "qgsvectorlayer.h"
 #include "qgis_app.h"
+#ifdef HAVE_CRASH_HANDLER
 #include "qgscrashhandler.h"
+#endif
 #include "qgsziputils.h"
 #include "qgsversionmigration.h"
 #include "qgsfirstrundialog.h"
@@ -1044,7 +1049,7 @@ int main( int argc, char *argv[] )
   QgsApplication myApp( argc, argv, myUseGuiFlag, QString(), QStringLiteral( "desktop" ) );
 
   // Set locale to emit QgsApplication's localeChanged signal
-  myApp.setLocale( QLocale() );
+  QgsApplication::setLocale( QLocale() );
 
   //write the log messages written before creating QgsApplication
   for ( const QString &preApplicationLogMessage : std::as_const( preApplicationLogMessages ) )
@@ -1093,7 +1098,7 @@ int main( int argc, char *argv[] )
   QgsDebugMsgLevel( QStringLiteral( "\t - %1" ).arg( profileFolder ), 2 );
   QgsDebugMsgLevel( QStringLiteral( "\t - %1" ).arg( rootProfileFolder ), 2 );
 
-  myApp.init( profileFolder );
+  QgsApplication::init( profileFolder );
 
   // Redefine QgsApplication::libraryPaths as necessary.
   // IMPORTANT: Do *after* QgsApplication myApp(...), but *before* Qt uses any plugins,
@@ -1185,7 +1190,7 @@ int main( int argc, char *argv[] )
   // Set 1024x1024 icon for dock, app switcher, etc., rendering
   myApp.setWindowIcon( QIcon( QgsApplication::iconsPath() + QStringLiteral( "qgis-icon-macos.png" ) ) );
 #else
-  myApp.setWindowIcon( QIcon( QgsApplication::appIconPath() ) );
+  QgsApplication::setWindowIcon( QIcon( QgsApplication::appIconPath() ) );
 #endif
 
   // TODO: use QgsSettings
@@ -1391,7 +1396,7 @@ int main( int argc, char *argv[] )
   QgisApp *qgis = new QgisApp( mypSplash, myRestorePlugins, mySkipBadLayers, mySkipVersionCheck, rootProfileFolder, profileName ); // "QgisApp" used to find canonical instance
   qgis->setObjectName( QStringLiteral( "QgisApp" ) );
 
-  myApp.connect(
+  QgsApplication::connect(
     &myApp, SIGNAL( preNotify( QObject *, QEvent *, bool * ) ),
     //qgis, SLOT( preNotify( QObject *, QEvent *))
     QgsCustomization::instance(), SLOT( preNotify( QObject *, QEvent *, bool * ) )
@@ -1511,11 +1516,11 @@ int main( int argc, char *argv[] )
       qApp->processEvents(), grab the pixmap, save it, hide the window and exit.
       */
     //qgis->show();
-    myApp.processEvents();
+    QgsApplication::processEvents();
     QPixmap *myQPixmap = new QPixmap( mySnapshotWidth, mySnapshotHeight );
     myQPixmap->fill();
     qgis->saveMapAsImage( mySnapshotFileName, myQPixmap );
-    myApp.processEvents();
+    QgsApplication::processEvents();
     qgis->hide();
 
     return 1;
@@ -1632,7 +1637,7 @@ int main( int argc, char *argv[] )
   // Continue on to interactive gui...
   /////////////////////////////////////////////////////////////////////
   qgis->show();
-  myApp.connect( &myApp, SIGNAL( lastWindowClosed() ), &myApp, SLOT( quit() ) );
+  QgsApplication::connect( &myApp, SIGNAL( lastWindowClosed() ), &myApp, SLOT( quit() ) );
 
   mypSplash->finish( qgis );
   delete mypSplash;
@@ -1649,12 +1654,12 @@ int main( int argc, char *argv[] )
   UnixSignalWatcher sigwatch;
   sigwatch.watchForSignal( SIGINT );
 
-  QObject::connect( &sigwatch, &UnixSignalWatcher::unixSignal, &myApp, [&myApp ]( int signal )
+  QObject::connect( &sigwatch, &UnixSignalWatcher::unixSignal, &myApp, [ ]( int signal )
   {
     switch ( signal )
     {
       case SIGINT:
-        myApp.exit( 1 );
+        QgsApplication::exit( 1 );
         break;
 
       default:
@@ -1663,7 +1668,7 @@ int main( int argc, char *argv[] )
   } );
 #endif
 
-  int retval = myApp.exec();
+  int retval = QgsApplication::exec();
   delete qgis;
   return retval;
 }
