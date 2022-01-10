@@ -673,6 +673,24 @@ void Qgs3DSceneExporter::save( const QString &sceneName, const QString &sceneFol
   float centerZ = ( minZ + maxZ ) / 2.0f;
 
   float scale = std::max( diffX, std::max( diffY, diffZ ) );
+  scale = 1.0f;
+
+  if ( mReCenter )
+  {
+    QString txtFilePath = QDir(sceneFolderPath).filePath(sceneName + QStringLiteral(".txt"));
+    QFile txtFile(txtFilePath);
+    if (txtFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+    {
+      QTextStream txtOut(&txtFile);
+      txtOut << centerX << " " << centerY << " " << centerZ << "\n";
+    }
+  }
+  else
+  {
+    centerX = 0.0f;
+    centerY = 0.0f;
+    centerZ = 0.0f;
+  }
 
   QTextStream out( &file );
   // set material library name

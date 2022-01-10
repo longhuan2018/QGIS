@@ -48,6 +48,7 @@ QgsMap3DExportWidget::QgsMap3DExportWidget( Qgs3DMapScene *scene, Qgs3DMapExport
   connect( ui->exportTexturesCheckBox, &QCheckBox::stateChanged, [ = ]( int ) { settingsChanged(); } );
   connect( ui->terrainTextureResolutionSpinBox, qgis::overload<int>::of( &QSpinBox::valueChanged ), [ = ]( int ) { settingsChanged(); } );
   connect( ui->scaleSpinBox, qgis::overload<double>::of( &QDoubleSpinBox::valueChanged ), [ = ]( int ) { settingsChanged(); } );
+  connect(ui->reCenterCheckBox, &QCheckBox::stateChanged, [=](int) { settingsChanged(); });
 
   // sets the export settings to whatever is on the scene
   settingsChanged();
@@ -68,6 +69,7 @@ void QgsMap3DExportWidget::loadSettings()
   ui->exportNormalsCheckBox->setChecked( mExportSettings->exportNormals() );
   ui->exportTexturesCheckBox->setChecked( mExportSettings->exportTextures() );
   ui->scaleSpinBox->setValue( mExportSettings->scale() );
+  ui->reCenterCheckBox->setChecked( mExportSettings->reCenter() );
 }
 
 void QgsMap3DExportWidget::settingsChanged()
@@ -80,6 +82,7 @@ void QgsMap3DExportWidget::settingsChanged()
   mExportSettings->setExportTextures( ui->exportTexturesCheckBox->isChecked() );
   mExportSettings->setTerrainTextureResolution( ui->terrainTextureResolutionSpinBox->value() );
   mExportSettings->setScale( ui->scaleSpinBox->value() );
+  mExportSettings->setReCenter(ui->reCenterCheckBox->isChecked());
 }
 
 void QgsMap3DExportWidget::exportScene()

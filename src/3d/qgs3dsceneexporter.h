@@ -104,6 +104,8 @@ class _3D_EXPORT Qgs3DSceneExporter : public Qt3DCore::QEntity
     void setScale( float scale ) { mScale = scale; }
     //! Returns the scale of the exported 3D model
     float scale() const { return mScale; }
+    void setReCenter(bool recenter) { mReCenter = recenter; }
+    bool reCenter() const { return mReCenter; }
 
   private:
     //! Constructs Qgs3DExportObject from instanced point geometry
@@ -144,6 +146,7 @@ class _3D_EXPORT Qgs3DSceneExporter : public Qt3DCore::QEntity
     bool mExportTextures = false;
     int mTerrainTextureResolution = 512;
     float mScale = 1.0f;
+    bool mReCenter = true;
 
     friend QgsPolygon3DSymbol;
     friend QgsLine3DSymbol;

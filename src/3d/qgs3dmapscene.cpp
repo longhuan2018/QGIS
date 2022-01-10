@@ -965,6 +965,7 @@ void Qgs3DMapScene::exportScene( const Qgs3DMapExportSettings &exportSettings )
   exporter.setExportTextures( exportSettings.exportTextures() );
   exporter.setTerrainTextureResolution( exportSettings.terrainTextureResolution() );
   exporter.setScale( exportSettings.scale() );
+  exporter.setReCenter(exportSettings.reCenter());
 
   for ( auto it = mLayerEntities.constBegin(); it != mLayerEntities.constEnd(); ++it )
   {
