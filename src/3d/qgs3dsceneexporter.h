@@ -56,7 +56,7 @@ class _3D_EXPORT Qgs3DSceneExporter : public Qt3DCore::QEntity
 {
   public:
     //! Constructor
-    Qgs3DSceneExporter() { }
+    Qgs3DSceneExporter(const Qgs3DMapSettings& map);
     //! Destructor
     ~Qgs3DSceneExporter()
     {
@@ -137,6 +137,7 @@ class _3D_EXPORT Qgs3DSceneExporter : public Qt3DCore::QEntity
 
     QString getObjectName( const QString &name );
   private:
+    const Qgs3DMapSettings& mMap;
     QMap<QString, int> usedObjectNamesCounter;
     QVector<Qgs3DExportObject *> mObjects;
 

@@ -957,7 +957,7 @@ void Qgs3DMapScene::onShadowSettingsChanged()
 void Qgs3DMapScene::exportScene( const Qgs3DMapExportSettings &exportSettings )
 {
   QVector<QString> notParsedLayers;
-  Qgs3DSceneExporter exporter;
+  Qgs3DSceneExporter exporter(mMap);
 
   exporter.setTerrainResolution( exportSettings.terrrainResolution() );
   exporter.setSmoothEdges( exportSettings.smoothEdges() );

@@ -99,7 +99,7 @@ void Qgs3DExportObject::objectBounds( float &minX, float &minY, float &minZ, flo
   }
 }
 
-void Qgs3DExportObject::saveTo( QTextStream &out, float scale, const QVector3D &center )
+void Qgs3DExportObject::saveTo( QTextStream &out, float scale, const QVector3D &center, const QVector3D& sceneCenter )
 {
   // Set groups
   // turns out grouping doest work as expected in blender
@@ -115,9 +115,9 @@ void Qgs3DExportObject::saveTo( QTextStream &out, float scale, const QVector3D &
   {
     // for now just ignore wrong vertex positions
     out << "v ";
-    out << ( mVertexPosition[i] - center.x() ) / scale << " ";
-    out << ( mVertexPosition[i + 1] - center.y() ) / scale << " ";
-    out << ( mVertexPosition[i + 2] - center.z() ) / scale << "\n";
+    out << ( mVertexPosition[i] - center.x() + sceneCenter.x()) / scale << " ";
+    out << (sceneCenter.y() - (mVertexPosition[i + 2] - center.y()) ) / scale << " ";
+    out << ( mVertexPosition[i + 1] - center.z() + sceneCenter.z() ) / scale << "\n";
     if ( i + 3 <= mNormals.size() )
     {
       out << "vn " << mNormals[i] << " " << mNormals[i + 1] << " " << mNormals[i + 2] << "\n";

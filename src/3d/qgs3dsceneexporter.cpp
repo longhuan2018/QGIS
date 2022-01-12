@@ -180,6 +180,11 @@ Component *findTypedComponent( Qt3DCore::QEntity *entity )
   return nullptr;
 }
 
+Qgs3DSceneExporter::Qgs3DSceneExporter(const Qgs3DMapSettings& map)
+  : mMap( map )
+{
+}
+
 bool Qgs3DSceneExporter::parseVectorLayerEntity( Qt3DCore::QEntity *entity, QgsVectorLayer *layer )
 {
   QgsAbstract3DRenderer *abstractRenderer =  layer->renderer3D();
@@ -675,6 +680,7 @@ void Qgs3DSceneExporter::save( const QString &sceneName, const QString &sceneFol
   float scale = std::max( diffX, std::max( diffY, diffZ ) );
   scale = 1.0f;
 
+  QVector3D sceneCenter(0.0, 0.0, 0.0);
   if ( mReCenter )
   {
     QString txtFilePath = QDir(sceneFolderPath).filePath(sceneName + QStringLiteral(".txt"));
@@ -682,17 +688,20 @@ void Qgs3DSceneExporter::save( const QString &sceneName, const QString &sceneFol
     if (txtFile.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
     {
       QTextStream txtOut(&txtFile);
-      txtOut << centerX << " " << centerY << " " << centerZ << "\n";
+      txtOut.setRealNumberNotation(QTextStream::FixedNotation);
+      txtOut << (mMap.origin().x() + centerX)  << " " << (mMap.origin().y() - centerY) << " " << (mMap.origin().z() + centerZ) << "\n";
     }
   }
   else
   {
-    centerX = 0.0f;
-    centerY = 0.0f;
-    centerZ = 0.0f;
+    centerX = 0.0;
+    centerY = 0.0;
+    centerZ = 0.0;
+    sceneCenter = QVector3D(mMap.origin().x(), mMap.origin().y(), mMap.origin().z());
   }
 
   QTextStream out( &file );
+  out.setRealNumberNotation(QTextStream::FixedNotation);
   // set material library name
   QString mtlLibName = sceneName + ".mtl";
   out << "mtllib " << mtlLibName << "\n";
@@ -706,7 +715,7 @@ void Qgs3DSceneExporter::save( const QString &sceneName, const QString &sceneFol
     out << "o " << obj->name() << "\n";
     if ( material != QString() )
       out << "usemtl " << material << "\n";
-    obj->saveTo( out, scale / mScale, QVector3D( centerX, centerY, centerZ ) );
+    obj->saveTo( out, scale / mScale, QVector3D( centerX, centerY, centerZ ), sceneCenter );
   }
 }
 
