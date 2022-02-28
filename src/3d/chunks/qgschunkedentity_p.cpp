@@ -153,6 +153,11 @@ void QgsChunkedEntity::update( const SceneState &state )
     }
     else
     {
+      if ( !node->entity() )
+      {
+        QgsDebugMsg( "Active node has null entity - this should never happen!" );
+        continue;
+      }
       node->entity()->setEnabled( true );
       ++enabled;
     }
@@ -161,6 +166,11 @@ void QgsChunkedEntity::update( const SceneState &state )
   // disable those that were active but will not be anymore
   for ( QgsChunkNode *node : activeBefore )
   {
+    if ( !node->entity() )
+    {
+      QgsDebugMsg( "Active node has null entity - this should never happen!" );
+      continue;
+    }
     node->entity()->setEnabled( false );
     ++disabled;
   }
@@ -171,6 +181,7 @@ void QgsChunkedEntity::update( const SceneState &state )
   {
     QgsChunkListEntry *entry = mReplacementQueue->takeLast();
     entry->chunk->unloadChunk();  // also deletes the entry
+    mActiveNodes.removeOne( entry->chunk );
     ++unloaded;
   }
 

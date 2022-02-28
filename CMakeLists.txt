@@ -17,7 +17,7 @@ set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 #############################################################
 # Project and version
 set(CPACK_PACKAGE_VERSION_MAJOR "3")
-set(CPACK_PACKAGE_VERSION_MINOR "23")
+set(CPACK_PACKAGE_VERSION_MINOR "25")
 set(CPACK_PACKAGE_VERSION_PATCH "0")
 set(COMPLETE_VERSION ${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH})
 set(RELEASE_NAME "Master")
@@ -119,9 +119,8 @@ set (WITH_CORE TRUE CACHE BOOL "Determines whether QGIS core should be built.")
 mark_as_advanced(WITH_CORE)
 
 if(WITH_CORE)
-  # Only GRASS 7 is currently supported but we keep dual version support in cmake for possible future switch to GRASS 8.
   # Try to configure and build GRASS plugin by default
-  foreach (GRASS_SEARCH_VERSION 7)
+  foreach (GRASS_SEARCH_VERSION 7 8)
     # Legacy note:
     # For GRASS 6 there were used cached variables without version suffix so that existing caches didn't have to be reconfigured.
     # Cached variables were: WITH_GRASS, WITH_GRASS7, GRASS_PREFIX, GRASS_PREFIX7, GRASS_INCLUDE_DIR, GRASS_INCLUDE_DIR7
@@ -174,6 +173,7 @@ if(WITH_CORE)
   set (WITH_QGIS_PROCESS TRUE CACHE BOOL "Determines whether the standalone \"qgis_process\" tool should be built")
 
   set (NATIVE_CRSSYNC_BIN "" CACHE PATH "Path to a natively compiled synccrsdb binary. If set, crssync will not build but use provided bin instead.")
+  mark_as_advanced (NATIVE_CRSSYNC_BIN)
 
   # try to configure and build python bindings by default
   set (WITH_BINDINGS TRUE CACHE BOOL "Determines whether python bindings should be built")
@@ -197,6 +197,8 @@ if(WITH_CORE)
   # server disabled default because it needs FastCGI (which is optional dependency)
   set (WITH_SERVER FALSE CACHE BOOL "Determines whether QGIS server should be built")
   if(WITH_SERVER)
+    set (WITH_SERVER_LANDINGPAGE_WEBAPP FALSE CACHE BOOL "Determines whether QGIS server landingpage webapp should be built (requires nodejs and yarn)")
+
     set (SERVER_SKIP_ECW FALSE CACHE BOOL "Determines whether QGIS server should disable ECW (ECW in server apps requires a special license)")
 
     set (WITH_SERVER_PLUGINS ${WITH_BINDINGS} CACHE BOOL "Determines whether QGIS server support for python plugins should be built")
@@ -281,14 +283,8 @@ if(WITH_CORE)
   endif(WITH_HANA)
 
   set (WITH_PDAL FALSE CACHE BOOL "Determines whether PDAL support should be built")
-  if(WITH_PDAL)
-    set(HAVE_PDAL TRUE)
-  endif()
 
   set (WITH_EPT TRUE CACHE BOOL "Determines whether Entwine Point Cloud (EPT) support should be built")
-  if(WITH_EPT)
-    set(HAVE_EPT TRUE)
-  endif()
 
   set (WITH_THREAD_LOCAL TRUE CACHE BOOL "Determines whether std::thread_local should be used")
   mark_as_advanced(WITH_THREAD_LOCAL)
@@ -414,10 +410,7 @@ if(WITH_CORE)
   endif()
 
   if (WITH_EPT)  # EPT provider
-    find_package(ZSTD) # for decompression of point clouds
-    if (NOT ZSTD_FOUND)
-      message(FATAL_ERROR "ZSTD not found - EPT provider cannot be built")
-    endif()
+    find_package(ZSTD REQUIRED) # for decompression of point clouds
     find_package(LazPerf) # for decompression of point clouds
     if (NOT LazPerf_FOUND)
       message(STATUS "Using embedded laz-perf")
@@ -429,10 +422,8 @@ if(WITH_CORE)
     if (NOT WITH_EPT)
       message(FATAL_ERROR "PDAL provider cannot be built with EPT disabled")
     endif()
-    find_package(PDAL) # PDAL provider
-  endif()
-  if (PDAL_FOUND)
-    set(HAVE_PDAL TRUE)  # used in qgsconfig.h
+    find_package(PDAL REQUIRED) # PDAL provider
+    set(HAVE_PDAL_QGIS TRUE)  # used in qgisconfig.h. note -- we can't use HAVE_PDAL here as the grass public headers redefine this!
   endif()
 
   #############################################################

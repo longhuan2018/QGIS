@@ -107,6 +107,22 @@ bool QgsVectorTileLayerRenderer::render()
 
   const bool isAsync = ( mSourceType == QLatin1String( "xyz" ) );
 
+  if ( mSourceType == QLatin1String( "xyz" ) && mSourcePath.contains( QLatin1String( "{usage}" ) ) )
+  {
+    switch ( renderContext()->rendererUsage() )
+    {
+      case Qgis::RendererUsage::View:
+        mSourcePath.replace( QLatin1String( "{usage}" ), QLatin1String( "view" ) );
+        break;
+      case Qgis::RendererUsage::Export:
+        mSourcePath.replace( QLatin1String( "{usage}" ), QLatin1String( "export" ) );
+        break;
+      case Qgis::RendererUsage::Unknown:
+        mSourcePath.replace( QLatin1String( "{usage}" ), QString() );
+        break;
+    }
+  }
+
   std::unique_ptr<QgsVectorTileLoader> asyncLoader;
   QList<QgsVectorTileRawData> rawTiles;
   if ( !isAsync )
@@ -164,8 +180,10 @@ bool QgsVectorTileLayerRenderer::render()
       ctx.labelingEngine()->removeProvider( mLabelProvider );
       mLabelProvider = nullptr; // provider is deleted by the engine
     }
-
-    mRequiredLayers.unite( mLabelProvider->requiredLayers( ctx, mTileZoom ) );
+    else
+    {
+      mRequiredLayers.unite( mLabelProvider->requiredLayers( ctx, mTileZoom ) );
+    }
   }
 
   if ( !isAsync )
@@ -183,6 +201,8 @@ bool QgsVectorTileLayerRenderer::render()
     // Block until tiles are fetched and rendered. If the rendering gets canceled at some point,
     // the async loader will catch the signal, abort requests and return from downloadBlocking()
     asyncLoader->downloadBlocking();
+    if ( !asyncLoader->error().isEmpty() )
+      mErrors.append( asyncLoader->error() );
   }
 
   mRenderer->stopRender( ctx );

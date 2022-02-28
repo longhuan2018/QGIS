@@ -805,8 +805,8 @@ void QgsExpression::initVariableHelp()
   sVariableHelpTexts()->insert( QStringLiteral( "animation_interval" ), QCoreApplication::translate( "variable_help", "Duration of the animation's overall temporal time range (as an interval value)" ) );
 
   // vector tile layer variables
-  sVariableHelpTexts()->insert( QStringLiteral( "zoom_level" ), QCoreApplication::translate( "variable_help", "Zoom level of the tile that is being rendered (derived from the current map scale). Normally in interval [0, 20]." ) );
-  sVariableHelpTexts()->insert( QStringLiteral( "vector_tile_zoom" ), QCoreApplication::translate( "variable_help", "Exact zoom level of the tile that is being rendered (derived from the current map scale). Normally in interval [0, 20]. Unlike @zoom_level, this variable is a floating point value which can be used to interpolated values between two integer zoom levels." ) );
+  sVariableHelpTexts()->insert( QStringLiteral( "zoom_level" ), QCoreApplication::translate( "variable_help", "Vector tile zoom level of the map that is being rendered (derived from the current map scale). Normally in interval [0, 20]." ) );
+  sVariableHelpTexts()->insert( QStringLiteral( "vector_tile_zoom" ), QCoreApplication::translate( "variable_help", "Exact vector tile zoom level of the map that is being rendered (derived from the current map scale). Normally in interval [0, 20]. Unlike @zoom_level, this variable is a floating point value which can be used to interpolate values between two integer zoom levels." ) );
 
   sVariableHelpTexts()->insert( QStringLiteral( "row_number" ), QCoreApplication::translate( "variable_help", "Stores the number of the current row." ) );
   sVariableHelpTexts()->insert( QStringLiteral( "grid_number" ), QCoreApplication::translate( "variable_help", "Current grid annotation value." ) );
@@ -1108,7 +1108,12 @@ QString QgsExpression::formatPreviewString( const QVariant &value, const bool ht
   }
   else
   {
-    return value.toString();
+    QString str { value.toString() };
+    if ( str.length() > maximumPreviewLength - 3 )
+    {
+      str = tr( "%1…" ).arg( str.left( maximumPreviewLength - 2 ) );
+    }
+    return str;
   }
 }
 
@@ -1369,6 +1374,23 @@ int QgsExpression::expressionToLayerFieldIndex( const QString &expression, const
     return layer->fields().lookupField( fieldName );
   }
   return -1;
+}
+
+QString QgsExpression::quoteFieldExpression( const QString &expression, const QgsVectorLayer *layer )
+{
+  if ( !layer )
+    return expression;
+
+  const int fieldIndex = QgsExpression::expressionToLayerFieldIndex( expression, layer );
+  if ( !expression.contains( '\"' ) && fieldIndex != -1 )
+  {
+    // retrieve actual field name from layer, so that we correctly remove any unwanted leading/trailing whitespace
+    return QgsExpression::quotedColumnRef( layer->fields().at( fieldIndex ).name() );
+  }
+  else
+  {
+    return expression;
+  }
 }
 
 QList<const QgsExpressionNode *> QgsExpression::nodes() const

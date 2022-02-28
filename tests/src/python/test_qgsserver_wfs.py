@@ -131,6 +131,31 @@ class TestQgsServerWFS(QgsServerTestBase):
             header, body
         )
 
+    def test_getfeature_invalid_typename(self):
+        project = self.testdata_path + "test_project_wfs.qgs"
+
+        # a single invalid typename
+        qs = "?" + "&".join(["%s=%s" % i for i in list({
+            "MAP": urllib.parse.quote(project),
+            "SERVICE": "WFS",
+            "REQUEST": "GetFeature",
+            "TYPENAME": "invalid"
+        }.items())])
+        header, body = self._execute_request(qs)
+
+        self.assertTrue(b"TypeName 'invalid' could not be found" in body)
+
+        # an invalid typename preceded by a valid one
+        qs = "?" + "&".join(["%s=%s" % i for i in list({
+            "MAP": urllib.parse.quote(project),
+            "SERVICE": "WFS",
+            "REQUEST": "GetFeature",
+            "TYPENAME": "testlayer,invalid"
+        }.items())])
+        header, body = self._execute_request(qs)
+
+        self.assertTrue(b"TypeName 'invalid' could not be found" in body)
+
     def test_getfeature(self):
 
         tests = []
@@ -147,6 +172,13 @@ class TestQgsServerWFS(QgsServerTestBase):
 
         for id, req in tests:
             self.wfs_getfeature_compare(id, req)
+
+    def test_getfeature_exp_filter(self):
+        # multiple filters
+        exp_filter = "EXP_FILTER=\"name\"='one';\"name\"='two'"
+        req = f"SRSNAME=EPSG:4326&TYPENAME=testlayer,testlayer&{exp_filter}"
+        self.wfs_request_compare(
+            "GetFeature", '1.0.0', req, 'wfs_getFeature_exp_filter_2')
 
     def test_wfs_getcapabilities_100_url(self):
         """Check that URL in GetCapabilities response is complete"""

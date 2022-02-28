@@ -959,6 +959,7 @@ QgsRectangle QgsProcessingUtils::combineLayerExtents( const QList<QgsMapLayer *>
     {
       //transform layer extent to target CRS
       QgsCoordinateTransform ct( layer->crs(), crs, context.transformContext() );
+      ct.setBallparkTransformsAreAppropriate( true );
       try
       {
         QgsRectangle reprojExtent = ct.transformBoundingBox( layer->extent() );
@@ -1518,9 +1519,9 @@ bool QgsProcessingFeatureSink::addFeatures( QgsFeatureList &features, QgsFeature
   {
     const QString error = lastError();
     if ( !error.isEmpty() )
-      mContext.feedback()->reportError( QObject::tr( "%1 feature(s) could not be written to %2: %3" ).arg( features.count() ).arg( mSinkName, error ) );
+      mContext.feedback()->reportError( QObject::tr( "%n feature(s) could not be written to %1: %2", nullptr, features.count() ).arg( mSinkName, error ) );
     else
-      mContext.feedback()->reportError( QObject::tr( "%1 feature(s) could not be written to %2" ).arg( features.count() ).arg( mSinkName ) );
+      mContext.feedback()->reportError( QObject::tr( "%n feature(s) could not be written to %1", nullptr, features.count() ).arg( mSinkName ) );
   }
   return result;
 }

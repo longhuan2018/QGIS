@@ -45,6 +45,7 @@ class QgsGeorefToolDeletePoint;
 class QgsGeorefToolMovePoint;
 class QgsGeorefToolMovePoint;
 class QgsGCPCanvasItem;
+class QgsGcpPoint;
 
 class QgsGeorefDockWidget : public QgsDockWidget
 {
@@ -90,14 +91,24 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void linkQGisToGeoref( bool link );
 
     // gcps
-    void addPoint( const QgsPointXY &pixelCoords, const QgsPointXY &mapCoords,
-                   const QgsCoordinateReferenceSystem &crs, bool enable = true, bool finalize = true );
+
+    /**
+     * Adds a new reference point.
+     * \param sourceCoords MUST be in source layer coordinates, e.g. if source is already georeferenced then it is in layer coordinates NOT pixels
+     * \param destinationMapCoords
+     * \param destinationCrs
+     * \param enable
+     * \param finalize
+     */
+    void addPoint( const QgsPointXY &sourceCoords, const QgsPointXY &destinationMapCoords,
+                   const QgsCoordinateReferenceSystem &destinationCrs, bool enable = true, bool finalize = true );
+
     void deleteDataPoint( QPoint pixelCoords );
     void deleteDataPoint( int index );
-    void showCoordDialog( const QgsPointXY &pixelCoords );
+    void showCoordDialog( const QgsPointXY &sourceCoordinates );
 
     void selectPoint( QPoint );
-    void movePoint( QPoint );
+    void movePoint( QPoint canvasPixels );
     void releasePoint( QPoint );
 
     void loadGCPsDialog();
@@ -108,7 +119,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void showGeorefConfigDialog();
 
     // comfort
-    void jumpToGCP( uint theGCPIndex );
+    void recenterOnPoint( const QgsPointXY &point );
     void extentsChangedGeorefCanvas();
     void extentsChangedQGisCanvas();
     void updateCanvasRotation();
@@ -128,7 +139,6 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     enum SaveGCPs
     {
       GCPSAVE,
-      GCPSILENTSAVE,
       GCPDISCARD,
       GCPCANCEL
     };
@@ -140,6 +150,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void createMenus();
     void createDockWidgets();
     QLabel *createBaseLabelStatus();
+    QFont statusBarFont();
     void createStatusBar();
     void setupConnections();
     void removeOldLayer();
@@ -152,7 +163,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     void writeSettings();
 
     // gcp points
-    bool loadGCPs( /*bool verbose = true*/ );
+    bool loadGCPs( QString &error );
     void saveGCPs();
     QgsGeoreferencerMainWindow::SaveGCPs checkNeedGCPSave();
 
@@ -183,7 +194,7 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     int polynomialOrder( QgsGeorefTransform::TransformMethod transform );
     QString guessWorldFileName( const QString &rasterFileName );
     bool checkFileExisting( const QString &fileName, const QString &title, const QString &question );
-    bool equalGCPlists( const QgsGCPList &list1, const QgsGCPList &list2 );
+    bool equalGCPlists( const QList<QgsGcpPoint> &list1, const QgsGCPList &list2 );
     void logTransformOptions();
     void logRequaredGCPs();
     void clearGCPData();
@@ -222,20 +233,22 @@ class QgsGeoreferencerMainWindow : public QMainWindow, private Ui::QgsGeorefPlug
     QString mWorldFileName;
     QString mTranslatedRasterFileName;
     QString mGCPpointsFileName;
-    QgsCoordinateReferenceSystem mProjection;
+    QgsCoordinateReferenceSystem mTargetCrs;
     QgsCoordinateReferenceSystem mLastGCPProjection;
     QString mPdfOutputFile;
     QString mPdfOutputMapFile;
-    QString mSaveGcp;
+    bool mSaveGcp = false;
     double  mUserResX, mUserResY;  // User specified target scale
 
     QgsGcpTransformerInterface::TransformMethod mTransformParam = QgsGcpTransformerInterface::TransformMethod::InvalidTransform;
     QgsImageWarper::ResamplingMethod mResamplingMethod;
     QgsGeorefTransform mGeorefTransform;
     QString mCompressionMethod;
+    bool mCreateWorldFileOnly = false;
 
     QgsGCPList mPoints;
-    QgsGCPList mInitialPoints;
+    QList< QgsGcpPoint > mSavedPoints;
+
     QgsMapCanvas *mCanvas = nullptr;
     std::unique_ptr< QgsRasterLayer > mLayer;
 
