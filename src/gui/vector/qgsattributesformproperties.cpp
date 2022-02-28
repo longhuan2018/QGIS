@@ -245,8 +245,8 @@ void QgsAttributesFormProperties::initInitPython()
                           "\"\"\"\n"
                           "from qgis.PyQt.QtWidgets import QWidget\n\n"
                           "def my_form_open(dialog, layer, feature):\n"
-                          "\tgeom = feature.geometry()\n"
-                          "\tcontrol = dialog.findChild(QWidget, \"MyLineEdit\")\n" ) );
+                          "    geom = feature.geometry()\n"
+                          "    control = dialog.findChild(QWidget, \"MyLineEdit\")\n" ) );
   }
 }
 
@@ -1340,7 +1340,7 @@ void QgsAttributesDnDTree::onItemDoubleClicked( QTreeWidgetItem *item, int colum
       expressionWidgetBox->layout()->addWidget( addExpressionButton );
       qmlCodeBox->layout()->addWidget( qmlCode );
       layout->addWidget( qmlCodeBox );
-      QScrollArea *qmlPreviewBox = new QScrollArea();
+      QScrollArea *qmlPreviewBox = new QgsScrollArea();
       qmlPreviewBox->setLayout( new QGridLayout );
       qmlPreviewBox->setMinimumWidth( 400 );
       qmlPreviewBox->layout()->addWidget( qmlWrapper->widget() );
@@ -1421,7 +1421,7 @@ void QgsAttributesDnDTree::onItemDoubleClicked( QTreeWidgetItem *item, int colum
       expressionWidgetBox->layout()->addWidget( expressionWidget );
       expressionWidgetBox->layout()->addWidget( addExpressionButton );
       layout->addWidget( htmlCode );
-      QScrollArea *htmlPreviewBox = new QScrollArea();
+      QScrollArea *htmlPreviewBox = new QgsScrollArea();
       htmlPreviewBox->setLayout( new QGridLayout );
       htmlPreviewBox->setMinimumWidth( 400 );
       htmlPreviewBox->layout()->addWidget( htmlWrapper->widget() );

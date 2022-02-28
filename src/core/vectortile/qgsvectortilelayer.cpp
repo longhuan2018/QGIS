@@ -117,8 +117,9 @@ bool QgsVectorTileLayer::loadDataSource()
     QgsDebugMsgLevel( QStringLiteral( "zoom range: %1 - %2" ).arg( mSourceMinZoom ).arg( mSourceMaxZoom ), 2 );
 
     QgsRectangle r = reader.extent();
-    const QgsCoordinateTransform ct( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ),
-                                     QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3857" ) ), transformContext() );
+    QgsCoordinateTransform ct( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ),
+                               QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3857" ) ), transformContext() );
+    ct.setBallparkTransformsAreAppropriate( true );
     r = ct.transformBoundingBox( r );
     setExtent( r );
   }
@@ -400,6 +401,22 @@ QString QgsVectorTileLayer::loadDefaultStyle( bool &resultFlag )
   QStringList warnings;
   resultFlag = loadDefaultStyle( error, warnings );
   return error;
+}
+
+Qgis::MapLayerProperties QgsVectorTileLayer::properties() const
+{
+  Qgis::MapLayerProperties res;
+  if ( mSourceType == QLatin1String( "xyz" ) )
+  {
+    // always consider xyz vector tiles as basemap layers
+    res |= Qgis::MapLayerProperty::IsBasemapLayer;
+  }
+  else
+  {
+    // TODO when should we consider mbtiles layers as basemap layers? potentially if their extent is "large"?
+  }
+
+  return res;
 }
 
 bool QgsVectorTileLayer::loadDefaultStyle( QString &error, QStringList &warnings )

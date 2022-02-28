@@ -890,13 +890,17 @@ void QgsAttributeTableDialog::mActionAddAttribute_triggered()
     if ( mLayer->addAttribute( dialog.field() ) )
     {
       mLayer->endEditCommand();
+
+      if ( mLayer->displayExpression().isEmpty() )
+      {
+        mLayer->setDisplayExpression( dialog.field().name() );
+      }
     }
     else
     {
       mLayer->destroyEditCommand();
       QMessageBox::critical( this, tr( "Add Field" ), tr( "Failed to add field '%1' of type '%2'. Is the field name unique?" ).arg( dialog.field().name(), dialog.field().typeName() ) );
     }
-
 
     // update model - a field has been added or updated
     masterModel->reload( masterModel->index( 0, 0 ), masterModel->index( masterModel->rowCount() - 1, masterModel->columnCount() - 1 ) );
@@ -919,12 +923,17 @@ void QgsAttributeTableDialog::mActionRemoveAttribute_triggered()
       return;
     }
 
+    // check whether display expression is a single field
+    int fieldIdx = QgsExpression::expressionToLayerFieldIndex( mLayer->displayExpression(), mLayer );
     QgsAttributeTableModel *masterModel = mMainView->masterModel();
 
     mLayer->beginEditCommand( tr( "Deleted attribute" ) );
     if ( mLayer->deleteAttributes( attributes ) )
     {
       mLayer->endEditCommand();
+
+      if ( fieldIdx != -1 && attributes.contains( fieldIdx ) )
+        mLayer->setDisplayExpression( mLayer->fields().count() > 0 ? mLayer->fields().at( 0 ).name() : QString() );
     }
     else
     {
@@ -980,7 +989,7 @@ void QgsAttributeTableDialog::deleteFeature( const QgsFeatureId fid )
     for ( QgsVectorLayer *chl : infoContextLayers )
     {
       childrenCount += infoContext.duplicatedFeatures( chl ).size();
-      childrenInfo += ( tr( "%1 feature(s) on layer \"%2\", " ).arg( infoContext.duplicatedFeatures( chl ).size() ).arg( chl->name() ) );
+      childrenInfo += ( tr( "%n feature(s) on layer \"%1\", ", nullptr, infoContext.duplicatedFeatures( chl ).size() ).arg( chl->name() ) );
     }
 
     // for extra safety to make sure we know that the delete can have impact on children and joins
@@ -1004,7 +1013,7 @@ void QgsAttributeTableDialog::deleteFeature( const QgsFeatureId fid )
       feedbackMessage += tr( "%1 on layer %2. " ).arg( context.handledFeatures( contextLayer ).size() ).arg( contextLayer->name() );
       deletedCount += context.handledFeatures( contextLayer ).size();
     }
-    QgisApp::instance()->messageBar()->pushMessage( tr( "%1 features deleted: %2" ).arg( deletedCount ).arg( feedbackMessage ), Qgis::MessageLevel::Success );
+    QgisApp::instance()->messageBar()->pushMessage( tr( "%n feature(s) deleted: %1", nullptr, deletedCount ).arg( feedbackMessage ), Qgis::MessageLevel::Success );
   }
 }
 

@@ -498,7 +498,8 @@ static QgsRectangle _tryReprojectExtent2D( const QgsRectangle &extent, const Qgs
   if ( crs1 != crs2 )
   {
     // reproject if necessary
-    const QgsCoordinateTransform ct( crs1, crs2, context );
+    QgsCoordinateTransform ct( crs1, crs2, context );
+    ct.setBallparkTransformsAreAppropriate( true );
     try
     {
       extentMapCrs = ct.transformBoundingBox( extentMapCrs );
@@ -645,9 +646,9 @@ QgsRay3D Qgs3DUtils::rayFromScreenPoint( const QPoint &point, const QSize &windo
 
 QVector3D Qgs3DUtils::screenPointToWorldPos( const QPoint &screenPoint, double depth, const QSize &screenSize, Qt3DRender::QCamera *camera )
 {
-  double near = camera->nearPlane();
-  double far = camera->farPlane();
-  double distance = ( 2.0 * near * far ) / ( far + near - ( depth * 2 - 1 ) * ( far - near ) );
+  double dNear = camera->nearPlane();
+  double dFar = camera->farPlane();
+  double distance = ( 2.0 * dNear * dFar ) / ( dFar + dNear - ( depth * 2 - 1 ) * ( dFar - dNear ) );
 
   QgsRay3D ray = Qgs3DUtils::rayFromScreenPoint( screenPoint, screenSize, camera );
   double dot = QVector3D::dotProduct( ray.direction(), camera->viewVector().normalized() );
@@ -672,9 +673,4 @@ QVector2D Qgs3DUtils::screenToTextureCoordinates( QVector2D screenXY, QSize winS
 QVector2D Qgs3DUtils::textureToScreenCoordinates( QVector2D textureXY, QSize winSize )
 {
   return QVector2D( textureXY.x() * winSize.width(), ( 1 - textureXY.y() ) * winSize.height() );
-}
-
-double Qgs3DUtils::decodeDepth( const QColor &pixel )
-{
-  return pixel.redF() / 255.0 / 255.0 + pixel.greenF() / 255.0 + pixel.blueF();
 }

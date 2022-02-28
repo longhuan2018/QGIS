@@ -300,6 +300,7 @@ class CORE_EXPORT Qgis
       Rename = 1 << 4, //!< Item can be renamed
       Delete = 1 << 5, //!< Item can be deleted
       ItemRepresentsFile = 1 << 6, //!< Item's path() directly represents a file on disk (since QGIS 3.22)
+      RefreshChildrenWhenItemIsRefreshed = 1 << 7, //!< When the item is refreshed, all its populated children will also be refreshed in turn (since QGIS 3.26)
     };
     Q_ENUM( BrowserItemCapability )
     //! Browser item capabilities
@@ -777,10 +778,25 @@ class CORE_EXPORT Qgis
     enum class MapLayerProperty : int
     {
       UsersCannotToggleEditing = 1 << 0, //!< Indicates that users are not allowed to toggle editing for this layer. Note that this does not imply that the layer is non-editable (see isEditable(), supportsEditing() ), rather that the editable status of the layer cannot be changed by users manually. Since QGIS 3.22.
+      IsBasemapLayer = 1 << 1, //!< Layer is considered a 'basemap' layer, and certain properties of the layer should be ignored when calculating project-level properties. For instance, the extent of basemap layers is ignored when calculating the extent of a project, as these layers are typically global and extend outside of a project's area of interest. Since QGIS 3.26.
     };
     //! Map layer properties
     Q_DECLARE_FLAGS( MapLayerProperties, MapLayerProperty )
     Q_ENUM( MapLayerProperty )
+
+
+    /**
+     * Generic data provider flags.
+     *
+     * \since QGIS 3.26
+     */
+    enum class DataProviderFlag : int
+    {
+      IsBasemapSource = 1 << 1, //!< Associated source should be considered a 'basemap' layer. See Qgis::MapLayerProperty::IsBasemapLayer.
+    };
+    //! Data provider flags
+    Q_DECLARE_FLAGS( DataProviderFlags, DataProviderFlag )
+    Q_ENUM( DataProviderFlag )
 
     /**
      * Flags for annotation items.
@@ -1251,6 +1267,19 @@ class CORE_EXPORT Qgis
     Q_ENUM( AngularDirection )
 
     /**
+     *  Usage of the renderer.
+     *
+     * \since QGIS 3.24
+     */
+    enum class RendererUsage : int
+    {
+      View, //!< Renderer used for displaying on screen
+      Export, //!< Renderer used for printing or exporting to a file
+      Unknown, //!< Renderer used for unknown usage
+    };
+    Q_ENUM( RendererUsage )
+
+    /**
      * History provider backends.
      *
      * \since QGIS 3.24
@@ -1263,6 +1292,63 @@ class CORE_EXPORT Qgis
     Q_ENUM( HistoryProviderBackend )
     Q_DECLARE_FLAGS( HistoryProviderBackends, HistoryProviderBackend )
     Q_FLAG( HistoryProviderBackends )
+
+    /**
+     * CRS definition formats.
+     *
+     * \since QGIS 3.24
+     */
+    enum class CrsDefinitionFormat SIP_MONKEYPATCH_SCOPEENUM_UNNEST( QgsCoordinateReferenceSystem, Format ) : int
+      {
+      Wkt SIP_MONKEYPATCH_COMPAT_NAME( FormatWkt ), //!< WKT format (always recommended over proj string format)
+      Proj SIP_MONKEYPATCH_COMPAT_NAME( FormatProj ), //!< Proj string format
+    };
+    Q_ENUM( CrsDefinitionFormat )
+
+    /**
+     * Split policy for field domains.
+     *
+     * When a feature is split into multiple parts, defines how the value of attributes
+     * following the domain are computed.
+     *
+     * \since QGIS 3.26
+     */
+    enum class FieldDomainSplitPolicy : int
+    {
+      DefaultValue, //!< Use default field value
+      Duplicate, //!< Duplicate original value
+      GeometryRatio, //!< New values are computed by the ratio of their area/length compared to the area/length of the original feature
+    };
+    Q_ENUM( FieldDomainSplitPolicy )
+
+    /**
+     * Merge policy for field domains.
+     *
+     * When a feature is built by merging multiple features, defines how the value of
+     * attributes following the domain are computed.
+     *
+     * \since QGIS 3.26
+     */
+    enum class FieldDomainMergePolicy : int
+    {
+      DefaultValue, //!< Use default field value
+      Sum, //!< Sum of values
+      GeometryWeighted, //!< New values are computed as the weighted average of the source values
+    };
+    Q_ENUM( FieldDomainMergePolicy )
+
+    /**
+     * Types of field domain
+     *
+     * \since QGIS 3.26
+     */
+    enum class FieldDomainType : int
+    {
+      Coded, //!< Coded field domain
+      Range, //!< Numeric range field domain (min/max)
+      Glob, //!< Glob string pattern field domain
+    };
+    Q_ENUM( FieldDomainType )
 
     /**
      * Identify search radius in mm
@@ -1397,6 +1483,8 @@ Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::VectorLayerTypeFlags )
 Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::MarkerLinePlacements )
 Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::TextRendererFlags )
 Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::HistoryProviderBackends )
+Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::MapLayerProperties )
+Q_DECLARE_OPERATORS_FOR_FLAGS( Qgis::DataProviderFlags )
 
 
 // hack to workaround warnings when casting void pointers
@@ -1852,15 +1940,6 @@ CORE_EXPORT QString qgsVsiPrefix( const QString &path );
  * \param size size in bytes
  */
 void CORE_EXPORT *qgsMalloc( size_t size ) SIP_SKIP;
-
-/**
- * Allocates  memory for an array of nmemb elements of size bytes each and returns
- * a pointer to the allocated memory. Works like C calloc() but prints debug message
- * by QgsLogger if allocation fails.
- * \param nmemb number of elements
- * \param size size of element in bytes
- */
-void CORE_EXPORT *qgsCalloc( size_t nmemb, size_t size ) SIP_SKIP;
 
 /**
  * Frees the memory space  pointed  to  by  ptr. Works like C free().

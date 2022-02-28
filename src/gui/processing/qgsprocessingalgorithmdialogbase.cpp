@@ -245,12 +245,15 @@ QgsProcessingAlgorithmDialogBase::QgsProcessingAlgorithmDialogBase( QWidget *par
       break;
   }
 
-  connect( mAdvancedMenu, &QMenu::aboutToShow, this, [ = ]
+  if ( mAdvancedMenu )
   {
-    mCopyAsQgisProcessCommand->setEnabled( algorithm()
-                                           && !( algorithm()->flags() & QgsProcessingAlgorithm::FlagNotAvailableInStandaloneTool ) );
-    mPasteJsonAction->setEnabled( !QApplication::clipboard()->text().isEmpty() );
-  } );
+    connect( mAdvancedMenu, &QMenu::aboutToShow, this, [ = ]
+    {
+      mCopyAsQgisProcessCommand->setEnabled( algorithm()
+                                             && !( algorithm()->flags() & QgsProcessingAlgorithm::FlagNotAvailableInStandaloneTool ) );
+      mPasteJsonAction->setEnabled( !QApplication::clipboard()->text().isEmpty() );
+    } );
+  }
 
   connect( mButtonRun, &QPushButton::clicked, this, &QgsProcessingAlgorithmDialogBase::runAlgorithm );
   connect( mButtonChangeParameters, &QPushButton::clicked, this, &QgsProcessingAlgorithmDialogBase::showParameters );
@@ -304,6 +307,7 @@ void QgsProcessingAlgorithmDialogBase::setAlgorithm( QgsProcessingAlgorithm *alg
         "dl dd { margin - bottom: 5px; }" ) );
     textShortHelp->setHtml( algHelp );
     connect( textShortHelp, &QTextBrowser::anchorClicked, this, &QgsProcessingAlgorithmDialogBase::linkClicked );
+    textShortHelp->show();
   }
 
   if ( algorithm->helpUrl().isEmpty() && algorithm->provider()->helpId().isEmpty() )

@@ -275,6 +275,7 @@ set(QGIS_CORE_SRCS
   providers/ogr/qgsgeopackagerasterwritertask.cpp
   providers/ogr/qgsgeopackageprojectstorage.cpp
   providers/ogr/qgsogrdbconnection.cpp
+  providers/ogr/qgsogrproviderconnection.cpp
   providers/ogr/qgsogrtransaction.cpp
 
   scalebar/qgsdoubleboxscalebarrenderer.cpp
@@ -497,6 +498,7 @@ set(QGIS_CORE_SRCS
   qgstransaction.cpp
   qgstransactiongroup.cpp
   qgsunittypes.cpp
+  qgsvariantutils.cpp
   qgsvector.cpp
   qgsvector3d.cpp
   qgsvectorfilewriter.cpp
@@ -521,6 +523,7 @@ set(QGIS_CORE_SRCS
   browser/qgsdataitemproviderregistry.cpp
   browser/qgsdirectoryitem.cpp
   browser/qgsfavoritesitem.cpp
+  browser/qgsfielddomainsitem.cpp
   browser/qgsfieldsitem.cpp
   browser/qgsfilebaseddataitemprovider.cpp
   browser/qgslayeritem.cpp
@@ -634,6 +637,7 @@ set(QGIS_CORE_SRCS
   project/qgsprojectutils.cpp
   project/qgsprojectversion.cpp
   project/qgsprojectviewsettings.cpp
+  project/qgsmapviewsmanager.cpp
 
   raster/qgscliptominmaxenhancement.cpp
   raster/qgscolorrampshader.cpp
@@ -780,6 +784,7 @@ set(QGIS_CORE_SRCS
   3d/qgsabstract3dsymbol.cpp
   3d/qgsabstract3drenderer.cpp
 
+
   fieldformatter/qgscheckboxfieldformatter.cpp
   fieldformatter/qgsrangefieldformatter.cpp
   fieldformatter/qgsdatetimefieldformatter.cpp
@@ -802,6 +807,7 @@ set(QGIS_CORE_SRCS
   validity/qgsvaliditycheckcontext.cpp
   validity/qgsvaliditycheckregistry.cpp
 
+  vector/qgsfielddomain.cpp
   vector/qgsvectordataprovider.cpp
   vector/qgsvectordataprovidertemporalcapabilities.cpp
   vector/qgsvectorlayer.cpp
@@ -1147,6 +1153,7 @@ set(QGIS_CORE_HDRS
   qgsunittypes.h
   qgsuserprofile.h
   qgsuserprofilemanager.h
+  qgsvariantutils.h
   qgsvector.h
   qgsvector3d.h
   qgsvectorfilewriter.h
@@ -1202,6 +1209,7 @@ set(QGIS_CORE_HDRS
   browser/qgsdataitemproviderregistry.h
   browser/qgsdirectoryitem.h
   browser/qgsfavoritesitem.h
+  browser/qgsfielddomainsitem.h
   browser/qgsfieldsitem.h
   browser/qgsfilebaseddataitemprovider.h
   browser/qgslayeritem.h
@@ -1573,6 +1581,7 @@ set(QGIS_CORE_HDRS
   project/qgsprojectutils.h
   project/qgsprojectversion.h
   project/qgsprojectviewsettings.h
+  project/qgsmapviewsmanager.h
 
   providers/qgsabstractdbtablemodel.h
   providers/qgsabstractdatabaseproviderconnection.h
@@ -1604,6 +1613,7 @@ set(QGIS_CORE_HDRS
   providers/ogr/qgsogrconnpool.h
   providers/ogr/qgsogrdbconnection.h
   providers/ogr/qgsogrprovider.h
+  providers/ogr/qgsogrproviderconnection.h
   providers/ogr/qgsogrprovidermetadata.h
   providers/ogr/qgsogrproviderutils.h
   providers/ogr/qgsogrtransaction.h
@@ -1733,6 +1743,7 @@ set(QGIS_CORE_HDRS
   validity/qgsvaliditycheckcontext.h
   validity/qgsvaliditycheckregistry.h
 
+  vector/qgsfielddomain.h
   vector/qgsvectordataprovider.h
   vector/qgsvectordataprovidertemporalcapabilities.h
   vector/qgsvectorlayer.h
@@ -1773,20 +1784,32 @@ set(QGIS_CORE_HDRS
 )
 
 set(QGIS_CORE_PRIVATE_HDRS
+  qgsexpressionsorter_p.h
   qgsfeature_p.h
   qgsfield_p.h
   qgsfields_p.h
+  qgsmaplayerlistutils_p.h
+  qgspolymorphicrelation_p.h
   qgsproperty_p.h
   qgsrelation_p.h
   qgsspatialindexkdbush_p.h
 
+  dxf/qgsdxfexport_p.h
+
   editform/qgseditformconfig_p.h
+
+  expression/qgsexpression_p.h
+
   externalstorage/qgssimplecopyexternalstorage_p.h
   externalstorage/qgswebdavexternalstorage_p.h
 
   proj/qgscoordinatereferencesystem_p.h
   proj/qgscoordinatetransformcontext_p.h
   proj/qgscoordinatetransform_p.h
+  proj/qgscoordinatereferencesystem_legacy_p.h
+
+  providers/ogr/qgscplerrorhandler_p.h
+
   textrenderer/qgstextrenderer_p.h
 )
 
@@ -1809,7 +1832,9 @@ if (HAVE_OPENCL)
     )
 endif()
 
-if(NOT MSVC)
+if(MSVC)
+  set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/qgsexpression_texts.cpp PROPERTIES COMPILE_FLAGS "/bigobj")
+else()
   if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang" AND (CMAKE_BUILD_TYPE MATCHES Release OR CMAKE_BUILD_TYPE MATCHES RelWithDebInfo))
     set_source_files_properties(${CMAKE_CURRENT_BINARY_DIR}/qgsexpression_texts.cpp PROPERTIES COMPILE_FLAGS "-O1")
     set_source_files_properties(proj/qgscoordinatereferencesystem.cpp PROPERTIES COMPILE_FLAGS "-mllvm -inline-threshold=128")
@@ -1836,7 +1861,7 @@ if (${QT_VERSION_BASE}Positioning_FOUND)
   )
 endif()
 
-if (HAVE_PDAL)
+if (WITH_PDAL)
   include_directories(SYSTEM
     ${PDAL_INCLUDE_DIR}
   )
@@ -2136,7 +2161,7 @@ if (WITH_EPT)
   )
 endif()
 
-if (HAVE_PDAL)
+if (WITH_PDAL)
   target_link_libraries(qgis_core
     ${PDAL_LIBRARIES}
   )
