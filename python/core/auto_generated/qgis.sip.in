@@ -140,6 +140,45 @@ The development version
       ScaleDiameter
     };
 
+    enum class SettingsType
+      {
+      Variant,
+      String,
+      StringList,
+      Bool,
+      Integer,
+      Double,
+      EnumFlag,
+      Color
+    };
+
+    enum class SettingsOption
+    {
+      SaveFormerValue,
+    };
+    typedef QFlags<Qgis::SettingsOption> SettingsOptions;
+
+
+    enum class SnappingMode
+      {
+      ActiveLayer,
+      AllLayers,
+      AdvancedConfiguration,
+    };
+
+    enum class SnappingType
+      {
+      NoSnap,
+      Vertex,
+      Segment,
+      Area,
+      Centroid,
+      MiddleOfSegment,
+      LineEndpoint,
+    };
+    typedef QFlags<Qgis::SnappingType> SnappingTypes;
+
+
     enum class SymbolRenderHint
       {
       DynamicRotation,
@@ -817,6 +856,19 @@ The development version
       Glob,
     };
 
+    enum class AltitudeClamping
+    {
+      Absolute,
+      Relative,
+      Terrain,
+    };
+
+    enum class AltitudeBinding
+    {
+      Vertex,
+      Centroid,
+    };
+
     static const double DEFAULT_SEARCH_RADIUS_MM;
 
     static const float DEFAULT_MAPTOPIXEL_THRESHOLD;
@@ -926,6 +978,8 @@ QFlags<Qgis::MapLayerProperty> operator|(Qgis::MapLayerProperty f1, QFlags<Qgis:
 
 QFlags<Qgis::DataProviderFlag> operator|(Qgis::DataProviderFlag f1, QFlags<Qgis::DataProviderFlag> f2);
 
+QFlags<Qgis::SnappingType> operator|(Qgis::SnappingType f1, QFlags<Qgis::SnappingType> f2);
+
 
 
 
@@ -984,6 +1038,7 @@ Returns a double ``number``, rounded (as close as possible) to the specified num
 
 .. versionadded:: 3.0
 %End
+
 
 
 

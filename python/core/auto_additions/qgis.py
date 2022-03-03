@@ -137,6 +137,85 @@ QgsSymbol.ScaleDiameter.__doc__ = "Calculate scale by the diameter"
 Qgis.ScaleMethod.__doc__ = 'Scale methods\n\n.. versionadded:: 3.20\n\n' + '* ``ScaleArea``: ' + Qgis.ScaleMethod.ScaleArea.__doc__ + '\n' + '* ``ScaleDiameter``: ' + Qgis.ScaleMethod.ScaleDiameter.__doc__
 # --
 Qgis.ScaleMethod.baseClass = Qgis
+QgsSettingsEntryBase.SettingsType = Qgis.SettingsType
+# monkey patching scoped based enum
+QgsSettingsEntryBase.Variant = Qgis.SettingsType.Variant
+QgsSettingsEntryBase.Variant.is_monkey_patched = True
+QgsSettingsEntryBase.Variant.__doc__ = "Generic variant"
+QgsSettingsEntryBase.String = Qgis.SettingsType.String
+QgsSettingsEntryBase.String.is_monkey_patched = True
+QgsSettingsEntryBase.String.__doc__ = "String"
+QgsSettingsEntryBase.StringList = Qgis.SettingsType.StringList
+QgsSettingsEntryBase.StringList.is_monkey_patched = True
+QgsSettingsEntryBase.StringList.__doc__ = "List of strings"
+QgsSettingsEntryBase.Bool = Qgis.SettingsType.Bool
+QgsSettingsEntryBase.Bool.is_monkey_patched = True
+QgsSettingsEntryBase.Bool.__doc__ = "Boolean"
+QgsSettingsEntryBase.Integer = Qgis.SettingsType.Integer
+QgsSettingsEntryBase.Integer.is_monkey_patched = True
+QgsSettingsEntryBase.Integer.__doc__ = "Integer"
+QgsSettingsEntryBase.Double = Qgis.SettingsType.Double
+QgsSettingsEntryBase.Double.is_monkey_patched = True
+QgsSettingsEntryBase.Double.__doc__ = "Double precision number"
+QgsSettingsEntryBase.EnumFlag = Qgis.SettingsType.EnumFlag
+QgsSettingsEntryBase.EnumFlag.is_monkey_patched = True
+QgsSettingsEntryBase.EnumFlag.__doc__ = "Enum or Flag"
+QgsSettingsEntryBase.Color = Qgis.SettingsType.Color
+QgsSettingsEntryBase.Color.is_monkey_patched = True
+QgsSettingsEntryBase.Color.__doc__ = "Color"
+Qgis.SettingsType.__doc__ = 'Types of settings entries\n\n.. versionadded:: 3.26\n\n' + '* ``Variant``: ' + Qgis.SettingsType.Variant.__doc__ + '\n' + '* ``String``: ' + Qgis.SettingsType.String.__doc__ + '\n' + '* ``StringList``: ' + Qgis.SettingsType.StringList.__doc__ + '\n' + '* ``Bool``: ' + Qgis.SettingsType.Bool.__doc__ + '\n' + '* ``Integer``: ' + Qgis.SettingsType.Integer.__doc__ + '\n' + '* ``Double``: ' + Qgis.SettingsType.Double.__doc__ + '\n' + '* ``EnumFlag``: ' + Qgis.SettingsType.EnumFlag.__doc__ + '\n' + '* ``Color``: ' + Qgis.SettingsType.Color.__doc__
+# --
+Qgis.SettingsType.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.SettingsOption.SaveFormerValue.__doc__ = ""
+Qgis.SettingsOption.__doc__ = 'Settings options\n\n.. versionadded:: 3.26\n\n' + '* ``SaveFormerValue``: ' + Qgis.SettingsOption.SaveFormerValue.__doc__
+# --
+Qgis.SettingsOption.baseClass = Qgis
+Qgis.SettingsOptions.baseClass = Qgis
+SettingsOptions = Qgis  # dirty hack since SIP seems to introduce the flags in module
+QgsSnappingConfig.SnappingMode = Qgis.SnappingMode
+# monkey patching scoped based enum
+QgsSnappingConfig.ActiveLayer = Qgis.SnappingMode.ActiveLayer
+QgsSnappingConfig.ActiveLayer.is_monkey_patched = True
+QgsSnappingConfig.ActiveLayer.__doc__ = "On the active layer"
+QgsSnappingConfig.AllLayers = Qgis.SnappingMode.AllLayers
+QgsSnappingConfig.AllLayers.is_monkey_patched = True
+QgsSnappingConfig.AllLayers.__doc__ = "On all vector layers"
+QgsSnappingConfig.AdvancedConfiguration = Qgis.SnappingMode.AdvancedConfiguration
+QgsSnappingConfig.AdvancedConfiguration.is_monkey_patched = True
+QgsSnappingConfig.AdvancedConfiguration.__doc__ = "On a per layer configuration basis"
+Qgis.SnappingMode.__doc__ = 'SnappingMode defines on which layer the snapping is performed\n\n.. versionadded:: 3.26\n\n' + '* ``ActiveLayer``: ' + Qgis.SnappingMode.ActiveLayer.__doc__ + '\n' + '* ``AllLayers``: ' + Qgis.SnappingMode.AllLayers.__doc__ + '\n' + '* ``AdvancedConfiguration``: ' + Qgis.SnappingMode.AdvancedConfiguration.__doc__
+# --
+Qgis.SnappingMode.baseClass = Qgis
+QgsSnappingConfig.SnappingTypes = Qgis.SnappingType
+# monkey patching scoped based enum
+QgsSnappingConfig.NoSnapFlag = Qgis.SnappingType.NoSnap
+QgsSnappingConfig.NoSnapFlag.is_monkey_patched = True
+QgsSnappingConfig.NoSnapFlag.__doc__ = "No snapping"
+QgsSnappingConfig.VertexFlag = Qgis.SnappingType.Vertex
+QgsSnappingConfig.VertexFlag.is_monkey_patched = True
+QgsSnappingConfig.VertexFlag.__doc__ = "On vertices"
+QgsSnappingConfig.SegmentFlag = Qgis.SnappingType.Segment
+QgsSnappingConfig.SegmentFlag.is_monkey_patched = True
+QgsSnappingConfig.SegmentFlag.__doc__ = "On segments"
+QgsSnappingConfig.AreaFlag = Qgis.SnappingType.Area
+QgsSnappingConfig.AreaFlag.is_monkey_patched = True
+QgsSnappingConfig.AreaFlag.__doc__ = "On Area"
+QgsSnappingConfig.CentroidFlag = Qgis.SnappingType.Centroid
+QgsSnappingConfig.CentroidFlag.is_monkey_patched = True
+QgsSnappingConfig.CentroidFlag.__doc__ = "On centroid"
+QgsSnappingConfig.MiddleOfSegmentFlag = Qgis.SnappingType.MiddleOfSegment
+QgsSnappingConfig.MiddleOfSegmentFlag.is_monkey_patched = True
+QgsSnappingConfig.MiddleOfSegmentFlag.__doc__ = "On Middle segment"
+QgsSnappingConfig.LineEndpointFlag = Qgis.SnappingType.LineEndpoint
+QgsSnappingConfig.LineEndpointFlag.is_monkey_patched = True
+QgsSnappingConfig.LineEndpointFlag.__doc__ = "Start or end points of lines, or first vertex in polygon rings only (since QGIS 3.20)"
+Qgis.SnappingType.__doc__ = 'SnappingTypeFlag defines on what object the snapping is performed\n\n.. versionadded:: 3.26\n\n' + '* ``NoSnapFlag``: ' + Qgis.SnappingType.NoSnap.__doc__ + '\n' + '* ``VertexFlag``: ' + Qgis.SnappingType.Vertex.__doc__ + '\n' + '* ``SegmentFlag``: ' + Qgis.SnappingType.Segment.__doc__ + '\n' + '* ``AreaFlag``: ' + Qgis.SnappingType.Area.__doc__ + '\n' + '* ``CentroidFlag``: ' + Qgis.SnappingType.Centroid.__doc__ + '\n' + '* ``MiddleOfSegmentFlag``: ' + Qgis.SnappingType.MiddleOfSegment.__doc__ + '\n' + '* ``LineEndpointFlag``: ' + Qgis.SnappingType.LineEndpoint.__doc__
+# --
+Qgis.SnappingType.baseClass = Qgis
+QgsSnappingConfig.SnappingTypeFlag = Qgis.SnappingTypes
+Qgis.SnappingTypes.baseClass = Qgis
+SnappingTypes = Qgis  # dirty hack since SIP seems to introduce the flags in module
 QgsSymbol.RenderHint = Qgis.SymbolRenderHint
 # monkey patching scoped based enum
 QgsSymbol.DynamicRotation = Qgis.SymbolRenderHint.DynamicRotation
@@ -1248,3 +1327,16 @@ Qgis.FieldDomainType.Glob.__doc__ = "Glob string pattern field domain"
 Qgis.FieldDomainType.__doc__ = 'Types of field domain\n\n.. versionadded:: 3.26\n\n' + '* ``Coded``: ' + Qgis.FieldDomainType.Coded.__doc__ + '\n' + '* ``Range``: ' + Qgis.FieldDomainType.Range.__doc__ + '\n' + '* ``Glob``: ' + Qgis.FieldDomainType.Glob.__doc__
 # --
 Qgis.FieldDomainType.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.AltitudeClamping.Absolute.__doc__ = "Elevation is taken directly from feature and is independent of terrain height (final elevation = feature elevation)"
+Qgis.AltitudeClamping.Relative.__doc__ = "Elevation is relative to terrain height (final elevation = terrain elevation + feature elevation)"
+Qgis.AltitudeClamping.Terrain.__doc__ = "Elevation is clamped to terrain (final elevation = terrain elevation)"
+Qgis.AltitudeClamping.__doc__ = 'Altitude clamping.\n\n.. versionadded:: 3.26\n\n' + '* ``Absolute``: ' + Qgis.AltitudeClamping.Absolute.__doc__ + '\n' + '* ``Relative``: ' + Qgis.AltitudeClamping.Relative.__doc__ + '\n' + '* ``Terrain``: ' + Qgis.AltitudeClamping.Terrain.__doc__
+# --
+Qgis.AltitudeClamping.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.AltitudeBinding.Vertex.__doc__ = "Clamp every vertex of feature"
+Qgis.AltitudeBinding.Centroid.__doc__ = "Clamp just centroid of feature"
+Qgis.AltitudeBinding.__doc__ = 'Altitude binding.\n\n.. versionadded:: 3.26\n\n' + '* ``Vertex``: ' + Qgis.AltitudeBinding.Vertex.__doc__ + '\n' + '* ``Centroid``: ' + Qgis.AltitudeBinding.Centroid.__doc__
+# --
+Qgis.AltitudeBinding.baseClass = Qgis

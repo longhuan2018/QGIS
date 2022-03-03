@@ -37,6 +37,8 @@
  */
 class CORE_EXPORT QgsProcessingModelAlgorithm : public QgsProcessingAlgorithm
 {
+    Q_GADGET
+
   public:
 
     /**
@@ -216,6 +218,15 @@ class CORE_EXPORT QgsProcessingModelAlgorithm : public QgsProcessingAlgorithm
      * \see updateModelParameter()
      */
     void removeModelParameter( const QString &name );
+
+    /**
+     * Changes a model parameter's internal name from \a oldName to \a newName.
+     *
+     * This method will automatically update all model components to relink using the new name.
+     *
+     * \since QGIS 3.26
+     */
+    void changeParameterName( const QString &oldName, const QString &newName );
 
     /**
      * Returns TRUE if any child algorithms depend on the model parameter
@@ -514,6 +525,25 @@ class CORE_EXPORT QgsProcessingModelAlgorithm : public QgsProcessingAlgorithm
      */
     void setDesignerParameterValues( const QVariantMap &values ) { mDesignerParameterValues = values; }
 
+    /**
+     * Given a child algorithm ID and output name, attempts to match it to a parameter definition from the overall model.
+     *
+     * \since QGIS 3.26
+     */
+    const QgsProcessingParameterDefinition *modelParameterFromChildIdAndOutputName( const QString &childId, const QString &childOutputName ) const;
+
+#ifndef SIP_RUN
+
+    //! Internal model versions
+    enum class InternalVersion
+    {
+      Version1, //!< Created in < 3.26
+      Version2, //!< Created in >= 3.26
+    };
+    Q_ENUM( InternalVersion )
+
+#endif
+
   protected:
 
     QgsProcessingAlgorithm *createInstance() const override SIP_FACTORY;
@@ -521,6 +551,8 @@ class CORE_EXPORT QgsProcessingModelAlgorithm : public QgsProcessingAlgorithm
     QVariantMap processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override SIP_THROW( QgsProcessingException );
 
   private:
+
+    InternalVersion mInternalVersion = InternalVersion::Version2;
 
     QString mModelName;
     QString mModelGroup;
@@ -545,6 +577,8 @@ class CORE_EXPORT QgsProcessingModelAlgorithm : public QgsProcessingAlgorithm
     QMap< QString, QgsProcessingModelGroupBox > mGroupBoxes;
 
     QStringList mParameterOrder;
+
+    static QString safeName( const QString &name, bool capitalize );
 
     void dependsOnChildAlgorithmsRecursive( const QString &childId, QSet<QString> &depends ) const;
     void dependentChildAlgorithmsRecursive( const QString &childId, QSet<QString> &depends, const QString &branch ) const;

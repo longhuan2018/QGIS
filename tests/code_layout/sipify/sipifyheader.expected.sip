@@ -1,7 +1,7 @@
 /************************************************************************
  * This file has been generated automatically from                      *
  *                                                                      *
- * tests/code_layout/sipifyheader.h                                     *
+ * tests/code_layout/sipify/sipifyheader.h                              *
  *                                                                      *
  * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
  ************************************************************************/
@@ -10,12 +10,12 @@ class QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType
 %TypeHeaderCode
 #include "sipifyheader.h"
 #include "qgssettingsentry.h"
-typedef QgsSettingsEntryEnumFlag<QgsSnappingConfig::SnappingTypes> QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType;
+typedef QgsSettingsEntryEnumFlag<Qgis::SnappingType> QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType;
 %End
   public:
-    QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType( const QString &key, QgsSettings::Section section, const QgsSnappingConfig::SnappingTypes &defaultValue, const QString &description = QString() );
+    QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType( const QString &key, QgsSettings::Section section, const Qgis::SnappingType &defaultValue, const QString &description = QString() );
     QString key( const QString &dynamicKeyPart = QString() ) const;
-    QgsSnappingConfig::SnappingTypes value( const QString &dynamicKeyPart = QString(), bool useDefaultValueOverride = false, const QgsSnappingConfig::SnappingTypes &defaultValueOverride = QgsSnappingConfig::SnappingTypes() ) const;
+    Qgis::SnappingType value( const QString &dynamicKeyPart = QString(), bool useDefaultValueOverride = false, const Qgis::SnappingType &defaultValueOverride = Qgis::SnappingType() ) const;
 };
 
 
@@ -99,6 +99,22 @@ typedef QtClass<QVariant> QtClassQVariantBase;
 
     enum OneLiner { Success, NoSuccess };
 
+  private:
+    void makePrivate( int a );
+
+  public:
+    void publicMethodBetween1();
+
+  private:
+    void makePrivateMultiline( int a,
+                               int b );
+  public:
+    void publicMethodBetween2();
+
+  private:
+    bool makePrivateMultilineImpl( int a,
+                                   int b );
+  public:
     const QgsSettingsEntryEnumFlag_settingsDigitizingDefaultSnapType settingsDigitizingDefaultSnapType;
 
     struct Data
@@ -152,7 +168,7 @@ Default constructor
     void multilineMethod( const QgsPointXY &startPoint,
                           QgsFeatureId featureId,
                           QgsVectorLayer *vl,
-                          QgsSnappingResult::SnappingType snap_to ) const;
+                          Qgis::SnappingType snap_to ) const;
 %Docstring
 A multiline method signature
 %End
@@ -414,7 +430,7 @@ class TemplateInheritance5 : SomethingElse
 /************************************************************************
  * This file has been generated automatically from                      *
  *                                                                      *
- * tests/code_layout/sipifyheader.h                                     *
+ * tests/code_layout/sipify/sipifyheader.h                              *
  *                                                                      *
  * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
  ************************************************************************/

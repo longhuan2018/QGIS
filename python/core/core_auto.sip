@@ -577,6 +577,7 @@
 %Include auto_generated/raster/qgsrasterinterface.sip
 %Include auto_generated/raster/qgsrasteriterator.sip
 %Include auto_generated/raster/qgsrasterlayer.sip
+%Include auto_generated/raster/qgsrasterlayerelevationproperties.sip
 %Include auto_generated/raster/qgsrasterlayertemporalproperties.sip
 %Include auto_generated/raster/qgsrasterminmaxorigin.sip
 %Include auto_generated/raster/qgsrasternuller.sip
@@ -659,6 +660,7 @@
 %Include auto_generated/textrenderer/qgstextshadowsettings.sip
 %Include auto_generated/settings/qgssettings.sip
 %Include auto_generated/settings/qgssettingsentry.sip
+%Include auto_generated/settings/qgssettingsentryimpl.sip
 %Include auto_generated/settings/qgssettingsregistry.sip
 %Include auto_generated/settings/qgssettingsregistrycore.sip
 %Include auto_generated/validity/qgsabstractvaliditycheck.sip
@@ -672,6 +674,7 @@
 %Include auto_generated/vector/qgsvectorlayereditbuffer.sip
 %Include auto_generated/vector/qgsvectorlayereditpassthrough.sip
 %Include auto_generated/vector/qgsvectorlayereditutils.sip
+%Include auto_generated/vector/qgsvectorlayerelevationproperties.sip
 %Include auto_generated/vector/qgsvectorlayerexporter.sip
 %Include auto_generated/vector/qgsvectorlayerfeaturecounter.sip
 %Include auto_generated/vector/qgsvectorlayerfeatureiterator.sip

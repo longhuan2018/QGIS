@@ -130,6 +130,8 @@ set(QGIS_APP_SRCS
   pointcloud/qgspointcloudlayerproperties.cpp
   pointcloud/qgspointcloudlayerstylewidget.cpp
 
+  raster/qgsrasterelevationpropertieswidget.cpp
+
   vectortile/qgsvectortilelayerproperties.cpp
 
   vertextool/qgslockedfeature.cpp
@@ -257,6 +259,8 @@ set(QGIS_APP_SRCS
   mesh/qgsmaptooleditmeshframe.cpp
   mesh/qgsmeshtransformcoordinatesdockwidget.cpp
   mesh/qgsmeshselectbyexpressiondialog.cpp
+
+  vector/qgsvectorelevationpropertieswidget.cpp
 )
 
 if (WITH_SPATIALITE)
