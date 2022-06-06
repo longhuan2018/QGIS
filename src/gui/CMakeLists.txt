@@ -61,6 +61,7 @@ set(QGIS_GUI_SRCS
   symbology/qgsstylemanagerdialog.cpp
   symbology/qgsstylesavedialog.cpp
   symbology/qgssvgselectorwidget.cpp
+  symbology/qgssymbolanimationsettingswidget.cpp
   symbology/qgssymbollayerwidget.cpp
   symbology/qgssymbollevelsdialog.cpp
   symbology/qgssymbolslistwidget.cpp
@@ -212,6 +213,8 @@ set(QGIS_GUI_SRCS
   editorwidgets/qgsvaluerelationsearchwidgetwrapper.cpp
   editorwidgets/qgsvaluerelationwidgetfactory.cpp
 
+  elevation/qgselevationprofilecanvas.cpp
+
   history/qgshistoryprovider.cpp
   history/qgshistoryproviderregistry.cpp
 
@@ -312,6 +315,16 @@ set(QGIS_GUI_SRCS
   ogr/qgsnewogrconnection.cpp
   ogr/qgsvectorlayersaveasdialog.cpp
 
+  plot/qgsplotcanvas.cpp
+  plot/qgsplotcanvasitem.cpp
+  plot/qgsplotmouseevent.cpp
+  plot/qgsplotrubberband.cpp
+  plot/qgsplottool.cpp
+  plot/qgsplottoolpan.cpp
+  plot/qgsplottoolxaxiszoom.cpp
+  plot/qgsplottoolzoom.cpp
+  plot/qgsplottransienttools.cpp
+
   pointcloud/qgspointcloudattributebyramprendererwidget.cpp
   pointcloud/qgspointcloudclassifiedrendererwidget.cpp
   pointcloud/qgspointcloudextentrendererwidget.cpp
@@ -323,6 +336,7 @@ set(QGIS_GUI_SRCS
   processing/qgsprocessingaggregatewidgetwrapper.cpp
   processing/qgsprocessingalgorithmconfigurationwidget.cpp
   processing/qgsprocessingalgorithmdialogbase.cpp
+  processing/qgsprocessingbatchalgorithmdialogbase.cpp
   processing/qgsprocessingconfigurationwidgets.cpp
   processing/qgsprocessingdxflayerswidgetwrapper.cpp
   processing/qgsprocessingenummodelerwidget.cpp
@@ -492,6 +506,7 @@ set(QGIS_GUI_SRCS
   qgsfloatingwidget.cpp
   qgsfocuskeeper.cpp
   qgsfocuswatcher.cpp
+  qgsformlabelformatwidget.cpp
   qgsfontbutton.cpp
   qgsformannotation.cpp
   qgsgeocoderlocatorfilter.cpp
@@ -576,12 +591,14 @@ set(QGIS_GUI_SRCS
   qgsoptionsdialoghighlightwidgetsimpl.cpp
   qgsorderbydialog.cpp
   qgsowssourceselect.cpp
+  qgsowssourcewidget.cpp
   qgspanelwidget.cpp
   qgspanelwidgetstack.cpp
   qgspasswordlineedit.cpp
   qgspixmaplabel.cpp
   qgspluginmanagerinterface.cpp
   qgspointcloudattributecombobox.cpp
+  qgspointcloudquerybuilder.cpp
   qgspresetcolorrampdialog.cpp
   qgsprevieweffect.cpp
   qgsprojectionselectiondialog.cpp
@@ -628,6 +645,8 @@ set(QGIS_GUI_SRCS
   qgsstatusbar.cpp
   qgssymbolbutton.cpp
   qgssymbollayerselectionwidget.cpp
+  qgstabbarproxystyle.cpp
+  qgstableview.cpp
   qgstablewidgetbase.cpp
   qgstabwidget.cpp
   qgstablewidgetitem.cpp
@@ -749,6 +768,7 @@ set(QGIS_GUI_HDRS
   qgsfocuswatcher.h
   qgsfontbutton.h
   qgsformannotation.h
+  qgsformlabelformatwidget.h
   qgsgeocoderlocatorfilter.h
   qgsgeometryrubberband.h
   qgsgradientcolorrampdialog.h
@@ -832,12 +852,14 @@ set(QGIS_GUI_HDRS
   qgsoptionswidgetfactory.h
   qgsorderbydialog.h
   qgsowssourceselect.h
+  qgsowssourcewidget.h
   qgspanelwidget.h
   qgspanelwidgetstack.h
   qgspasswordlineedit.h
   qgspixmaplabel.h
   qgspluginmanagerinterface.h
   qgspointcloudattributecombobox.h
+  qgspointcloudquerybuilder.h
   qgspresetcolorrampdialog.h
   qgsprevieweffect.h
   qgsprojectionselectiondialog.h
@@ -888,6 +910,8 @@ set(QGIS_GUI_HDRS
   qgssubstitutionlistwidget.h
   qgssymbolbutton.h
   qgssymbollayerselectionwidget.h
+  qgstabbarproxystyle.h
+  qgstableview.h
   qgstablewidgetbase.h
   qgstablewidgetitem.h
   qgstabwidget.h
@@ -1048,6 +1072,8 @@ set(QGIS_GUI_HDRS
   effects/qgspainteffectpropertieswidget.h
   effects/qgspainteffectwidget.h
 
+  elevation/qgselevationprofilecanvas.h
+
   history/qgshistoryprovider.h
   history/qgshistoryproviderregistry.h
 
@@ -1148,6 +1174,16 @@ set(QGIS_GUI_HDRS
   ogr/qgsogrhelperfunctions.h
   ogr/qgsvectorlayersaveasdialog.h
 
+  plot/qgsplotcanvas.h
+  plot/qgsplotcanvasitem.h
+  plot/qgsplotmouseevent.h
+  plot/qgsplotrubberband.h
+  plot/qgsplottool.h
+  plot/qgsplottoolpan.h
+  plot/qgsplottoolxaxiszoom.h
+  plot/qgsplottoolzoom.h
+  plot/qgsplottransienttools.h
+
   pointcloud/qgspointcloudattributebyramprendererwidget.h
   pointcloud/qgspointcloudclassifiedrendererwidget.h
   pointcloud/qgspointcloudextentrendererwidget.h
@@ -1159,6 +1195,7 @@ set(QGIS_GUI_HDRS
   processing/qgsprocessingaggregatewidgetwrapper.h
   processing/qgsprocessingalgorithmconfigurationwidget.h
   processing/qgsprocessingalgorithmdialogbase.h
+  processing/qgsprocessingbatchalgorithmdialogbase.h
   processing/qgsprocessingconfigurationwidgets.h
   processing/qgsprocessingdxflayerswidgetwrapper.h
   processing/qgsprocessingenummodelerwidget.h
@@ -1286,6 +1323,7 @@ set(QGIS_GUI_HDRS
   symbology/qgsstylemanagerdialog.h
   symbology/qgsstylesavedialog.h
   symbology/qgssvgselectorwidget.h
+  symbology/qgssymbolanimationsettingswidget.h
   symbology/qgssymbollayerwidget.h
   symbology/qgssymbollevelsdialog.h
   symbology/qgssymbolselectordialog.h
@@ -1383,6 +1421,7 @@ set(QGIS_GUI_UI_HDRS
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsprojectionselectorbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsrasterlayerpropertiesbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsquerybuilderbase.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgspointcloudquerybuilderbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgsqueryresultwidgetbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgssqlcomposerdialogbase.h
   ${CMAKE_CURRENT_BINARY_DIR}/../ui/ui_qgssublayersdialogbase.h
@@ -1417,6 +1456,15 @@ if (WITH_EPT)
   )
   set(QGIS_GUI_HDRS ${QGIS_GUI_HDRS}
     providers/ept/qgseptproviderguimetadata.h
+  )
+endif()
+
+if (WITH_COPC)
+  set(QGIS_GUI_SRCS ${QGIS_GUI_SRCS}
+    providers/copc/qgscopcproviderguimetadata.cpp
+  )
+  set(QGIS_GUI_HDRS ${QGIS_GUI_HDRS}
+    providers/copc/qgscopcproviderguimetadata.h
   )
 endif()
 
@@ -1474,6 +1522,7 @@ target_include_directories(qgis_gui PUBLIC
   ${CMAKE_SOURCE_DIR}/src/gui/editorwidgets
   ${CMAKE_SOURCE_DIR}/src/gui/editorwidgets/core
   ${CMAKE_SOURCE_DIR}/src/gui/effects
+  ${CMAKE_SOURCE_DIR}/src/gui/elevation
   ${CMAKE_SOURCE_DIR}/src/gui/history
   ${CMAKE_SOURCE_DIR}/src/gui/labeling
   ${CMAKE_SOURCE_DIR}/src/gui/layertree
@@ -1483,6 +1532,7 @@ target_include_directories(qgis_gui PUBLIC
   ${CMAKE_SOURCE_DIR}/src/gui/mesh
   ${CMAKE_SOURCE_DIR}/src/gui/numericformats
   ${CMAKE_SOURCE_DIR}/src/gui/ogr
+  ${CMAKE_SOURCE_DIR}/src/gui/plot
   ${CMAKE_SOURCE_DIR}/src/gui/processing
   ${CMAKE_SOURCE_DIR}/src/gui/processing/models
   ${CMAKE_SOURCE_DIR}/src/gui/providers
@@ -1502,6 +1552,12 @@ target_include_directories(qgis_gui PUBLIC
 if (WITH_EPT)
   target_include_directories(qgis_gui PUBLIC
     ${CMAKE_SOURCE_DIR}/src/gui/providers/ept
+  )
+endif()
+
+if (WITH_COPC)
+  target_include_directories(qgis_gui PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/gui/providers/copc
   )
 endif()
 

@@ -17,12 +17,10 @@
 #include "qgssettingsentryimpl.h"
 
 
-
 Qgis::SettingsType QgsSettingsEntryVariant::settingsType() const
 {
   return Qgis::SettingsType::Variant;
 }
-
 
 
 bool QgsSettingsEntryString::checkValue( const QString &value ) const
@@ -62,7 +60,7 @@ void QgsSettingsEntryString::setMinLength( int minLength )
   mMinLength = minLength;
 }
 
-int QgsSettingsEntryString::minLength()
+int QgsSettingsEntryString::minLength() const
 {
   return mMinLength;
 }
@@ -72,7 +70,7 @@ void QgsSettingsEntryString::setMaxLength( int maxLength )
   mMaxLength = maxLength;
 }
 
-int QgsSettingsEntryString::maxLength()
+int QgsSettingsEntryString::maxLength() const
 {
   return mMaxLength;
 }
@@ -95,11 +93,11 @@ bool QgsSettingsEntryBool::convertFromVariant( const QVariant &value ) const
   return value.toBool();
 }
 
+
 Qgis::SettingsType QgsSettingsEntryBool::settingsType() const
 {
   return Qgis::SettingsType::Bool;
 }
-
 
 
 bool QgsSettingsEntryInteger::checkValue( qlonglong value ) const
@@ -138,7 +136,7 @@ void QgsSettingsEntryInteger::setMinValue( qlonglong minValue )
   mMinValue = minValue;
 }
 
-qlonglong QgsSettingsEntryInteger::minValue()
+qlonglong QgsSettingsEntryInteger::minValue() const
 {
   return mMinValue;
 }
@@ -148,7 +146,7 @@ void QgsSettingsEntryInteger::setMaxValue( qlonglong maxValue )
   mMaxValue = maxValue;
 }
 
-qlonglong QgsSettingsEntryInteger::maxValue()
+qlonglong QgsSettingsEntryInteger::maxValue() const
 {
   return mMaxValue;
 }

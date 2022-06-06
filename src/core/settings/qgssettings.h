@@ -80,6 +80,35 @@ class CORE_EXPORT QgsSettings : public QObject
     };
 
     /**
+     * \ingroup core
+     * \brief Prefixes for the settings keys
+     * \since QGIS 3.26
+     */
+    class Prefix SIP_SKIP
+    {
+      public:
+        static const inline char *APP_GEOREFERENCER = "app/georeferencer";
+        static const inline char *CORE = "core";
+        static const inline char *CORE_LAYOUT = "core/Layout";
+        static const inline char *GEOMETRYVALIDATION = "geometry_validation";
+        static const inline char *GPS = "gps";
+        static const inline char *GUI_LOCATORFILTERS = "gui/locator_filters";
+        static const inline char *GUI_QGIS = "gui/qgis";
+        static const inline char *LOCALE = "locale";
+        static const inline char *MAP = "Map";
+        static const inline char *PLUGINS = "plugins";
+        static const inline char *PROCESSING_CONFIGURATION = "Processing/Configuration";
+        static const inline char *QGIS = "qgis";
+        static const inline char *QGIS_DIGITIZING = "qgis/digitizing";
+        static const inline char *QGIS_DIGITIZING_SHAPEMAPTOOLS = "qgis/digitizing/shape-map-tools";
+        static const inline char *QGIS_NETWORKANDPROXY = "qgis/networkAndProxy";
+        static const inline char *SVG = "svg";
+        static const inline char *ELEVATION_PROFILE = "elevation-profile";
+        static const inline char *CORE_LAYERTREE = "core/layer-tree";
+        static const inline char *STYLE_MANAGER = "app/style-manager";
+    };
+
+    /**
      * Constructs a QgsSettings object for accessing settings of the application
      * called application from the organization called organization, and with parent parent.
      */

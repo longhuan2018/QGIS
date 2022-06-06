@@ -18,6 +18,7 @@ from qgis.core import (
     QgsPointCloudClassifiedRenderer,
     QgsPointCloudCategory,
     QgsPointCloudRenderer,
+    QgsPointCloudRendererRegistry,
     QgsReadWriteContext,
     QgsRenderContext,
     QgsPointCloudRenderContext,
@@ -132,8 +133,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(2)
@@ -159,8 +160,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(2)
@@ -185,8 +186,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(.15)
@@ -212,8 +213,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(2)
@@ -240,8 +241,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(6)
@@ -268,8 +269,8 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
         self.assertTrue(layer.isValid())
 
-        renderer = QgsPointCloudClassifiedRenderer()
-        renderer.setAttribute('Classification')
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
         layer.setRenderer(renderer)
 
         layer.renderer().setPointSize(6)
@@ -288,6 +289,43 @@ class TestQgsPointCloudClassifiedRenderer(unittest.TestCase):
         renderchecker.setControlPathPrefix('pointcloudrenderer')
         renderchecker.setControlName('expected_classified_bottom_to_top')
         result = renderchecker.runTest('expected_classified_bottom_to_top')
+        TestQgsPointCloudClassifiedRenderer.report += renderchecker.report()
+        self.assertTrue(result)
+
+    @unittest.skipIf('ept' not in QgsProviderRegistry.instance().providerList(), 'EPT provider not available')
+    def testRenderFiltered(self):
+        layer = QgsPointCloudLayer(unitTestDataPath() + '/point_clouds/ept/sunshine-coast/ept.json', 'test', 'ept')
+        self.assertTrue(layer.isValid())
+
+        categories = QgsPointCloudRendererRegistry.classificationAttributeCategories(layer)
+        renderer = QgsPointCloudClassifiedRenderer('Classification', categories)
+        layer.setRenderer(renderer)
+
+        layer.renderer().setPointSize(2)
+        layer.renderer().setPointSizeUnit(QgsUnitTypes.RenderMillimeters)
+        layer.setSubsetString('NumberOfReturns > 1')
+
+        mapsettings = QgsMapSettings()
+        mapsettings.setOutputSize(QSize(400, 400))
+        mapsettings.setOutputDpi(96)
+        mapsettings.setDestinationCrs(layer.crs())
+        mapsettings.setExtent(QgsRectangle(498061, 7050991, 498069, 7050999))
+        mapsettings.setLayers([layer])
+
+        renderchecker = QgsMultiRenderChecker()
+        renderchecker.setMapSettings(mapsettings)
+        renderchecker.setControlPathPrefix('pointcloudrenderer')
+        renderchecker.setControlName('expected_classified_render_filtered')
+        result = renderchecker.runTest('expected_classified_render_filtered')
+        TestQgsPointCloudClassifiedRenderer.report += renderchecker.report()
+        self.assertTrue(result)
+
+        layer.setSubsetString('')
+        renderchecker = QgsMultiRenderChecker()
+        renderchecker.setMapSettings(mapsettings)
+        renderchecker.setControlPathPrefix('pointcloudrenderer')
+        renderchecker.setControlName('expected_classified_render_unfiltered')
+        result = renderchecker.runTest('expected_classified_render_unfiltered')
         TestQgsPointCloudClassifiedRenderer.report += renderchecker.report()
         self.assertTrue(result)
 

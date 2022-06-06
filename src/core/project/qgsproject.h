@@ -51,6 +51,7 @@
 #include "qgscolorscheme.h"
 #include "qgssettings.h"
 #include "qgspropertycollection.h"
+#include "qgsvectorlayereditbuffergroup.h"
 
 #include "qgsrelationmanager.h"
 #include "qgsmapthemecollection.h"
@@ -77,12 +78,14 @@ class QgsAuxiliaryStorage;
 class QgsMapLayer;
 class QgsBookmarkManager;
 class QgsProjectViewSettings;
+class QgsProjectStyleSettings;
 class QgsProjectDisplaySettings;
 class QgsProjectTimeSettings;
 class QgsAnnotationLayer;
 class QgsAttributeEditorContainer;
 class QgsPropertyCollection;
 class QgsMapViewsManager;
+class QgsProjectElevationProperties;
 
 /**
  * \ingroup core
@@ -109,7 +112,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     Q_PROPERTY( QgsMapThemeCollection *mapThemeCollection READ mapThemeCollection NOTIFY mapThemeCollectionChanged )
     Q_PROPERTY( QgsSnappingConfig snappingConfig READ snappingConfig WRITE setSnappingConfig NOTIFY snappingConfigChanged )
     Q_PROPERTY( QgsRelationManager *relationManager READ relationManager )
-    Q_PROPERTY( AvoidIntersectionsMode avoidIntersectionsMode READ avoidIntersectionsMode WRITE setAvoidIntersectionsMode NOTIFY avoidIntersectionsModeChanged )
+    Q_PROPERTY( Qgis::AvoidIntersectionsMode avoidIntersectionsMode READ avoidIntersectionsMode WRITE setAvoidIntersectionsMode NOTIFY avoidIntersectionsModeChanged )
     Q_PROPERTY( QList<QgsVectorLayer *> avoidIntersectionsLayers READ avoidIntersectionsLayers WRITE setAvoidIntersectionsLayers NOTIFY avoidIntersectionsLayersChanged )
     Q_PROPERTY( QgsProjectMetadata metadata READ metadata WRITE setMetadata NOTIFY metadataChanged )
     Q_PROPERTY( QColor backgroundColor READ backgroundColor WRITE setBackgroundColor NOTIFY backgroundColorChanged )
@@ -117,43 +120,6 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     Q_PROPERTY( bool topologicalEditing READ topologicalEditing WRITE setTopologicalEditing NOTIFY topologicalEditingChanged )
 
   public:
-
-    /**
-     * Flags which control project read behavior.
-     * \since QGIS 3.10
-     */
-    enum class ReadFlag SIP_MONKEYPATCH_SCOPEENUM
-    {
-      FlagDontResolveLayers = 1 << 0, //!< Don't resolve layer paths (i.e. don't load any layer content). Dramatically improves project read time if the actual data from the layers is not required.
-      FlagDontLoadLayouts = 1 << 1, //!< Don't load print layouts. Improves project read time if layouts are not required, and allows projects to be safely read in background threads (since print layouts are not thread safe).
-      FlagTrustLayerMetadata = 1 << 2, //!< Trust layer metadata. Improves project read time. Do not use it if layers' extent is not fixed during the project's use by QGIS and QGIS Server.
-      FlagDontStoreOriginalStyles = 1 << 3, //!< Skip the initial XML style storage for layers. Useful for minimising project load times in non-interactive contexts.
-      FlagDontLoad3DViews = 1 << 4, //!<
-    };
-    Q_DECLARE_FLAGS( ReadFlags, ReadFlag )
-
-    /**
-     * Flags which control project read behavior.
-     * \since QGIS 3.12
-     */
-    enum class FileFormat
-    {
-      Qgz, //!< Archive file format, supports auxiliary data
-      Qgs, //!< Project saved in a clear text, does not support auxiliary data
-    };
-    Q_ENUM( FileFormat )
-
-    /**
-     * Flags which control how intersections of pre-existing feature are handled when digitizing new features.
-     * \since QGIS 3.14
-     */
-    enum class AvoidIntersectionsMode
-    {
-      AllowIntersections, //!< Overlap with any feature allowed when digitizing new features
-      AvoidIntersectionsCurrentLayer, //!< Overlap with features from the active layer when digitizing new features not allowed
-      AvoidIntersectionsLayers, //!< Overlap with features from a specified list of layers when digitizing new features not allowed
-    };
-    Q_ENUM( AvoidIntersectionsMode )
 
     /**
      * Data defined properties.
@@ -183,7 +149,6 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      */
     static void setInstance( QgsProject *project ) ;
 
-
     /**
      * Create a new QgsProject.
      *
@@ -211,6 +176,36 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * \note Since QGIS 3.2 this is just a shortcut to retrieving the title from the project's metadata().
     */
     QString title() const;
+
+    /**
+     * Returns the project's flags, which dictate the behavior of the project.
+     *
+     * \see setFlags()
+     * \see setFlag()
+     *
+     * \since QGIS 3.26
+     */
+    Qgis::ProjectFlags flags() const { return mFlags; }
+
+    /**
+     * Sets the project's \a flags, which dictate the behavior of the project.
+     *
+     * \see flags()
+     * \see setFlag()
+     *
+     * \since QGIS 3.26
+     */
+    void setFlags( Qgis::ProjectFlags flags );
+
+    /**
+     * Sets whether a project \a flag is \a enabled.
+     *
+     * \see flags()
+     * \see setFlags()
+     *
+     * \since QGIS 3.26
+     */
+    void setFlag( Qgis::ProjectFlag flag, bool enabled = true );
 
     /**
     * Returns the user name that did the last save.
@@ -424,7 +419,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * \param flags optional flags which control the read behavior of projects
      * \returns TRUE if project file has been read successfully
      */
-    bool read( const QString &filename, QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    bool read( const QString &filename, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     /**
      * Reads the project from its currently associated file (see fileName() ).
@@ -434,7 +429,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      *
      * \returns TRUE if project file has been read successfully
      */
-    bool read( QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    bool read( Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     /**
      * Reads the layer described in the associated DOM node.
@@ -663,7 +658,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * \note not available in Python bindings
      */
     bool createEmbeddedLayer( const QString &layerId, const QString &projectFilePath, QList<QDomNode> &brokenNodes,
-                              bool saveFlag = true, QgsProject::ReadFlags flags = QgsProject::ReadFlags() ) SIP_SKIP;
+                              bool saveFlag = true, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() ) SIP_SKIP;
 
     /**
      * Create layer group instance defined in an arbitrary project file.
@@ -672,7 +667,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      *
      * \since QGIS 2.4
      */
-    QgsLayerTreeGroup *createEmbeddedGroup( const QString &groupName, const QString &projectFilePath, const QStringList &invisibleLayers, QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    QgsLayerTreeGroup *createEmbeddedGroup( const QString &groupName, const QString &projectFilePath, const QStringList &invisibleLayers,  Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     //! Convenience function to set topological editing
     void setTopologicalEditing( bool enabled );
@@ -804,6 +799,23 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     QgsProjectViewSettings *viewSettings();
 
     /**
+     * Returns the project's style settings, which contains settings and properties
+     * relating to how a QgsProject should handle styling.
+     * (e.g. styling of a newly added vector layer)
+     * \note not available in Python bindings
+     * \since QGIS 3.26
+     */
+    const QgsProjectStyleSettings *styleSettings() const SIP_SKIP;
+
+    /**
+     * Returns the project's style settings, which contains settings and properties
+     * relating to how a QgsProject should handle styling.
+     * (e.g. styling of a newly added vector layer)
+     * \since QGIS 3.26
+     */
+    QgsProjectStyleSettings *styleSettings();
+
+    /**
      * Returns the project's time settings, which contains the project's temporal range and other
      * time based settings.
      *
@@ -819,6 +831,21 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * \since QGIS 3.14
      */
     QgsProjectTimeSettings *timeSettings();
+
+    /**
+     * Returns the project's elevation properties, which contains the project's elevation related settings.
+     *
+     * \note not available in Python bindings
+     * \since QGIS 3.26
+     */
+    const QgsProjectElevationProperties *elevationProperties() const SIP_SKIP;
+
+    /**
+     * Returns the project's elevation properties, which contains the project's elevation related settings.
+     *
+     * \since QGIS 3.26
+     */
+    QgsProjectElevationProperties *elevationProperties();
 
     /**
      * Returns the project's display settings, which settings and properties relating
@@ -890,19 +917,40 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * transaction.
      *
      * \since QGIS 2.16
+     * \deprecated QGIS 3.26 use transactionMode instead
      */
-    bool autoTransaction() const;
+    Q_DECL_DEPRECATED bool autoTransaction() const SIP_DEPRECATED;
 
     /**
      * Transactional editing means that on supported datasources (postgres databases) the edit state of
      * all tables that originate from the same database are synchronized and executed in a server side
      * transaction.
      *
-     * Make sure that this is only called when all layers are not in edit mode.
+     * \warning Make sure that this is only called when all layers are not in edit mode.
      *
      * \since QGIS 2.16
+     * \deprecated QGIS 3.26 use setTransactionMode instead
      */
-    void setAutoTransaction( bool autoTransaction );
+    Q_DECL_DEPRECATED void setAutoTransaction( bool autoTransaction ) SIP_DEPRECATED;
+
+    /**
+     * Returns the transaction mode
+     *
+     * \see Qgis::TransactionMode
+     * \since QGIS 3.26
+     */
+    Qgis::TransactionMode transactionMode() const;
+
+    /**
+     * Set transaction mode
+     *
+     * \returns TRUE if the transaction mode could be changed
+     *
+     * \note Transaction mode can be changed only when all layers are not in edit mode.
+     * \see Qgis::TransactionMode
+     * \since QGIS 3.26
+     */
+    bool setTransactionMode( Qgis::TransactionMode transactionMode );
 
     /**
      * Map of transaction groups
@@ -924,18 +972,25 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     QgsTransactionGroup *transactionGroup( const QString &providerKey, const QString &connString );
 
     /**
+     * Returns the edit buffer group
+     *
+     * \since QGIS 3.26
+     */
+    QgsVectorLayerEditBufferGroup *editBufferGroup();
+
+    /**
      * Should default values be evaluated on provider side when requested and not when committed.
      *
-     * \since QGIS 2.16
+     * \deprecated Test whether the flags() method returns the Qgis::ProjectFlag::EvaluateDefaultValuesOnProviderSide flag instead.
      */
-    bool evaluateDefaultValues() const;
+    Q_DECL_DEPRECATED bool evaluateDefaultValues() const SIP_DEPRECATED;
 
     /**
      * Defines if default values should be evaluated on provider side when requested and not when committed.
      *
-     * \since QGIS 2.16
+     * \deprecated use setFlag( Qgis::ProjectFlag::EvaluateDefaultValuesOnProviderSide ) instead.
      */
-    void setEvaluateDefaultValues( bool evaluateDefaultValues );
+    Q_DECL_DEPRECATED void setEvaluateDefaultValues( bool evaluateDefaultValues ) SIP_DEPRECATED;
 
     QgsExpressionContext createExpressionContext() const override;
     QgsExpressionContextScope *createExpressionContextScope() const override;
@@ -967,14 +1022,14 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      *
      * \since QGIS 3.14
      */
-    void setAvoidIntersectionsMode( const AvoidIntersectionsMode mode );
+    void setAvoidIntersectionsMode( const Qgis::AvoidIntersectionsMode mode );
 
     /**
      * Returns the current avoid intersections mode.
      *
      * \since QGIS 3.14
      */
-    AvoidIntersectionsMode avoidIntersectionsMode() const { return mAvoidIntersectionsMode; }
+    Qgis::AvoidIntersectionsMode avoidIntersectionsMode() const { return mAvoidIntersectionsMode; }
 
     /**
      * A map of custom project variables.
@@ -1323,9 +1378,9 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      *
      * \param trust TRUE to trust the project, FALSE otherwise
      *
-     * \since QGIS 3.0
+     * \deprecated Use setFlag( Qgis::ProjectFlag::TrustStoredLayerStatistics ) instead.
      */
-    void setTrustLayerMetadata( bool trust );
+    Q_DECL_DEPRECATED void setTrustLayerMetadata( bool trust ) SIP_DEPRECATED;
 
     /**
      * Returns TRUE if the trust option is activated, FALSE otherwise. This
@@ -1335,9 +1390,9 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * unicity is not checked for views and materialized views with Postgres
      * provider.
      *
-     * \since QGIS 3.0
+     * \deprecated Test whether the flags() method returns the Qgis::ProjectFlag::TrustStoredLayerStatistics flag instead.
      */
-    bool trustLayerMetadata() const { return mTrustLayerMetadata; }
+    Q_DECL_DEPRECATED bool trustLayerMetadata() const SIP_DEPRECATED;
 
     /**
      * Returns the current const auxiliary storage.
@@ -1611,8 +1666,22 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
 
     /**
      * Emitted when an old project file is read.
+     *
+     * \deprecated use readVersionMismatchOccurred() instead.
      */
-    void oldProjectVersionWarning( const QString & );
+    Q_DECL_DEPRECATED void oldProjectVersionWarning( const QString & ) SIP_DEPRECATED;
+
+    /**
+     * Emitted when a project is read and the version of QGIS used to save
+     * the project differs from the current QGIS version.
+     *
+     * The \a fileVersion argument indicates the version of QGIS used to save
+     * the project.
+     *
+     * \note Not available in Python bindings
+     * \since QGIS 3.26
+     */
+    void readVersionMismatchOccurred( const QString &fileVersion );
 
     /**
      * Emitted when a layer from a projects was read.
@@ -1966,10 +2035,65 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      */
     QgsPropertyCollection dataDefinedServerProperties() const;
 
+    /**
+     * Makes the layer editable.
+     *
+     * This starts an edit session on vectorLayer. Changes made in this edit session will not
+     * be made persistent until commitChanges() is called, and can be reverted by calling
+     * rollBack().
+     *
+     * \returns TRUE if the layer was successfully made editable, or FALSE if the operation
+     * failed (e.g. due to an underlying read-only data source, or lack of edit support
+     * by the backend data provider).
+     *
+     * \see commitChanges()
+     * \see rollBack()
+     *
+     * \since QGIS 3.26
+     */
+    bool startEditing( QgsVectorLayer *vectorLayer = nullptr );
+
+    /**
+     * Attempts to commit to the underlying data provider any buffered changes made since the
+     * last to call to startEditing().
+     *
+     * Returns the result of the attempt. If a commit fails (i.e. FALSE is returned), the
+     * in-memory changes are left untouched and are not discarded. This allows editing to
+     * continue if the commit failed on e.g. a disallowed value in a Postgres
+     * database - the user can re-edit and try again.
+     *
+     * The commits occur in distinct stages,
+     * (add attributes, add features, change attribute values, change
+     * geometries, delete features, delete attributes)
+     * so if a stage fails, it can be difficult to roll back cleanly.
+     * Therefore any error message returned by commitErrors also includes which stage failed so
+     * that the user has some chance of repairing the damage cleanly.
+     *
+     * By setting \a stopEditing to FALSE, the layer will stay in editing mode.
+     * Otherwise the layer editing mode will be disabled if the commit is successful.
+     *
+     * \see startEditing()
+     * \see rollBack()
+     *
+     * \since QGIS 3.26
+     */
+    bool commitChanges( QStringList &commitErrors SIP_OUT, bool stopEditing = true, QgsVectorLayer *vectorLayer = nullptr );
+
+    /**
+     * Stops a current editing operation on vectorLayer and discards any uncommitted edits.
+     *
+     * \see startEditing()
+     * \see commitChanges()
+     *
+     * \since QGIS 3.26
+     */
+    bool rollBack( QStringList &rollbackErrors SIP_OUT, bool stopEditing = true, QgsVectorLayer *vectorLayer = nullptr );
+
   private slots:
     void onMapLayersAdded( const QList<QgsMapLayer *> &layers );
     void onMapLayersRemoved( const QList<QgsMapLayer *> &layers );
     void cleanTransactionGroups( bool force = false );
+    void updateTransactionGroups();
 
   private:
 
@@ -1984,7 +2108,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      * \param flags optional project reading flags
      * \returns TRUE if function worked; else is FALSE
     */
-    bool _getMapLayers( const QDomDocument &doc, QList<QDomNode> &brokenNodes, QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    bool _getMapLayers( const QDomDocument &doc, QList<QDomNode> &brokenNodes, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     /**
      * Set error message from read/write operation
@@ -2005,29 +2129,29 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
      *
      * \note not available in Python bindings
      */
-    bool addLayer( const QDomElement &layerElem, QList<QDomNode> &brokenNodes, QgsReadWriteContext &context, QgsProject::ReadFlags flags = QgsProject::ReadFlags() ) SIP_SKIP;
+    bool addLayer( const QDomElement &layerElem, QList<QDomNode> &brokenNodes, QgsReadWriteContext &context, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() ) SIP_SKIP;
 
     /**
      * The optional \a flags argument can be used to control layer reading behavior.
      *
      * \note not available in Python bindings
     */
-    void initializeEmbeddedSubtree( const QString &projectFilePath, QgsLayerTreeGroup *group, QgsProject::ReadFlags flags = QgsProject::ReadFlags() ) SIP_SKIP;
+    void initializeEmbeddedSubtree( const QString &projectFilePath, QgsLayerTreeGroup *group, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() ) SIP_SKIP;
 
     /**
      * The optional \a flags argument can be used to control layer reading behavior.
      * \note not available in Python bindings
      */
-    bool loadEmbeddedNodes( QgsLayerTreeGroup *group, QgsProject::ReadFlags flags = QgsProject::ReadFlags() ) SIP_SKIP;
+    bool loadEmbeddedNodes( QgsLayerTreeGroup *group, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() ) SIP_SKIP;
 
     //! Read .qgs file
-    bool readProjectFile( const QString &filename, QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    bool readProjectFile( const QString &filename, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     //! Write .qgs file
     bool writeProjectFile( const QString &filename );
 
     //! Unzip .qgz file then read embedded .qgs file
-    bool unzip( const QString &filename, QgsProject::ReadFlags flags = QgsProject::ReadFlags() );
+    bool unzip( const QString &filename, Qgis::ProjectReadFlags flags = Qgis::ProjectReadFlags() );
 
     //! Zip project
     bool zip( const QString &filename );
@@ -2052,7 +2176,7 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     QHash< QString, QPair< QString, bool> > mEmbeddedLayers;
 
     QgsSnappingConfig mSnappingConfig;
-    AvoidIntersectionsMode mAvoidIntersectionsMode = AvoidIntersectionsMode::AllowIntersections;
+    Qgis::AvoidIntersectionsMode mAvoidIntersectionsMode = Qgis::AvoidIntersectionsMode::AllowIntersections;
 
     QgsRelationManager *mRelationManager = nullptr;
 
@@ -2064,7 +2188,11 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
 
     QgsProjectViewSettings *mViewSettings = nullptr;
 
+    QgsProjectStyleSettings *mStyleSettings = nullptr;
+
     QgsProjectTimeSettings *mTimeSettings = nullptr;
+
+    QgsProjectElevationProperties *mElevationProperties = nullptr;
 
     QgsProjectDisplaySettings *mDisplaySettings = nullptr;
 
@@ -2076,6 +2204,8 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
 
     //! map of transaction group: QPair( providerKey, connString ) -> transactionGroup
     QMap< QPair< QString, QString>, QgsTransactionGroup *> mTransactionGroups;
+
+    QgsVectorLayerEditBufferGroup mEditBufferGroup;
 
     std::unique_ptr<QgsMapThemeCollection> mMapThemeCollection;
 
@@ -2107,12 +2237,12 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
     QColor mSelectionColor;
 
     mutable QgsProjectPropertyKey mProperties;  // property hierarchy, TODO: this shouldn't be mutable
-    bool mAutoTransaction = false;       // transaction grouped editing
-    bool mEvaluateDefaultValues = false; // evaluate default values immediately
+    Qgis::TransactionMode mTransactionMode = Qgis::TransactionMode::Disabled; // transaction grouped editing
+
+    Qgis::ProjectFlags mFlags;
     QgsCoordinateReferenceSystem mCrs;
     bool mDirty = false;                 // project has been modified since it has been read or saved
     int mDirtyBlockCount = 0;
-    bool mTrustLayerMetadata = false;
 
     QgsPropertyCollection mDataDefinedServerProperties;
 
@@ -2142,8 +2272,6 @@ class CORE_EXPORT QgsProject : public QObject, public QgsExpressionContextGenera
 
     Q_DISABLE_COPY( QgsProject )
 };
-
-Q_DECLARE_OPERATORS_FOR_FLAGS( QgsProject::ReadFlags )
 
 /**
  * \brief Temporarily blocks QgsProject "dirtying" for the lifetime of the object.

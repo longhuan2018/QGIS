@@ -113,6 +113,7 @@ class QgsAbstractMapToolHandler;
 class QgsAppMapTools;
 class QgsMapToolIdentifyAction;
 class Qgs3DMapCanvasWidget;
+class QgsVertexEditor;
 
 class QDomDocument;
 class QNetworkReply;
@@ -150,7 +151,9 @@ class QgsDevToolsPanelWidget;
 class QgsDevToolWidgetFactory;
 class QgsNetworkLogger;
 class QgsNetworkLoggerWidgetFactory;
+class QgsAppQueryLogger;
 class QgsMapToolCapture;
+class QgsElevationProfileWidget;
 
 #include <QMainWindow>
 #include <QToolBar>
@@ -892,6 +895,9 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
      * is automatically registered within the QgsApplication::gpsConnectionRegistry().
      */
     void setGpsPanelConnection( QgsGpsConnection *connection );
+
+    //! Returns the application vertex editor
+    QgsVertexEditor *vertexEditor() { return mVertexEditorDock; }
 
   public slots:
     //! save current vector layer
@@ -1859,7 +1865,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     void labelingFontNotFound( QgsVectorLayer *vlayer, const QString &fontfamily );
 
     //! Alerts user when commit errors occurred
-    void commitError( QgsVectorLayer *vlayer );
+    void commitError( QgsVectorLayer *vlayer, const QStringList &commitErrorsList = QStringList() );
 
     //! Opens the labeling dialog for a layer when called from labelingFontNotFound alert
     void labelingDialogFontNotFound( QAction *act );
@@ -1885,8 +1891,8 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     //! add Python cnosole at start up
     void initPythonConsoleOptions();
 
-    //! Shows a warning when an old project file is read.
-    void oldProjectVersionWarning( const QString & );
+    //! Shows a warning when an older/newer project file is read.
+    void projectVersionMismatchOccurred( const QString &projectVersion );
 
     //! Toggle map tips on/off
     void toggleMapTips( bool enabled );
@@ -2272,6 +2278,8 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     //! Closes any existing 3D map docks
     void closeAdditional3DMapCanvases();
 
+    QgsElevationProfileWidget *createNewElevationProfile();
+
     /**
      * Refresh the user profile menu.
      */
@@ -2474,6 +2482,7 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QgsDockWidget *mOverviewDock = nullptr;
     QgsDockWidget *mpGpsDock = nullptr;
     QgsDockWidget *mLogDock = nullptr;
+    QgsVertexEditor *mVertexEditorDock = nullptr;
 
 #ifdef Q_OS_MAC
     //! Window menu action to select this window
@@ -2734,6 +2743,8 @@ class APP_EXPORT QgisApp : public QMainWindow, private Ui::MainWindow
     QgsNetworkLogger *mNetworkLogger = nullptr;
     QgsScopedDevToolWidgetFactory mNetworkLoggerWidgetFactory;
     QgsScopedDevToolWidgetFactory mStartupProfilerWidgetFactory;
+    QgsAppQueryLogger *mQueryLogger = nullptr;
+    QgsScopedDevToolWidgetFactory mQueryLoggerWidgetFactory;
 
     QgsScopedOptionsWidgetFactory mCodeEditorWidgetFactory;
     QgsScopedOptionsWidgetFactory mBabelGpsDevicesWidgetFactory;

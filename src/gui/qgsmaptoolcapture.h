@@ -61,20 +61,6 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
       CapturePolygon  //!< Capture polygons
     };
 
-    /**
-     * Capture technique.
-     *
-     * \since QGIS 3.20
-     */
-    enum CaptureTechnique
-    {
-      StraightSegments, //!< Default capture mode - capture occurs with straight line segments
-      CircularString, //!< Capture in circular strings
-      Streaming, //!< Streaming points digitizing mode (points are automatically added as the mouse cursor moves). Since QGIS 3.20.
-      Shape, //!< Digitize shapes. Since QGIS 3.26.
-    };
-    Q_ENUM( CaptureTechnique )
-
     //! Specific capabilities of the tool
     enum Capability
     {
@@ -100,13 +86,13 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
      *
      * \since QGIS 3.20
      */
-    virtual bool supportsTechnique( CaptureTechnique technique ) const;
+    virtual bool supportsTechnique( Qgis::CaptureTechnique technique ) const;
 
     /**
      * Sets the current capture if it is supported by the map tool
      * \since QGIS 3.26
      */
-    void setCurrentCaptureTechnique( CaptureTechnique technique );
+    void setCurrentCaptureTechnique( Qgis::CaptureTechnique technique );
 
     /**
      * Sets the current shape tool
@@ -405,7 +391,7 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
     QObjectUniquePtr<QgsRubberBand> mRubberBand;
 
     //! Temporary rubber band for polylines and polygons. this connects the last added point to the mouse cursor position
-    std::unique_ptr<QgsMapToolCaptureRubberBand> mTempRubberBand;
+    QObjectParentUniquePtr<QgsMapToolCaptureRubberBand> mTempRubberBand;
 
     //! List to store the points of digitized lines and polygons (in layer coordinates)
     QgsCompoundCurve mCaptureCurve;
@@ -439,9 +425,9 @@ class GUI_EXPORT QgsMapToolCapture : public QgsMapToolAdvancedDigitizing
     //! Used to store the state of digitizing type (linear or circular)
     QgsWkbTypes::Type mLineDigitizingType = QgsWkbTypes::LineString;
 
-    CaptureTechnique mCurrentCaptureTechnique = CaptureTechnique::StraightSegments;
+    Qgis::CaptureTechnique mCurrentCaptureTechnique = Qgis::CaptureTechnique::StraightSegments;
 
-    QgsMapToolShapeAbstract *mCurrentShapeMapTool = nullptr;
+    QObjectUniquePtr< QgsMapToolShapeAbstract > mCurrentShapeMapTool;
 
     bool mAllowAddingStreamingPoints = false;
     int mStreamingToleranceInPixels = 1;

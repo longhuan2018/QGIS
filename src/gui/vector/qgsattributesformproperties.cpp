@@ -416,6 +416,7 @@ void QgsAttributesFormProperties::loadAttributeContainerEdit()
   mAttributeContainerEdit->layout()->setContentsMargins( 0, 0, 0, 0 );
   mAttributeTypeFrame->layout()->setContentsMargins( 0, 0, 0, 0 );
   mAttributeTypeFrame->layout()->addWidget( mAttributeContainerEdit );
+
 }
 
 QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAttributeEditorElement *const widgetDef, QTreeWidgetItem *parent, QgsAttributesDnDTree *tree )
@@ -427,6 +428,7 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
     {
       DnDTreeItemData itemData = DnDTreeItemData( DnDTreeItemData::Field, widgetDef->name(), widgetDef->name() );
       itemData.setShowLabel( widgetDef->showLabel() );
+      itemData.setLabelStyle( widgetDef->labelStyle() );
       newWidget = tree->addItem( parent, itemData );
       break;
     }
@@ -439,6 +441,7 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
       {
         DnDTreeItemData itemData = DnDTreeItemData( DnDTreeItemData::Action, action.id().toString(), action.shortTitle().isEmpty() ? action.name() : action.shortTitle() );
         itemData.setShowLabel( widgetDef->showLabel() );
+        itemData.setLabelStyle( widgetDef->labelStyle() );
         newWidget = tree->addItem( parent, itemData );
       }
       else
@@ -453,6 +456,7 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
       const QgsAttributeEditorRelation *relationEditor = static_cast<const QgsAttributeEditorRelation *>( widgetDef );
       DnDTreeItemData itemData = DnDTreeItemData( DnDTreeItemData::Relation, relationEditor->relation().id(), relationEditor->relation().name() );
       itemData.setShowLabel( widgetDef->showLabel() );
+      itemData.setLabelStyle( widgetDef->labelStyle() );
 
       RelationEditorConfiguration relEdConfig;
 //      relEdConfig.buttons = relationEditor->visibleButtons();
@@ -479,6 +483,9 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
       itemData.setShowAsGroupBox( container->isGroupBox() );
       itemData.setBackgroundColor( container->backgroundColor() );
       itemData.setVisibilityExpression( container->visibilityExpression() );
+      itemData.setCollapsedExpression( container->collapsedExpression() );
+      itemData.setCollapsed( container->collapsed() );
+      itemData.setLabelStyle( widgetDef->labelStyle() );
       newWidget = tree->addItem( parent, itemData );
 
       const QList<QgsAttributeEditorElement *> children = container->children();
@@ -497,6 +504,7 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
       QmlElementEditorConfiguration qmlEdConfig;
       qmlEdConfig.qmlCode = qmlElementEditor->qmlCode();
       itemData.setQmlElementEditorConfiguration( qmlEdConfig );
+      itemData.setLabelStyle( widgetDef->labelStyle() );
       newWidget = tree->addItem( parent, itemData );
       break;
     }
@@ -509,6 +517,7 @@ QTreeWidgetItem *QgsAttributesFormProperties::loadAttributeEditorTreeItem( QgsAt
       HtmlElementEditorConfiguration htmlEdConfig;
       htmlEdConfig.htmlCode = htmlElementEditor->htmlCode();
       itemData.setHtmlElementEditorConfiguration( htmlEdConfig );
+      itemData.setLabelStyle( widgetDef->labelStyle() );
       newWidget = tree->addItem( parent, itemData );
       break;
     }
@@ -733,6 +742,8 @@ QgsAttributeEditorElement *QgsAttributesFormProperties::createAttributeEditorWid
       QgsAttributeEditorContainer *container = new QgsAttributeEditorContainer( item->text( 0 ), parent, itemData.backgroundColor() );
       container->setColumnCount( itemData.columnCount() );
       container->setIsGroupBox( forceGroup ? true : itemData.showAsGroupBox() );
+      container->setCollapsed( itemData.collapsed() );
+      container->setCollapsedExpression( itemData.collapsedExpression() );
       container->setVisibilityExpression( itemData.visibilityExpression() );
       container->setBackgroundColor( itemData.backgroundColor( ) );
 
@@ -769,7 +780,10 @@ QgsAttributeEditorElement *QgsAttributesFormProperties::createAttributeEditorWid
   }
 
   if ( widgetDef )
+  {
     widgetDef->setShowLabel( itemData.showLabel() );
+    widgetDef->setLabelStyle( itemData.labelStyle() );
+  }
 
   return widgetDef;
 }
@@ -1522,6 +1536,16 @@ void QgsAttributesFormProperties::DnDTreeItemData::setShowAsGroupBox( bool showA
   mShowAsGroupBox = showAsGroupBox;
 }
 
+const QgsAttributeEditorElement::LabelStyle QgsAttributesFormProperties::DnDTreeItemData::labelStyle() const
+{
+  return mLabelStyle;
+}
+
+void QgsAttributesFormProperties::DnDTreeItemData::setLabelStyle( const QgsAttributeEditorElement::LabelStyle &labelStyle )
+{
+  mLabelStyle = labelStyle;
+}
+
 bool QgsAttributesFormProperties::DnDTreeItemData::showLabel() const
 {
   return mShowLabel;
@@ -1540,6 +1564,16 @@ QgsOptionalExpression QgsAttributesFormProperties::DnDTreeItemData::visibilityEx
 void QgsAttributesFormProperties::DnDTreeItemData::setVisibilityExpression( const QgsOptionalExpression &visibilityExpression )
 {
   mVisibilityExpression = visibilityExpression;
+}
+
+QgsOptionalExpression QgsAttributesFormProperties::DnDTreeItemData::collapsedExpression() const
+{
+  return mCollapsedExpression;
+}
+
+void QgsAttributesFormProperties::DnDTreeItemData::setCollapsedExpression( const QgsOptionalExpression &collapsedExpression )
+{
+  mCollapsedExpression = collapsedExpression;
 }
 
 QgsAttributesFormProperties::RelationEditorConfiguration QgsAttributesFormProperties::DnDTreeItemData::relationEditorConfiguration() const

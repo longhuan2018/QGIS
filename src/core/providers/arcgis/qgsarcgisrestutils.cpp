@@ -374,18 +374,33 @@ QgsAbstractGeometry *QgsArcGisRestUtils::convertGeometry( const QVariantMap &geo
 
 QgsCoordinateReferenceSystem QgsArcGisRestUtils::convertSpatialReference( const QVariantMap &spatialReferenceMap )
 {
+  QgsCoordinateReferenceSystem crs;
+
   QString spatialReference = spatialReferenceMap[QStringLiteral( "latestWkid" )].toString();
   if ( spatialReference.isEmpty() )
     spatialReference = spatialReferenceMap[QStringLiteral( "wkid" )].toString();
-  if ( spatialReference.isEmpty() )
-    spatialReference = spatialReferenceMap[QStringLiteral( "wkt" )].toString();
-  else
-    spatialReference = QStringLiteral( "EPSG:%1" ).arg( spatialReference );
-  QgsCoordinateReferenceSystem crs;
-  crs.createFromString( spatialReference );
+
+  // prefer using authority/id wherever we can
+  if ( !spatialReference.isEmpty() )
+  {
+    crs.createFromString( QStringLiteral( "EPSG:%1" ).arg( spatialReference ) );
+    if ( !crs.isValid() )
+    {
+      // Try as an ESRI auth
+      crs.createFromString( QStringLiteral( "ESRI:%1" ).arg( spatialReference ) );
+    }
+  }
+  else if ( !spatialReferenceMap[QStringLiteral( "wkt" )].toString().isEmpty() )
+  {
+    // otherwise fallback to WKT
+    crs.createFromWkt( spatialReferenceMap[QStringLiteral( "wkt" )].toString() );
+  }
+
   if ( !crs.isValid() )
   {
-    // If not spatial reference, just use WGS84
+    // If no spatial reference, just use WGS84
+    // TODO -- this needs further investigation! Most ESRI server services default to 3857, so that would likely be
+    // a safer fallback to use...
     crs.createFromString( QStringLiteral( "EPSG:4326" ) );
   }
   return crs;
@@ -624,73 +639,73 @@ QgsAbstractVectorLayerLabeling *QgsArcGisRestUtils::convertLabeling( const QVari
     const QString placement = labeling.value( QStringLiteral( "labelPlacement" ) ).toString();
     if ( placement == QLatin1String( "esriServerPointLabelPlacementAboveCenter" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantAbove;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::Above;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementBelowCenter" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantBelow;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::Below;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementCenterCenter" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantOver;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::Over;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementAboveLeft" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantAboveLeft;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::AboveLeft;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementBelowLeft" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantBelowLeft;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::BelowLeft;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementCenterLeft" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantLeft;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::Left;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementAboveRight" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantAboveRight;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::AboveRight;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementBelowRight" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantBelowRight;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::BelowRight;
     }
     else if ( placement == QLatin1String( "esriServerPointLabelPlacementCenterRight" ) )
     {
-      settings->placement = QgsPalLayerSettings::OverPoint;
-      settings->quadOffset = QgsPalLayerSettings::QuadrantRight;
+      settings->placement = Qgis::LabelPlacement::OverPoint;
+      settings->quadOffset = Qgis::LabelQuadrantPosition::Right;
     }
     else if ( placement == QLatin1String( "esriServerLinePlacementAboveAfter" ) ||
               placement == QLatin1String( "esriServerLinePlacementAboveStart" ) ||
               placement == QLatin1String( "esriServerLinePlacementAboveAlong" ) )
     {
-      settings->placement = QgsPalLayerSettings::Line;
+      settings->placement = Qgis::LabelPlacement::Line;
       settings->lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
     }
     else if ( placement == QLatin1String( "esriServerLinePlacementBelowAfter" ) ||
               placement == QLatin1String( "esriServerLinePlacementBelowStart" ) ||
               placement == QLatin1String( "esriServerLinePlacementBelowAlong" ) )
     {
-      settings->placement = QgsPalLayerSettings::Line;
+      settings->placement = Qgis::LabelPlacement::Line;
       settings->lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine | QgsLabeling::LinePlacementFlag::MapOrientation );
     }
     else if ( placement == QLatin1String( "esriServerLinePlacementCenterAfter" ) ||
               placement == QLatin1String( "esriServerLinePlacementCenterStart" ) ||
               placement == QLatin1String( "esriServerLinePlacementCenterAlong" ) )
     {
-      settings->placement = QgsPalLayerSettings::Line;
+      settings->placement = Qgis::LabelPlacement::Line;
       settings->lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::OnLine | QgsLabeling::LinePlacementFlag::MapOrientation );
     }
     else if ( placement == QLatin1String( "esriServerPolygonPlacementAlwaysHorizontal" ) )
     {
-      settings->placement = QgsPalLayerSettings::Horizontal;
+      settings->placement = Qgis::LabelPlacement::Horizontal;
     }
 
     const double minScale = labeling.value( QStringLiteral( "minScale" ) ).toDouble();

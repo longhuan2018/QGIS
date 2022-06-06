@@ -9,6 +9,67 @@
 
 
 
+
+
+class QgsSettingsEntryGroup
+{
+%Docstring(signature="appended")
+Creates a group of setting which have a common definition of base key
+
+.. versionadded:: 3.26
+%End
+
+%TypeHeaderCode
+#include "qgssettingsentry.h"
+%End
+  public:
+    QgsSettingsEntryGroup( const QList<const QgsSettingsEntryBase *> settings );
+%Docstring
+Constructor
+%End
+%MethodCode
+    sipCpp = new QgsSettingsEntryGroup( *a0, false );
+    sipIsErr = sipCpp->isValid() ? 0 : 1;
+    if ( sipIsErr )
+      PyErr_SetString( PyExc_ValueError, QStringLiteral( "Settings do not share the same base definition key for this group. This will lead to unpredictable results." ).toUtf8().constData() );
+%End
+
+
+    bool isValid() const;
+%Docstring
+Returns if the group is valid (if settings share the same base key)
+%End
+
+    QString baseKey( const QStringList &dynamicKeyPartList = QStringList() ) const;
+%Docstring
+Returns the base key for the given ``dynamicKeyPartList``
+%End
+
+    const QList<const QgsSettingsEntryBase *> settings() const;
+%Docstring
+Returns all the settings
+%End
+
+    void removeAllSettingsAtBaseKey( const QStringList &dynamicKeyPartList = QStringList() ) const;
+%Docstring
+Removes all the settings at the base key for the given ``dynamicKeyPartList``
+This means it might remove more settings than the ones registered in the group, use with caution
+%End
+
+    void removeAllChildrenSettings( const QString &dynamicKeyPart = QString() ) const;
+%Docstring
+Removes all the settings from this group
+The ``dynamicKeyPart`` argument specifies the dynamic part of the settings key.
+%End
+
+    void removeAllChildrenSettings( const QStringList &dynamicKeyPartList ) const;
+%Docstring
+Removes all the settings from this group
+The ``dynamicKeyPartList`` argument specifies the dynamic part of the settings key.
+%End
+
+};
+
 class QgsSettingsEntryBase
 {
 %Docstring(signature="appended")
@@ -43,21 +104,27 @@ to validate set values and provide more accurate settings description for the gu
 %End
   public:
 
+    static QStringList dynamicKeyPartToList( const QString &dynamicKeyPart );
+%Docstring
+Transforms a dynamic key part string to list
+
+.. versionadded:: 3.26
+%End
+
 
     QgsSettingsEntryBase( const QString &key,
-                          const QString &pluginName,
+                          const QString &section,
                           const QVariant &defaultValue = QVariant(),
                           const QString &description = QString(),
                           Qgis::SettingsOptions options = Qgis::SettingsOptions() );
 %Docstring
 Constructor for QgsSettingsEntryBase.
-This constructor is intended to be used from plugins.
 
 The ``key`` argument specifies the key of the settings.
-The ``pluginName`` argument is inserted in the key after the section.
+The ``section`` argument specifies the section.
 The ``defaultValue`` argument specifies the default value for the settings entry.
 The ``description`` argument specifies a description for the settings entry.
-The ``options`` arguments specifies the options for the settings entry.
+The ``options`` argument specifies the options for the settings entry.
 %End
 
     virtual ~QgsSettingsEntryBase();
@@ -99,6 +166,13 @@ included. For non-dynamic settings returns the same as :py:func:`~QgsSettingsEnt
 Returns ``True`` if a part of the settings key is built dynamically.
 %End
 
+    Qgis::SettingsOptions options() const;
+%Docstring
+Returns the settings options
+
+.. versionadded:: 3.26
+%End
+
     bool exists( const QString &dynamicKeyPart = QString() ) const;
 %Docstring
 Returns ``True`` if the settings is contained in the underlying QSettings.
@@ -127,9 +201,12 @@ Removes the settings from the underlying QSettings.
 The ``dynamicKeyParts`` argument specifies the list of dynamic parts of the settings key.
 %End
 
-    QgsSettings::Section section() const;
+ QgsSettings::Section section() const;
 %Docstring
 Returns settings section. The settings section of the parent group is returned if available.
+
+.. deprecated:: QGIS 3.26
+   the key is entirely self-defined
 %End
 
  virtual bool setVariantValue( const QVariant &value, const QString &dynamicKeyPart = QString() ) const /Deprecated/;
@@ -239,13 +316,6 @@ This should be called from any implementation as it takes care of actually calli
 .. versionadded:: 3.26
 %End
 
-    QStringList dynamicKeyPartToList( const QString &dynamicKeyPart ) const;
-%Docstring
-Transforms a dynamic key part string to list
-
-.. versionadded:: 3.26
-%End
-
 };
 
 
@@ -268,22 +338,20 @@ Base abstract class for settings entry which are passed by reference
 %End
   public:
 
-
     QgsSettingsEntryByReference( const QString &key,
-                                 const QString &pluginName,
+                                 const QString &section,
                                  const T &defaultValue,
                                  const QString &description = QString(),
                                  Qgis::SettingsOptions options = Qgis::SettingsOptions() );
 %Docstring
 Constructor for QgsSettingsEntryByReference.
-This constructor is intended to be used from plugins.
 
 The ``key`` argument specifies the key of the settings.
-The ``pluginName`` argument is inserted in the key after the section.
 The ``defaultValue`` argument specifies the default value for the settings entry.
 The ``description`` argument specifies a description for the settings entry.
 The ``options`` arguments specifies the options for the settings entry.
 %End
+
 
     virtual Qgis::SettingsType settingsType() const = 0;
 
@@ -327,7 +395,6 @@ Returns the settings value for the ``dynamicKeyPartList`` and  with a ``defaultV
 .. deprecated:: QGIS 3.26
    use valueAsVariantWithDefaultOverride instead
 %End
-
 
     bool setValue( const T &value, const QString &dynamicKeyPart = QString() ) const;
 %Docstring
@@ -405,17 +472,12 @@ Base abstract class for settings entry which are passed by value
   public:
 
 
-    QgsSettingsEntryByValue( const QString &key,
-                             const QString &pluginName,
-                             T defaultValue,
-                             const QString &description = QString(),
-                             Qgis::SettingsOptions options = Qgis::SettingsOptions() );
+    QgsSettingsEntryByValue( const QString &key, const QString &section, QVariant defaultValue, const QString &description = QString(), Qgis::SettingsOptions options = Qgis::SettingsOptions() );
 %Docstring
 Constructor for QgsSettingsEntryByValue.
-This constructor is intended to be used from plugins.
 
 The ``key`` argument specifies the key of the settings.
-The ``pluginName`` argument is inserted in the key after the section.
+The ``section`` argument specifies the section.
 The ``defaultValue`` argument specifies the default value for the settings entry.
 The ``description`` argument specifies a description for the settings entry.
 The ``options`` arguments specifies the options for the settings entry.

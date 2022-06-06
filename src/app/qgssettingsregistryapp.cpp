@@ -20,7 +20,10 @@
 #include "qgsapplication.h"
 
 #include "qgsmaptoolsdigitizingtechniquemanager.h"
-
+#include "georeferencer/qgsgeorefmainwindow.h"
+#include "georeferencer/qgstransformsettingsdialog.h"
+#include "vertextool/qgsvertexeditor.h"
+#include "elevation/qgselevationprofilewidget.h"
 
 QgsSettingsRegistryApp::QgsSettingsRegistryApp()
   : QgsSettingsRegistry()
@@ -28,6 +31,23 @@ QgsSettingsRegistryApp::QgsSettingsRegistryApp()
   addSettingsEntry( &QgsMapToolsDigitizingTechniqueManager::settingsDigitizingTechnique );
   addSettingsEntry( &QgsMapToolsDigitizingTechniqueManager::settingMapToolShapeDefaultForShape );
   addSettingsEntry( &QgsMapToolsDigitizingTechniqueManager::settingMapToolShapeCurrent );
+
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingResamplingMethod );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingCompressionMethod );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingUseZeroForTransparent );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingTransformMethod );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingSaveGcps );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingLoadInProject );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingLastSourceFolder );
+  addSettingsEntry( &QgsGeoreferencerMainWindow::settingLastRasterFileFilter );
+
+  addSettingsEntry( &QgsTransformSettingsDialog::settingLastDestinationFolder );
+  addSettingsEntry( &QgsTransformSettingsDialog::settingLastPdfFolder );
+
+  addSettingsEntry( &QgsVertexEditor::settingAutoPopupVertexEditorDock );
+
+  addSettingsEntry( &QgsElevationProfileWidget::settingTolerance );
+  addSettingsEntry( &QgsElevationProfileWidget::settingShowLayerTree );
 
   QgsApplication::settingsRegistryCore()->addSubRegistry( this );
 }

@@ -2336,12 +2336,12 @@ OGRwkbGeometryType QgsVectorFileWriter::ogrTypeFromWkbType( QgsWkbTypes::Type ty
   return ogrType;
 }
 
-QgsVectorFileWriter::WriterError QgsVectorFileWriter::hasError()
+QgsVectorFileWriter::WriterError QgsVectorFileWriter::hasError() const
 {
   return mError;
 }
 
-QString QgsVectorFileWriter::errorMessage()
+QString QgsVectorFileWriter::errorMessage() const
 {
   return mErrorMessage;
 }
@@ -3092,7 +3092,16 @@ QgsVectorFileWriter::WriterError QgsVectorFileWriter::prepareWriteAsVectorFormat
   {
     for ( int attrIdx : std::as_const( details.attributes ) )
     {
-      details.outputFields.append( details.sourceFields.at( attrIdx ) );
+      if ( details.sourceFields.exists( attrIdx ) )
+      {
+        QgsField field = details.sourceFields.at( attrIdx );
+        field.setName( options.attributesExportNames.value( attrIdx, field.name() ) );
+        details.outputFields.append( field );
+      }
+      else
+      {
+        QgsDebugMsg( QStringLiteral( "No such source field with index '%1' available." ).arg( attrIdx ) );
+      }
     }
   }
 

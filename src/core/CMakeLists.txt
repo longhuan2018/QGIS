@@ -38,11 +38,20 @@ set(QGIS_CORE_SRCS
   classification/qgsclassificationmethod.cpp
   classification/qgsclassificationcustom.cpp
   classification/qgsclassificationequalinterval.cpp
+  classification/qgsclassificationfixedinterval.cpp
   classification/qgsclassificationprettybreaks.cpp
   classification/qgsclassificationquantile.cpp
   classification/qgsclassificationjenks.cpp
   classification/qgsclassificationstandarddeviation.cpp
   classification/qgsclassificationlogarithmic.cpp
+
+  elevation/qgsabstractprofilegenerator.cpp
+  elevation/qgsabstractprofilesurfacegenerator.cpp
+  elevation/qgsabstractprofilesource.cpp
+  elevation/qgsprofilerenderer.cpp
+  elevation/qgsprofilerequest.cpp
+  elevation/qgsprofilesnapping.cpp
+  elevation/qgsterrainprovider.cpp
 
   geocoding/qgsabstractgeocoderlocatorfilter.cpp
   geocoding/qgsgeocoder.cpp
@@ -60,10 +69,13 @@ set(QGIS_CORE_SRCS
   gps/qgsgpsdetector.cpp
   gps/qgsnmeaconnection.cpp
 
+  plot/qgsplot.cpp
+
   symbology/qgs25drenderer.cpp
   symbology/qgsarrowsymbollayer.cpp
   symbology/qgscategorizedsymbolrenderer.cpp
   symbology/qgscolorbrewerpalette.cpp
+  symbology/qgscombinedstylemodel.cpp
   symbology/qgscptcityarchive.cpp
   symbology/qgsellipsesymbollayer.cpp
   symbology/qgsembeddedsymbolrenderer.cpp
@@ -83,8 +95,8 @@ set(QGIS_CORE_SRCS
   symbology/qgsmarkersymbollayer.cpp
   symbology/qgsmasksymbollayer.cpp
   symbology/qgsmergedfeaturerenderer.cpp
-  symbology/qgspainterswapper.cpp
   symbology/qgsnullsymbolrenderer.cpp
+  symbology/qgspainterswapper.cpp
   symbology/qgspointclusterrenderer.cpp
   symbology/qgspointdisplacementrenderer.cpp
   symbology/qgspointdistancerenderer.cpp
@@ -157,6 +169,7 @@ set(QGIS_CORE_SRCS
 
   numericformats/qgsbasicnumericformat.cpp
   numericformats/qgsbearingnumericformat.cpp
+  numericformats/qgscoordinatenumericformat.cpp
   numericformats/qgscurrencynumericformat.cpp
   numericformats/qgsfallbacknumericformat.cpp
   numericformats/qgsfractionnumericformat.cpp
@@ -213,10 +226,12 @@ set(QGIS_CORE_SRCS
   network/qgsnewsfeedmodel.cpp
   network/qgsnewsfeedparser.cpp
   network/qgshttpheaders.cpp
+  network/qgsrangerequestcache.cpp
 
   processing/qgsprocessing.cpp
   processing/qgsprocessingalgorithm.cpp
   processing/qgsprocessingalgrunnertask.cpp
+  processing/qgsprocessingbatch.cpp
   processing/qgsprocessingcontext.cpp
   processing/qgsprocessingfeedback.cpp
   processing/qgsprocessingoutputs.cpp
@@ -343,6 +358,7 @@ set(QGIS_CORE_SRCS
   qgsdataprovidertemporalcapabilities.cpp
   qgsdatetimestatisticalsummary.cpp
   qgsdbfilterproxymodel.cpp
+  qgsdbquerylog.cpp
   qgsdefaultvalue.cpp
   qgsdiagramrenderer.cpp
   qgsdistancearea.cpp
@@ -419,6 +435,7 @@ set(QGIS_CORE_SRCS
   qgsmargins.cpp
   qgsmaskidprovider.cpp
   qgsmbtiles.cpp
+  qgsmaskpaintdevice.cpp
   qgsmessagelog.cpp
   qgsmessageoutput.cpp
   qgsmimedatautils.cpp
@@ -466,6 +483,7 @@ set(QGIS_CORE_SRCS
   qgsscaleutils.cpp
   qgsshapegenerator.cpp
   qgssimplifymethod.cpp
+  qgssingleitemmodel.cpp
   qgssnappingutils.cpp
   qgsspatialindex.cpp
   qgsspatialindexkdbush.cpp
@@ -618,6 +636,7 @@ set(QGIS_CORE_SRCS
 
   proj/qgscoordinatereferencesystem.cpp
   proj/qgscoordinatereferencesystemregistry.cpp
+  proj/qgscoordinatereferencesystemutils.cpp
   proj/qgscoordinatetransform.cpp
   proj/qgscoordinatetransform_p.cpp
   proj/qgscoordinatetransformcontext.cpp
@@ -627,12 +646,14 @@ set(QGIS_CORE_SRCS
 
   project/qgsproject.cpp
   project/qgsprojectbadlayerhandler.cpp
+  project/qgsprojectelevationproperties.cpp
   project/qgsprojectfiletransform.cpp
   project/qgsprojectdisplaysettings.cpp
   project/qgsprojectproperty.cpp
   project/qgsprojectservervalidator.cpp
   project/qgsprojectstorage.cpp
   project/qgsprojectstorageregistry.cpp
+  project/qgsprojectstylesettings.cpp
   project/qgsprojecttimesettings.cpp
   project/qgsprojectutils.cpp
   project/qgsprojectversion.cpp
@@ -658,6 +679,7 @@ set(QGIS_CORE_SRCS
   raster/qgsrasteriterator.cpp
   raster/qgsrasterlayer.cpp
   raster/qgsrasterlayerelevationproperties.cpp
+  raster/qgsrasterlayerprofilegenerator.cpp
   raster/qgsrasterlayerrenderer.cpp
   raster/qgsrasterlayertemporalproperties.cpp
   raster/qgsrasterminmaxorigin.cpp
@@ -693,7 +715,9 @@ set(QGIS_CORE_SRCS
   mesh/qgsmeshdataset.cpp
   mesh/qgsmeshdatasetgroupstore.cpp
   mesh/qgsmeshlayer.cpp
+  mesh/qgsmeshlayerelevationproperties.cpp
   mesh/qgsmeshlayerinterpolator.cpp
+  mesh/qgsmeshlayerprofilegenerator.cpp
   mesh/qgsmeshlayerrenderer.cpp
   mesh/qgsmeshlayertemporalproperties.cpp
   mesh/qgsmeshlayerutils.cpp
@@ -722,6 +746,7 @@ set(QGIS_CORE_SRCS
   pointcloud/qgspointcloudblockrequest.cpp
   pointcloud/qgspointcloudlayer.cpp
   pointcloud/qgspointcloudlayerelevationproperties.cpp
+  pointcloud/qgspointcloudlayerprofilegenerator.cpp
   pointcloud/qgspointcloudlayerrenderer.cpp
   pointcloud/qgspointcloudindex.cpp
   pointcloud/qgspointclouddataprovider.cpp
@@ -729,11 +754,20 @@ set(QGIS_CORE_SRCS
   pointcloud/qgspointcloudrendererregistry.cpp
   pointcloud/qgspointcloudrgbrenderer.cpp
 
+  pointcloud/expression/qgspointcloudexpression.cpp
+  pointcloud/expression/qgspointcloudexpressionnode.cpp
+  pointcloud/expression/qgspointcloudexpressionnodeimpl.cpp
+
+  pointcloud/qgspointcloudstatscalculator.cpp
+  pointcloud/qgspointcloudstatscalculationtask.cpp
+  pointcloud/qgspointcloudstatistics.cpp
+
   labeling/qgslabelfeature.cpp
   labeling/qgslabelingengine.cpp
   labeling/qgslabelingenginesettings.cpp
   labeling/qgslabelingresults.cpp
   labeling/qgslabellinesettings.cpp
+  labeling/qgslabelplacementsettings.cpp
   labeling/qgslabelobstaclesettings.cpp
   labeling/qgslabelsearchtree.cpp
   labeling/qgslabelsink.cpp
@@ -817,6 +851,7 @@ set(QGIS_CORE_SRCS
   vector/qgsvectorlayercache.cpp
   vector/qgsvectorlayerdiagramprovider.cpp
   vector/qgsvectorlayereditbuffer.cpp
+  vector/qgsvectorlayereditbuffergroup.cpp
   vector/qgsvectorlayereditpassthrough.cpp
   vector/qgsvectorlayereditutils.cpp
   vector/qgsvectorlayerelevationproperties.cpp
@@ -824,6 +859,7 @@ set(QGIS_CORE_SRCS
   vector/qgsvectorlayerexporter.cpp
   vector/qgsvectorlayerjoinbuffer.cpp
   vector/qgsvectorlayerjoininfo.cpp
+  vector/qgsvectorlayerprofilegenerator.cpp
   vector/qgsvectorlayerrenderer.cpp
   vector/qgsvectorlayertemporalproperties.cpp
   vector/qgsvectorlayertools.cpp
@@ -840,12 +876,14 @@ set(QGIS_CORE_SRCS
   vectortile/qgsvectortilelayer.cpp
   vectortile/qgsvectortilelayerrenderer.cpp
   vectortile/qgsvectortileloader.cpp
+  vectortile/qgsvectortilematrixset.cpp
   vectortile/qgsvectortilemvtdecoder.cpp
   vectortile/qgsvectortilemvtencoder.cpp
   vectortile/qgsvectortilemvtutils.cpp
   vectortile/qgsvectortileprovidermetadata.cpp
   vectortile/qgsvectortileutils.cpp
   vectortile/qgsvectortilewriter.cpp
+  vectortile/qgsvtpktiles.cpp
 
   ${CMAKE_CURRENT_BINARY_DIR}/qgsexpression_texts.cpp
 
@@ -979,6 +1017,7 @@ set(QGIS_CORE_HDRS
   qgsdatasourceuri.h
   qgsdatetimestatisticalsummary.h
   qgsdbfilterproxymodel.h
+  qgsdbquerylog.h
   qgsdefaultvalue.h
   qgsdiagramrenderer.h
   qgsdistancearea.h
@@ -1068,6 +1107,7 @@ set(QGIS_CORE_HDRS
   qgsmapunitscale.h
   qgsmargins.h
   qgsmaskidprovider.h
+  qgsmaskpaintdevice.h
   qgsmbtiles.h
   qgsmessagelog.h
   qgsmessageoutput.h
@@ -1119,6 +1159,7 @@ set(QGIS_CORE_HDRS
   qgsscaleutils.h
   qgsshapegenerator.h
   qgssimplifymethod.h
+  qgssingleitemmodel.h
   qgssnappingconfig.h
   qgssnappingutils.h
   qgsspatialindex.h
@@ -1175,6 +1216,7 @@ set(QGIS_CORE_HDRS
   3d/qgs3dsymbolregistry.h
   3d/qgsabstract3dsymbol.h
   3d/qgsabstract3drenderer.h
+  3d/qgsabstractpointcloud3drenderer.h
 
   annotations/qgsannotation.h
   annotations/qgsannotationitem.h
@@ -1224,6 +1266,7 @@ set(QGIS_CORE_HDRS
 
   classification/qgsclassificationcustom.h
   classification/qgsclassificationequalinterval.h
+  classification/qgsclassificationfixedinterval.h
   classification/qgsclassificationjenks.h
   classification/qgsclassificationlogarithmic.h
   classification/qgsclassificationmethod.h
@@ -1248,6 +1291,15 @@ set(QGIS_CORE_HDRS
   editform/qgsattributeeditorrelation.h
   editform/qgsattributeeditorhtmlelement.h
   editform/qgsattributeeditorqmlelement.h
+
+  elevation/qgsabstractprofilegenerator.h
+  elevation/qgsabstractprofilesurfacegenerator.h
+  elevation/qgsabstractprofilesource.h
+  elevation/qgsprofilepoint.h
+  elevation/qgsprofilerenderer.h
+  elevation/qgsprofilerequest.h
+  elevation/qgsprofilesnapping.h
+  elevation/qgsterrainprovider.h
 
   externalstorage/qgsexternalstorage.h
   externalstorage/qgsexternalstorageregistry.h
@@ -1342,6 +1394,7 @@ set(QGIS_CORE_HDRS
   labeling/qgslabelingresults.h
   labeling/qgslabellinesettings.h
   labeling/qgslabelobstaclesettings.h
+  labeling/qgslabelplacementsettings.h
   labeling/qgslabelposition.h
   labeling/qgslabelsearchtree.h
   labeling/qgslabelsink.h
@@ -1449,7 +1502,9 @@ set(QGIS_CORE_HDRS
   mesh/qgsmeshdataset.h
   mesh/qgsmeshdatasetgroupstore.h
   mesh/qgsmeshlayer.h
+  mesh/qgsmeshlayerelevationproperties.h
   mesh/qgsmeshlayerinterpolator.h
+  mesh/qgsmeshlayerprofilegenerator.h
   mesh/qgsmeshlayerrenderer.h
   mesh/qgsmeshlayertemporalproperties.h
   mesh/qgsmeshlayerutils.h
@@ -1484,6 +1539,8 @@ set(QGIS_CORE_HDRS
   pal/util.h
   ${PROJECT_SOURCE_DIR}/external/rtree/include/RTree.h
 
+  plot/qgsplot.h
+
   pointcloud/qgspointcloudattribute.h
   pointcloud/qgspointcloudattributebyramprenderer.h
   pointcloud/qgspointcloudattributemodel.h
@@ -1494,6 +1551,7 @@ set(QGIS_CORE_HDRS
   pointcloud/qgspointcloudblockrequest.h
   pointcloud/qgspointcloudlayer.h
   pointcloud/qgspointcloudlayerelevationproperties.h
+  pointcloud/qgspointcloudlayerprofilegenerator.h
   pointcloud/qgspointcloudlayerrenderer.h
   pointcloud/qgspointcloudindex.h
   pointcloud/qgspointclouddataprovider.h
@@ -1501,9 +1559,18 @@ set(QGIS_CORE_HDRS
   pointcloud/qgspointcloudrendererregistry.h
   pointcloud/qgspointcloudrgbrenderer.h
 
+  pointcloud/expression/qgspointcloudexpression.h
+  pointcloud/expression/qgspointcloudexpressionnode.h
+  pointcloud/expression/qgspointcloudexpressionnodeimpl.h
+
+  pointcloud/qgspointcloudstatscalculator.h
+  pointcloud/qgspointcloudstatscalculationtask.h
+  pointcloud/qgspointcloudstatistics.h
+
   proj/qgscelestialbody.h
   proj/qgscoordinatereferencesystem.h
   proj/qgscoordinatereferencesystemregistry.h
+  proj/qgscoordinatereferencesystemutils.h
   proj/qgscoordinatetransform.h
   proj/qgscoordinatetransformcontext.h
   proj/qgsdatums.h
@@ -1532,9 +1599,11 @@ set(QGIS_CORE_HDRS
   network/qgsnewsfeedmodel.h
   network/qgsnewsfeedparser.h
   network/qgshttpheaders.h
+  network/qgsrangerequestcache.h
 
   numericformats/qgsbasicnumericformat.h
   numericformats/qgsbearingnumericformat.h
+  numericformats/qgscoordinatenumericformat.h
   numericformats/qgscurrencynumericformat.h
   numericformats/qgsfallbacknumericformat.h
   numericformats/qgsfractionnumericformat.h
@@ -1555,6 +1624,7 @@ set(QGIS_CORE_HDRS
   processing/qgsprocessing.h
   processing/qgsprocessingalgorithm.h
   processing/qgsprocessingalgrunnertask.h
+  processing/qgsprocessingbatch.h
   processing/qgsprocessingcontext.h
   processing/qgsprocessingfeedback.h
   processing/qgsprocessingoutputs.h
@@ -1574,11 +1644,13 @@ set(QGIS_CORE_HDRS
   project/qgsproject.h
   project/qgsprojectbadlayerhandler.h
   project/qgsprojectdisplaysettings.h
+  project/qgsprojectelevationproperties.h
   project/qgsprojectfiletransform.h
   project/qgsprojectproperty.h
   project/qgsprojectservervalidator.h
   project/qgsprojectstorage.h
   project/qgsprojectstorageregistry.h
+  project/qgsprojectstylesettings.h
   project/qgsprojecttimesettings.h
   project/qgsprojecttranslator.h
   project/qgsprojectutils.h
@@ -1651,6 +1723,7 @@ set(QGIS_CORE_HDRS
   raster/qgsrasteriterator.h
   raster/qgsrasterlayer.h
   raster/qgsrasterlayerelevationproperties.h
+  raster/qgsrasterlayerprofilegenerator.h
   raster/qgsrasterlayerrenderer.h
   raster/qgsrasterlayertemporalproperties.h
   raster/qgsrasterminmaxorigin.h
@@ -1686,6 +1759,7 @@ set(QGIS_CORE_HDRS
   symbology/qgsarrowsymbollayer.h
   symbology/qgscategorizedsymbolrenderer.h
   symbology/qgscolorbrewerpalette.h
+  symbology/qgscombinedstylemodel.h
   symbology/qgscptcityarchive.h
   symbology/qgsellipsesymbollayer.h
   symbology/qgsembeddedsymbolrenderer.h
@@ -1757,6 +1831,7 @@ set(QGIS_CORE_HDRS
   vector/qgsvectorlayercache.h
   vector/qgsvectorlayerdiagramprovider.h
   vector/qgsvectorlayereditbuffer.h
+  vector/qgsvectorlayereditbuffergroup.h
   vector/qgsvectorlayereditpassthrough.h
   vector/qgsvectorlayereditutils.h
   vector/qgsvectorlayerelevationproperties.h
@@ -1765,6 +1840,7 @@ set(QGIS_CORE_HDRS
   vector/qgsvectorlayerfeatureiterator.h
   vector/qgsvectorlayerjoinbuffer.h
   vector/qgsvectorlayerjoininfo.h
+  vector/qgsvectorlayerprofilegenerator.h
   vector/qgsvectorlayerrenderer.h
   vector/qgsvectorlayertemporalproperties.h
   vector/qgsvectorlayertools.h
@@ -1781,6 +1857,7 @@ set(QGIS_CORE_HDRS
   vectortile/qgsvectortilelayer.h
   vectortile/qgsvectortilelayerrenderer.h
   vectortile/qgsvectortileloader.h
+  vectortile/qgsvectortilematrixset.h
   vectortile/qgsvectortilemvtdecoder.h
   vectortile/qgsvectortilemvtencoder.h
   vectortile/qgsvectortilemvtutils.h
@@ -1788,6 +1865,7 @@ set(QGIS_CORE_HDRS
   vectortile/qgsvectortilerenderer.h
   vectortile/qgsvectortileutils.h
   vectortile/qgsvectortilewriter.h
+  vectortile/qgsvtpktiles.h
 )
 
 set(QGIS_CORE_PRIVATE_HDRS
@@ -1891,31 +1969,80 @@ if (WITH_EPT)
     ${ZSTD_INCLUDE_DIR}
   )
 
-  if (LazPerf_FOUND)
-    # Use system laz-perf
-    include_directories(SYSTEM
-      ${LazPerf_INCLUDE_DIR}
-    )
-  else()
-    # Use embedded laz-perf from external/laz-perf
-    include_directories(SYSTEM
-    )
-  endif()
-
   set(QGIS_CORE_SRCS ${QGIS_CORE_SRCS}
       providers/ept/qgseptprovider.cpp
-      pointcloud/qgseptdecoder.cpp
       pointcloud/qgseptpointcloudindex.cpp
       pointcloud/qgsremoteeptpointcloudindex.cpp
+      pointcloud/qgseptpointcloudblockrequest.cpp
   )
   set(QGIS_CORE_HDRS ${QGIS_CORE_HDRS}
       providers/ept/qgseptprovider.h
-      pointcloud/qgseptdecoder.h
       pointcloud/qgseptpointcloudindex.h
       pointcloud/qgsremoteeptpointcloudindex.h
+      pointcloud/qgseptpointcloudblockrequest.h
   )
 
   add_definitions( -DWITH_EPT )
+endif()
+
+if (WITH_COPC)
+  include_directories(providers/copc)
+
+  set(QGIS_CORE_SRCS ${QGIS_CORE_SRCS}
+      providers/copc/qgscopcprovider.cpp
+      pointcloud/qgscopcpointcloudindex.cpp
+      pointcloud/qgsremotecopcpointcloudindex.cpp
+      pointcloud/qgscopcpointcloudblockrequest.cpp
+  )
+  set(QGIS_CORE_HDRS ${QGIS_CORE_HDRS}
+      providers/copc/qgscopcprovider.h
+      pointcloud/qgscopcpointcloudindex.h
+      pointcloud/qgsremotecopcpointcloudindex.h
+      pointcloud/qgscopcpointcloudblockrequest.h
+  )
+
+  add_definitions( -DWITH_COPC )
+endif()
+
+if (WITH_EPT OR WITH_COPC)
+  if (LazPerf_FOUND)
+  # Use system laz-perf
+  include_directories(SYSTEM
+    ${LazPerf_INCLUDE_DIR}
+  )
+  else()
+  # Use embedded laz-perf from external/laz-perf
+  include_directories(SYSTEM
+  )
+
+  set(QGIS_CORE_SRCS ${QGIS_CORE_SRCS}
+    ${CMAKE_SOURCE_DIR}/external/lazperf/charbuf.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/filestream.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/header.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/lazperf.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/readers.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/vlr.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_byte10.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_byte14.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_gpstime10.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_nir14.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_point10.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_point14.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_rgb10.cpp
+    ${CMAKE_SOURCE_DIR}/external/lazperf/detail/field_rgb14.cpp
+  )
+  endif()
+
+  set(QGIS_CORE_SRCS ${QGIS_CORE_SRCS}
+      pointcloud/qgseptdecoder.cpp
+      pointcloud/qgslazdecoder.cpp
+      pointcloud/qgslazinfo.cpp
+  )
+  set(QGIS_CORE_HDRS ${QGIS_CORE_HDRS}
+      pointcloud/qgseptdecoder.h
+      pointcloud/qgslazdecoder.h
+      pointcloud/qgslazinfo.h
+  )
 endif()
 
 if (APPLE)
@@ -2000,6 +2127,7 @@ target_include_directories(qgis_core PUBLIC
   dxf
   editform
   effects
+  elevation
   expression
   externalstorage
   fieldformatter
@@ -2018,7 +2146,9 @@ target_include_directories(qgis_core PUBLIC
   network
   numericformats
   pal
+  plot
   pointcloud
+  pointcloud/expression
   processing
   processing/models
   proj
@@ -2049,6 +2179,11 @@ target_include_directories(qgis_core PUBLIC
 if (WITH_EPT)
   target_include_directories(qgis_core PUBLIC
     ${CMAKE_SOURCE_DIR}/src/core/providers/ept)
+endif()
+
+if (WITH_COPC)
+  target_include_directories(qgis_core PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/core/providers/copc)
 endif()
 
 GENERATE_EXPORT_HEADER(
@@ -2123,10 +2258,6 @@ if (APPLE AND NOT IOS)
   target_link_libraries(qgis_core qgis_native)
 endif()
 
-if (ADD_CLAZY_CHECKS)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_BASE_FLAGS} -Xclang -plugin-arg-clazy -Xclang ${CLAZY_BASE_CHECKS},non-pod-global-static")
-endif()
-
 target_link_libraries(qgis_core
   ${QT_VERSION_BASE}::Core
   ${QT_VERSION_BASE}::Gui
@@ -2166,6 +2297,12 @@ if (WITH_EPT)
   target_link_libraries(qgis_core
     ${ZSTD_LIBRARY}
   )
+endif()
+
+if (WITH_EPT OR WITH_COPC)
+  if (LazPerf_FOUND)
+    target_link_libraries(qgis_core ${LazPerf_LIBRARY})
+  endif()
 endif()
 
 if (WITH_PDAL)

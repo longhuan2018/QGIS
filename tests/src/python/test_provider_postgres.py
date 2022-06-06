@@ -28,6 +28,7 @@ import time
 from datetime import datetime
 
 from qgis.core import (
+    Qgis,
     QgsApplication,
     QgsVectorLayer,
     QgsVectorLayerExporter,
@@ -1220,7 +1221,7 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
 
         # prepare a project with transactions enabled
         p = QgsProject()
-        p.setAutoTransaction(True)
+        p.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         p.addMapLayers([vl])
         vl.startEditing()
 
@@ -1246,7 +1247,7 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
 
         # prepare a project with transactions enabled
         p = QgsProject()
-        p.setAutoTransaction(True)
+        p.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         p.addMapLayers([vl])
         vl.startEditing()
 
@@ -1293,7 +1294,7 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
 
         # prepare a project with transactions enabled
         p = QgsProject()
-        p.setAutoTransaction(True)
+        p.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         p.addMapLayers([vl])
 
         # get feature
@@ -1336,7 +1337,7 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
 
         # prepare a project with transactions enabled
         p = QgsProject()
-        p.setAutoTransaction(True)
+        p.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         p.addMapLayers([vl])
         vl.startEditing()
 
@@ -2533,6 +2534,8 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
             'test', 'postgres')
         self.assertTrue(vl.isValid())
         self.assertTrue(vl.featureCount() > 0)
+        vl.setSubsetString('"pk" = 3')
+        self.assertGreaterEqual(vl.featureCount(), 1)
 
     def testFeatureCountEstimatedOnView(self):
         """
@@ -2547,6 +2550,8 @@ class TestPyQgsPostgresProvider(unittest.TestCase, ProviderTestCase):
             'test', 'postgres')
         self.assertTrue(vl.isValid())
         self.assertTrue(vl.featureCount() > 0)
+        vl.setSubsetString('"pk" = 3')
+        self.assertGreaterEqual(vl.featureCount(), 1)
 
     def testIdentityPk(self):
         """Test a table with identity pk, see GH #29560"""

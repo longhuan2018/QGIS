@@ -15,15 +15,18 @@
 
 #include "qgssettingsregistrycore.h"
 
-#include "qgslayout.h"
-#include "qgslocator.h"
-#include "qgsnetworkaccessmanager.h"
-#include "qgsnewsfeedparser.h"
-#include "qgsprocessing.h"
 #include "qgsapplication.h"
 #include "qgsgeometryoptions.h"
+#include "qgslayout.h"
 #include "qgslocalizeddatapathregistry.h"
+#include "qgslocator.h"
 #include "qgsmaprendererjob.h"
+#include "qgsnetworkaccessmanager.h"
+#include "qgsnewsfeedparser.h"
+#include "qgsowsconnection.h"
+#include "qgsprocessing.h"
+#include "qgsvectorlayer.h"
+#include "qgsogrdbconnection.h"
 
 QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   : QgsSettingsRegistry()
@@ -58,6 +61,9 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
 
   addSettingsEntry( &QgsMapRendererJob::settingsLogCanvasRefreshEvent );
 
+  addSettingsEntry( &QgsOgrDbConnection::settingsOgrConnectionSelected );
+  addSettingsEntry( &QgsOgrDbConnection::settingsOgrConnectionPath );
+
   addSettingsEntry( &settingsDigitizingStreamTolerance );
   addSettingsEntry( &settingsDigitizingLineWidth );
   addSettingsEntry( &settingsDigitizingLineColorRed );
@@ -71,6 +77,7 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   addSettingsEntry( &settingsDigitizingFillColorAlpha );
   addSettingsEntry( &settingsDigitizingLineGhost );
   addSettingsEntry( &settingsDigitizingDefaultZValue );
+  addSettingsEntry( &settingsDigitizingDefaultMValue );
   addSettingsEntry( &settingsDigitizingDefaultSnapEnabled );
   addSettingsEntry( &settingsDigitizingDefaultSnapMode );
   addSettingsEntry( &settingsDigitizingDefaultSnapType );
@@ -96,6 +103,12 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   addSettingsEntry( &settingsDigitizingOffsetCapStyle );
   addSettingsEntry( &settingsDigitizingOffsetShowAdvanced );
   addSettingsEntry( &settingsDigitizingTracingMaxFeatureCount );
+  addSettingsEntry( &settingsGpsBabelPath );
+  addSettingsEntry( &settingsLayerTreeShowFeatureCountForNewLayers );
+
+  addSettingsEntry( &QgsOwsConnection::settingsConnectionSelected );
+  addSettingsEntryGroup( &QgsOwsConnection::settingsServiceConnectionDetailsGroup );
+  addSettingsEntryGroup( &QgsOwsConnection::settingsServiceConnectionCredentialsGroup );
 }
 
 QgsSettingsRegistryCore::~QgsSettingsRegistryCore()

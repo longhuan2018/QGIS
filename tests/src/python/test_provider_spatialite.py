@@ -20,7 +20,8 @@ from datetime import datetime
 import qgis  # NOQA
 from osgeo import ogr
 from qgis.PyQt.QtCore import QVariant, QByteArray
-from qgis.core import (QgsProviderRegistry,
+from qgis.core import (Qgis,
+                       QgsProviderRegistry,
                        QgsDataSourceUri,
                        QgsVectorLayer,
                        QgsVectorDataProvider,
@@ -413,7 +414,11 @@ class TestQgsSpatialiteProvider(unittest.TestCase, ProviderTestCase):
                     '"dt" = format_date(to_datetime(\'000www14ww13ww12www4ww5ww2020\',\'zzzwwwsswwmmwwhhwwwdwwMwwyyyy\'),\'yyyy-MM-dd hh:mm:ss\')',
                     'to_time("time") >= make_time(12, 14, 14)',
                     'to_time("time") = to_time(\'000www14ww13ww12www\',\'zzzwwwsswwmmwwhhwww\')',
-                    '"date" = to_date(\'www4ww5ww2020\',\'wwwdwwMwwyyyy\')'
+                    '"date" = to_date(\'www4ww5ww2020\',\'wwwdwwMwwyyyy\')',
+                    'dt BETWEEN make_datetime(2020, 5, 3, 12, 13, 14) AND make_datetime(2020, 5, 4, 12, 14, 14)',
+                    'dt NOT BETWEEN make_datetime(2020, 5, 3, 12, 13, 14) AND make_datetime(2020, 5, 4, 12, 14, 14)',
+                    '"dt" <= make_datetime(2020, 5, 4, 12, 13, 14)',
+                    '"date" <= make_datetime(2020, 5, 4, 12, 13, 14)'
                     ])
 
     def partiallyCompiledFilters(self):
@@ -1716,7 +1721,7 @@ class TestQgsSpatialiteProvider(unittest.TestCase, ProviderTestCase):
 
         # prepare a project with transactions enabled
         p = QgsProject()
-        p.setAutoTransaction(True)
+        p.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         p.addMapLayers([vl1, vl2])
 
         self.assertTrue(vl1.startEditing())
@@ -1788,7 +1793,7 @@ class TestQgsSpatialiteProvider(unittest.TestCase, ProviderTestCase):
         self.assertEqual(vl2.featureCount(), 1)
 
         project = QgsProject()
-        project.setAutoTransaction(True)
+        project.setTransactionMode(Qgis.TransactionMode.AutomaticGroups)
         project.addMapLayers([vl, vl2])
         project.setEvaluateDefaultValues(True)
 
