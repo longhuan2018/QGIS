@@ -62,7 +62,7 @@ class QgsPdalProvider: public QgsPointCloudDataProvider
     qint64 mPointCount = 0;
 
     QVariantMap mOriginalMetadata;
-    std::unique_ptr<QgsCopcPointCloudIndex> mIndex;
+    std::unique_ptr<QgsPointCloudIndex> mIndex;
     QgsPdalIndexingTask *mRunningIndexingTask = nullptr;
     bool mGenerateCopc = true;
     static QQueue<QgsPdalProvider *> sIndexingQueue;
@@ -70,8 +70,11 @@ class QgsPdalProvider: public QgsPointCloudDataProvider
 
 class QgsPdalProviderMetadata : public QgsProviderMetadata
 {
+    Q_OBJECT
+
   public:
     QgsPdalProviderMetadata();
+    QIcon icon() const override;
     QgsPdalProvider *createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags = QgsDataProvider::ReadFlags() ) override;
     QgsProviderMetadata::ProviderMetadataCapabilities capabilities() const override;
     QString encodeUri( const QVariantMap &parts ) const override;
@@ -81,6 +84,13 @@ class QgsPdalProviderMetadata : public QgsProviderMetadata
     QList< QgsProviderSublayerDetails > querySublayers( const QString &uri, Qgis::SublayerQueryFlags flags = Qgis::SublayerQueryFlags(), QgsFeedback *feedback = nullptr ) const override;
     QString filters( FilterType type ) override;
     ProviderCapabilities providerCapabilities() const override;
+    QList< QgsMapLayerType > supportedLayerTypes() const override;
+
+  private:
+    static QString sFilterString;
+    static QStringList sExtensions;
+    void buildSupportedPointCloudFileFilterAndExtensions();
+
 };
 
 #endif // QGSPDALPROVIDER_H

@@ -134,6 +134,10 @@ QgsPointCloud3DSymbolWidget::QgsPointCloud3DSymbolWidget( QgsPointCloudLayer *la
   mClassifiedRenderingLayout->addWidget( mClassifiedRendererWidget );
 
   connect( mClassifiedRendererWidget, &QgsPointCloudClassifiedRendererWidget::widgetChanged, this, &QgsPointCloud3DSymbolWidget::emitChangedSignal );
+
+  mPointSizeSpinBox->setToolTip( tr( "The size of each point in pixels" ) );
+  mMaxScreenErrorSpinBox->setToolTip( tr( "The distance in pixels between the points of the smallest chunk to be rendered.\nRaising this value will result in a less detailed scene which can improve performance" ) );
+  mPointBudgetSpinBox->setToolTip( tr( "The maximum number of points that will be rendered simultaneously.\nRaising this value may allow missing chunks to be rendered while lowering it may improve performance" ) );
 }
 
 void QgsPointCloud3DSymbolWidget::setSymbol( QgsPointCloud3DSymbol *symbol )
@@ -649,12 +653,6 @@ void QgsPointCloud3DSymbolWidget::setPointBudget( double budget )
 double QgsPointCloud3DSymbolWidget::pointBudget() const
 {
   return mPointBudgetSpinBox->value();
-}
-
-
-void QgsPointCloud3DSymbolWidget::setPointCloudSize( int size )
-{
-  mPointCloudSizeLabel->setText( QStringLiteral( "%1 points" ).arg( size ) );
 }
 
 bool QgsPointCloud3DSymbolWidget::showBoundingBoxes() const

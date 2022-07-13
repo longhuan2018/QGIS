@@ -5947,6 +5947,11 @@ QgsPostgresProviderMetadata::QgsPostgresProviderMetadata()
 {
 }
 
+QIcon QgsPostgresProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconPostgis.svg" ) );
+}
+
 #ifndef HAVE_STATIC_PROVIDERS
 QGISEXTERN QgsProviderMetadata *providerMetadataFactory()
 {
@@ -6044,4 +6049,9 @@ QString QgsPostgresProviderMetadata::encodeUri( const QVariantMap &parts ) const
   if ( parts.contains( QStringLiteral( "geometrycolumn" ) ) )
     dsUri.setGeometryColumn( parts.value( QStringLiteral( "geometrycolumn" ) ).toString() );
   return dsUri.uri( false );
+}
+
+QList<QgsMapLayerType> QgsPostgresProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::VectorLayer };
 }

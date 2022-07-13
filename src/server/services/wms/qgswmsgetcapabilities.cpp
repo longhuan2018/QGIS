@@ -717,6 +717,7 @@ namespace QgsWms
 
         QDomElement composerMapElem = doc.createElement( QStringLiteral( "ComposerMap" ) );
         composerMapElem.setAttribute( QStringLiteral( "name" ), QStringLiteral( "map%1" ).arg( mapId ) );
+        composerMapElem.setAttribute( QStringLiteral( "itemName" ), composerMap->displayName() );
         mapId++;
         composerMapElem.setAttribute( QStringLiteral( "width" ), composerMap->rect().width() );
         composerMapElem.setAttribute( QStringLiteral( "height" ), composerMap->rect().height() );
@@ -1248,7 +1249,7 @@ namespace QgsWms
               QDomElement dimElem = doc.createElement( QStringLiteral( "Dimension" ) );
               dimElem.setAttribute( QStringLiteral( "name" ), dim.name );
 
-              if ( dim.name.toUpper() == QStringLiteral( "TIME" ) )
+              if ( dim.name.toUpper() == QLatin1String( "TIME" ) )
               {
                 timeDimensionAdded = true;
               }

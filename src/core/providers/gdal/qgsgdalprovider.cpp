@@ -3014,6 +3014,18 @@ bool QgsGdalProvider::initIfNeeded()
   return mValid;
 }
 
+void CPL_STDCALL showErrorsExceptTransformationAlreadyNorthUp( CPLErr, int errNo, const char *msg )
+{
+  // silence GDAL "ERROR 1: The transformation is already "north up" or a transformation between pixel/line and georeferenced coordinates cannot be computed" warnings,
+  // but raise other warnings
+  // see https://github.com/qgis/QGIS/pull/49041#discussion_r899644794
+
+  const thread_local QRegularExpression re( QStringLiteral( ".*north up.*" ) );
+  if ( !re.match( msg ).hasMatch() )
+  {
+    std::cerr << "GDAL ERROR " <<  errNo << ": " << msg << std::endl;
+  }
+}
 
 void QgsGdalProvider::initBaseDataset()
 {
@@ -3081,7 +3093,9 @@ void QgsGdalProvider::initBaseDataset()
 
   if ( !mGdalTransformerArg )
   {
+    CPLPushErrorHandler( showErrorsExceptTransformationAlreadyNorthUp );
     mGdalTransformerArg = GDALCreateGenImgProjTransformer( mGdalBaseDataset, nullptr, nullptr, nullptr, TRUE, 1.0, 0 );
+    CPLPopErrorHandler();
   }
 
   if ( !hasGeoTransform )
@@ -3806,7 +3820,13 @@ QList<QgsProviderSublayerDetails> QgsGdalProviderMetadata::querySublayers( const
 
         QString name;
         const QVariantMap parts = decodeUri( uri );
-        if ( !parts.value( QStringLiteral( "vsiSuffix" ) ).toString().isEmpty() )
+
+        const QString identifier = GDALGetMetadataItem( dataset.get(), "IDENTIFIER", "" );
+        if ( !identifier.isEmpty() )
+        {
+          name = identifier;
+        }
+        else if ( !parts.value( QStringLiteral( "vsiSuffix" ) ).toString().isEmpty() )
         {
           name = parts.value( QStringLiteral( "vsiSuffix" ) ).toString();
           if ( name.startsWith( '/' ) )
@@ -3962,9 +3982,19 @@ QStringList QgsGdalProviderMetadata::sidecarFilesForUri( const QString &uri ) co
   return res;
 }
 
+QList<QgsMapLayerType> QgsGdalProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::RasterLayer };
+}
+
 QgsGdalProviderMetadata::QgsGdalProviderMetadata():
   QgsProviderMetadata( PROVIDER_KEY, PROVIDER_DESCRIPTION )
 {
+}
+
+QIcon QgsGdalProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconRaster.svg" ) );
 }
 
 ///@endcond

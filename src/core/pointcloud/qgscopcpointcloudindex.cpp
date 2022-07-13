@@ -59,11 +59,11 @@ std::unique_ptr<QgsPointCloudIndex> QgsCopcPointCloudIndex::clone() const
 void QgsCopcPointCloudIndex::load( const QString &fileName )
 {
   mFileName = fileName;
-  mCopcFile.open( fileName.toStdString(), std::ios::binary );
+  mCopcFile.open( QgsLazDecoder::toNativePath( fileName ), std::ios::binary );
 
   if ( !mCopcFile.is_open() || !mCopcFile.good() )
   {
-    QgsMessageLog::logMessage( tr( "Unable to open %1 for reading" ).arg( fileName ) );
+    mError = tr( "Unable to open %1 for reading" ).arg( fileName );
     mIsValid = false;
     return;
   }
@@ -76,7 +76,7 @@ void QgsCopcPointCloudIndex::load( const QString &fileName )
   }
   if ( !mIsValid )
   {
-    QgsMessageLog::logMessage( tr( "Unable to recognize %1 as a LAZ file: \"%2\"" ).arg( fileName, mLazInfo->error() ) );
+    mError = tr( "Unable to recognize %1 as a LAZ file: \"%2\"" ).arg( fileName, mLazInfo->error() );
     return;
   }
 
@@ -88,7 +88,7 @@ bool QgsCopcPointCloudIndex::loadSchema( QgsLazInfo &lazInfo )
   QByteArray copcInfoVlrData = lazInfo.vlrData( QStringLiteral( "copc" ), 1 );
   if ( copcInfoVlrData.isEmpty() )
   {
-    QgsDebugMsg( QStringLiteral( "Invalid COPC file" ) );
+    mError = tr( "Invalid COPC file" );
     return false;
   }
   mCopcInfoVlr.fill( copcInfoVlrData.data(), copcInfoVlrData.size() );
@@ -157,6 +157,11 @@ QgsPointCloudBlock *QgsCopcPointCloudIndex::nodeData( const IndexedPointCloudNod
   std::ifstream file( QgsLazDecoder::toNativePath( mFileName ), std::ios::binary );
   file.seekg( blockOffset );
   file.read( rawBlockData.data(), blockSize );
+  if ( !file )
+  {
+    QgsDebugMsg( QStringLiteral( "Could not read file %1" ).arg( mFileName ) );
+    return nullptr;
+  }
 
   return QgsLazDecoder::decompressCopc( rawBlockData, *mLazInfo.get(), pointCount, requestAttributes, filterExpression );
 }
@@ -356,7 +361,7 @@ void QgsCopcPointCloudIndex::copyCommonProperties( QgsCopcPointCloudIndex *desti
   // QgsCopcPointCloudIndex specific fields
   destination->mIsValid = mIsValid;
   destination->mFileName = mFileName;
-  destination->mCopcFile.open( mFileName.toStdString(), std::ios::binary );
+  destination->mCopcFile.open( QgsLazDecoder::toNativePath( mFileName ), std::ios::binary );
   destination->mCopcInfoVlr = mCopcInfoVlr;
   destination->mHierarchyNodePos = mHierarchyNodePos;
   destination->mOriginalMetadata = mOriginalMetadata;

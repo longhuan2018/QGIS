@@ -28,9 +28,9 @@
 #include "qgsprovidersublayerdetails.h"
 #include "qgsproviderutils.h"
 
-#include <pdal/io/LasReader.hpp>
-#include <pdal/io/LasHeader.hpp>
 #include <pdal/Options.hpp>
+#include <pdal/StageFactory.hpp>
+#include <pdal/Reader.hpp>
 
 #include <QQueue>
 #include <QFileInfo>
@@ -46,7 +46,7 @@ QgsPdalProvider::QgsPdalProvider(
   const QgsDataProvider::ProviderOptions &options,
   QgsDataProvider::ReadFlags flags, bool generateCopc )
   : QgsPointCloudDataProvider( uri, options, flags )
-  , mIndex( new QgsCopcPointCloudIndex )
+  , mIndex( nullptr )
   , mGenerateCopc( generateCopc )
 {
   std::unique_ptr< QgsScopedRuntimeProfile > profile;
@@ -71,7 +71,7 @@ QgsRectangle QgsPdalProvider::extent() const
 
 QgsPointCloudAttributeCollection QgsPdalProvider::attributes() const
 {
-  return mIndex->attributes();
+  return mIndex ? mIndex->attributes() : QgsPointCloudAttributeCollection();
 }
 
 static QString _outEptDir( const QString &filename )
@@ -86,13 +86,13 @@ static QString _outCopcFile( const QString &filename )
 {
   const QFileInfo fi( filename );
   const QDir directory = fi.absoluteDir();
-  const QString outputFile = QStringLiteral( "%1/copc_%2.copc.laz" ).arg( directory.absolutePath() ).arg( fi.baseName() );
+  const QString outputFile = QStringLiteral( "%1/%2.copc.laz" ).arg( directory.absolutePath() ).arg( fi.baseName() );
   return outputFile;
 }
 
 void QgsPdalProvider::generateIndex()
 {
-  if ( mRunningIndexingTask || mIndex->isValid() )
+  if ( mRunningIndexingTask || ( mIndex && mIndex->isValid() ) )
     return;
 
   if ( anyIndexingTaskExists() )
@@ -121,7 +121,7 @@ void QgsPdalProvider::generateIndex()
 
 QgsPointCloudDataProvider::PointCloudIndexGenerationState QgsPdalProvider::indexingState()
 {
-  if ( mIndex->isValid() )
+  if ( mIndex && mIndex->isValid() )
     return PointCloudIndexGenerationState::Indexed;
   else if ( mRunningIndexingTask )
     return PointCloudIndexGenerationState::Indexing;
@@ -131,34 +131,34 @@ QgsPointCloudDataProvider::PointCloudIndexGenerationState QgsPdalProvider::index
 
 void QgsPdalProvider::loadIndex( )
 {
-  if ( mIndex->isValid() )
+  if ( mIndex && mIndex->isValid() )
     return;
-  if ( mGenerateCopc )
+  // Try to load copc index
+  if ( !mIndex || !mIndex->isValid() )
   {
     const QString outputFile = _outCopcFile( dataSourceUri() );
     const QFileInfo fi( outputFile );
     if ( fi.isFile() )
     {
+      mIndex.reset( new QgsCopcPointCloudIndex );
       mIndex->load( outputFile );
     }
-    else
-    {
-      QgsDebugMsgLevel( QStringLiteral( "pdalprovider: copc index %1 is not correctly loaded" ).arg( outputFile ), 2 );
-    }
   }
-  else
+  // Try to load ept index
+  if ( !mIndex || !mIndex->isValid() )
   {
     const QString outputDir = _outEptDir( dataSourceUri() );
     const QString outEptJson = QStringLiteral( "%1/ept.json" ).arg( outputDir );
     const QFileInfo fi( outEptJson );
     if ( fi.isFile() )
     {
+      mIndex.reset( new QgsEptPointCloudIndex );
       mIndex->load( outEptJson );
     }
-    else
-    {
-      QgsDebugMsgLevel( QStringLiteral( "pdalprovider: ept index %1 is not correctly loaded" ).arg( outEptJson ), 2 );
-    }
+  }
+  if ( !mIndex || !mIndex->isValid() )
+  {
+    QgsDebugMsgLevel( QStringLiteral( "pdalprovider: neither copc or ept index for dataset %1 is not correctly loaded" ).arg( dataSourceUri() ), 2 );
   }
 }
 
@@ -241,44 +241,43 @@ bool QgsPdalProvider::load( const QString &uri )
 {
   try
   {
-    const pdal::Option las_opt( "filename", uri.toStdString() );
-    pdal::Options las_opts;
-    las_opts.add( las_opt );
-    pdal::LasReader las_reader;
-    las_reader.setOptions( las_opts );
-    pdal::PointTable table;
-    las_reader.prepare( table );
-    const pdal::LasHeader &las_header = las_reader.header();
+    pdal::StageFactory stageFactory;
+    const std::string driver( stageFactory.inferReaderDriver( uri.toStdString() ) );
+    if ( driver.empty() )
+      throw pdal::pdal_error( "No driver for " + uri.toStdString() );
 
-    const std::string tableMetadata = pdal::Utils::toJSON( table.metadata() );
-    const QVariantMap readerMetadata = QgsJsonUtils::parseJson( tableMetadata ).toMap().value( QStringLiteral( "root" ) ).toMap();
-    // source metadata is only value present here!
-    if ( !readerMetadata.empty() )
-      mOriginalMetadata = readerMetadata.constBegin().value().toMap();
+    if ( pdal::Reader *reader = dynamic_cast<pdal::Reader *>( stageFactory.createStage( driver ) ) )
+    {
+      pdal::Options options;
+      options.add( pdal::Option( "filename", uri.toStdString() ) );
+      reader->setOptions( options );
+      pdal::PointTable table;
+      reader->prepare( table );
 
-    // extent
-    /*
-    double scale_x = las_header.scaleX();
-    double scale_y = las_header.scaleY();
-    double scale_z = las_header.scaleZ();
+      const std::string tableMetadata = pdal::Utils::toJSON( table.metadata() );
+      const QVariantMap readerMetadata = QgsJsonUtils::parseJson( tableMetadata ).toMap().value( QStringLiteral( "root" ) ).toMap();
+      // source metadata is only value present here!
+      if ( !readerMetadata.empty() )
+        mOriginalMetadata = readerMetadata.constBegin().value().toMap();
 
-    double offset_x = las_header.offsetX();
-    double offset_y = las_header.offsetY();
-    double offset_z = las_header.offsetZ();
-    */
+      const pdal::QuickInfo quickInfo( reader->preview() );
+      const double xmin = quickInfo.m_bounds.minx;
+      const double xmax = quickInfo.m_bounds.maxx;
+      const double ymin = quickInfo.m_bounds.miny;
+      const double ymax = quickInfo.m_bounds.maxy;
+      mExtent = QgsRectangle( xmin, ymin, xmax, ymax );
 
-    const double xmin = las_header.minX();
-    const double xmax = las_header.maxX();
-    const double ymin = las_header.minY();
-    const double ymax = las_header.maxY();
-    mExtent = QgsRectangle( xmin, ymin, xmax, ymax );
+      mPointCount = quickInfo.m_pointCount;
 
-    mPointCount = las_header.pointCount();
-
-    // projection
-    const QString wkt = QString::fromStdString( las_reader.getSpatialReference().getWKT() );
-    mCrs = QgsCoordinateReferenceSystem::fromWkt( wkt );
-    return true;
+      // projection
+      const QString wkt = QString::fromStdString( quickInfo.m_srs.getWKT() );
+      mCrs = QgsCoordinateReferenceSystem::fromWkt( wkt );
+      return quickInfo.valid();
+    }
+    else
+    {
+      throw pdal::pdal_error( "No reader for " + driver );
+    }
   }
   catch ( pdal::pdal_error &error )
   {
@@ -288,9 +287,17 @@ bool QgsPdalProvider::load( const QString &uri )
   }
 }
 
+QString QgsPdalProviderMetadata::sFilterString;
+QStringList QgsPdalProviderMetadata::sExtensions;
+
 QgsPdalProviderMetadata::QgsPdalProviderMetadata():
   QgsProviderMetadata( PROVIDER_KEY, PROVIDER_DESCRIPTION )
 {
+}
+
+QIcon QgsPdalProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconPointCloudLayer.svg" ) );
 }
 
 QgsPdalProvider *QgsPdalProviderMetadata::createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags )
@@ -322,7 +329,7 @@ int QgsPdalProviderMetadata::priorityForUri( const QString &uri ) const
   if ( filePath.endsWith( QStringLiteral( ".copc.laz" ), Qt::CaseSensitivity::CaseInsensitive ) )
     return 0;
 
-  if ( fi.suffix().compare( QLatin1String( "las" ), Qt::CaseInsensitive ) == 0 || fi.suffix().compare( QLatin1String( "laz" ), Qt::CaseInsensitive ) == 0 )
+  if ( sExtensions.contains( fi.suffix(), Qt::CaseInsensitive ) )
     return 100;
 
   return 0;
@@ -333,7 +340,7 @@ QList<QgsMapLayerType> QgsPdalProviderMetadata::validLayerTypesForUri( const QSt
   const QVariantMap parts = decodeUri( uri );
   QString filePath = parts.value( QStringLiteral( "path" ) ).toString();
   const QFileInfo fi( filePath );
-  if ( fi.suffix().compare( QLatin1String( "las" ), Qt::CaseInsensitive ) == 0 || fi.suffix().compare( QLatin1String( "laz" ), Qt::CaseInsensitive ) == 0 || filePath.endsWith( QStringLiteral( ".copc.laz" ), Qt::CaseInsensitive ) )
+  if ( sExtensions.contains( fi.suffix(), Qt::CaseInsensitive ) )
     return QList<QgsMapLayerType>() << QgsMapLayerType::PointCloudLayer;
 
   return QList<QgsMapLayerType>();
@@ -345,7 +352,7 @@ QList<QgsProviderSublayerDetails> QgsPdalProviderMetadata::querySublayers( const
   QString filePath = parts.value( QStringLiteral( "path" ) ).toString();
   const QFileInfo fi( filePath );
 
-  if ( fi.suffix().compare( QLatin1String( "las" ), Qt::CaseInsensitive ) == 0 || fi.suffix().compare( QLatin1String( "laz" ), Qt::CaseInsensitive ) == 0 || filePath.endsWith( QStringLiteral( ".copc.laz" ), Qt::CaseInsensitive ) )
+  if ( sExtensions.contains( fi.suffix(), Qt::CaseInsensitive ) )
   {
     QgsProviderSublayerDetails details;
     details.setUri( uri );
@@ -371,8 +378,9 @@ QString QgsPdalProviderMetadata::filters( QgsProviderMetadata::FilterType type )
       return QString();
 
     case QgsProviderMetadata::FilterType::FilterPointCloud:
-      // TODO get the available/supported filters from PDAL library
-      return QObject::tr( "PDAL Point Clouds" ) + QStringLiteral( " (*.laz *.las *.LAZ *.LAS)" );
+      buildSupportedPointCloudFileFilterAndExtensions();
+
+      return sFilterString;
   }
   return QString();
 }
@@ -382,10 +390,50 @@ QgsProviderMetadata::ProviderCapabilities QgsPdalProviderMetadata::providerCapab
   return FileBasedUris;
 }
 
+QList<QgsMapLayerType> QgsPdalProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::PointCloudLayer };
+}
+
 QString QgsPdalProviderMetadata::encodeUri( const QVariantMap &parts ) const
 {
   const QString path = parts.value( QStringLiteral( "path" ) ).toString();
   return path;
+}
+
+void QgsPdalProviderMetadata::buildSupportedPointCloudFileFilterAndExtensions()
+{
+  // get supported extensions
+  static std::once_flag initialized;
+  std::call_once( initialized, [ = ]
+  {
+    const pdal::StageFactory f;
+    pdal::PluginManager<pdal::Stage>::loadAll();
+    const pdal::StringList stages = pdal::PluginManager<pdal::Stage>::names();
+    pdal::StageExtensions &extensions = pdal::PluginManager<pdal::Stage>::extensions();
+
+    // Let's call the defaultReader() method just so we trigger the private method extensions.load()
+    extensions.defaultReader( "laz" );
+
+    const QStringList allowedReaders {
+      QStringLiteral( "readers.las" ),
+      QStringLiteral( "readers.e57" ),
+      QStringLiteral( "readers.bpf" ) };
+    for ( const auto &stage : stages )
+    {
+      if ( ! allowedReaders.contains( QString::fromStdString( stage ) ) )
+        continue;
+
+      const pdal::StringList readerExtensions = extensions.extensions( stage );
+      for ( const auto &extension : readerExtensions )
+      {
+        sExtensions.append( QString::fromStdString( extension ) );
+      }
+    }
+    sExtensions.sort();
+    const QString extensionsString = QStringLiteral( "*." ).append( sExtensions.join( QStringLiteral( " *." ) ) );
+    sFilterString = tr( "PDAL Point Clouds" ) + QString( " (%1 %2)" ).arg( extensionsString, extensionsString.toUpper() );
+  } );
 }
 
 QGISEXTERN QgsProviderMetadata *providerMetadataFactory()

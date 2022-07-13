@@ -23,10 +23,12 @@
 #include "qgsspatialindex.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgsvariantutils.h"
+#include "qgsapplication.h"
 
 #include <QUrl>
 #include <QUrlQuery>
 #include <QRegularExpression>
+#include <QIcon>
 
 ///@cond PRIVATE
 
@@ -241,13 +243,6 @@ QString QgsMemoryProvider::providerKey()
 QString QgsMemoryProvider::providerDescription()
 {
   return TEXT_PROVIDER_DESCRIPTION;
-}
-
-QgsMemoryProvider *QgsMemoryProvider::createProvider( const QString &uri,
-    const ProviderOptions &options,
-    QgsDataProvider::ReadFlags flags )
-{
-  return new QgsMemoryProvider( uri, options, flags );
 }
 
 QgsAbstractFeatureSource *QgsMemoryProvider::featureSource() const
@@ -812,6 +807,27 @@ QString QgsMemoryProvider::name() const
 QString QgsMemoryProvider::description() const
 {
   return TEXT_PROVIDER_DESCRIPTION;
+}
+
+
+QgsMemoryProviderMetadata::QgsMemoryProviderMetadata()
+  : QgsProviderMetadata( QgsMemoryProvider::providerKey(), QgsMemoryProvider::providerDescription() )
+{
+}
+
+QIcon QgsMemoryProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconMemory.svg" ) );
+}
+
+QgsDataProvider *QgsMemoryProviderMetadata::createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags )
+{
+  return new QgsMemoryProvider( uri, options, flags );
+}
+
+QList<QgsMapLayerType> QgsMemoryProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::VectorLayer };
 }
 
 ///@endcond

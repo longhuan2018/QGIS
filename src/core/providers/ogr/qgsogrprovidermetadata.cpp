@@ -1046,6 +1046,11 @@ QgsOgrProviderMetadata::QgsOgrProviderMetadata()
 
 }
 
+QIcon QgsOgrProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconVector.svg" ) );
+}
+
 QString QgsOgrProviderMetadata::filters( FilterType type )
 {
   switch ( type )
@@ -1503,6 +1508,11 @@ QStringList QgsOgrProviderMetadata::sidecarFilesForUri( const QString &uri ) con
     }
   }
   return res;
+}
+
+QList<QgsMapLayerType> QgsOgrProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::VectorLayer };
 }
 
 QMap<QString, QgsAbstractProviderConnection *> QgsOgrProviderMetadata::connections( bool cached )

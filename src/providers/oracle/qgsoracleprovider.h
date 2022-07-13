@@ -439,6 +439,7 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
 
   public:
     QgsOracleProviderMetadata();
+    QIcon icon() const override;
     QString getStyleById( const QString &uri, const QString &styleId, QString &errCause ) override;
     int listStyles( const QString &uri, QStringList &ids, QStringList &names, QStringList &descriptions, QString &errCause ) override;
     QString loadStyle( const QString &uri, QString &errCause ) override;
@@ -446,6 +447,7 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
     bool saveStyle( const QString &uri, const QString &qmlStyle, const QString &sldStyle, const QString &styleName,
                     const QString &styleDescription, const QString &uiFileContent, bool useAsDefault, QString &errCause ) override;
     void cleanupProvider() override;
+    void initProvider() override;
     Qgis::VectorExportResult createEmptyLayer( const QString &uri,
         const QgsFields &fields, QgsWkbTypes::Type wkbType,
         const QgsCoordinateReferenceSystem &srs, bool overwrite,
@@ -464,6 +466,7 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
 
     QVariantMap decodeUri( const QString &uri ) const override;
     QString encodeUri( const QVariantMap &parts ) const override;
+    QList< QgsMapLayerType > supportedLayerTypes() const override;
 };
 
 #ifdef HAVE_GUI
@@ -472,6 +475,7 @@ class QgsOracleProviderGuiMetadata final: public QgsProviderGuiMetadata
   public:
     QgsOracleProviderGuiMetadata();
     QList<QgsSourceSelectProvider *> sourceSelectProviders() override;
+    QList<QgsProjectStorageGuiProvider *> projectStorageGuiProviders() override;
     void registerGui( QMainWindow *mainWindow ) override;
 };
 #endif

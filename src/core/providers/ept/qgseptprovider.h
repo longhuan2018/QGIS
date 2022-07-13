@@ -62,8 +62,10 @@ class QgsEptProvider: public QgsPointCloudDataProvider
 
 class QgsEptProviderMetadata : public QgsProviderMetadata
 {
+    Q_OBJECT
   public:
     QgsEptProviderMetadata();
+    QIcon icon() const override;
     QgsProviderMetadata::ProviderMetadataCapabilities capabilities() const override;
     QgsEptProvider *createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags = QgsDataProvider::ReadFlags() ) override;
     QList< QgsProviderSublayerDetails > querySublayers( const QString &uri, Qgis::SublayerQueryFlags flags = Qgis::SublayerQueryFlags(), QgsFeedback *feedback = nullptr ) const override;
@@ -74,6 +76,7 @@ class QgsEptProviderMetadata : public QgsProviderMetadata
     QVariantMap decodeUri( const QString &uri ) const override;
     QString filters( FilterType type ) override;
     ProviderCapabilities providerCapabilities() const override;
+    QList< QgsMapLayerType > supportedLayerTypes() const override;
 };
 
 ///@endcond

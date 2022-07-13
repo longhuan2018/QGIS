@@ -776,9 +776,14 @@ bool QgsWFSProvider::setSubsetString( const QString &theSQL, bool updateFeatureC
   if ( theSQL == mSubsetString )
     return true;
 
-  // Invalid and cancel current download before altering fields, etc...
-  // (crashes might happen if not done at the beginning)
-  mShared->invalidateCache();
+  disconnect( mShared.get(), &QgsWFSSharedData::raiseError, this, &QgsWFSProvider::pushErrorSlot );
+  disconnect( mShared.get(), &QgsWFSSharedData::extentUpdated, this, &QgsWFSProvider::fullExtentCalculated );
+
+  // We must not change the subset string of the shared data used in another iterator/data provider ...
+  mShared.reset( mShared->clone() );
+
+  connect( mShared.get(), &QgsWFSSharedData::raiseError, this, &QgsWFSProvider::pushErrorSlot );
+  connect( mShared.get(), &QgsWFSSharedData::extentUpdated, this, &QgsWFSProvider::fullExtentCalculated );
 
   mSubsetString = theSQL;
   clearMinMaxCache();
@@ -2056,6 +2061,11 @@ QgsWFSProvider *QgsWfsProviderMetadata::createProvider( const QString &uri, cons
   return new QgsWFSProvider( uri, options );
 }
 
+QList<QgsMapLayerType> QgsWfsProviderMetadata::supportedLayerTypes() const
+{
+  return { QgsMapLayerType::VectorLayer };
+}
+
 QList<QgsDataItemProvider *> QgsWfsProviderMetadata::dataItemProviders() const
 {
   QList<QgsDataItemProvider *> providers;
@@ -2066,6 +2076,11 @@ QList<QgsDataItemProvider *> QgsWfsProviderMetadata::dataItemProviders() const
 
 QgsWfsProviderMetadata::QgsWfsProviderMetadata():
   QgsProviderMetadata( QgsWFSProvider::WFS_PROVIDER_KEY, QgsWFSProvider::WFS_PROVIDER_DESCRIPTION ) {}
+
+QIcon QgsWfsProviderMetadata::icon() const
+{
+  return QgsApplication::getThemeIcon( QStringLiteral( "mIconWfs.svg" ) );
+}
 
 
 #ifndef HAVE_STATIC_PROVIDERS

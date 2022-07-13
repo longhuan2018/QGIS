@@ -81,11 +81,14 @@ QgsPointCloudLayer *QgsPointCloudLayer::clone() const
   QgsPointCloudLayer *layer = new QgsPointCloudLayer( source(), name(), mProviderKey, mLayerOptions );
   QgsMapLayer::clone( layer );
 
+  if ( mRenderer )
+    layer->setRenderer( mRenderer->clone() );
+
   layer->mElevationProperties = mElevationProperties->clone();
   layer->mElevationProperties->setParent( layer );
 
-  if ( mRenderer )
-    layer->setRenderer( mRenderer->clone() );
+  layer->mLayerOptions = mLayerOptions;
+  layer->mSync3DRendererTo2DRenderer = mSync3DRendererTo2DRenderer;
 
   return layer;
 }
@@ -376,6 +379,7 @@ void QgsPointCloudLayer::setDataSourcePrivate( const QString &dataSource, const 
   if ( !isValid() )
   {
     QgsDebugMsg( QStringLiteral( "Invalid point cloud provider plugin %1" ).arg( QString( mDataSource.toUtf8() ) ) );
+    setError( mDataProvider->error() );
     return;
   }
 
@@ -395,13 +399,14 @@ void QgsPointCloudLayer::setDataSourcePrivate( const QString &dataSource, const 
     loadDefaultStyleFlag = true;
   }
 
-  if ( !mLayerOptions.skipIndexGeneration && mDataProvider && mDataProvider->isValid() )
+  if ( !mLayerOptions.skipIndexGeneration && mDataProvider && mDataProvider->indexingState() != QgsPointCloudDataProvider::PointCloudIndexGenerationState::Indexed )
   {
     mDataProvider->generateIndex();
-    if ( !mLayerOptions.skipStatisticsCalculation && !mDataProvider->hasStatisticsMetadata() && mDataProvider->indexingState() == QgsPointCloudDataProvider::PointCloudIndexGenerationState::Indexed )
-    {
-      calculateStatistics();
-    }
+  }
+
+  if ( !mLayerOptions.skipStatisticsCalculation && mDataProvider && !mDataProvider->hasStatisticsMetadata() && mDataProvider->indexingState() == QgsPointCloudDataProvider::PointCloudIndexGenerationState::Indexed )
+  {
+    calculateStatistics();
   }
 
   // Note: we load the statistics from the data provider regardless of it being an existing metadata (do not check fot hasStatisticsMetadata)
@@ -809,7 +814,7 @@ void QgsPointCloudLayer::calculateStatistics()
   // Do not calculate stats for X, Y & Z since the point cloud index contains that
   for ( int i = 0; i < attributes.size(); ++i )
   {
-    if ( attributes[i].name() == QStringLiteral( "X" ) || attributes[i].name() == QStringLiteral( "Y" ) || attributes[i].name() == QStringLiteral( "Z" ) )
+    if ( attributes[i].name() == QLatin1String( "X" ) || attributes[i].name() == QLatin1String( "Y" ) || attributes[i].name() == QLatin1String( "Z" ) )
     {
       attributes.remove( i );
       --i;
@@ -856,7 +861,7 @@ void QgsPointCloudLayer::calculateStatistics()
     resetRenderer();
     mStatsCalculationTask = 0;
 #ifdef HAVE_COPC
-    if ( mDataProvider && mDataProvider->index() && mDataProvider->index()->isValid() && mDataProvider->name() == QStringLiteral( "pdal" ) && mStatistics.sampledPointsCount() != 0 )
+    if ( mDataProvider && mDataProvider->index() && mDataProvider->index()->isValid() && mDataProvider->name() == QLatin1String( "pdal" ) && mStatistics.sampledPointsCount() != 0 )
     {
       if ( QgsCopcPointCloudIndex *index = qobject_cast<QgsCopcPointCloudIndex *>( mDataProvider->index() ) )
       {

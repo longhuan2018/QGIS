@@ -653,6 +653,12 @@ namespace QgsWms
       QgsWmsParametersComposerMap cMapParams = mWmsParameters.composerMapParameters( mapId );
       mapId++;
 
+      // If there are no configured layers, we take layers from unprefixed LAYER(S) if any
+      if ( cMapParams.mLayers.isEmpty() )
+      {
+        cMapParams.mLayers = mWmsParameters.composerMapParameters( -1 ).mLayers;
+      }
+
       if ( !atlasPrint || !map->atlasDriven() ) //No need to extent, scal, rotation set with atlas feature
       {
         //map extent is mandatory
@@ -692,50 +698,45 @@ namespace QgsWms
       if ( !map->keepLayerSet() )
       {
         QList<QgsMapLayer *> layerSet;
-        if ( cMapParams.mLayers.isEmpty() )
+
+        for ( const auto &layer : std::as_const( cMapParams.mLayers ) )
         {
-          layerSet = mapSettings.layers();
-        }
-        else
-        {
-          for ( auto layer : cMapParams.mLayers )
+          if ( mContext.isValidGroup( layer.mNickname ) )
           {
-            if ( mContext.isValidGroup( layer.mNickname ) )
+            QList<QgsMapLayer *> layersFromGroup;
+
+            const QList<QgsMapLayer *> cLayersFromGroup = mContext.layersFromGroup( layer.mNickname );
+            for ( QgsMapLayer *layerFromGroup : cLayersFromGroup )
             {
-              QList<QgsMapLayer *> layersFromGroup;
 
-              const QList<QgsMapLayer *> cLayersFromGroup = mContext.layersFromGroup( layer.mNickname );
-              for ( QgsMapLayer *layerFromGroup : cLayersFromGroup )
-              {
-
-                if ( ! layerFromGroup )
-                {
-                  continue;
-                }
-
-                layersFromGroup.push_front( layerFromGroup );
-              }
-
-              if ( !layersFromGroup.isEmpty() )
-              {
-                layerSet.append( layersFromGroup );
-              }
-            }
-            else
-            {
-              QgsMapLayer *mlayer = mContext.layer( layer.mNickname );
-
-              if ( ! mlayer )
+              if ( ! layerFromGroup )
               {
                 continue;
               }
 
-              setLayerStyle( mlayer, layer.mStyle );
-              layerSet << mlayer;
+              layersFromGroup.push_front( layerFromGroup );
+            }
+
+            if ( !layersFromGroup.isEmpty() )
+            {
+              layerSet.append( layersFromGroup );
             }
           }
-          std::reverse( layerSet.begin(), layerSet.end() );
+          else
+          {
+            QgsMapLayer *mlayer = mContext.layer( layer.mNickname );
+
+            if ( ! mlayer )
+            {
+              continue;
+            }
+
+            setLayerStyle( mlayer, layer.mStyle );
+            layerSet << mlayer;
+          }
         }
+
+        std::reverse( layerSet.begin(), layerSet.end() );
 
         // If the map is set to follow preset we need to disable follow preset and manually
         // configure the layers here or the map item internal logic will override and get
@@ -3223,7 +3224,7 @@ namespace QgsWms
     for ( const QgsMapLayerServerProperties::WmsDimensionInfo &dim : wmsDims )
     {
       // Skip temporal properties for this layer, give precedence to the dimensions implementation
-      if ( mIsTemporal && dim.name.toUpper() == QStringLiteral( "TIME" ) && layer->temporalProperties()->isActive() )
+      if ( mIsTemporal && dim.name.toUpper() == QLatin1String( "TIME" ) && layer->temporalProperties()->isActive() )
       {
         layer->temporalProperties()->setIsActive( false );
       }

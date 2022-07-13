@@ -649,12 +649,14 @@ QgsSymbolLayer *QgsSimpleLineSymbolLayer::createFromSld( QDomElement &element )
       offset = d;
   }
 
-  QString uom = element.attribute( QStringLiteral( "uom" ) );
-  width = QgsSymbolLayerUtils::sizeInPixelsFromSldUom( uom, width );
-  offset = QgsSymbolLayerUtils::sizeInPixelsFromSldUom( uom, offset );
+  double scaleFactor = 1.0;
+  const QString uom = element.attribute( QStringLiteral( "uom" ) );
+  QgsUnitTypes::RenderUnit sldUnitSize = QgsSymbolLayerUtils::decodeSldUom( uom, &scaleFactor );
+  width = width * scaleFactor;
+  offset = offset * scaleFactor;
 
   QgsSimpleLineSymbolLayer *l = new QgsSimpleLineSymbolLayer( color, width, penStyle );
-  l->setOutputUnit( QgsUnitTypes::RenderUnit::RenderPixels );
+  l->setOutputUnit( sldUnitSize );
   l->setOffset( offset );
   l->setPenJoinStyle( penJoinStyle );
   l->setPenCapStyle( penCapStyle );
@@ -2616,12 +2618,14 @@ QgsSymbolLayer *QgsMarkerLineSymbolLayer::createFromSld( QDomElement &element )
       offset = d;
   }
 
-  QString uom = element.attribute( QStringLiteral( "uom" ) );
-  interval = QgsSymbolLayerUtils::sizeInPixelsFromSldUom( uom, interval );
-  offset = QgsSymbolLayerUtils::sizeInPixelsFromSldUom( uom, offset );
+  double scaleFactor = 1.0;
+  const QString uom = element.attribute( QStringLiteral( "uom" ) );
+  QgsUnitTypes::RenderUnit sldUnitSize = QgsSymbolLayerUtils::decodeSldUom( uom, &scaleFactor );
+  interval = interval * scaleFactor;
+  offset = offset * scaleFactor;
 
   QgsMarkerLineSymbolLayer *x = new QgsMarkerLineSymbolLayer( rotateMarker );
-  x->setOutputUnit( QgsUnitTypes::RenderUnit::RenderPixels );
+  x->setOutputUnit( sldUnitSize );
   x->setPlacements( placement );
   x->setInterval( interval );
   x->setSubSymbol( marker.release() );
@@ -3478,7 +3482,7 @@ void QgsRasterLineSymbolLayer::renderPolyline( const QPolygonF &points, QgsSymbo
 
   if ( context.selected() )
   {
-    QgsImageOperation::adjustHueSaturation( sourceImage, 1.0, context.renderContext().selectionColor(), 1.0, context.renderContext().feedback() );
+    QgsImageOperation::overlayColor( sourceImage, context.renderContext().selectionColor() );
   }
 
   const QBrush brush( sourceImage );

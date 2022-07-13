@@ -749,6 +749,20 @@ QgsVectorLayer.RemoveFromSelection.__doc__ = "Remove from current selection"
 Qgis.SelectBehavior.__doc__ = 'Specifies how a selection should be applied.\n\n.. versionadded:: 3.22\n\n' + '* ``SetSelection``: ' + Qgis.SelectBehavior.SetSelection.__doc__ + '\n' + '* ``AddToSelection``: ' + Qgis.SelectBehavior.AddToSelection.__doc__ + '\n' + '* ``IntersectSelection``: ' + Qgis.SelectBehavior.IntersectSelection.__doc__ + '\n' + '* ``RemoveFromSelection``: ' + Qgis.SelectBehavior.RemoveFromSelection.__doc__
 # --
 Qgis.SelectBehavior.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.SelectGeometryRelationship.Intersect.__doc__ = "Select where features intersect the reference geometry"
+Qgis.SelectGeometryRelationship.Within.__doc__ = "Select where features are within the reference geometry"
+Qgis.SelectGeometryRelationship.__doc__ = 'Geometry relationship test to apply for selecting features.\n\n.. versionadded:: 3.28\n\n' + '* ``Intersect``: ' + Qgis.SelectGeometryRelationship.Intersect.__doc__ + '\n' + '* ``Within``: ' + Qgis.SelectGeometryRelationship.Within.__doc__
+# --
+Qgis.SelectGeometryRelationship.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.SelectionFlag.SingleFeatureSelection.__doc__ = "Select only a single feature, picking the \"best\" match for the selection geometry"
+Qgis.SelectionFlag.ToggleSelection.__doc__ = "Enables a \"toggle\" selection mode, where previously selected matching features will be deselected and previously deselected features will be selected. This flag works only when the SingleFeatureSelection flag is also set."
+Qgis.SelectionFlag.__doc__ = 'Flags which control feature selection behavior.\n\n.. versionadded:: 3.28\n\n' + '* ``SingleFeatureSelection``: ' + Qgis.SelectionFlag.SingleFeatureSelection.__doc__ + '\n' + '* ``ToggleSelection``: ' + Qgis.SelectionFlag.ToggleSelection.__doc__
+# --
+Qgis.SelectionFlag.baseClass = Qgis
+Qgis.SelectionFlags.baseClass = Qgis
+SelectionFlags = Qgis  # dirty hack since SIP seems to introduce the flags in module
 QgsVectorLayer.EditResult = Qgis.VectorEditResult
 # monkey patching scoped based enum
 QgsVectorLayer.Success = Qgis.VectorEditResult.Success
@@ -1126,6 +1140,12 @@ QgsRasterDataProviderTemporalCapabilities.FindClosestMatchToEndOfRange.__doc__ =
 Qgis.TemporalIntervalMatchMethod.__doc__ = 'Method to use when resolving a temporal range to a data provider layer or band.\n\n.. versionadded:: 3.22\n\n' + '* ``MatchUsingWholeRange``: ' + Qgis.TemporalIntervalMatchMethod.MatchUsingWholeRange.__doc__ + '\n' + '* ``MatchExactUsingStartOfRange``: ' + Qgis.TemporalIntervalMatchMethod.MatchExactUsingStartOfRange.__doc__ + '\n' + '* ``MatchExactUsingEndOfRange``: ' + Qgis.TemporalIntervalMatchMethod.MatchExactUsingEndOfRange.__doc__ + '\n' + '* ``FindClosestMatchToStartOfRange``: ' + Qgis.TemporalIntervalMatchMethod.FindClosestMatchToStartOfRange.__doc__ + '\n' + '* ``FindClosestMatchToEndOfRange``: ' + Qgis.TemporalIntervalMatchMethod.FindClosestMatchToEndOfRange.__doc__
 # --
 Qgis.TemporalIntervalMatchMethod.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.RasterTemporalCapabilityFlag.RequestedTimesMustExactlyMatchAllAvailableTemporalRanges.__doc__ = "If present, indicates that the provider must only request temporal values which are exact matches for the values present in QgsRasterDataProviderTemporalCapabilities.allAvailableTemporalRanges()."
+Qgis.RasterTemporalCapabilityFlag.__doc__ = 'Flags for raster layer temporal capabilities.\n\n.. versionadded:: 3.28\n\n' + '* ``RequestedTimesMustExactlyMatchAllAvailableTemporalRanges``: ' + Qgis.RasterTemporalCapabilityFlag.RequestedTimesMustExactlyMatchAllAvailableTemporalRanges.__doc__
+# --
+Qgis.RasterTemporalCapabilityFlag.baseClass = Qgis
+Qgis.RasterTemporalCapabilityFlags.baseClass = Qgis
 QgsCoordinateTransform.TransformDirection = Qgis.TransformDirection
 # monkey patching scoped based enum
 QgsCoordinateTransform.ForwardTransform = Qgis.TransformDirection.Forward
@@ -1194,7 +1214,10 @@ QgsMapSettings.HighQualityImageTransforms.__doc__ = "Enable high quality image t
 QgsMapSettings.SkipSymbolRendering = Qgis.MapSettingsFlag.SkipSymbolRendering
 QgsMapSettings.SkipSymbolRendering.is_monkey_patched = True
 QgsMapSettings.SkipSymbolRendering.__doc__ = "Disable symbol rendering while still drawing labels if enabled (since QGIS 3.24)"
-Qgis.MapSettingsFlag.__doc__ = 'Flags which adjust the way maps are rendered.\n\n.. versionadded:: 3.22\n\n' + '* ``Antialiasing``: ' + Qgis.MapSettingsFlag.Antialiasing.__doc__ + '\n' + '* ``DrawEditingInfo``: ' + Qgis.MapSettingsFlag.DrawEditingInfo.__doc__ + '\n' + '* ``ForceVectorOutput``: ' + Qgis.MapSettingsFlag.ForceVectorOutput.__doc__ + '\n' + '* ``UseAdvancedEffects``: ' + Qgis.MapSettingsFlag.UseAdvancedEffects.__doc__ + '\n' + '* ``DrawLabeling``: ' + Qgis.MapSettingsFlag.DrawLabeling.__doc__ + '\n' + '* ``UseRenderingOptimization``: ' + Qgis.MapSettingsFlag.UseRenderingOptimization.__doc__ + '\n' + '* ``DrawSelection``: ' + Qgis.MapSettingsFlag.DrawSelection.__doc__ + '\n' + '* ``DrawSymbolBounds``: ' + Qgis.MapSettingsFlag.DrawSymbolBounds.__doc__ + '\n' + '* ``RenderMapTile``: ' + Qgis.MapSettingsFlag.RenderMapTile.__doc__ + '\n' + '* ``RenderPartialOutput``: ' + Qgis.MapSettingsFlag.RenderPartialOutput.__doc__ + '\n' + '* ``RenderPreviewJob``: ' + Qgis.MapSettingsFlag.RenderPreviewJob.__doc__ + '\n' + '* ``RenderBlocking``: ' + Qgis.MapSettingsFlag.RenderBlocking.__doc__ + '\n' + '* ``LosslessImageRendering``: ' + Qgis.MapSettingsFlag.LosslessImageRendering.__doc__ + '\n' + '* ``Render3DMap``: ' + Qgis.MapSettingsFlag.Render3DMap.__doc__ + '\n' + '* ``HighQualityImageTransforms``: ' + Qgis.MapSettingsFlag.HighQualityImageTransforms.__doc__ + '\n' + '* ``SkipSymbolRendering``: ' + Qgis.MapSettingsFlag.SkipSymbolRendering.__doc__
+QgsMapSettings.ForceRasterMasks = Qgis.MapSettingsFlag.ForceRasterMasks
+QgsMapSettings.ForceRasterMasks.is_monkey_patched = True
+QgsMapSettings.ForceRasterMasks.__doc__ = "Force symbol masking to be applied using a raster method. This is considerably faster when compared to the vector method, but results in a inferior quality output. (since QGIS 3.26.1)"
+Qgis.MapSettingsFlag.__doc__ = 'Flags which adjust the way maps are rendered.\n\n.. versionadded:: 3.22\n\n' + '* ``Antialiasing``: ' + Qgis.MapSettingsFlag.Antialiasing.__doc__ + '\n' + '* ``DrawEditingInfo``: ' + Qgis.MapSettingsFlag.DrawEditingInfo.__doc__ + '\n' + '* ``ForceVectorOutput``: ' + Qgis.MapSettingsFlag.ForceVectorOutput.__doc__ + '\n' + '* ``UseAdvancedEffects``: ' + Qgis.MapSettingsFlag.UseAdvancedEffects.__doc__ + '\n' + '* ``DrawLabeling``: ' + Qgis.MapSettingsFlag.DrawLabeling.__doc__ + '\n' + '* ``UseRenderingOptimization``: ' + Qgis.MapSettingsFlag.UseRenderingOptimization.__doc__ + '\n' + '* ``DrawSelection``: ' + Qgis.MapSettingsFlag.DrawSelection.__doc__ + '\n' + '* ``DrawSymbolBounds``: ' + Qgis.MapSettingsFlag.DrawSymbolBounds.__doc__ + '\n' + '* ``RenderMapTile``: ' + Qgis.MapSettingsFlag.RenderMapTile.__doc__ + '\n' + '* ``RenderPartialOutput``: ' + Qgis.MapSettingsFlag.RenderPartialOutput.__doc__ + '\n' + '* ``RenderPreviewJob``: ' + Qgis.MapSettingsFlag.RenderPreviewJob.__doc__ + '\n' + '* ``RenderBlocking``: ' + Qgis.MapSettingsFlag.RenderBlocking.__doc__ + '\n' + '* ``LosslessImageRendering``: ' + Qgis.MapSettingsFlag.LosslessImageRendering.__doc__ + '\n' + '* ``Render3DMap``: ' + Qgis.MapSettingsFlag.Render3DMap.__doc__ + '\n' + '* ``HighQualityImageTransforms``: ' + Qgis.MapSettingsFlag.HighQualityImageTransforms.__doc__ + '\n' + '* ``SkipSymbolRendering``: ' + Qgis.MapSettingsFlag.SkipSymbolRendering.__doc__ + '\n' + '* ``ForceRasterMasks``: ' + Qgis.MapSettingsFlag.ForceRasterMasks.__doc__
 # --
 QgsMapSettings.Flags = Qgis.MapSettingsFlags
 Qgis.MapSettingsFlag.baseClass = Qgis
@@ -1788,10 +1811,28 @@ QgsProject.FlagDontLoad3DViews.is_monkey_patched = True
 QgsProject.FlagDontLoad3DViews.__doc__ = "Skip loading 3D views (since QGIS 3.26)"
 QgsProject.DontLoadProjectStyles = Qgis.ProjectReadFlag.DontLoadProjectStyles
 QgsProject.DontLoadProjectStyles.is_monkey_patched = True
-QgsProject.DontLoadProjectStyles.__doc__ = "Skip loading project style databases (since QGIS 3.26)"
+QgsProject.DontLoadProjectStyles.__doc__ = "Skip loading project style databases (deprecated -- use ProjectCapability.ProjectStyles flag instead)"
 Qgis.ProjectReadFlag.__doc__ = 'Flags which control project read behavior.\n\n.. note::\n\n   Prior to QGIS 3.26 this was available as :py:class:`QgsProject`.ReadFlag\n\n.. versionadded:: 3.26\n\n' + '* ``FlagDontResolveLayers``: ' + Qgis.ProjectReadFlag.DontResolveLayers.__doc__ + '\n' + '* ``FlagDontLoadLayouts``: ' + Qgis.ProjectReadFlag.DontLoadLayouts.__doc__ + '\n' + '* ``FlagTrustLayerMetadata``: ' + Qgis.ProjectReadFlag.TrustLayerMetadata.__doc__ + '\n' + '* ``FlagDontStoreOriginalStyles``: ' + Qgis.ProjectReadFlag.DontStoreOriginalStyles.__doc__ + '\n' + '* ``FlagDontLoad3DViews``: ' + Qgis.ProjectReadFlag.DontLoad3DViews.__doc__ + '\n' + '* ``DontLoadProjectStyles``: ' + Qgis.ProjectReadFlag.DontLoadProjectStyles.__doc__
 # --
 Qgis.ProjectReadFlag.baseClass = Qgis
 QgsProject.ReadFlags = Qgis.ProjectReadFlags
 Qgis.ProjectReadFlags.baseClass = Qgis
 ProjectReadFlags = Qgis  # dirty hack since SIP seems to introduce the flags in module
+# monkey patching scoped based enum
+Qgis.ProjectCapability.ProjectStyles.__doc__ = "Enable the project embedded style library. Enabling this flag can increase the time required to clear and load projects."
+Qgis.ProjectCapability.__doc__ = 'Flags which control project capabilities.\n\nThese flags are specific upfront on creation of a :py:class:`QgsProject` object, and can\nbe used to selectively enable potentially costly functionality for the project.\n\n.. versionadded:: 3.26.1\n\n' + '* ``ProjectStyles``: ' + Qgis.ProjectCapability.ProjectStyles.__doc__
+# --
+Qgis.ProjectCapability.baseClass = Qgis
+Qgis.ProjectCapabilities.baseClass = Qgis
+ProjectCapabilities = Qgis  # dirty hack since SIP seems to introduce the flags in module
+# monkey patching scoped based enum
+Qgis.MapBoxGlStyleSourceType.Vector.__doc__ = "Vector source"
+Qgis.MapBoxGlStyleSourceType.Raster.__doc__ = "Raster source"
+Qgis.MapBoxGlStyleSourceType.RasterDem.__doc__ = "Raster DEM source"
+Qgis.MapBoxGlStyleSourceType.GeoJson.__doc__ = "GeoJSON source"
+Qgis.MapBoxGlStyleSourceType.Image.__doc__ = "Image source"
+Qgis.MapBoxGlStyleSourceType.Video.__doc__ = "Video source"
+Qgis.MapBoxGlStyleSourceType.Unknown.__doc__ = "Other/unknown source type"
+Qgis.MapBoxGlStyleSourceType.__doc__ = 'Available MapBox GL style source types.\n\n.. versionadded:: 3.28\n\n' + '* ``Vector``: ' + Qgis.MapBoxGlStyleSourceType.Vector.__doc__ + '\n' + '* ``Raster``: ' + Qgis.MapBoxGlStyleSourceType.Raster.__doc__ + '\n' + '* ``RasterDem``: ' + Qgis.MapBoxGlStyleSourceType.RasterDem.__doc__ + '\n' + '* ``GeoJson``: ' + Qgis.MapBoxGlStyleSourceType.GeoJson.__doc__ + '\n' + '* ``Image``: ' + Qgis.MapBoxGlStyleSourceType.Image.__doc__ + '\n' + '* ``Video``: ' + Qgis.MapBoxGlStyleSourceType.Video.__doc__ + '\n' + '* ``Unknown``: ' + Qgis.MapBoxGlStyleSourceType.Unknown.__doc__
+# --
+Qgis.MapBoxGlStyleSourceType.baseClass = Qgis

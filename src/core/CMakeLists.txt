@@ -303,6 +303,7 @@ set(QGIS_CORE_SRCS
   scalebar/qgssteppedlinescalebarrenderer.cpp
   scalebar/qgsticksscalebarrenderer.cpp
 
+  textrenderer/qgsfontmanager.cpp
   textrenderer/qgstextbackgroundsettings.cpp
   textrenderer/qgstextblock.cpp
   textrenderer/qgstextbuffersettings.cpp
@@ -342,6 +343,7 @@ set(QGIS_CORE_SRCS
   qgscolorrampimpl.cpp
   qgscolorscheme.cpp
   qgscolorschemeregistry.cpp
+  qgscolorutils.cpp
   qgscommandlineutils.cpp
   qgsconditionalstyle.cpp
   qgsconnectionregistry.cpp
@@ -481,6 +483,7 @@ set(QGIS_CORE_SRCS
   qgsruntimeprofiler.cpp
   qgsscalecalculator.cpp
   qgsscaleutils.cpp
+  qgsselectioncontext.cpp
   qgsshapegenerator.cpp
   qgssimplifymethod.cpp
   qgssingleitemmodel.cpp
@@ -1002,6 +1005,7 @@ set(QGIS_CORE_HDRS
   qgscolorrampimpl.h
   qgscolorscheme.h
   qgscolorschemeregistry.h
+  qgscolorutils.h
   qgsconditionalstyle.h
   qgsconnectionpool.h
   qgsconnectionregistry.h
@@ -1157,6 +1161,7 @@ set(QGIS_CORE_HDRS
   qgsruntimeprofiler.h
   qgsscalecalculator.h
   qgsscaleutils.h
+  qgsselectioncontext.h
   qgsshapegenerator.h
   qgssimplifymethod.h
   qgssingleitemmodel.h
@@ -1799,6 +1804,7 @@ set(QGIS_CORE_HDRS
   symbology/qgssymbolrendercontext.h
   symbology/qgsvectorfieldsymbollayer.h
 
+  textrenderer/qgsfontmanager.h
   textrenderer/qgstextbackgroundsettings.h
   textrenderer/qgstextblock.h
   textrenderer/qgstextbuffersettings.h
@@ -2289,7 +2295,7 @@ if (WITH_SPATIALITE)
   target_link_libraries(qgis_core ${SPATIALITE_LIBRARY})
 endif()
 
-if (WITH_QT6)
+if (BUILD_WITH_QT6)
   target_link_libraries(qgis_core Qt6::Core5Compat)
 endif()
 

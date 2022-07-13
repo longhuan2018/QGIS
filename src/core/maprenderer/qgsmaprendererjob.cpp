@@ -510,7 +510,8 @@ std::vector<LayerRenderJob> QgsMapRendererJob::prepareJobs( QPainter *painter, Q
     job.estimatedRenderingTime = mLayerRenderingTimeHints.value( ml->id(), 0 );
 
     job.setContext( std::make_unique< QgsRenderContext >( QgsRenderContext::fromMapSettings( mSettings ) ) );
-    job.context()->expressionContext().appendScope( QgsExpressionContextUtils::layerScope( ml ) );
+    if ( !ml->customProperty( QStringLiteral( "_noset_layer_expression_context" ) ).toBool() )
+      job.context()->expressionContext().appendScope( QgsExpressionContextUtils::layerScope( ml ) );
     job.context()->setPainter( painter );
     job.context()->setLabelingEngine( labelingEngine2 );
     job.context()->setLabelSink( labelSink() );
@@ -602,7 +603,8 @@ std::vector< LayerRenderJob > QgsMapRendererJob::prepareSecondPassJobs( std::vec
   // and the list of source layers that have a mask
   QHash<QString, QPair<QSet<QgsSymbolLayerId>, QList<MaskSource>>> maskedSymbolLayers;
 
-  const bool forceVector = mapSettings().testFlag( Qgis::MapSettingsFlag::ForceVectorOutput );
+  const bool forceVector = mapSettings().testFlag( Qgis::MapSettingsFlag::ForceVectorOutput )
+                           && !mapSettings().testFlag( Qgis::MapSettingsFlag::ForceRasterMasks );
 
   // First up, create a mapping of layer id to jobs. We need this to filter out any masking
   // which refers to layers which we aren't rendering as part of this map render
@@ -872,7 +874,7 @@ std::vector< LayerRenderJob > QgsMapRendererJob::prepareSecondPassJobs( std::vec
 
 void QgsMapRendererJob::initSecondPassJobs( std::vector< LayerRenderJob > &secondPassJobs, LabelRenderJob &labelJob ) const
 {
-  if ( !mapSettings().testFlag( Qgis::MapSettingsFlag::ForceVectorOutput ) )
+  if ( !mapSettings().testFlag( Qgis::MapSettingsFlag::ForceVectorOutput ) || mapSettings().testFlag( Qgis::MapSettingsFlag::ForceRasterMasks ) )
     return;
 
   for ( LayerRenderJob &job : secondPassJobs )
