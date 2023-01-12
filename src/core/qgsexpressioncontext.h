@@ -22,10 +22,14 @@
 #include <QString>
 #include <QStringList>
 #include <QSet>
+#include <QPointer>
+
 #include "qgsexpressionfunction.h"
 #include "qgsfeature.h"
 
 class QgsReadWriteContext;
+class QgsMapLayerStore;
+class LoadLayerFunction;
 
 /**
  * \ingroup core
@@ -380,6 +384,73 @@ class CORE_EXPORT QgsExpressionContextScope
      */
     bool writeXml( QDomElement &element, QDomDocument &document, const QgsReadWriteContext &context ) const;
 
+
+    /**
+     * Returns the list of variables hidden within the scope.
+     *
+     * \see setHiddenVariables()
+     * \see addHiddenVariable()
+     * \see removeHiddenVariable()
+     * \since QGIS 3.28
+     */
+    QStringList hiddenVariables() const;
+
+    /**
+     *
+     * Sets the list of variables intended to be hidden in the
+     * expression builder dialog and widget.
+     *
+     * \see hiddenVariables()
+     * \see addHiddenVariable()
+     * \see removeHiddenVariable()
+     * \since QGIS 3.28
+     */
+    void setHiddenVariables( const QStringList &hiddenVariables );
+
+
+    /**
+     *
+     * Adds the passed variable to a list of hidden variables that
+     * won't be visible in the expression builder dialog and widget.
+     *
+     * \see hiddenVariables()
+     * \see setHiddenVariables()
+     * \see removeHiddenVariable()
+     * \since QGIS 3.28
+     */
+    void addHiddenVariable( const QString &hiddenVariable );
+
+    /**
+     *
+     * Removes the passed variable from a list of hidden variables.
+     *
+     * \see hiddenVariables()
+     * \see setHiddenVariables()
+     * \see addHiddenVariable()
+     * \since QGIS 3.28
+     */
+    void removeHiddenVariable( const QString &hiddenVariable );
+
+    /**
+     * Adds a layer \a store to the scope.
+     *
+     * Ownership of the \a store is not transferred to the scope, it is the caller's
+     * responsibility to ensure that the store remains alive for the duration of the
+     * expression context.
+     *
+     * \see layerStores()
+     * \since QGIS 3.30
+     */
+    void addLayerStore( QgsMapLayerStore *store );
+
+    /**
+     * Returns the list of layer stores associated with the scope.
+     *
+     * \see addLayerStore()
+     * \since QGIS 3.30
+     */
+    QList< QgsMapLayerStore * > layerStores() const;
+
   private:
     QString mName;
     QHash<QString, StaticVariable> mVariables;
@@ -388,6 +459,9 @@ class CORE_EXPORT QgsExpressionContextScope
     QgsFeature mFeature;
     bool mHasGeometry = false;
     QgsGeometry mGeometry;
+    QStringList mHiddenVariables;
+
+    QList< QPointer< QgsMapLayerStore > > mLayerStores;
 };
 
 /**
@@ -408,7 +482,7 @@ class CORE_EXPORT QgsExpressionContext
   public:
 
     //! Constructor for QgsExpressionContext
-    QgsExpressionContext() = default;
+    QgsExpressionContext();
 
     /**
      * Initializes the context with given list of scopes.
@@ -777,6 +851,35 @@ class CORE_EXPORT QgsExpressionContext
     void clearCachedValues() const;
 
     /**
+     * Returns the list of layer stores associated with the context.
+     *
+     * \since QGIS 3.30
+     */
+    QList< QgsMapLayerStore * > layerStores() const;
+
+    /**
+     * Sets the destination layer \a store for any layers loaded during
+     * expression evaluation.
+     *
+     * Ownership of the \a store is not transferred to the context, it is the caller's
+     * responsibility to ensure that the store remains alive for the duration of the
+     * expression context.
+     *
+     * \see loadedLayerStore()
+     * \since QGIS 3.30
+     */
+    void setLoadedLayerStore( QgsMapLayerStore *store );
+
+    /**
+     * Returns the destination layer store for any layers loaded during
+     * expression evaluation.
+     *
+     * \see setLoadedLayerStore()
+     * \since QGIS 3.30
+     */
+    QgsMapLayerStore *loadedLayerStore() const;
+
+    /**
      * Attach a \a feedback object that can be queried regularly by the expression engine to check
      * if expression evaluation should be canceled.
      *
@@ -833,6 +936,9 @@ class CORE_EXPORT QgsExpressionContext
     QStringList mHighlightedFunctions;
 
     QgsFeedback *mFeedback = nullptr;
+
+    std::unique_ptr< LoadLayerFunction > mLoadLayerFunction;
+    QPointer< QgsMapLayerStore > mDestinationStore;
 
     // Cache is mutable because we want to be able to add cached values to const contexts
     mutable QMap< QString, QVariant > mCachedValues;

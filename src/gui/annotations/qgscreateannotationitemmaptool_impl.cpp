@@ -63,14 +63,14 @@ QgsMapToolCapture::Capabilities QgsMapToolCaptureAnnotationItem::capabilities() 
   return SupportsCurves;
 }
 
-bool QgsMapToolCaptureAnnotationItem::supportsTechnique( CaptureTechnique technique ) const
+bool QgsMapToolCaptureAnnotationItem::supportsTechnique( Qgis::CaptureTechnique technique ) const
 {
   switch ( technique )
   {
-    case CaptureTechnique::StraightSegments:
-    case CaptureTechnique::CircularString:
-    case CaptureTechnique::Streaming:
-    case CaptureTechnique::Shape:
+    case Qgis::CaptureTechnique::StraightSegments:
+    case Qgis::CaptureTechnique::CircularString:
+    case Qgis::CaptureTechnique::Streaming:
+    case Qgis::CaptureTechnique::Shape:
       return true;
   }
   BUILTIN_UNREACHABLE
@@ -99,7 +99,7 @@ void QgsCreatePointTextItemMapTool::cadCanvasPressEvent( QgsMapMouseEvent *event
 
   std::unique_ptr< QgsAnnotationPointTextItem > createdItem = std::make_unique< QgsAnnotationPointTextItem >( tr( "Text" ), layerPoint );
   createdItem->setAlignment( Qt::AlignLeft );
-  createdItem->setFormat( QgsStyle::defaultStyle()->defaultTextFormat( QgsStyle::TextFormatContext::Labeling ) );
+  createdItem->setFormat( QgsStyle::defaultTextFormatForProject( QgsProject::instance(), QgsStyle::TextFormatContext::Labeling ) );
   // newly created point text items default to using symbology reference scale at the current map scale
   createdItem->setUseSymbologyReferenceScale( true );
   createdItem->setSymbologyReferenceScale( canvas()->scale() );

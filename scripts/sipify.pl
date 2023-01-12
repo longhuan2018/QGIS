@@ -511,9 +511,9 @@ sub fix_annotations {
     $line =~ s/\bSIP_GETWRAPPER\b/\/GetWrapper\//;
 
     $line =~ s/SIP_PYNAME\(\s*(\w+)\s*\)/\/PyName=$1\//;
-    $line =~ s/SIP_TYPEHINT\(\s*([\w\s,\[\]]+?)\s*\)/\/TypeHint="$1"\//g;
+    $line =~ s/SIP_TYPEHINT\(\s*([\w\.\s,\[\]]+?)\s*\)/\/TypeHint="$1"\//g;
     $line =~ s/SIP_VIRTUALERRORHANDLER\(\s*(\w+)\s*\)/\/VirtualErrorHandler=$1\//;
-    $line =~ s/SIP_THROW\(\s*(\w+)\s*\)/throw\( $1 \)/;
+    $line =~ s/SIP_THROW\(\s*([\w\s,]+?)\s*\)/throw\( $1 \)/;
 
     # combine multiple annotations
     # https://regex101.com/r/uvCt4M/5
@@ -524,6 +524,7 @@ sub fix_annotations {
 
     # unprinted annotations
     $line =~ s/(\w+)(\<(?>[^<>]|(?2))*\>)?\s+SIP_PYALTERNATIVETYPE\(\s*\'?([^()']+)(\(\s*(?:[^()]++|(?2))*\s*\))?\'?\s*\)/$3/g;
+    $line =~ s/(\w+)\s+SIP_PYARGRENAME\(\s*(\w+)\s*\)/$2/g;
     $line =~ s/=\s+[^=]*?\s+SIP_PYARGDEFAULT\(\s*\'?([^()']+)(\(\s*(?:[^()]++|(?2))*\s*\))?\'?\s*\)/= $1/g;
     # remove argument
     if ($line =~ m/SIP_PYARGREMOVE/){
@@ -835,6 +836,9 @@ while ($LINE_IDX < $LINE_COUNT){
     if ($LINE =~ m/^\s*Q_(OBJECT|ENUMS|ENUM|FLAG|PROPERTY|DECLARE_METATYPE|DECLARE_TYPEINFO|NOWARN_DEPRECATED_(PUSH|POP))\b.*?$/){
         next;
     }
+    if ($LINE =~ m/^\s*QHASH_FOR_CLASS_ENUM/){
+        next;
+    }
 
     # SIP_SKIP
     if ( $LINE =~ m/SIP_SKIP|SIP_PYTHON_SPECIAL_/ ){
@@ -906,7 +910,7 @@ while ($LINE_IDX < $LINE_COUNT){
                 push @DECLARED_CLASSES, $CLASSNAME[$#CLASSNAME];
             }
             dbg_info("class: ".$CLASSNAME[$#CLASSNAME]);
-            if ($LINE =~ m/\b[A-Z0-9_]+_EXPORT\b/ || $#CLASSNAME != 0 || $INPUT_LINES[$LINE_IDX-2] =~ m/^\s*template</){
+            if ($LINE =~ m/\b[A-Z0-9_]+_EXPORT\b/ || $#CLASSNAME != 0 || $INPUT_LINES[$LINE_IDX-2] =~ m/^\s*template\s*</){
                 # class should be exported except those not at top level or template classes
                 # if class is not exported, then its methods should be (checked whenever leaving out the class)
                 $EXPORTED[-1]++;
@@ -1116,6 +1120,9 @@ while ($LINE_IDX < $LINE_COUNT){
                     my $enum_decl = $LINE =~ s/^(\s*(?<em>\w+))(\s+SIP_PYNAME(?:\(\s*(?<pyname>[^() ]+)\s*\)\s*)?)?(\s+SIP_MONKEY\w+(?:\(\s*(?<compat>[^() ]+)\s*\)\s*)?)?(?:\s*=\s*(?:[\w\s\d|+-]|::|<<)+)?(,?)(:?\s*\/\/!<\s*(?<co>.*)|.*)$/$1$3$7/r;
                     my $enum_member = $+{em};
                     my $comment = $+{co};
+                    # replace :: with . (changes c++ style namespace/class directives to Python style)
+                    $comment =~ s/::/./g;
+                    $comment =~ s/\"/\\"/g;
                     my $compat_name = $+{compat} ? $+{compat} : $enum_member;
                     dbg_info("is_scope_based:$is_scope_based enum_mk_base:$enum_mk_base monkeypatch:$monkeypatch");
                     if ($is_scope_based eq "1" and $enum_member ne "") {
@@ -1219,8 +1226,8 @@ while ($LINE_IDX < $LINE_COUNT){
     };
 
     # remove struct member assignment
-    # https://regex101.com/r/tWRGkY/2
-    if ( $SIP_RUN != 1 && $ACCESS[$#ACCESS] == PUBLIC && $LINE =~ m/^(\s*\w+[\w<> *&:,]* \*?\w+) = [\-\w\:\.]+(<\w+( \*)?>)?(\([^()]*\))?\s*;/ ){
+    # https://regex101.com/r/OUwV75/1
+    if ( $SIP_RUN != 1 && $ACCESS[$#ACCESS] == PUBLIC && $LINE =~ m/^(\s*\w+[\w<> *&:,]* \*?\w+) = ([\-\w\:\.]+(< *\w+( \*)? *>)?)+(\([^()]*\))?\s*;/ ){
         dbg_info("remove struct member assignment");
         $LINE = "$1;";
     }
@@ -1323,7 +1330,8 @@ while ($LINE_IDX < $LINE_COUNT){
         # support Docstring for template based classes in SIP 4.19.7+
         $COMMENT_TEMPLATE_DOCSTRING = 1;
     }
-    elsif ( $LINE =~ m/\/\// ||
+    elsif ( $MULTILINE_DEFINITION == MULTILINE_NO &&
+           ($LINE =~ m/\/\// ||
             $LINE =~ m/^\s*typedef / ||
             $LINE =~ m/\s*struct / ||
             $LINE =~ m/operator\[\]\(/ ||
@@ -1332,7 +1340,9 @@ while ($LINE_IDX < $LINE_COUNT){
             $LINE =~ m/^\s*%\w+(.*)?$/ ||
             $LINE =~ m/^\s*namespace\s+\w+/ ||
             $LINE =~ m/^\s*(virtual\s*)?~/ ||
-            detect_non_method_member() == 1 ){
+            detect_non_method_member() == 1
+           )
+          ){
         dbg_info('skipping comment');
         dbg_info('because typedef') if ($LINE =~ m/\s*typedef.*?(?!SIP_DOC_TEMPLATE)/);
         $COMMENT = '';

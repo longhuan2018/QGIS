@@ -52,8 +52,6 @@ Constructor for QgsProcessingModelAlgorithm.
 
     virtual QString helpUrl() const;
 
-    virtual Flags flags() const;
-
 
     virtual bool canExecute( QString *errorMessage /Out/ = 0 ) const;
 
@@ -581,6 +579,15 @@ run through the designer.
     const QgsProcessingParameterDefinition *modelParameterFromChildIdAndOutputName( const QString &childId, const QString &childOutputName ) const;
 %Docstring
 Given a child algorithm ID and output name, attempts to match it to a parameter definition from the overall model.
+
+.. versionadded:: 3.26
+%End
+
+    static QString safeName( const QString &name, bool capitalize = false );
+%Docstring
+Makes a name "safe", by replacing any non-alphanumeric characters with underscores.
+
+If ``capitalize`` is ``True`` then the string will be converted to a camel case string.
 
 .. versionadded:: 3.26
 %End

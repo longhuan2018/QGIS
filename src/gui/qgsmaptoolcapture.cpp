@@ -17,7 +17,6 @@
 #include "qgsexception.h"
 #include "qgsfeatureiterator.h"
 #include "qgsgeometryvalidator.h"
-#include "qgslayertreeview.h"
 #include "qgslinestring.h"
 #include "qgslogger.h"
 #include "qgsmapcanvas.h"
@@ -30,12 +29,12 @@
 #include "qgsvertexmarker.h"
 #include "qgssettingsregistrycore.h"
 #include "qgsapplication.h"
-#include "qgsadvanceddigitizingdockwidget.h"
 #include "qgsproject.h"
 #include "qgsmaptoolcapturerubberband.h"
 #include "qgsmaptoolshapeabstract.h"
 #include "qgsmaptoolshaperegistry.h"
-#include "qgsgui.h"
+#include "qgssnappingutils.h"
+#include "qgsadvanceddigitizingdockwidget.h"
 
 #include <QAction>
 #include <QCursor>
@@ -48,6 +47,8 @@ QgsMapToolCapture::QgsMapToolCapture( QgsMapCanvas *canvas, QgsAdvancedDigitizin
   , mCaptureMode( mode )
   , mCaptureModeFromLayer( mode == CaptureNone )
 {
+  mTempRubberBand.setParentOwner( canvas );
+
   mSnapIndicator.reset( new QgsSnapIndicator( canvas ) );
 
   setCursor( QgsApplication::getThemeCursor( QgsApplication::Cursor::CapturePoint ) );
@@ -76,7 +77,10 @@ QgsMapToolCapture::~QgsMapToolCapture()
   // we call stop capturing. Otherwise stopCapturing tries to access members
   // from the mapcanvas, which is likely already being destroyed and triggering
   // the deletion of this object...
-  mCanvas->snappingUtils()->removeExtraSnapLayer( mExtraSnapLayer );
+  if ( mCanvas )
+  {
+    mCanvas->snappingUtils()->removeExtraSnapLayer( mExtraSnapLayer );
+  }
   mExtraSnapLayer->deleteLater();
   mExtraSnapLayer = nullptr;
 
@@ -94,15 +98,15 @@ QgsMapToolCapture::Capabilities QgsMapToolCapture::capabilities() const
   return QgsMapToolCapture::ValidateGeometries;
 }
 
-bool QgsMapToolCapture::supportsTechnique( QgsMapToolCapture::CaptureTechnique technique ) const
+bool QgsMapToolCapture::supportsTechnique( Qgis::CaptureTechnique technique ) const
 {
   switch ( technique )
   {
-    case CaptureTechnique::StraightSegments:
+    case Qgis::CaptureTechnique::StraightSegments:
       return true;
-    case CaptureTechnique::CircularString:
-    case CaptureTechnique::Streaming:
-    case CaptureTechnique::Shape:
+    case Qgis::CaptureTechnique::CircularString:
+    case Qgis::CaptureTechnique::Streaming:
+    case Qgis::CaptureTechnique::Shape:
       return false;
   }
   BUILTIN_UNREACHABLE
@@ -116,7 +120,7 @@ void QgsMapToolCapture::activate()
   mCanvas->snappingUtils()->addExtraSnapLayer( mExtraSnapLayer );
   QgsMapToolAdvancedDigitizing::activate();
 
-  if ( mCurrentCaptureTechnique == Shape && mCurrentShapeMapTool )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
     mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
 }
 
@@ -129,7 +133,7 @@ void QgsMapToolCapture::deactivate()
 
   mCanvas->snappingUtils()->removeExtraSnapLayer( mExtraSnapLayer );
 
-  if ( mCurrentCaptureTechnique == Shape && mCurrentShapeMapTool )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
     mCurrentShapeMapTool->deactivate();
 
   QgsMapToolAdvancedDigitizing::deactivate();
@@ -276,17 +280,31 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
     return false;
 
   QgsTracer::PathError err;
-  QVector<QgsPointXY> points = tracer->findShortestPath( pt0, point, &err );
-  if ( points.isEmpty() )
+  const QVector<QgsPointXY> tracedPointsInMapCrs = tracer->findShortestPath( pt0, point, &err );
+  if ( tracedPointsInMapCrs.isEmpty() )
     return false; // ignore the vertex - can't find path to the end point!
 
   // transform points
   QgsPointSequence layerPoints;
-  QgsPoint lp; // in layer coords
-  for ( int i = 0; i < points.count(); ++i )
+  layerPoints.reserve( tracedPointsInMapCrs.size() );
+  QgsPointSequence mapPoints;
+  mapPoints.reserve( tracedPointsInMapCrs.size() );
+  for ( const QgsPointXY &tracedPointMapCrs : tracedPointsInMapCrs )
   {
-    if ( nextPoint( QgsPoint( points[i] ), lp ) != 0 )
+    QgsPoint mapPoint( tracedPointMapCrs );
+
+    QgsPoint lp; // in layer coords
+    if ( nextPoint( mapPoint, lp ) != 0 )
       return false;
+
+    // copy z and m from layer point back to mapPoint, as nextPoint() call will populate these based
+    // on the context of the trace
+    if ( lp.is3D() )
+      mapPoint.addZValue( lp.z() );
+    if ( lp.isMeasure() )
+      mapPoint.addMValue( lp.m() );
+
+    mapPoints << mapPoint;
     layerPoints << lp;
   }
 
@@ -297,7 +315,7 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
   mSnappingMatches.append( QgsPointLocator::Match() );
 
   int pointBefore = mCaptureCurve.numPoints();
-  addCurve( new QgsLineString( layerPoints ) );
+  addCurve( new QgsLineString( mapPoints ) );
 
   resetRubberBand();
 
@@ -313,7 +331,15 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
                                    QgsSettingsRegistryCore::settingsDigitizingConvertToCurveAngleTolerance.value(),
                                    QgsSettingsRegistryCore::settingsDigitizingConvertToCurveDistanceTolerance.value()
                                  );
-      mCaptureCurve = *qgsgeometry_cast<QgsCompoundCurve *>( curved.constGet() );
+      if ( QgsWkbTypes::flatType( curved.wkbType() ) != QgsWkbTypes::CompoundCurve )
+      {
+        mCaptureCurve.clear();
+        mCaptureCurve.addCurve( qgsgeometry_cast< const QgsCurve * >( curved.constGet() )->clone() );
+      }
+      else
+      {
+        mCaptureCurve = *qgsgeometry_cast<QgsCompoundCurve *>( curved.constGet() );
+      }
     }
   }
 
@@ -353,6 +379,7 @@ void QgsMapToolCapture::resetRubberBand()
   if ( !mRubberBand )
     return;
   QgsLineString *lineString = mCaptureCurve.curveToLine();
+
   mRubberBand->reset( mCaptureMode == CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry );
   mRubberBand->addGeometry( QgsGeometry( lineString ), layer() );
 }
@@ -365,27 +392,27 @@ QgsRubberBand *QgsMapToolCapture::takeRubberBand()
 void QgsMapToolCapture::setCircularDigitizingEnabled( bool enable )
 {
   if ( enable )
-    setCurrentCaptureTechnique( CaptureTechnique::CircularString );
+    setCurrentCaptureTechnique( Qgis::CaptureTechnique::CircularString );
   else
-    setCurrentCaptureTechnique( CaptureTechnique::StraightSegments );
+    setCurrentCaptureTechnique( Qgis::CaptureTechnique::StraightSegments );
 }
 
 void QgsMapToolCapture::setStreamDigitizingEnabled( bool enable )
 {
   if ( enable )
-    setCurrentCaptureTechnique( CaptureTechnique::Streaming );
+    setCurrentCaptureTechnique( Qgis::CaptureTechnique::Streaming );
   else
-    setCurrentCaptureTechnique( CaptureTechnique::StraightSegments );
+    setCurrentCaptureTechnique( Qgis::CaptureTechnique::StraightSegments );
 }
 
-void QgsMapToolCapture::setCurrentCaptureTechnique( CaptureTechnique technique )
+void QgsMapToolCapture::setCurrentCaptureTechnique( Qgis::CaptureTechnique technique )
 {
   if ( mCurrentCaptureTechnique == technique )
     return;
 
   mStartNewCurve = true;
 
-  if ( mCurrentCaptureTechnique == CaptureTechnique::Shape && mCurrentShapeMapTool )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
   {
     mCurrentShapeMapTool->deactivate();
     clean();
@@ -393,17 +420,17 @@ void QgsMapToolCapture::setCurrentCaptureTechnique( CaptureTechnique technique )
 
   switch ( technique )
   {
-    case QgsMapToolCapture::CaptureTechnique::StraightSegments:
+    case Qgis::CaptureTechnique::StraightSegments:
       mLineDigitizingType = QgsWkbTypes::LineString;
       break;
-    case QgsMapToolCapture::CaptureTechnique::CircularString:
+    case Qgis::CaptureTechnique::CircularString:
       mLineDigitizingType = QgsWkbTypes::CircularString;
       break;
-    case QgsMapToolCapture::CaptureTechnique::Streaming:
+    case Qgis::CaptureTechnique::Streaming:
       mLineDigitizingType = QgsWkbTypes::LineString;
       mStreamingToleranceInPixels = QgsSettingsRegistryCore::settingsDigitizingStreamTolerance.value();
       break;
-    case QgsMapToolCapture::CaptureTechnique::Shape:
+    case Qgis::CaptureTechnique::Shape:
       mLineDigitizingType = QgsWkbTypes::LineString;
       break;
 
@@ -414,7 +441,7 @@ void QgsMapToolCapture::setCurrentCaptureTechnique( CaptureTechnique technique )
 
   mCurrentCaptureTechnique = technique;
 
-  if ( technique == CaptureTechnique::Shape && mCurrentShapeMapTool && isActive() )
+  if ( technique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool && isActive() )
   {
     clean();
     mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
@@ -427,17 +454,18 @@ void QgsMapToolCapture::setCurrentShapeMapTool( const QgsMapToolShapeMetadata *s
   {
     if ( shapeMapToolMetadata && mCurrentShapeMapTool->id() == shapeMapToolMetadata->id() )
       return;
-    if ( mCurrentCaptureTechnique == CaptureTechnique::Shape )
+    if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape )
       mCurrentShapeMapTool->deactivate();
     mCurrentShapeMapTool->deleteLater();
   }
 
-  mCurrentShapeMapTool = shapeMapToolMetadata ? shapeMapToolMetadata->factory( this ) : nullptr;
+  mCurrentShapeMapTool.reset( shapeMapToolMetadata ? shapeMapToolMetadata->factory( this ) : nullptr );
 
-  if ( mCurrentCaptureTechnique == CaptureTechnique::Shape && isActive() )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && isActive() )
   {
     clean();
-    mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
+    if ( mCurrentShapeMapTool )
+      mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
   }
 }
 
@@ -449,11 +477,11 @@ void QgsMapToolCapture::cadCanvasMoveEvent( QgsMapMouseEvent *e )
 
   mSnapIndicator->setMatch( e->mapPointMatch() );
 
-  if ( mCurrentCaptureTechnique == Shape )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape )
   {
     if ( !mCurrentShapeMapTool )
     {
-      emit messageEmitted( tr( "Cannot capture a shape without a shape tool defined" ), Qgis::MessageLevel::Warning );
+      emit messageEmitted( tr( "Select an option from the Shape Digitizing Toolbar in order to capture shapes" ), Qgis::MessageLevel::Warning );
     }
     else
     {
@@ -476,7 +504,7 @@ void QgsMapToolCapture::cadCanvasMoveEvent( QgsMapMouseEvent *e )
     {
       bool hasTrace = false;
 
-      if ( mCurrentCaptureTechnique == CaptureTechnique::Streaming )
+      if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Streaming )
       {
         if ( !mCaptureCurve.isEmpty() )
         {
@@ -517,7 +545,7 @@ void QgsMapToolCapture::cadCanvasMoveEvent( QgsMapMouseEvent *e )
         }
       }
 
-      if ( mCurrentCaptureTechnique != CaptureTechnique::Streaming && !hasTrace )
+      if ( mCurrentCaptureTechnique != Qgis::CaptureTechnique::Streaming && !hasTrace )
       {
         if ( mCaptureCurve.numPoints() > 0 )
         {
@@ -587,11 +615,15 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
   {
     return 1;
   }
-  else
+
+  if ( match.isValid() && sourceLayer )
   {
-    if ( match.isValid() && ( match.hasVertex() || match.hasLineEndpoint() || ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) ) ) && sourceLayer &&
-         ( sourceLayer->crs() == vlayer->crs() ) )
+    if ( ( match.hasVertex() || match.hasLineEndpoint() ) )
     {
+      if ( sourceLayer->crs() != vlayer->crs() )
+      {
+        return 1;
+      }
       QgsFeature f;
       QgsFeatureRequest request;
       request.setFilterFid( match.featureId() );
@@ -600,26 +632,14 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
       {
         QgsVertexId vId;
         if ( !f.geometry().vertexIdFromVertexNr( match.vertexIndex(), vId ) )
+        {
           return 2;
-
-        const QgsGeometry geom( f.geometry() );
-        if ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) )
-        {
-          QgsVertexId vId2;
-          if ( !f.geometry().vertexIdFromVertexNr( match.vertexIndex() + 1, vId2 ) )
-            return 2;
-          const QgsLineString line( geom.constGet()->vertexAt( vId ), geom.constGet()->vertexAt( vId2 ) );
-
-          layerPoint = QgsGeometryUtils::closestPoint( line,  QgsPoint( match.point() ) );
         }
-        else
-        {
-          layerPoint = geom.constGet()->vertexAt( vId );
-          if ( QgsWkbTypes::hasZ( vlayer->wkbType() ) && !layerPoint.is3D() )
-            layerPoint.addZValue( defaultZValue() );
-          if ( QgsWkbTypes::hasM( vlayer->wkbType() ) && !layerPoint.isMeasure() )
-            layerPoint.addMValue( defaultMValue() );
-        }
+        layerPoint = f.geometry().constGet()->vertexAt( vId );
+        if ( QgsWkbTypes::hasZ( vlayer->wkbType() ) && !layerPoint.is3D() )
+          layerPoint.addZValue( defaultZValue() );
+        if ( QgsWkbTypes::hasM( vlayer->wkbType() ) && !layerPoint.isMeasure() )
+          layerPoint.addMValue( defaultMValue() );
 
         // ZM support depends on the target layer
         if ( !QgsWkbTypes::hasZ( vlayer->wkbType() ) )
@@ -634,16 +654,15 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
 
         return 0;
       }
-      else
-      {
-        return 2;
-      }
+      return 2;
     }
-    else
+    else if ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) )
     {
-      return 1;
+      layerPoint = toLayerCoordinates( vlayer, match.interpolatedPoint( mCanvas->mapSettings().destinationCrs() ) );
+      return 0;
     }
   }
+  return 2;
 }
 
 int QgsMapToolCapture::addVertex( const QgsPointXY &point )
@@ -659,7 +678,7 @@ int QgsMapToolCapture::addVertex( const QgsPointXY &point, const QgsPointLocator
     return 2;
   }
 
-  if ( mCapturing && mCurrentCaptureTechnique == CaptureTechnique::Streaming && !mAllowAddingStreamingPoints )
+  if ( mCapturing && mCurrentCaptureTechnique == Qgis::CaptureTechnique::Streaming && !mAllowAddingStreamingPoints )
     return 0;
 
   QgsPoint layerPoint;
@@ -674,6 +693,10 @@ int QgsMapToolCapture::addVertex( const QgsPointXY &point, const QgsPointLocator
         return res;
       }
     }
+  }
+  else
+  {
+    layerPoint = QgsPoint( point );
   }
   const QgsPoint mapPoint = toMapCoordinates( layer(), layerPoint );
 
@@ -715,10 +738,9 @@ int QgsMapToolCapture::addVertex( const QgsPointXY &point, const QgsPointLocator
       mTempRubberBand->movePoint( mapPoint ); //move the last point of the temp rubberband before operating with it
       if ( mTempRubberBand->curveIsComplete() ) //2 points for line and 3 points for circular
       {
-        const QgsCurve *curve = mTempRubberBand->curve();
-        if ( curve )
+        if ( QgsCurve *curve = mTempRubberBand->curve() )
         {
-          addCurve( curve->clone() );
+          addCurve( curve );
           // add curve append only invalid match to mSnappingMatches,
           // so we need to remove them and add the one from here if it is valid
           if ( match.isValid() && mSnappingMatches.count() > 0 && !mSnappingMatches.last().isValid() )
@@ -899,7 +921,7 @@ void QgsMapToolCapture::undo( bool isAutoRepeat )
 
 void QgsMapToolCapture::keyPressEvent( QKeyEvent *e )
 {
-  if ( mCurrentCaptureTechnique == Shape && mCurrentShapeMapTool )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
   {
     mCurrentShapeMapTool->keyPressEvent( e );
     if ( e->isAccepted() )
@@ -915,7 +937,7 @@ void QgsMapToolCapture::keyPressEvent( QKeyEvent *e )
 
   if ( e->key() == Qt::Key_Backspace || e->key() == Qt::Key_Delete )
   {
-    if ( mCurrentCaptureTechnique == Shape && mCurrentShapeMapTool )
+    if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
     {
       if ( !e->isAutoRepeat() )
       {
@@ -983,7 +1005,7 @@ void QgsMapToolCapture::deleteTempRubberBand()
 void QgsMapToolCapture::clean()
 {
   stopCapturing();
-  if ( mCurrentCaptureTechnique == Shape && mCurrentShapeMapTool )
+  if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && mCurrentShapeMapTool )
     mCurrentShapeMapTool->clean();
 
   clearCurve();
@@ -1276,11 +1298,11 @@ void QgsMapToolCapture::cadCanvasReleaseEvent( QgsMapMouseEvent *e )
   {
     bool digitizingFinished = false;
 
-    if ( mCurrentCaptureTechnique == Shape )
+    if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape )
     {
       if ( !mCurrentShapeMapTool )
       {
-        emit messageEmitted( tr( "Cannot capture a shape without a shape tool defined" ), Qgis::MessageLevel::Warning );
+        emit messageEmitted( tr( "Select an option from the Shape Digitizing Toolbar in order to capture shapes" ), Qgis::MessageLevel::Warning );
         return;
       }
       else

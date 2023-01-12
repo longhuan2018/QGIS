@@ -34,14 +34,6 @@ as well as a more specific handler (pointCaptured, lineCaptured or polygonCaptur
       CapturePolygon
     };
 
-    enum CaptureTechnique
-    {
-      StraightSegments,
-      CircularString,
-      Streaming,
-      Shape,
-    };
-
     enum Capability
     {
       NoCapabilities,
@@ -64,14 +56,14 @@ constructor
 Returns flags containing the supported capabilities
 %End
 
-    virtual bool supportsTechnique( CaptureTechnique technique ) const;
+    virtual bool supportsTechnique( Qgis::CaptureTechnique technique ) const;
 %Docstring
 Returns ``True`` if the tool supports the specified capture ``technique``.
 
 .. versionadded:: 3.20
 %End
 
-    void setCurrentCaptureTechnique( CaptureTechnique technique );
+    void setCurrentCaptureTechnique( Qgis::CaptureTechnique technique );
 %Docstring
 Sets the current capture if it is supported by the map tool
 
@@ -145,6 +137,8 @@ convenient method to clean members
 %Docstring
 Returns the rubberBand currently owned by this map tool and
 transfers ownership to the caller.
+
+May be ``None``.
 
 .. versionadded:: 3.8
 %End
@@ -233,8 +227,13 @@ Converts a point to map coordinates and layer coordinates
 %Docstring
 Fetches the original point from the source layer if it has the same
 CRS as the current layer.
+If topological editing is activated, the points are projected to the
+current layer CRS.
 
-:return: 0 in case of success, 1 if not applicable (CRS mismatch), 2 in case of failure
+:return:
+         0 in case of success
+         1 if not applicable (CRS mismatch / invalid layer)
+         2 in case of failure
 
 .. versionadded:: 2.14
 %End

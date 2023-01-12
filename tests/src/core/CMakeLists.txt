@@ -12,6 +12,10 @@ if(HAVE_OPENCL)
     include_directories(SYSTEM ${OpenCL_INCLUDE_DIRS})
 endif()
 
+if (WITH_PDAL)
+    include_directories(SYSTEM "${PDAL_INCLUDE_DIR}")
+endif()
+
 #############################################################
 # Tests:
 
@@ -22,6 +26,7 @@ set(TESTS
  testqgsannotationitemregistry.cpp
  testqgsapplication.cpp
  testqgsarcgisrestutils.cpp
+ testqgsattributeeditorelement.cpp
  testqgsauthcertutils.cpp
  testqgsauthconfig.cpp
  testqgsauthcrypto.cpp
@@ -40,6 +45,7 @@ set(TESTS
  testqgsconnectionpool.cpp
  testqgscoordinatereferencesystemregistry.cpp
  testqgscoordinatetransform.cpp
+ testqgscoordinateutils.cpp
  testqgscopyfiletask.cpp
  testqgscredentials.cpp
  testqgscurve.cpp
@@ -49,6 +55,7 @@ set(TESTS
  testqgsdiagram.cpp
  testqgsdistancearea.cpp
  testqgsdxfexport.cpp
+ testqgselevationmap.cpp
  testqgsellipsemarker.cpp
  testqgsexpression.cpp
  testqgsexpressioncontext.cpp
@@ -84,7 +91,6 @@ set(TESTS
  testqgslayoutcontext.cpp
  testqgslayoutexporter.cpp
  testqgslayoutgeopdfexport.cpp
- testqgslayouthtml.cpp
  testqgslayoutitem.cpp
  testqgslayoutitemgroup.cpp
  testqgslayoutlabel.cpp
@@ -126,6 +132,7 @@ set(TESTS
  testqgsnetworkaccessmanager.cpp
  testqgsnetworkcontentfetcher.cpp
  testqgsnewsfeedparser.cpp
+ testqgsnmeaconnection.cpp
  testqgsofflineediting.cpp
  testqgsogcutils.cpp
  testqgsogrprovider.cpp
@@ -136,6 +143,8 @@ set(TESTS
  testqgspainteffectregistry.cpp
  testqgspallabeling.cpp
  testqgspointcloudattribute.cpp
+ testqgspointcloudexpression.cpp
+ testqgspointcloudlayerexporter.cpp
  testqgspointcloudrendererregistry.cpp
  testqgspointlocator.cpp
  testqgspointpatternfillsymbol.cpp
@@ -171,6 +180,7 @@ set(TESTS
  testqgsspatialindexkdbush.cpp
  testqgssqliteexpressioncompiler.cpp
  testqgssqliteutils.cpp
+ testqgsrelation.cpp
  testqgsstatisticalsummary.cpp
  testqgsstoredexpressionmanager.cpp
  testqgsstringutils.cpp
@@ -201,12 +211,15 @@ set(TESTS
  testqgstiles.cpp
  testqgsweakrelation.cpp
  testqgsziputils.cpp
+ testqobjectparentuniqueptr.cpp
  testqobjectuniqueptr.cpp
  testziplayer.cpp
 )
 
 if(WITH_QTWEBKIT)
-  set(TESTS ${TESTS})
+  set(TESTS ${TESTS}
+    testqgslayouthtml.cpp
+  )
 endif()
 
 if(HAVE_OPENCL)
@@ -226,3 +239,4 @@ if (ENABLE_PGTEST)
 endif()
 
 add_subdirectory(geometry)
+add_subdirectory(vector)

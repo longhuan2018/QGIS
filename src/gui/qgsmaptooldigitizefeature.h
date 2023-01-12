@@ -43,7 +43,7 @@ class GUI_EXPORT QgsMapToolDigitizeFeature : public QgsMapToolCaptureLayerGeomet
     QgsMapToolDigitizeFeature( QgsMapCanvas *canvas, QgsAdvancedDigitizingDockWidget *cadDockWidget, CaptureMode mode = QgsMapToolCapture::CaptureNone );
 
     QgsMapToolCapture::Capabilities capabilities() const override;
-    bool supportsTechnique( CaptureTechnique technique ) const override;
+    bool supportsTechnique( Qgis::CaptureTechnique technique ) const override;
 
     void cadCanvasReleaseEvent( QgsMapMouseEvent *e ) override;
 
@@ -55,6 +55,9 @@ class GUI_EXPORT QgsMapToolDigitizeFeature : public QgsMapToolCaptureLayerGeomet
 
     void activate() override;
     void deactivate() override;
+
+    // Overridden to emit digitizingCanceled when ESC is pressed
+    void keyPressEvent( QKeyEvent *e ) override;
 
   signals:
 
@@ -69,6 +72,12 @@ class GUI_EXPORT QgsMapToolDigitizeFeature : public QgsMapToolCaptureLayerGeomet
      * any feature
      */
     void digitizingFinished();
+
+    /**
+     * Emitted when the digitizing process was interrupted by the user.
+     * \since QGIS 3.28
+     */
+    void digitizingCanceled();
 
   protected:
 
@@ -91,7 +100,7 @@ class GUI_EXPORT QgsMapToolDigitizeFeature : public QgsMapToolCaptureLayerGeomet
      * Called when the feature has been digitized.
      * \param geometry the digitized geometry
      */
-    void layerGeometryCaptured( const QgsGeometry &geometry ) override FINAL;
+    void layerGeometryCaptured( const QgsGeometry &geometry ) FINAL;
 
     /**
      * Called when the feature has been digitized
@@ -118,6 +127,7 @@ class GUI_EXPORT QgsMapToolDigitizeFeature : public QgsMapToolCaptureLayerGeomet
     bool mCheckGeometryType;
 
     friend class TestQgsRelationReferenceWidget;
+
 };
 
 #endif // QGSMAPTOOLDIGITIZEFEATURE_H

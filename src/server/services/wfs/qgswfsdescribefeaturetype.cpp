@@ -170,12 +170,12 @@ namespace QgsWfs
       {
         continue;
       }
-      setSchemaLayer( schemaElement, doc, const_cast<QgsVectorLayer *>( vLayer ) );
+      setSchemaLayer( schemaElement, doc, const_cast<QgsVectorLayer *>( vLayer ), oFormat );
     }
     return doc;
   }
 
-  void setSchemaLayer( QDomElement &parentElement, QDomDocument &doc, const QgsVectorLayer *layer )
+  void setSchemaLayer( QDomElement &parentElement, QDomDocument &doc, const QgsVectorLayer *layer, QgsWfsParameters::Format format )
   {
     const QgsVectorDataProvider *provider = layer->dataProvider();
     if ( !provider )
@@ -215,44 +215,7 @@ namespace QgsWfs
     {
       QDomElement geomElem = doc.createElement( QStringLiteral( "element" )/*xsd:element*/ );
       geomElem.setAttribute( QStringLiteral( "name" ), QStringLiteral( "geometry" ) );
-
-      const QgsWkbTypes::Type wkbType = layer->wkbType();
-      switch ( wkbType )
-      {
-        case QgsWkbTypes::Point25D:
-        case QgsWkbTypes::Point:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:PointPropertyType" ) );
-          break;
-        case QgsWkbTypes::LineString25D:
-        case QgsWkbTypes::LineString:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:LineStringPropertyType" ) );
-          break;
-        case QgsWkbTypes::Polygon25D:
-        case QgsWkbTypes::Polygon:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:PolygonPropertyType" ) );
-          break;
-        case QgsWkbTypes::MultiPoint25D:
-        case QgsWkbTypes::MultiPoint:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:MultiPointPropertyType" ) );
-          break;
-        case QgsWkbTypes::MultiCurve:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:MultiCurvePropertyType" ) );
-          break;
-        case QgsWkbTypes::MultiLineString25D:
-        case QgsWkbTypes::MultiLineString:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:MultiLineStringPropertyType" ) );
-          break;
-        case QgsWkbTypes::MultiSurface:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:MultiSurfacePropertyType" ) );
-          break;
-        case QgsWkbTypes::MultiPolygon25D:
-        case QgsWkbTypes::MultiPolygon:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:MultiPolygonPropertyType" ) );
-          break;
-        default:
-          geomElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "gml:GeometryPropertyType" ) );
-          break;
-      }
+      geomElem.setAttribute( QStringLiteral( "type" ), getGmlGeometryType( layer, format ) );
       geomElem.setAttribute( QStringLiteral( "minOccurs" ), QStringLiteral( "0" ) );
       geomElem.setAttribute( QStringLiteral( "maxOccurs" ), QStringLiteral( "1" ) );
       sequenceElem.appendChild( geomElem );
@@ -273,7 +236,8 @@ namespace QgsWfs
 
       //xsd:element
       QDomElement attElem = doc.createElement( QStringLiteral( "element" )/*xsd:element*/ );
-      attElem.setAttribute( QStringLiteral( "name" ), attributeName.replace( ' ', '_' ).replace( cleanTagNameRegExp, QString() ) );
+      const thread_local QRegularExpression sCleanTagNameRegExp( QStringLiteral( "[^\\w\\.-_]" ), QRegularExpression::PatternOption::UseUnicodePropertiesOption );
+      attElem.setAttribute( QStringLiteral( "name" ), attributeName.replace( ' ', '_' ).replace( sCleanTagNameRegExp, QString() ) );
       const QVariant::Type attributeType = field.type();
       if ( attributeType == QVariant::Int )
       {
@@ -322,12 +286,18 @@ namespace QgsWfs
       const QgsEditorWidgetSetup setup = field.editorWidgetSetup();
       if ( setup.type() ==  QStringLiteral( "DateTime" ) )
       {
+        // Get editor widget setup config
         const QVariantMap config = setup.config();
-        const QString fieldFormat = config.value( QStringLiteral( "field_format" ), QgsDateTimeFieldFormatter::defaultFormat( field.type() ) ).toString();
-        if ( fieldFormat == QLatin1String( "yyyy-MM-dd" ) )
-          attElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "date" ) );
-        else if ( fieldFormat == QLatin1String( "HH:mm:ss" ) )
+        // Get field format from editor widget setup config
+        const QString fieldFormat = config.value(
+                                      QStringLiteral( "field_format" ),
+                                      QgsDateTimeFieldFormatter::defaultFormat( field.type() )
+                                    ).toString();
+        // Define type from field format
+        if ( fieldFormat == QgsDateTimeFieldFormatter::TIME_FORMAT ) // const TIME_FORMAT
           attElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "time" ) );
+        else if ( fieldFormat == QLatin1String( "yyyy-MM-dd" ) ) // QgsDateTimeFieldFormatter provide a local date format
+          attElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "date" ) );
         else
           attElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "dateTime" ) );
       }
@@ -362,6 +332,81 @@ namespace QgsWfs
       {
         attElem.setAttribute( QStringLiteral( "alias" ), alias );
       }
+    }
+  }
+
+  QString getGmlGeometryType( const QgsVectorLayer *layer, QgsWfsParameters::Format format )
+  {
+    const QgsWkbTypes::Type wkbType = layer->wkbType();
+    switch ( format )
+    {
+      case QgsWfsParameters::Format::GML2:
+        switch ( wkbType )
+        {
+          case QgsWkbTypes::Point25D:
+          case QgsWkbTypes::Point:
+            return QStringLiteral( "gml:PointPropertyType" );
+
+          case QgsWkbTypes::LineString25D:
+          case QgsWkbTypes::LineString:
+            return QStringLiteral( "gml:LineStringPropertyType" );
+
+          case QgsWkbTypes::Polygon25D:
+          case QgsWkbTypes::Polygon:
+            return QStringLiteral( "gml:PolygonPropertyType" );
+
+          case QgsWkbTypes::MultiPoint25D:
+          case QgsWkbTypes::MultiPoint:
+            return QStringLiteral( "gml:MultiPointPropertyType" );
+
+          case QgsWkbTypes::MultiCurve:
+          case QgsWkbTypes::MultiLineString25D:
+          case QgsWkbTypes::MultiLineString:
+            return QStringLiteral( "gml:MultiLineStringPropertyType" );
+
+          case QgsWkbTypes::MultiSurface:
+          case QgsWkbTypes::MultiPolygon25D:
+          case QgsWkbTypes::MultiPolygon:
+            return QStringLiteral( "gml:MultiPolygonPropertyType" );
+
+          default:
+            return QStringLiteral( "gml:GeometryPropertyType" );
+
+        }
+      case QgsWfsParameters::Format::GML3:
+        switch ( wkbType )
+        {
+          case QgsWkbTypes::Point25D:
+          case QgsWkbTypes::Point:
+            return QStringLiteral( "gml:PointPropertyType" );
+
+          case QgsWkbTypes::LineString25D:
+          case QgsWkbTypes::LineString:
+            return QStringLiteral( "gml:LineStringPropertyType" );
+
+          case QgsWkbTypes::Polygon25D:
+          case QgsWkbTypes::Polygon:
+            return QStringLiteral( "gml:PolygonPropertyType" );
+
+          case QgsWkbTypes::MultiPoint25D:
+          case QgsWkbTypes::MultiPoint:
+            return QStringLiteral( "gml:MultiPointPropertyType" );
+
+          case QgsWkbTypes::MultiCurve:
+          case QgsWkbTypes::MultiLineString25D:
+          case QgsWkbTypes::MultiLineString:
+            return QStringLiteral( "gml:MultiCurvePropertyType" );
+
+          case QgsWkbTypes::MultiSurface:
+          case QgsWkbTypes::MultiPolygon25D:
+          case QgsWkbTypes::MultiPolygon:
+            return QStringLiteral( "gml:MultiSurfacePropertyType" );
+
+          default:
+            return QStringLiteral( "gml:GeometryPropertyType" );
+        }
+      default:
+        return QStringLiteral( "gml:GeometryPropertyType" );
     }
   }
 

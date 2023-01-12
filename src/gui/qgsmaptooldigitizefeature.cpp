@@ -50,15 +50,15 @@ QgsMapToolCapture::Capabilities QgsMapToolDigitizeFeature::capabilities() const
   return QgsMapToolCapture::SupportsCurves | QgsMapToolCapture::ValidateGeometries;
 }
 
-bool QgsMapToolDigitizeFeature::supportsTechnique( QgsMapToolCapture::CaptureTechnique technique ) const
+bool QgsMapToolDigitizeFeature::supportsTechnique( Qgis::CaptureTechnique technique ) const
 {
   switch ( technique )
   {
-    case QgsMapToolCapture::CaptureTechnique::StraightSegments:
+    case Qgis::CaptureTechnique::StraightSegments:
       return true;
-    case QgsMapToolCapture::CaptureTechnique::CircularString:
-    case QgsMapToolCapture::CaptureTechnique::Streaming:
-    case QgsMapToolCapture::CaptureTechnique::Shape:
+    case Qgis::CaptureTechnique::CircularString:
+    case Qgis::CaptureTechnique::Streaming:
+    case Qgis::CaptureTechnique::Shape:
       return mode() != QgsMapToolCapture::CapturePoint;
   }
   return false;
@@ -73,30 +73,34 @@ void QgsMapToolDigitizeFeature::layerGeometryCaptured( const QgsGeometry &geomet
   if ( !vlayer )
     return;
 
-  const QgsWkbTypes::Type layerWKBType = vlayer->wkbType();
-
-  QgsGeometry layerGeometry;
-
-  if ( mCheckGeometryType )
-  {
-    double defaultZ = QgsSettingsRegistryCore::settingsDigitizingDefaultZValue.value();
-    double defaultM = QgsSettingsRegistryCore::settingsDigitizingDefaultMValue.value();
-    QVector<QgsGeometry> layerGeometries = geometry.coerceToType( layerWKBType, defaultZ, defaultM );
-    if ( layerGeometries.count() > 0 )
-      layerGeometry = layerGeometries.at( 0 );
-
-    if ( layerGeometry.wkbType() != layerWKBType && layerGeometry.wkbType() != QgsWkbTypes::linearType( layerWKBType ) )
-    {
-      emit messageEmitted( tr( "The digitized geometry type (%1) does not correspond to the layer geometry type (%2)." ).arg( QgsWkbTypes::displayString( layerGeometry.wkbType() ) ).arg( QgsWkbTypes::displayString( layerWKBType ) ), Qgis::MessageLevel::Warning );
-      return;
-    }
-  }
-  else
-  {
-    layerGeometry = geometry;
-  }
   QgsFeature f( vlayer->fields(), 0 );
-  f.setGeometry( layerGeometry );
+
+  if ( vlayer->isSpatial() )
+  {
+    const QgsWkbTypes::Type layerWKBType = vlayer->wkbType();
+
+    QgsGeometry layerGeometry;
+
+    if ( mCheckGeometryType )
+    {
+      double defaultZ = QgsSettingsRegistryCore::settingsDigitizingDefaultZValue.value();
+      double defaultM = QgsSettingsRegistryCore::settingsDigitizingDefaultMValue.value();
+      QVector<QgsGeometry> layerGeometries = geometry.coerceToType( layerWKBType, defaultZ, defaultM );
+      if ( layerGeometries.count() > 0 )
+        layerGeometry = layerGeometries.at( 0 );
+
+      if ( layerGeometry.wkbType() != layerWKBType && layerGeometry.wkbType() != QgsWkbTypes::linearType( layerWKBType ) )
+      {
+        emit messageEmitted( tr( "The digitized geometry type (%1) does not correspond to the layer geometry type (%2)." ).arg( QgsWkbTypes::displayString( layerGeometry.wkbType() ), QgsWkbTypes::displayString( layerWKBType ) ), Qgis::MessageLevel::Warning );
+        return;
+      }
+    }
+    else
+    {
+      layerGeometry = geometry;
+    }
+    f.setGeometry( layerGeometry );
+  }
   f.setValid( true );
   emit digitizingCompleted( f );
   featureDigitized( f );
@@ -133,6 +137,15 @@ void QgsMapToolDigitizeFeature::deactivate()
     //set the layer back to the one remembered
     mCanvas->setCurrentLayer( mCurrentLayer );
   emit digitizingFinished();
+}
+
+void QgsMapToolDigitizeFeature::keyPressEvent( QKeyEvent *e )
+{
+  if ( e->key() == Qt::Key_Escape )
+  {
+    emit digitizingCanceled();
+  }
+  QgsMapToolCaptureLayerGeometry::keyPressEvent( e );
 }
 
 bool QgsMapToolDigitizeFeature::checkGeometryType() const

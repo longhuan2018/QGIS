@@ -125,24 +125,6 @@ class TestQgsValueRelationWidget(unittest.TestCase):
         wrapper.setEnabled(True)
         self.assertTrue(widget.isEnabled())
 
-    def test_enableDisableOnTableWidget(self):
-        reg = QgsGui.editorWidgetRegistry()
-        layer = QgsVectorLayer("none?field=number:integer", "layer", "memory")
-        wrapper = reg.create('ValueRelation', layer, 0, {'AllowMulti': 'True'}, None, None)
-
-        widget = wrapper.widget()
-        item = QTableWidgetItem('first item')
-        widget.setItem(0, 0, item)
-
-        # does not change the state the whole widget but the single items instead
-        wrapper.setEnabled(False)
-        # widget still true, but items false
-        self.assertTrue(widget.isEnabled())
-        self.assertNotEqual(widget.item(0, 0).flags(), widget.item(0, 0).flags() | Qt.ItemIsEnabled)
-        wrapper.setEnabled(True)
-        self.assertTrue(widget.isEnabled())
-        self.assertEqual(widget.item(0, 0).flags(), widget.item(0, 0).flags() | Qt.ItemIsEnabled)
-
     def test_value_relation_set_value_not_in_map(self):
         """
         Test that setting a value not in the map is correctly handled
@@ -307,7 +289,7 @@ class TestQgsValueMapEditWidget(unittest.TestCase):
 class TestQgsUuidWidget(unittest.TestCase):
 
     def test_create_uuid(self):
-        layer = QgsVectorLayer("none?field=text_no_limit:text(0)&field=text_limit:text(10)", "layer", "memory")
+        layer = QgsVectorLayer("none?field=text_no_limit:text(0)&field=text_limit:text(10)&field=text_38:text(38)", "layer", "memory")
         self.assertTrue(layer.isValid())
         QgsProject.instance().addMapLayer(layer)
 
@@ -317,7 +299,7 @@ class TestQgsUuidWidget(unittest.TestCase):
         feature = QgsFeature(layer.fields())
         wrapper.setFeature(feature)
         val = wrapper.value()
-        # we can't directly check the result, as it will be random, so just check it's general properties
+        # we can't directly check the result, as it will be random, so just check its general properties
         self.assertEqual(len(val), 38)
         self.assertEqual(val[0], '{')
         self.assertEqual(val[-1], '}')
@@ -328,12 +310,23 @@ class TestQgsUuidWidget(unittest.TestCase):
         feature = QgsFeature(layer.fields())
         wrapper.setFeature(feature)
         val = wrapper.value()
-        # we can't directly check the result, as it will be random, so just check it's general properties
+        # we can't directly check the result, as it will be random, so just check its general properties
         self.assertEqual(len(val), 10)
         self.assertNotEqual(val[0], '{')
         self.assertNotEqual(val[-1], '}')
         with self.assertRaises(ValueError):
             val.index('-')
+
+        # limited length text field with length = 38, value must not be truncated
+        wrapper = QgsGui.editorWidgetRegistry().create('UuidGenerator', layer, 2, {}, None, None)
+        _ = wrapper.widget()
+        feature = QgsFeature(layer.fields())
+        wrapper.setFeature(feature)
+        val = wrapper.value()
+        # we can't directly check the result, as it will be random, so just check its general properties
+        self.assertEqual(len(val), 38)
+        self.assertEqual(val[0], '{')
+        self.assertEqual(val[-1], '}')
 
         QgsProject.instance().removeAllMapLayers()
 

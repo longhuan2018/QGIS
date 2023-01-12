@@ -21,6 +21,7 @@
 #include "qgsproject.h"
 #include "qgscurvepolygon.h"
 #include "qgsvectorlayer.h"
+#include "qgsvectorlayereditutils.h"
 #include "qgisapp.h"
 #include "qgsmapmouseevent.h"
 
@@ -38,14 +39,14 @@ QgsMapToolCapture::Capabilities QgsMapToolAddRing::capabilities() const
   return QgsMapToolCapture::SupportsCurves | QgsMapToolCapture::ValidateGeometries;
 }
 
-bool QgsMapToolAddRing::supportsTechnique( QgsMapToolCapture::CaptureTechnique technique ) const
+bool QgsMapToolAddRing::supportsTechnique( Qgis::CaptureTechnique technique ) const
 {
   switch ( technique )
   {
-    case QgsMapToolCapture::CaptureTechnique::StraightSegments:
-    case QgsMapToolCapture::CaptureTechnique::Streaming:
-    case QgsMapToolCapture::CaptureTechnique::CircularString:
-    case QgsMapToolCapture::CaptureTechnique::Shape:
+    case Qgis::CaptureTechnique::StraightSegments:
+    case Qgis::CaptureTechnique::Streaming:
+    case Qgis::CaptureTechnique::CircularString:
+    case Qgis::CaptureTechnique::Shape:
       return true;
   }
   return false;
@@ -68,7 +69,8 @@ void QgsMapToolAddRing::polygonCaptured( const QgsCurvePolygon *polygon )
     return;
 
   vlayer->beginEditCommand( tr( "Ring added" ) );
-  const Qgis::GeometryOperationResult addRingReturnCode = vlayer->addRing( polygon->exteriorRing()->clone() );
+  QgsVectorLayerEditUtils utils( vlayer );
+  const Qgis::GeometryOperationResult addRingReturnCode = utils.addRingV2( polygon->exteriorRing()->clone(), vlayer->selectedFeatureIds() );
   QString errorMessage;
   switch ( addRingReturnCode )
   {

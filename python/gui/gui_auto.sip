@@ -3,7 +3,6 @@
 %Include auto_generated/qgs3dsymbolwidget.sip
 %Include auto_generated/qgsabstractdatasourcewidget.sip
 %Include auto_generated/qgsabstractmaptoolhandler.sip
-%Include auto_generated/qgsactionmenu.sip
 %Include auto_generated/qgsadvanceddigitizingdockwidget.sip
 %Include auto_generated/qgsadvanceddigitizingfloater.sip
 %Include auto_generated/qgsaggregatetoolbutton.sip
@@ -102,6 +101,9 @@
 %Include auto_generated/qgshttpheaderwidget.sip
 %Include auto_generated/qgsidentifymenu.sip
 %Include auto_generated/qgskeyvaluewidget.sip
+%Include auto_generated/qgslayermetadatasearchwidget.sip
+%Include auto_generated/qgslayermetadataresultsmodel.sip
+%Include auto_generated/qgslayermetadataresultsproxymodel.sip
 %Include auto_generated/qgslegendfilterbutton.sip
 %Include auto_generated/qgslegendpatchshapebutton.sip
 %Include auto_generated/qgslegendpatchshapewidget.sip
@@ -117,7 +119,6 @@
 %Include auto_generated/qgsmapcanvassnappingutils.sip
 %Include auto_generated/qgsmapcanvastracer.sip
 %Include auto_generated/qgsmapcanvasutils.sip
-%Include auto_generated/qgsmaplayeractionregistry.sip
 %Include auto_generated/qgsmaplayercombobox.sip
 %Include auto_generated/qgsmaplayerconfigwidget.sip
 %Include auto_generated/qgsmaplayerconfigwidgetfactory.sip
@@ -163,6 +164,7 @@
 %Include auto_generated/qgspixmaplabel.sip
 %Include auto_generated/qgspluginmanagerinterface.sip
 %Include auto_generated/qgspointcloudattributecombobox.sip
+%Include auto_generated/qgspointcloudquerybuilder.sip
 %Include auto_generated/qgspresetcolorrampdialog.sip
 %Include auto_generated/qgsprevieweffect.sip
 %Include auto_generated/qgsprojectionselectiondialog.sip
@@ -178,6 +180,7 @@
 %Include auto_generated/qgsprovidersourcewidget.sip
 %Include auto_generated/qgsprovidersourcewidgetprovider.sip
 %Include auto_generated/qgsprovidersourcewidgetproviderregistry.sip
+%Include auto_generated/qgsprovidersublayersdialog.sip
 %Include auto_generated/qgsproxystyle.sip
 %Include auto_generated/qgsquerybuilder.sip
 %Include auto_generated/qgsqueryresultwidget.sip
@@ -195,6 +198,7 @@
 %Include auto_generated/qgsscalerangewidget.sip
 %Include auto_generated/qgsscalevisibilitydialog.sip
 %Include auto_generated/qgsscalewidget.sip
+%Include auto_generated/qgsscreenhelper.sip
 %Include auto_generated/qgsscrollarea.sip
 %Include auto_generated/qgssearchquerybuilder.sip
 %Include auto_generated/qgssubsetstringeditorinterface.sip
@@ -211,6 +215,7 @@
 %Include auto_generated/qgssublayersdialog.sip
 %Include auto_generated/qgssubstitutionlistwidget.sip
 %Include auto_generated/qgssymbolbutton.sip
+%Include auto_generated/qgstableview.sip
 %Include auto_generated/qgstablewidgetbase.sip
 %Include auto_generated/qgstablewidgetitem.sip
 %Include auto_generated/qgstabwidget.sip
@@ -227,6 +232,11 @@
 %Include auto_generated/qgsvertexmarker.sip
 %Include auto_generated/qgsvscrollarea.sip
 %Include auto_generated/qgswindowmanagerinterface.sip
+%Include auto_generated/actions/qgsactionmenu.sip
+%Include auto_generated/actions/qgsmaplayeraction.sip
+%Include auto_generated/actions/qgsmaplayeractioncontext.sip
+%Include auto_generated/actions/qgsmaplayeractioncontextgenerator.sip
+%Include auto_generated/actions/qgsmaplayeractionregistry.sip
 %Include auto_generated/annotations/qgsannotationitemcommonpropertieswidget.sip
 %Include auto_generated/annotations/qgsannotationitemguiregistry.sip
 %Include auto_generated/annotations/qgsannotationitemwidget.sip
@@ -286,6 +296,9 @@
 %Include auto_generated/codeeditors/qgscodeeditorpython.sip
 %End
 %If ( HAVE_QSCI_SIP )
+%Include auto_generated/codeeditors/qgscodeeditorr.sip
+%End
+%If ( HAVE_QSCI_SIP )
 %Include auto_generated/codeeditors/qgscodeeditorsql.sip
 %End
 %Include auto_generated/devtools/qgsdevtoolwidget.sip
@@ -319,6 +332,7 @@
 %Include auto_generated/effects/qgseffectstackpropertieswidget.sip
 %Include auto_generated/effects/qgspainteffectpropertieswidget.sip
 %Include auto_generated/effects/qgspainteffectwidget.sip
+%Include auto_generated/elevation/qgselevationprofilecanvas.sip
 %Include auto_generated/history/qgshistoryprovider.sip
 %Include auto_generated/history/qgshistoryproviderregistry.sip
 %Include auto_generated/labeling/qgslabellineanchorwidget.sip
@@ -360,12 +374,21 @@
 %Include auto_generated/numericformats/qgsnumericformatselectorwidget.sip
 %Include auto_generated/numericformats/qgsnumericformatwidget.sip
 %Include auto_generated/numericformats/qgsnumericformatguiregistry.sip
+%Include auto_generated/plot/qgsplotcanvas.sip
+%Include auto_generated/plot/qgsplotcanvasitem.sip
+%Include auto_generated/plot/qgsplotmouseevent.sip
+%Include auto_generated/plot/qgsplotrubberband.sip
+%Include auto_generated/plot/qgsplottool.sip
+%Include auto_generated/plot/qgsplottoolpan.sip
+%Include auto_generated/plot/qgsplottoolzoom.sip
+%Include auto_generated/plot/qgsplottransienttools.sip
 %Include auto_generated/pointcloud/qgspointcloudclassifiedrendererwidget.sip
 %Include auto_generated/pointcloud/qgspointcloudrendererwidget.sip
 %Include auto_generated/pointcloud/qgspointcloudrendererpropertieswidget.sip
 %Include auto_generated/processing/qgsprocessingaggregatewidgets.sip
 %Include auto_generated/processing/qgsprocessingalgorithmconfigurationwidget.sip
 %Include auto_generated/processing/qgsprocessingalgorithmdialogbase.sip
+%Include auto_generated/processing/qgsprocessingbatchalgorithmdialogbase.sip
 %Include auto_generated/processing/qgsprocessinggui.sip
 %Include auto_generated/processing/qgsprocessingguiregistry.sip
 %Include auto_generated/processing/qgsprocessinghistoryprovider.sip
@@ -386,10 +409,13 @@
 %Include auto_generated/processing/models/qgsmodelgraphicsscene.sip
 %Include auto_generated/processing/models/qgsmodelgraphicsview.sip
 %Include auto_generated/providers/qgsabstractdbsourceselect.sip
+%Include auto_generated/raster/qgsrasterattributetablewidget.sip
+%Include auto_generated/raster/qgsrasterattributetabledialog.sip
 %Include auto_generated/raster/qgscolorrampshaderwidget.sip
 %Include auto_generated/raster/qgshillshaderendererwidget.sip
 %Include auto_generated/raster/qgsmultibandcolorrendererwidget.sip
 %Include auto_generated/raster/qgspalettedrendererwidget.sip
+%Include auto_generated/raster/qgsrasterattributetablemodel.sip
 %Include auto_generated/raster/qgsrasterbandcombobox.sip
 %Include auto_generated/raster/qgsrastercontourrendererwidget.sip
 %Include auto_generated/raster/qgsrasterhistogramwidget.sip
@@ -435,6 +461,7 @@
 %Include auto_generated/symbology/qgsstylemanagerdialog.sip
 %Include auto_generated/symbology/qgsstylesavedialog.sip
 %Include auto_generated/symbology/qgssvgselectorwidget.sip
+%Include auto_generated/symbology/qgssymbolanimationsettingswidget.sip
 %Include auto_generated/symbology/qgssymbollayerwidget.sip
 %Include auto_generated/symbology/qgssymbollevelsdialog.sip
 %Include auto_generated/symbology/qgssymbolselectordialog.sip
@@ -444,5 +471,6 @@
 %Include auto_generated/settings/qgssettingsregistrygui.sip
 %Include auto_generated/tableeditor/qgstableeditordialog.sip
 %Include auto_generated/tableeditor/qgstableeditorwidget.sip
+%Include auto_generated/vectortile/qgsvectortilelayerproperties.sip
 %Include auto_generated/editorwidgets/qgsqmlwidgetwrapper.sip
 %Include auto_generated/qgsadvanceddigitizingcanvasitem.sip

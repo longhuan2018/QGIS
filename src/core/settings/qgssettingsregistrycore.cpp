@@ -15,15 +15,22 @@
 
 #include "qgssettingsregistrycore.h"
 
-#include "qgslayout.h"
-#include "qgslocator.h"
-#include "qgsnetworkaccessmanager.h"
-#include "qgsnewsfeedparser.h"
-#include "qgsprocessing.h"
 #include "qgsapplication.h"
 #include "qgsgeometryoptions.h"
+#include "qgslayout.h"
 #include "qgslocalizeddatapathregistry.h"
+#include "qgslocator.h"
 #include "qgsmaprendererjob.h"
+#include "qgsnetworkaccessmanager.h"
+#include "qgsnewsfeedparser.h"
+#include "qgsowsconnection.h"
+#include "qgsprocessing.h"
+#include "qgsogrdbconnection.h"
+#include "qgsfontmanager.h"
+#include "qgsgpsconnection.h"
+#include "qgsbabelformatregistry.h"
+#include "qgsgpslogger.h"
+
 
 QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   : QgsSettingsRegistry()
@@ -58,6 +65,9 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
 
   addSettingsEntry( &QgsMapRendererJob::settingsLogCanvasRefreshEvent );
 
+  addSettingsEntry( &QgsOgrDbConnection::settingsOgrConnectionSelected );
+  addSettingsEntry( &QgsOgrDbConnection::settingsOgrConnectionPath );
+
   addSettingsEntry( &settingsDigitizingStreamTolerance );
   addSettingsEntry( &settingsDigitizingLineWidth );
   addSettingsEntry( &settingsDigitizingLineColorRed );
@@ -71,6 +81,7 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   addSettingsEntry( &settingsDigitizingFillColorAlpha );
   addSettingsEntry( &settingsDigitizingLineGhost );
   addSettingsEntry( &settingsDigitizingDefaultZValue );
+  addSettingsEntry( &settingsDigitizingDefaultMValue );
   addSettingsEntry( &settingsDigitizingDefaultSnapEnabled );
   addSettingsEntry( &settingsDigitizingDefaultSnapMode );
   addSettingsEntry( &settingsDigitizingDefaultSnapType );
@@ -96,6 +107,36 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   addSettingsEntry( &settingsDigitizingOffsetCapStyle );
   addSettingsEntry( &settingsDigitizingOffsetShowAdvanced );
   addSettingsEntry( &settingsDigitizingTracingMaxFeatureCount );
+  addSettingsEntry( &settingsGpsBabelPath );
+  addSettingsEntry( &settingsLayerTreeShowFeatureCountForNewLayers );
+  addSettingsEntry( &settingsEnableWMSTilePrefetching );
+
+  addSettingsEntry( &QgsOwsConnection::settingsConnectionSelected );
+  addSettingsEntryGroup( &QgsOwsConnection::settingsServiceConnectionDetailsGroup );
+  addSettingsEntryGroup( &QgsOwsConnection::settingsServiceConnectionCredentialsGroup );
+
+  addSettingsEntry( &QgsFontManager::settingsFontFamilyReplacements );
+  addSettingsEntry( &QgsFontManager::settingsDownloadMissingFonts );
+
+  addSettingsEntry( &QgsGpsConnection::settingsGpsConnectionType );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdHostName );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdPortNumber );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdDeviceName );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsSerialDevice );
+  addSettingsEntry( &QgsGpsConnection::settingGpsAcquisitionInterval );
+  addSettingsEntry( &QgsGpsConnection::settingGpsDistanceThreshold );
+  addSettingsEntry( &QgsGpsConnection::settingGpsBearingFromTravelDirection );
+  addSettingsEntry( &QgsGpsConnection::settingGpsApplyLeapSecondsCorrection );
+  addSettingsEntry( &QgsGpsConnection::settingGpsLeapSeconds );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampSpecification );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampTimeZone );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampOffsetFromUtc );
+
+  addSettingsEntry( &QgsBabelFormatRegistry::settingsBabelDeviceList );
+  addSettingsEntryGroup( &QgsBabelFormatRegistry::settingsBabelDeviceGroup );
+
+  addSettingsEntry( &QgsGpsLogger::settingsGpsStoreAttributeInMValues );
+  addSettingsEntry( &QgsGpsLogger::settingsGpsMValueComponent );
 }
 
 QgsSettingsRegistryCore::~QgsSettingsRegistryCore()

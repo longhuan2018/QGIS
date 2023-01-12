@@ -779,7 +779,7 @@ bool QgisAppInterface::openFeatureForm( QgsVectorLayer *vlayer, QgsFeature &f, b
   if ( !vlayer )
     return false;
 
-  QgsFeatureAction action( tr( "Attributes changed" ), f, vlayer, QString(), -1, QgisApp::instance() );
+  QgsFeatureAction action( tr( "Attributes changed" ), f, vlayer, QUuid(), -1, QgisApp::instance() );
   if ( vlayer->isEditable() )
   {
     return action.editFeature( showModal );
@@ -901,5 +901,10 @@ void QgisAppInterface::setGpsPanelConnection( QgsGpsConnection *connection )
 QList<QgsMapDecoration *> QgisAppInterface::activeDecorations()
 {
   return qgis->activeDecorations();
+}
+
+QgsUserProfileManager *QgisAppInterface::userProfileManager()
+{
+  return qgis->userProfileManager();
 }
 
