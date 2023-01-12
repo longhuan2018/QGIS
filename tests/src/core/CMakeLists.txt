@@ -12,6 +12,10 @@ if(HAVE_OPENCL)
     include_directories(SYSTEM ${OpenCL_INCLUDE_DIRS})
 endif()
 
+if (WITH_PDAL)
+    include_directories(SYSTEM "${PDAL_INCLUDE_DIR}")
+endif()
+
 #############################################################
 # Tests:
 
@@ -51,6 +55,7 @@ set(TESTS
  testqgsdiagram.cpp
  testqgsdistancearea.cpp
  testqgsdxfexport.cpp
+ testqgselevationmap.cpp
  testqgsellipsemarker.cpp
  testqgsexpression.cpp
  testqgsexpressioncontext.cpp
@@ -86,7 +91,6 @@ set(TESTS
  testqgslayoutcontext.cpp
  testqgslayoutexporter.cpp
  testqgslayoutgeopdfexport.cpp
- testqgslayouthtml.cpp
  testqgslayoutitem.cpp
  testqgslayoutitemgroup.cpp
  testqgslayoutlabel.cpp
@@ -128,6 +132,7 @@ set(TESTS
  testqgsnetworkaccessmanager.cpp
  testqgsnetworkcontentfetcher.cpp
  testqgsnewsfeedparser.cpp
+ testqgsnmeaconnection.cpp
  testqgsofflineediting.cpp
  testqgsogcutils.cpp
  testqgsogrprovider.cpp
@@ -139,6 +144,7 @@ set(TESTS
  testqgspallabeling.cpp
  testqgspointcloudattribute.cpp
  testqgspointcloudexpression.cpp
+ testqgspointcloudlayerexporter.cpp
  testqgspointcloudrendererregistry.cpp
  testqgspointlocator.cpp
  testqgspointpatternfillsymbol.cpp
@@ -211,7 +217,9 @@ set(TESTS
 )
 
 if(WITH_QTWEBKIT)
-  set(TESTS ${TESTS})
+  set(TESTS ${TESTS}
+    testqgslayouthtml.cpp
+  )
 endif()
 
 if(HAVE_OPENCL)

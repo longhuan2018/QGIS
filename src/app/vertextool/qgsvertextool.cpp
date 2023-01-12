@@ -2189,6 +2189,26 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
 
   QgsAbstractGeometry *geomTmp = geom.constGet()->clone();
 
+  // If moving point is not 3D but destination yes, check if it can be promoted
+  if ( layerPoint.is3D() && !geomTmp->is3D() && QgsWkbTypes::hasZ( dragLayer->wkbType() ) )
+  {
+    if ( !geomTmp->addZValue( defaultZValue() ) )
+    {
+      QgsDebugMsg( QStringLiteral( "add Z value to vertex failed!" ) );
+      return;
+    }
+  }
+
+  // If moving point has not M-value but destination yes, check if it can be promoted
+  if ( layerPoint.isMeasure() && !geomTmp->isMeasure() && QgsWkbTypes::hasM( dragLayer->wkbType() ) )
+  {
+    if ( !geomTmp->addMValue( defaultMValue() ) )
+    {
+      QgsDebugMsg( QStringLiteral( "add M value to vertex failed!" ) );
+      return;
+    }
+  }
+
   // add/move vertex
   if ( addingVertex )
   {
@@ -2198,6 +2218,9 @@ void QgsVertexTool::moveVertex( const QgsPointXY &mapPoint, const QgsPointLocato
     QgsPoint pt( layerPoint );
     if ( QgsWkbTypes::hasZ( dragLayer->wkbType() ) && !pt.is3D() )
       pt.addZValue( defaultZValue() );
+
+    if ( QgsWkbTypes::hasM( dragLayer->wkbType() ) && !pt.isMeasure() )
+      pt.addMValue( defaultMValue() );
 
     if ( !geomTmp->insertVertex( vid, pt ) )
     {
@@ -2377,8 +2400,6 @@ void QgsVertexTool::applyEditsToLayers( QgsVertexTool::VertexEdits &edits )
       editor->updateEditor( mLockedFeature.get() );
   }
 
-
-
   for ( it = edits.begin() ; it != edits.end(); ++it )
   {
     QgsVectorLayer *layer = it.key();
@@ -2399,7 +2420,6 @@ void QgsVertexTool::applyEditsToLayers( QgsVertexTool::VertexEdits &edits )
           break;
       }
       QgsGeometry featGeom = it2.value();
-      layer->changeGeometry( it2.key(), featGeom );
       if ( avoidIntersectionsLayers.size() > 0 )
       {
         QHash<QgsVectorLayer *, QSet<QgsFeatureId> > ignoreFeatures;
@@ -2416,12 +2436,19 @@ void QgsVertexTool::applyEditsToLayers( QgsVertexTool::VertexEdits &edits )
           case 3:
             emit messageEmitted( tr( "At least one geometry intersected is invalid. These geometries must be manually repaired." ), Qgis::MessageLevel::Warning );
             break;
+
           default:
             break;
         }
+        // if the geometry has been changed
+        if ( avoidIntersectionsReturn != 1 && avoidIntersectionsReturn != 4 )
+        {
+          layer->changeGeometry( it2.key(), featGeom );
+          edits[layer][it2.key()] = featGeom;
+        }
+
       }
-      layer->changeGeometry( it2.key(), featGeom );
-      edits[layer][it2.key()] = featGeom;
+
     }
     layer->endEditCommand();
     layer->triggerRepaint();
@@ -2843,18 +2870,20 @@ bool QgsVertexTool::matchEdgeCenterTest( const QgsPointLocator::Match &m, const 
     return false;  // currently not supported for circular edges
 
   QgsRectangle visible_extent = canvas()->mapSettings().visibleExtent();
-  // Check if one point is inside and the other outside the visible extent in order to transpose the mid marker
-  // If both are inside or outside there is no such need
-  if ( visible_extent.contains( p0 ) != visible_extent.contains( p1 ) )
+  if ( !visible_extent.contains( p0 ) || !visible_extent.contains( p1 ) )
   {
     // clip line segment to the extent so the mid-point marker is always visible
     QgsGeometry extentGeom = QgsGeometry::fromRect( visible_extent );
     QgsGeometry lineGeom = QgsGeometry::fromPolylineXY( QgsPolylineXY() << p0 << p1 );
     lineGeom = extentGeom.intersection( lineGeom );
-    QgsPolylineXY polyline = lineGeom.asPolyline();
-    Q_ASSERT_X( polyline.count() == 2, "QgsVertexTool::matchEdgeCenterTest", QgsLineString( polyline ).asWkt().toUtf8().constData() );
-    p0 = polyline[0];
-    p1 = polyline[1];
+    // The intersection can be empty if the whole lineGeom is just outside the extent
+    if ( !lineGeom.isEmpty() )
+    {
+      QgsPolylineXY polyline = lineGeom.asPolyline();
+      Q_ASSERT_X( polyline.count() == 2, "QgsVertexTool::matchEdgeCenterTest", QgsLineString( polyline ).asWkt().toUtf8().constData() );
+      p0 = polyline[0];
+      p1 = polyline[1];
+    }
   }
 
   QgsPointXY edgeCenter( ( p0.x() + p1.x() ) / 2, ( p0.y() + p1.y() ) / 2 );

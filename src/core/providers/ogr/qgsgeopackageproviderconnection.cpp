@@ -28,6 +28,7 @@
 #include "qgsfeedback.h"
 #include "qgsogrutils.h"
 #include "qgsfielddomain.h"
+#include "qgscoordinatetransform.h"
 
 #include <QTextCodec>
 #include <QRegularExpression>
@@ -321,6 +322,7 @@ void QgsGeoPackageProviderConnection::setDefaultCapabilities()
     Capability::DeleteSpatialIndex,
     Capability::DeleteField,
     Capability::AddField,
+    Capability::RenameField,
     Capability::DropRasterTable,
     Capability::SqlLayers
   };
@@ -335,11 +337,17 @@ void QgsGeoPackageProviderConnection::setDefaultCapabilities()
   mCapabilities |= Capability::ListFieldDomains;
 #endif
 
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
+  mCapabilities |= Capability::RetrieveRelationships;
+#endif
+
   mGeometryColumnCapabilities =
   {
     GeometryColumnCapability::Z,
     GeometryColumnCapability::M,
-    GeometryColumnCapability::SinglePart,
+    GeometryColumnCapability::SingleLineString,
+    GeometryColumnCapability::SinglePoint,
+    GeometryColumnCapability::SinglePolygon,
     GeometryColumnCapability::Curves
   };
   mSqlLayerDefinitionCapabilities =
@@ -389,6 +397,118 @@ QString QgsGeoPackageProviderConnection::primaryKeyColumnName( const QString &ta
   return pkName;
 }
 
+QList<QgsLayerMetadataProviderResult> QgsGeoPackageProviderConnection::searchLayerMetadata( const QgsMetadataSearchContext &searchContext, const QString &searchString, const QgsRectangle &geographicExtent, QgsFeedback *feedback ) const
+{
+
+  QList<QgsLayerMetadataProviderResult> results;
+  if ( ! feedback || ! feedback->isCanceled() )
+  {
+    try
+    {
+      // first check if metadata tables/extension exists
+      if ( executeSql( QStringLiteral( "SELECT name FROM sqlite_master WHERE name='gpkg_metadata' AND type='table'" ), nullptr ).isEmpty() )
+      {
+        return results;
+      }
+
+      const QString searchQuery { QStringLiteral( R"SQL(
+      SELECT
+        ref.table_name, md.metadata, gc.geometry_type_name
+      FROM
+        gpkg_metadata_reference AS ref
+      JOIN
+        gpkg_metadata AS md ON md.id = ref.md_file_id
+      LEFT JOIN
+        gpkg_geometry_columns AS gc ON gc.table_name = ref.table_name
+      WHERE
+        md.md_standard_uri = 'http://mrcc.com/qgis.dtd'
+        AND ref.reference_scope = 'table'
+        AND md.md_scope = 'dataset'
+      )SQL" ) };
+
+      const QList<QVariantList> constMetadataResults { executeSql( searchQuery, feedback ) };
+      for ( const QVariantList &mdRow : std::as_const( constMetadataResults ) )
+      {
+
+        if ( feedback && feedback->isCanceled() )
+        {
+          break;
+        }
+
+        // Read MD from the XML
+        QDomDocument doc;
+        doc.setContent( mdRow[1].toString() );
+        QgsLayerMetadata layerMetadata;
+        if ( layerMetadata.readMetadataXml( doc.documentElement() ) )
+        {
+          QgsLayerMetadataProviderResult result{ layerMetadata };
+
+          QgsRectangle extents;
+
+          const auto cExtents { layerMetadata.extent().spatialExtents() };
+          for ( const auto &ext : std::as_const( cExtents ) )
+          {
+            QgsRectangle bbox {  ext.bounds.toRectangle()  };
+            QgsCoordinateTransform ct { ext.extentCrs, QgsCoordinateReferenceSystem::fromEpsgId( 4326 ), searchContext.transformContext };
+            ct.transform( bbox );
+            extents.combineExtentWith( bbox );
+          }
+
+          QgsPolygon poly;
+          poly.fromWkt( extents.asWktPolygon() );
+
+          // Filters
+          if ( ! geographicExtent.isEmpty() && ( poly.isEmpty() || ! geographicExtent.intersects( extents ) ) )
+          {
+            continue;
+          }
+
+          if ( ! searchString.trimmed().isEmpty() && ! result.contains( searchString ) )
+          {
+            continue;
+          }
+
+          result.setGeographicExtent( poly );
+          result.setStandardUri( QStringLiteral( "http://mrcc.com/qgis.dtd" ) );
+          result.setDataProviderName( QStringLiteral( "ogr" ) );
+          result.setAuthid( layerMetadata.crs().authid() );
+          result.setUri( tableUri( QString(), mdRow[0].toString() ) );
+          const QString geomType { mdRow[2].toString().toUpper() };
+          if ( geomType.contains( QStringLiteral( "POINT" ), Qt::CaseSensitivity::CaseInsensitive ) )
+          {
+            result.setGeometryType( QgsWkbTypes::GeometryType::PointGeometry );
+          }
+          else if ( geomType.contains( QStringLiteral( "POLYGON" ), Qt::CaseSensitivity::CaseInsensitive ) )
+          {
+            result.setGeometryType( QgsWkbTypes::GeometryType::PolygonGeometry );
+          }
+          else if ( geomType.contains( QStringLiteral( "LINESTRING" ), Qt::CaseSensitivity::CaseInsensitive ) )
+          {
+            result.setGeometryType( QgsWkbTypes::GeometryType::LineGeometry );
+          }
+          else
+          {
+            result.setGeometryType( QgsWkbTypes::GeometryType::UnknownGeometry );
+          }
+          result.setLayerType( QgsMapLayerType::VectorLayer );
+
+          results.push_back( result );
+        }
+        else
+        {
+          throw QgsProviderConnectionException( QStringLiteral( "Error reading XML metdadata from connection %1" ).arg( uri() ) );
+        }
+      }
+    }
+    catch ( const QgsProviderConnectionException &ex )
+    {
+      throw QgsProviderConnectionException( QStringLiteral( "Error fetching metdadata from connection %1: %2" ).arg( uri(), ex.what() ) );
+    }
+  }
+  return results;
+}
+
+
 QgsFields QgsGeoPackageProviderConnection::fields( const QString &schema, const QString &table ) const
 {
   Q_UNUSED( schema )
@@ -415,7 +535,7 @@ QgsFields QgsGeoPackageProviderConnection::fields( const QString &schema, const 
     }
     // Append name of the geometry column, the data provider does not expose this information so we need an extra query:/
     const QString sql = QStringLiteral( "SELECT g.column_name "
-                                        "FROM gpkg_contents c LEFT JOIN gpkg_geometry_columns g ON (c.table_name = g.table_name) "
+                                        "FROM gpkg_contents c CROSS JOIN gpkg_geometry_columns g ON (c.table_name = g.table_name) "
                                         "WHERE c.table_name = %1" ).arg( QgsSqliteUtils::quotedString( table ) );
     try
     {

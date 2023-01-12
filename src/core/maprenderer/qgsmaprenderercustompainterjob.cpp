@@ -20,8 +20,6 @@
 #include "qgslogger.h"
 #include "qgsmaplayerrenderer.h"
 #include "qgsmaplayerlistutils_p.h"
-#include "qgsvectorlayerlabeling.h"
-#include "qgsrasterlayerrenderer.h"
 
 #include <QtConcurrentRun>
 
@@ -55,9 +53,7 @@ void QgsMapRendererAbstractCustomPainterJob::preparePainter( QPainter *painter, 
 
   painter->setRenderHint( QPainter::Antialiasing, mSettings.testFlag( Qgis::MapSettingsFlag::Antialiasing ) );
   painter->setRenderHint( QPainter::SmoothPixmapTransform, mSettings.testFlag( Qgis::MapSettingsFlag::HighQualityImageTransforms ) );
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
   painter->setRenderHint( QPainter::LosslessImageRendering, mSettings.testFlag( Qgis::MapSettingsFlag::LosslessImageRendering ) );
-#endif
 
 #ifndef QT_NO_DEBUG
   QPaintDevice *paintDevice = painter->device();

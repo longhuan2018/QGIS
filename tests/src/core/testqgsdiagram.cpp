@@ -30,15 +30,12 @@
 #include "diagram/qgshistogramdiagram.h"
 #include "qgsdiagramrenderer.h"
 #include "qgsmaplayer.h"
-#include "qgsvectordataprovider.h"
 #include "qgsvectorlayer.h"
 #include "qgsapplication.h"
-#include "qgsproviderregistry.h"
 #include "qgsrenderer.h"
 #include "qgssinglesymbolrenderer.h"
 //qgis test includes
 #include "qgsmultirenderchecker.h"
-#include "qgspallabeling.h"
 #include "qgsproject.h"
 #include "qgsshadoweffect.h"
 #include "qgslinesymbol.h"
@@ -48,19 +45,18 @@
  * \ingroup UnitTests
  * Unit tests for the diagram renderer
  */
-class TestQgsDiagram : public QObject
+class TestQgsDiagram : public QgsTest
 {
     Q_OBJECT
 
   public:
-    TestQgsDiagram() = default;
+    TestQgsDiagram() : QgsTest( QStringLiteral( "Diagram Tests" ) ) {}
 
   private:
     bool mTestHasError =  false ;
     QgsMapSettings *mMapSettings = nullptr;
     QgsVectorLayer *mPointsLayer = nullptr;
     QString mTestDataDir;
-    QString mReport;
 
     bool imageCheck( const QString &testType );
 
@@ -102,25 +98,14 @@ class TestQgsDiagram : public QObject
       // Create map composition to draw on
       QgsProject::instance()->addMapLayer( mPointsLayer );
       mMapSettings->setLayers( QList<QgsMapLayer *>() << mPointsLayer );
-
-      mReport += QLatin1String( "<h1>Diagram Tests</h1>\n" );
     }
 
     // will be called after the last testfunction was executed.
     void cleanupTestCase()
     {
       delete mMapSettings;
-      delete mPointsLayer;
+      QgsProject::instance()->removeAllMapLayers();
 
-      const QString myReportFile = QDir::tempPath() + "/qgistest.html";
-      QFile myFile( myReportFile );
-      if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
-      {
-        QTextStream myQTextStream( &myFile );
-        myQTextStream << mReport;
-        myFile.close();
-        //QDesktopServices::openUrl( "file:///" + myReportFile );
-      }
       QgsApplication::exitQgis();
     }
 

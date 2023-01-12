@@ -81,13 +81,23 @@ class QgsOgrProviderConnection : public QgsAbstractDatabaseProviderConnection
     QgsVectorLayer *createSqlVectorLayer( const SqlVectorLayerOptions &options ) const override;
     void createVectorTable( const QString &schema, const QString &name, const QgsFields &fields, QgsWkbTypes::Type wkbType, const QgsCoordinateReferenceSystem &srs, bool overwrite, const QMap<QString, QVariant> *options ) const override;
     void dropVectorTable( const QString &schema, const QString &name ) const override;
+    void vacuum( const QString &schema, const QString &name ) const override;
     QList<QgsVectorDataProvider::NativeType> nativeTypes() const override;
     QStringList fieldDomainNames() const override;
     QList< Qgis::FieldDomainType > supportedFieldDomainTypes() const override;
     QgsFieldDomain *fieldDomain( const QString &name ) const override;
     void setFieldDomainName( const QString &fieldName, const QString &schema, const QString &tableName, const QString &domainName ) const override;
     void addFieldDomain( const QgsFieldDomain &domain, const QString &schema ) const override;
+    void renameField( const QString &schema, const QString &tableName, const QString &name, const QString &newName ) const override;
     SqlVectorLayerOptions sqlOptions( const QString &layerSource ) override;
+    QList< Qgis::RelationshipCardinality > supportedRelationshipCardinalities() const override;
+    QList< Qgis::RelationshipStrength > supportedRelationshipStrengths() const override;
+    Qgis::RelationshipCapabilities supportedRelationshipCapabilities() const override;
+    QStringList relatedTableTypes() const override;
+    QList< QgsWeakRelation > relationships( const QString &schema = QString(), const QString &tableName = QString() ) const override;
+    void addRelationship( const QgsWeakRelation &relationship ) const override;
+    void updateRelationship( const QgsWeakRelation &relationship ) const override;
+    void deleteRelationship( const QgsWeakRelation &relationship ) const override;
 
   protected:
 
@@ -101,8 +111,12 @@ class QgsOgrProviderConnection : public QgsAbstractDatabaseProviderConnection
     QueryResult executeGdalSqlPrivate( const QString &sql, QgsFeedback *feedback = nullptr ) const;
 
   private:
+    QString mDriverName;
     bool mSingleTableDataset = false;
-
+    QList< Qgis::RelationshipCardinality > mSupportedRelationshipCardinality;
+    QList< Qgis::RelationshipStrength > mSupportedRelationshipStrength;
+    Qgis::RelationshipCapabilities mRelationshipCapabilities;
+    QStringList mRelatedTableTypes;
 };
 
 

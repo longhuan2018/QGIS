@@ -17,7 +17,6 @@
 #include "qgsexception.h"
 #include "qgsfeatureiterator.h"
 #include "qgsgeometryvalidator.h"
-#include "qgslayertreeview.h"
 #include "qgslinestring.h"
 #include "qgslogger.h"
 #include "qgsmapcanvas.h"
@@ -30,12 +29,12 @@
 #include "qgsvertexmarker.h"
 #include "qgssettingsregistrycore.h"
 #include "qgsapplication.h"
-#include "qgsadvanceddigitizingdockwidget.h"
 #include "qgsproject.h"
 #include "qgsmaptoolcapturerubberband.h"
 #include "qgsmaptoolshapeabstract.h"
 #include "qgsmaptoolshaperegistry.h"
-#include "qgsgui.h"
+#include "qgssnappingutils.h"
+#include "qgsadvanceddigitizingdockwidget.h"
 
 #include <QAction>
 #include <QCursor>
@@ -281,17 +280,31 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
     return false;
 
   QgsTracer::PathError err;
-  QVector<QgsPointXY> points = tracer->findShortestPath( pt0, point, &err );
-  if ( points.isEmpty() )
+  const QVector<QgsPointXY> tracedPointsInMapCrs = tracer->findShortestPath( pt0, point, &err );
+  if ( tracedPointsInMapCrs.isEmpty() )
     return false; // ignore the vertex - can't find path to the end point!
 
   // transform points
   QgsPointSequence layerPoints;
-  QgsPoint lp; // in layer coords
-  for ( int i = 0; i < points.count(); ++i )
+  layerPoints.reserve( tracedPointsInMapCrs.size() );
+  QgsPointSequence mapPoints;
+  mapPoints.reserve( tracedPointsInMapCrs.size() );
+  for ( const QgsPointXY &tracedPointMapCrs : tracedPointsInMapCrs )
   {
-    if ( nextPoint( QgsPoint( points[i] ), lp ) != 0 )
+    QgsPoint mapPoint( tracedPointMapCrs );
+
+    QgsPoint lp; // in layer coords
+    if ( nextPoint( mapPoint, lp ) != 0 )
       return false;
+
+    // copy z and m from layer point back to mapPoint, as nextPoint() call will populate these based
+    // on the context of the trace
+    if ( lp.is3D() )
+      mapPoint.addZValue( lp.z() );
+    if ( lp.isMeasure() )
+      mapPoint.addMValue( lp.m() );
+
+    mapPoints << mapPoint;
     layerPoints << lp;
   }
 
@@ -302,7 +315,7 @@ bool QgsMapToolCapture::tracingAddVertex( const QgsPointXY &point )
   mSnappingMatches.append( QgsPointLocator::Match() );
 
   int pointBefore = mCaptureCurve.numPoints();
-  addCurve( new QgsLineString( layerPoints ) );
+  addCurve( new QgsLineString( mapPoints ) );
 
   resetRubberBand();
 
@@ -451,7 +464,8 @@ void QgsMapToolCapture::setCurrentShapeMapTool( const QgsMapToolShapeMetadata *s
   if ( mCurrentCaptureTechnique == Qgis::CaptureTechnique::Shape && isActive() )
   {
     clean();
-    mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
+    if ( mCurrentShapeMapTool )
+      mCurrentShapeMapTool->activate( mCaptureMode, mCaptureLastPoint );
   }
 }
 
@@ -467,7 +481,7 @@ void QgsMapToolCapture::cadCanvasMoveEvent( QgsMapMouseEvent *e )
   {
     if ( !mCurrentShapeMapTool )
     {
-      emit messageEmitted( tr( "Cannot capture a shape without a shape tool defined" ), Qgis::MessageLevel::Warning );
+      emit messageEmitted( tr( "Select an option from the Shape Digitizing Toolbar in order to capture shapes" ), Qgis::MessageLevel::Warning );
     }
     else
     {
@@ -601,11 +615,15 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
   {
     return 1;
   }
-  else
+
+  if ( match.isValid() && sourceLayer )
   {
-    if ( match.isValid() && ( match.hasVertex() || match.hasLineEndpoint() || ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) ) ) && sourceLayer &&
-         ( sourceLayer->crs() == vlayer->crs() ) )
+    if ( ( match.hasVertex() || match.hasLineEndpoint() ) )
     {
+      if ( sourceLayer->crs() != vlayer->crs() )
+      {
+        return 1;
+      }
       QgsFeature f;
       QgsFeatureRequest request;
       request.setFilterFid( match.featureId() );
@@ -614,26 +632,14 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
       {
         QgsVertexId vId;
         if ( !f.geometry().vertexIdFromVertexNr( match.vertexIndex(), vId ) )
+        {
           return 2;
-
-        const QgsGeometry geom( f.geometry() );
-        if ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) )
-        {
-          QgsVertexId vId2;
-          if ( !f.geometry().vertexIdFromVertexNr( match.vertexIndex() + 1, vId2 ) )
-            return 2;
-          const QgsLineString line( geom.constGet()->vertexAt( vId ), geom.constGet()->vertexAt( vId2 ) );
-
-          layerPoint = QgsGeometryUtils::closestPoint( line,  QgsPoint( match.point() ) );
         }
-        else
-        {
-          layerPoint = geom.constGet()->vertexAt( vId );
-          if ( QgsWkbTypes::hasZ( vlayer->wkbType() ) && !layerPoint.is3D() )
-            layerPoint.addZValue( defaultZValue() );
-          if ( QgsWkbTypes::hasM( vlayer->wkbType() ) && !layerPoint.isMeasure() )
-            layerPoint.addMValue( defaultMValue() );
-        }
+        layerPoint = f.geometry().constGet()->vertexAt( vId );
+        if ( QgsWkbTypes::hasZ( vlayer->wkbType() ) && !layerPoint.is3D() )
+          layerPoint.addZValue( defaultZValue() );
+        if ( QgsWkbTypes::hasM( vlayer->wkbType() ) && !layerPoint.isMeasure() )
+          layerPoint.addMValue( defaultMValue() );
 
         // ZM support depends on the target layer
         if ( !QgsWkbTypes::hasZ( vlayer->wkbType() ) )
@@ -648,16 +654,15 @@ int QgsMapToolCapture::fetchLayerPoint( const QgsPointLocator::Match &match, Qgs
 
         return 0;
       }
-      else
-      {
-        return 2;
-      }
+      return 2;
     }
-    else
+    else if ( QgsProject::instance()->topologicalEditing() && ( match.hasEdge() || match.hasMiddleSegment() ) )
     {
-      return 1;
+      layerPoint = toLayerCoordinates( vlayer, match.interpolatedPoint( mCanvas->mapSettings().destinationCrs() ) );
+      return 0;
     }
   }
+  return 2;
 }
 
 int QgsMapToolCapture::addVertex( const QgsPointXY &point )
@@ -1297,7 +1302,7 @@ void QgsMapToolCapture::cadCanvasReleaseEvent( QgsMapMouseEvent *e )
     {
       if ( !mCurrentShapeMapTool )
       {
-        emit messageEmitted( tr( "Cannot capture a shape without a shape tool defined" ), Qgis::MessageLevel::Warning );
+        emit messageEmitted( tr( "Select an option from the Shape Digitizing Toolbar in order to capture shapes" ), Qgis::MessageLevel::Warning );
         return;
       }
       else

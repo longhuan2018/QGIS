@@ -543,7 +543,8 @@ void QgsProcessingExec::showUsage( const QString &appName )
       << "\trun\t\truns an algorithm. The algorithm id or a path to a model file and parameter values must be specified. Parameter values are specified after -- with PARAMETER=VALUE syntax. Ordered list values for a parameter can be created by specifying the parameter multiple times, e.g. --LAYERS=layer1.shp --LAYERS=layer2.shp\n"
       << "\t\t\tAlternatively, a '-' character in place of the parameters argument indicates that the parameters should be read from STDIN as a JSON object. The JSON should be structured as a map containing at least the \"inputs\" key specifying a map of input parameter values. This implies the --json option for output as a JSON object.\n"
       << "\t\t\tIf required, the ellipsoid to use for distance and area calculations can be specified via the \"--ELLIPSOID=name\" argument.\n"
-      << "\t\t\tIf required, an existing QGIS project to use during the algorithm execution can be specified via the \"--PROJECT_PATH=path\" argument.\n";
+      << "\t\t\tIf required, an existing QGIS project to use during the algorithm execution can be specified via the \"--PROJECT_PATH=path\" argument.\n"
+      << "\t\t\tWhen passing parameters as a JSON object from STDIN, these extra arguments can be provided as an \"ellipsoid\" and a \"project_path\" key respectively.\n";
 
   std::cout << msg.join( QString() ).toLocal8Bit().constData();
 }
@@ -1085,16 +1086,15 @@ int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &param
     }
   }
 
-  std::unique_ptr< QgsProject > project;
+  QgsProject *project = nullptr;
   if ( !projectPath.isEmpty() )
   {
-    project = std::make_unique< QgsProject >();
+    project = QgsProject::instance();
     if ( !project->read( projectPath ) )
     {
       std::cerr << QStringLiteral( "Could not load the QGIS project \"%1\"\n" ).arg( projectPath ).toLocal8Bit().constData();
       return 1;
     }
-    QgsProject::setInstance( project.get() );
     json.insert( QStringLiteral( "project_path" ), projectPath );
   }
 
@@ -1144,7 +1144,8 @@ int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &param
   context.setEllipsoid( ellipsoid );
   context.setDistanceUnit( distanceUnit );
   context.setAreaUnit( areaUnit );
-  context.setProject( project.get() );
+  if ( project )
+    context.setProject( project );
   context.setLogLevel( logLevel );
 
   const QgsProcessingParameterDefinitions defs = alg->parameterDefinitions();

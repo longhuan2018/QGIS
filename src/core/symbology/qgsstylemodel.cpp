@@ -20,13 +20,11 @@
 #include "qgssvgcache.h"
 #include "qgsimagecache.h"
 #include "qgsexpressioncontextutils.h"
+#include "qgscombinedstylemodel.h"
+
 #include <QIcon>
 #include <QBuffer>
 #include <QDir>
-
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
-#include "qgscombinedstylemodel.h"
-#endif
 
 const double ICON_PADDING_FACTOR = 0.16;
 
@@ -607,7 +605,6 @@ void QgsStyleModel::setIconGenerator( QgsAbstractStyleEntityIconGenerator *gener
 void QgsStyleModel::onEntityAdded( QgsStyle::StyleEntity type, const QString &name )
 {
   mIconCache[ type ].remove( name );
-  const QStringList oldSymbolNames = mEntityNames[ type ];
   const QStringList newSymbolNames = mStyle->allNames( type );
 
   // find index of newly added symbol
@@ -814,7 +811,6 @@ QgsStyleProxyModel::QgsStyleProxyModel( QgsStyleModel *model, QObject *parent )
   initialize();
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
 QgsStyleProxyModel::QgsStyleProxyModel( QgsCombinedStyleModel *model, QObject *parent )
   : QSortFilterProxyModel( parent )
   , mCombinedModel( model )
@@ -822,7 +818,6 @@ QgsStyleProxyModel::QgsStyleProxyModel( QgsCombinedStyleModel *model, QObject *p
   setSourceModel( mCombinedModel );
   initialize();
 }
-#endif
 
 bool QgsStyleProxyModel::filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const
 {
@@ -951,10 +946,8 @@ void QgsStyleProxyModel::addDesiredIconSize( QSize size )
 {
   if ( mModel )
     mModel->addDesiredIconSize( size );
-#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
   if ( mCombinedModel )
     mCombinedModel->addDesiredIconSize( size );
-#endif
 }
 
 bool QgsStyleProxyModel::symbolTypeFilterEnabled() const
@@ -1072,4 +1065,3 @@ void QgsStyleProxyModel::setEntityFilters( const QList<QgsStyle::StyleEntity> &f
   mEntityFilters = filters;
   invalidateFilter();
 }
-

@@ -19,7 +19,13 @@
 #include <QVector4D>
 #include <Qt3DRender/QObjectPicker>
 #include <Qt3DRender/QPickTriangleEvent>
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 #include <Qt3DRender/QBuffer>
+typedef Qt3DRender::QBuffer Qt3DQBuffer;
+#else
+#include <Qt3DCore/QBuffer>
+typedef Qt3DCore::QBuffer Qt3DQBuffer;
+#endif
 
 #include "qgs3dutils.h"
 #include "qgschunkboundsentity_p.h"
@@ -528,6 +534,14 @@ void QgsChunkedEntity::onActiveJobFinished()
 
     if ( entity )
     {
+      // The returned QEntity is initially enabled, so let's add it to active nodes too.
+      // Soon afterwards updateScene() will be called, which would remove it from the scene
+      // if the node should not be shown anymore. Ideally entities should be initially disabled,
+      // but there seems to be a bug in Qt3D - if entity is disabled initially, showing it
+      // by setting setEnabled(true) is not reliable (entity eventually gets shown, but only after
+      // some more changes in the scene) - see https://github.com/qgis/QGIS/issues/48334
+      mActiveNodes << node;
+
       // load into node (should be in main thread again)
       node->setLoaded( entity );
 
@@ -717,7 +731,7 @@ void QgsChunkedEntity::onPickEvent( Qt3DRender::QPickEvent *event )
 double QgsChunkedEntity::calculateEntityGpuMemorySize( Qt3DCore::QEntity *entity )
 {
   long long usedGpuMemory = 0;
-  for ( Qt3DRender::QBuffer *buffer : entity->findChildren<Qt3DRender::QBuffer *>() )
+  for ( Qt3DQBuffer *buffer : entity->findChildren<Qt3DQBuffer *>() )
   {
     usedGpuMemory += buffer->data().size();
   }

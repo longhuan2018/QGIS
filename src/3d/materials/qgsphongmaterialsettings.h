@@ -18,16 +18,8 @@
 
 #include "qgis_3d.h"
 #include "qgsabstractmaterialsettings.h"
-#include "qgspropertycollection.h"
 
 #include <QColor>
-
-#ifndef SIP_RUN
-namespace Qt3DRender
-{
-  class QGeometry;
-}
-#endif //SIP_RUN
 
 class QDomElement;
 
@@ -91,7 +83,7 @@ class _3D_EXPORT QgsPhongMaterialSettings : public QgsAbstractMaterialSettings
     void setShininess( float shininess ) { mShininess = shininess; }
 
     /**
-     * Sets shininess of the surface
+     * Sets opacity of the surface
      * \since QGIS 3.26
      */
     void setOpacity( float opacity ) { mOpacity = opacity; }
@@ -107,7 +99,11 @@ class _3D_EXPORT QgsPhongMaterialSettings : public QgsAbstractMaterialSettings
 
     QByteArray dataDefinedVertexColorsAsByte( const QgsExpressionContext &expressionContext ) const override;
     int dataDefinedByteStride() const override;
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     void applyDataDefinedToGeometry( Qt3DRender::QGeometry *geometry, int vertexCount, const QByteArray &data ) const override;
+#else
+    void applyDataDefinedToGeometry( Qt3DCore::QGeometry *geometry, int vertexCount, const QByteArray &data ) const override;
+#endif
 #endif
 
     // TODO c++20 - replace with = default
@@ -115,6 +111,7 @@ class _3D_EXPORT QgsPhongMaterialSettings : public QgsAbstractMaterialSettings
     {
       return mAmbient == other.mAmbient &&
              mDiffuse == other.mDiffuse &&
+             mOpacity == other.mOpacity &&
              mSpecular == other.mSpecular &&
              mShininess == other.mShininess;
     }

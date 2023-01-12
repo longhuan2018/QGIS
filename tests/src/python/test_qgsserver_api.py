@@ -90,9 +90,9 @@ class QgsServerAPIUtilsTest(QgsServerTestBase):
         crss = QgsServerApiUtils.publishedCrsList(project)
         self.assertTrue('http://www.opengis.net/def/crs/OGC/1.3/CRS84' in crss)
         self.assertTrue(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/3857' in crss)
+            'http://www.opengis.net/def/crs/EPSG/0/3857' in crss)
         self.assertTrue(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/4326' in crss)
+            'http://www.opengis.net/def/crs/EPSG/0/4326' in crss)
 
     def test_parse_crs(self):
         crs = QgsServerApiUtils.parseCrs(
@@ -100,11 +100,11 @@ class QgsServerAPIUtilsTest(QgsServerTestBase):
         self.assertTrue(crs.isValid())
 
         crs = QgsServerApiUtils.parseCrs(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/4326')
+            'http://www.opengis.net/def/crs/EPSG/0/4326')
         self.assertEqual(crs.postgisSrid(), 4326)
 
         crs = QgsServerApiUtils.parseCrs(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/3857')
+            'http://www.opengis.net/def/crs/EPSG/0/3857')
         self.assertTrue(crs.isValid())
         self.assertEqual(crs.postgisSrid(), 3857)
 
@@ -552,7 +552,7 @@ class QgsServerAPITest(QgsServerAPITestBase):
         project = QgsProject()
         project.read(os.path.join(self.temporary_path, 'qgis_server', 'test_project_api.qgs'))
         encoded_crs = parse.quote(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/3857', safe='')
+            'http://www.opengis.net/def/crs/EPSG/0/3857', safe='')
         request = QgsBufferServerRequest(
             'http://server.qgis.org/wfs3/collections/testlayer%20èé/items?crs={}'.format(encoded_crs))
         self.compareApi(
@@ -564,7 +564,7 @@ class QgsServerAPITest(QgsServerAPITestBase):
         project.read(os.path.join(self.temporary_path, 'qgis_server',
                                   'test_project_wms_grouped_nested_layers.qgs'))
         encoded_crs = parse.quote(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/4326', safe='')
+            'http://www.opengis.net/def/crs/EPSG/0/4326', safe='')
         request = QgsBufferServerRequest(
             'http://server.qgis.org/wfs3/collections/as-areas-short-name/items?crs={}'.format(encoded_crs))
         self.compareApi(
@@ -576,7 +576,7 @@ class QgsServerAPITest(QgsServerAPITestBase):
         project.read(os.path.join(self.temporary_path, 'qgis_server',
                                   'test_project_wms_grouped_nested_layers.qgs'))
         encoded_crs = parse.quote(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/3857', safe='')
+            'http://www.opengis.net/def/crs/EPSG/0/3857', safe='')
         request = QgsBufferServerRequest(
             'http://server.qgis.org/wfs3/collections/as-areas-short-name/items?crs={}'.format(encoded_crs))
         self.compareApi(
@@ -645,7 +645,7 @@ class QgsServerAPITest(QgsServerAPITestBase):
 
         # Test with a different CRS
         encoded_crs = parse.quote(
-            'http://www.opengis.net/def/crs/EPSG/9.6.2/3857', safe='')
+            'http://www.opengis.net/def/crs/EPSG/0/3857', safe='')
         request = QgsBufferServerRequest(
             'http://server.qgis.org/wfs3/collections/testlayer%20èé/items?bbox=913191,5606014,913234,5606029&bbox-crs={}'.format(
                 encoded_crs))
@@ -1140,8 +1140,9 @@ class QgsServerAPITest(QgsServerAPITestBase):
             'http://server.qgis.org/wfs3/collections/testlayer%20èé/items?properties')
         response = QgsBufferServerResponse()
         self.server.handleRequest(request, response, project)
-        self.assertEqual(bytes(response.body()).decode('utf8'),
-                         '[{"code":"Bad request error","description":"Argument \'properties\' is not valid. Comma separated list of feature property names to be added to the result. Valid values: \'id\', \'name\', \'utf8nameè\'"}]')
+        self.assertIn(bytes(response.body()).decode('utf8'), (
+            '[{"code":"Bad request error","description":"Argument \'properties\' is not valid. Comma separated list of feature property names to be added to the result. Valid values: \'id\', \'utf8nameè\', \'name\'"}]',
+            '[{"code":"Bad request error","description":"Argument \'properties\' is not valid. Comma separated list of feature property names to be added to the result. Valid values: \'id\', \'name\', \'utf8nameè\'"}]'))
 
         # Valid request
         response = QgsBufferServerResponse()
@@ -1204,6 +1205,62 @@ class QgsServerAPITest(QgsServerAPITestBase):
         response = QgsBufferServerResponse()
         self.server.handleRequest(request, response, project)
         self.assertEqual(bytes(response.body()).decode('utf-8'), '[{"code":"Internal server error","description":"Invalid feature ID [xYz@]"}]')
+
+    def test_wfs3_field_alias(self):
+
+        project = QgsProject()
+        project.read(os.path.join(self.temporary_path, 'qgis_server', 'test_project_api.qgs'))
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual(list(j_response['features'][0]['properties'].keys()), ['alias_id', 'alias_name', 'utf8nameè'])
+
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?properties=alias_name')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual(list(j_response['features'][0]['properties'].keys()), ['alias_name'])
+
+        # Also accepts real name
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?properties=name')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual(list(j_response['features'][0]['properties'].keys()), ['alias_name'])
+
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?sortby=alias_name&sortdesc=1')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual([f['id'] for f in j_response['features']], ['1', '2', '0'])
+
+        # Also accepts real name
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?sortby=name&sortdesc=1')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual([f['id'] for f in j_response['features']], ['1', '2', '0'])
+
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?alias_name=th*')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual([f['id'] for f in j_response['features']], ['2'])
+
+        # Also accepts real name
+        request = QgsBufferServerRequest(
+            'http://server.qgis.org/wfs3/collections/fields_alias/items.geojson?name=th*')
+        response = QgsBufferServerResponse()
+        self.server.handleRequest(request, response, project)
+        j_response = json.loads(bytes(response.body()).decode('utf8'))
+        self.assertEqual([f['id'] for f in j_response['features']], ['2'])
 
     def test_wfs3_time_filters_ranges(self):
         """Test datetime filters"""
@@ -1978,7 +2035,7 @@ class QgsServerOgcAPITest(QgsServerAPITestBase):
         self.assertTrue(
             h2.templatePath(ctx).endswith('/resources/server/api/ogc/templates/services/api2/handlerTwo.html'))
 
-        del(project)
+        del project
 
     def testOgcApiHandlerContentType(self):
         """Test OGC API Handler content types"""
@@ -2029,7 +2086,7 @@ class QgsServerOgcAPITest(QgsServerAPITestBase):
             'http://localhost:8000/project/7ecb/wfs3/collections/zg.grundnutzung.html')
         self.assertEqual(h3.contentTypeFromRequest(req), QgsServerOgcApi.HTML)
 
-        del(project)
+        del project
 
     def testOgcApiHandlerException(self):
         """Test OGC API Handler exception"""
@@ -2061,7 +2118,7 @@ class QgsServerOgcAPITest(QgsServerAPITestBase):
         self.assertEqual(
             str(ex.exception), "UTF-8 Exception 2 $ù~à^£")
 
-        del(project)
+        del project
 
     def test_path_capture(self):
         """Test issue GH #45439"""

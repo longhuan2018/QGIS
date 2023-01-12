@@ -26,14 +26,12 @@
 #include "qgspainteffectregistry.h"
 #include "qgsapplication.h"
 #include "qgspathresolver.h"
-#include "qgsproject.h"
 #include "qgsogcutils.h"
 #include "qgslogger.h"
 #include "qgsreadwritecontext.h"
 #include "qgsrendercontext.h"
 #include "qgsunittypes.h"
 #include "qgsexpressioncontextutils.h"
-#include "qgseffectstack.h"
 #include "qgsstyleentityvisitor.h"
 #include "qgsrenderer.h"
 #include "qgsxmlutils.h"
@@ -58,6 +56,7 @@
 #include <QUrlQuery>
 #include <QMimeData>
 #include <QRegularExpression>
+#include <QDir>
 
 #define POINTS_TO_MM 2.83464567
 
@@ -553,7 +552,7 @@ QPointF QgsSymbolLayerUtils::toPoint( const QVariant &value, bool *ok )
   if ( ok )
     *ok = false;
 
-  if ( value.isNull() )
+  if ( QgsVariantUtils::isNull( value ) )
     return QPoint();
 
   if ( value.type() == QVariant::List )
@@ -617,7 +616,7 @@ QSizeF QgsSymbolLayerUtils::toSize( const QVariant &value, bool *ok )
   if ( ok )
     *ok = false;
 
-  if ( value.isNull() )
+  if ( QgsVariantUtils::isNull( value ) )
     return QSizeF();
 
   if ( value.type() == QVariant::List )
@@ -980,7 +979,7 @@ QPicture QgsSymbolLayerUtils::symbolLayerPreviewPicture( const QgsSymbolLayer *l
   return picture;
 }
 
-QIcon QgsSymbolLayerUtils::symbolLayerPreviewIcon( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit u, QSize size, const QgsMapUnitScale &, Qgis::SymbolType parentSymbolType )
+QIcon QgsSymbolLayerUtils::symbolLayerPreviewIcon( const QgsSymbolLayer *layer, QgsUnitTypes::RenderUnit u, QSize size, const QgsMapUnitScale &, Qgis::SymbolType parentSymbolType, QgsMapLayer *mapLayer )
 {
   QPixmap pixmap( size );
   pixmap.fill( Qt::transparent );
@@ -992,7 +991,7 @@ QIcon QgsSymbolLayerUtils::symbolLayerPreviewIcon( const QgsSymbolLayer *layer, 
   renderContext.setFlag( Qgis::RenderContextFlag::HighQualityImageTransforms );
   // build a minimal expression context
   QgsExpressionContext expContext;
-  expContext.appendScopes( QgsExpressionContextUtils::globalProjectLayerScopes( nullptr ) );
+  expContext.appendScopes( QgsExpressionContextUtils::globalProjectLayerScopes( mapLayer ) );
   renderContext.setExpressionContext( expContext );
 
   QgsSymbolRenderContext symbolContext( renderContext, u, 1.0, false, Qgis::SymbolRenderHints(), nullptr );
@@ -1845,8 +1844,23 @@ bool QgsSymbolLayerUtils::needLinePatternFill( QDomElement &element )
 
 bool QgsSymbolLayerUtils::needPointPatternFill( QDomElement &element )
 {
-  Q_UNUSED( element )
-  return false;
+  const QDomElement fillElem = element.firstChildElement( QStringLiteral( "Fill" ) );
+  if ( fillElem.isNull() )
+    return false;
+
+  const QDomElement graphicFillElem = fillElem.firstChildElement( QStringLiteral( "GraphicFill" ) );
+  if ( graphicFillElem.isNull() )
+    return false;
+
+  const QDomElement graphicElem = graphicFillElem.firstChildElement( QStringLiteral( "Graphic" ) );
+  if ( graphicElem.isNull() )
+    return false;
+
+  const QDomElement markElem = graphicElem.firstChildElement( QStringLiteral( "Mark" ) );
+  if ( markElem.isNull() )
+    return false;
+
+  return true;
 }
 
 bool QgsSymbolLayerUtils::needSvgFill( QDomElement &element )
@@ -2981,17 +2995,27 @@ bool QgsSymbolLayerUtils::createExpressionElement( QDomDocument &doc, QDomElemen
 
 bool QgsSymbolLayerUtils::createFunctionElement( QDomDocument &doc, QDomElement &element, const QString &function )
 {
-  // let's use QgsExpression to generate the SLD for the function
-  const QgsExpression expr( function );
-  if ( expr.hasParserError() )
+  // else rule is not a valid expression
+  if ( function == QLatin1String( "ELSE" ) )
   {
-    element.appendChild( doc.createComment( "Parser Error: " + expr.parserErrorString() + " - Expression was: " + function ) );
-    return false;
-  }
-  const QDomElement filterElem = QgsOgcUtils::expressionToOgcFilter( expr, doc );
-  if ( !filterElem.isNull() )
+    const QDomElement filterElem = QgsOgcUtils::elseFilterExpression( doc );
     element.appendChild( filterElem );
-  return true;
+    return true;
+  }
+  else
+  {
+    // let's use QgsExpression to generate the SLD for the function
+    const QgsExpression expr( function );
+    if ( expr.hasParserError() )
+    {
+      element.appendChild( doc.createComment( "Parser Error: " + expr.parserErrorString() + " - Expression was: " + function ) );
+      return false;
+    }
+    const QDomElement filterElem = QgsOgcUtils::expressionToOgcFilter( expr, doc );
+    if ( !filterElem.isNull() )
+      element.appendChild( filterElem );
+    return true;
+  }
 }
 
 bool QgsSymbolLayerUtils::functionFromSldElement( QDomElement &element, QString &function )
@@ -3171,19 +3195,6 @@ QVariantMap QgsSymbolLayerUtils::parseProperties( const QDomElement &element )
 void QgsSymbolLayerUtils::saveProperties( QVariantMap props, QDomDocument &doc, QDomElement &element )
 {
   element.appendChild( QgsXmlUtils::writeVariant( props, doc ) );
-
-  // -----
-  // let's do this to try to keep some backward compatibility
-  // to open a project saved on 3.18+ in QGIS <= 3.16
-  // TODO QGIS 4: remove
-  for ( QVariantMap::iterator it = props.begin(); it != props.end(); ++it )
-  {
-    QDomElement propEl = doc.createElement( QStringLiteral( "prop" ) );
-    propEl.setAttribute( QStringLiteral( "k" ), it.key() );
-    propEl.setAttribute( QStringLiteral( "v" ), it.value().toString() );
-    element.appendChild( propEl );
-  }
-  // -----
 }
 
 QgsSymbolMap QgsSymbolLayerUtils::loadSymbols( QDomElement &element, const QgsReadWriteContext &context )
@@ -3694,34 +3705,17 @@ bool QgsSymbolLayerUtils::saveColorsToGpl( QFile &file, const QString &paletteNa
   }
 
   QTextStream stream( &file );
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-  stream << "GIMP Palette" << endl;
-#else
   stream << "GIMP Palette" << Qt::endl;
-#endif
   if ( paletteName.isEmpty() )
   {
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    stream << "Name: QGIS Palette" << endl;
-#else
     stream << "Name: QGIS Palette" << Qt::endl;
-#endif
   }
   else
   {
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    stream << "Name: " << paletteName << endl;
-#else
     stream << "Name: " << paletteName << Qt::endl;
-#endif
   }
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-  stream << "Columns: 4" << endl;
-  stream << '#' << endl;
-#else
   stream << "Columns: 4" << Qt::endl;
   stream << '#' << Qt::endl;
-#endif
 
   for ( QgsNamedColorList::ConstIterator colorIt = colors.constBegin(); colorIt != colors.constEnd(); ++colorIt )
   {
@@ -3731,11 +3725,7 @@ bool QgsSymbolLayerUtils::saveColorsToGpl( QFile &file, const QString &paletteNa
       continue;
     }
     stream << QStringLiteral( "%1 %2 %3" ).arg( color.red(), 3 ).arg( color.green(), 3 ).arg( color.blue(), 3 );
-#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
-    stream << "\t" << ( ( *colorIt ).second.isEmpty() ? color.name() : ( *colorIt ).second ) << endl;
-#else
     stream << "\t" << ( ( *colorIt ).second.isEmpty() ? color.name() : ( *colorIt ).second ) << Qt::endl;
-#endif
   }
   file.close();
 
@@ -5017,18 +5007,34 @@ double QgsSymbolLayerUtils::rendererFrameRate( const QgsFeatureRenderer *rendere
   return visitor.refreshRate;
 }
 
-QgsSymbol *QgsSymbolLayerUtils::restrictedSizeSymbol( const QgsSymbol *s, double minSize, double maxSize, QgsRenderContext *context, double &width, double &height )
+QgsSymbol *QgsSymbolLayerUtils::restrictedSizeSymbol( const QgsSymbol *s, double minSize, double maxSize, QgsRenderContext *context, double &width, double &height, bool *ok )
 {
   if ( !s || !context )
   {
-    return 0;
+    return nullptr;
   }
+
+  if ( ok )
+    *ok = true;
 
   double size;
   const QgsMarkerSymbol *markerSymbol = dynamic_cast<const QgsMarkerSymbol *>( s );
   const QgsLineSymbol *lineSymbol = dynamic_cast<const QgsLineSymbol *>( s );
   if ( markerSymbol )
   {
+    const QgsSymbolLayerList sls = s->symbolLayers();
+    for ( const QgsSymbolLayer *sl : std::as_const( sls ) )
+    {
+      // geometry generators involved, there is no way to get a restricted size symbol
+      if ( sl->type() != Qgis::SymbolType::Marker )
+      {
+        if ( ok )
+          *ok = false;
+
+        return nullptr;
+      }
+    }
+
     size = markerSymbol->size( *context );
   }
   else if ( lineSymbol )
@@ -5037,7 +5043,10 @@ QgsSymbol *QgsSymbolLayerUtils::restrictedSizeSymbol( const QgsSymbol *s, double
   }
   else
   {
-    return 0; //not size restriction implemented for other symbol types
+    if ( ok )
+      *ok = false;
+
+    return nullptr; //not size restriction implemented for other symbol types
   }
 
   size /= context->scaleFactor();
@@ -5052,7 +5061,8 @@ QgsSymbol *QgsSymbolLayerUtils::restrictedSizeSymbol( const QgsSymbol *s, double
   }
   else
   {
-    return 0;
+    // no need to restricted size symbol
+    return nullptr;
   }
 
   if ( markerSymbol )
@@ -5072,7 +5082,8 @@ QgsSymbol *QgsSymbolLayerUtils::restrictedSizeSymbol( const QgsSymbol *s, double
     height = size;
     return ls;
   }
-  return 0;
+
+  return nullptr;
 }
 
 QgsStringMap QgsSymbolLayerUtils::evaluatePropertiesMap( const QMap<QString, QgsProperty> &propertiesMap, const QgsExpressionContext &context )
@@ -5085,4 +5096,3 @@ QgsStringMap QgsSymbolLayerUtils::evaluatePropertiesMap( const QMap<QString, Qgs
   }
   return properties;
 }
-

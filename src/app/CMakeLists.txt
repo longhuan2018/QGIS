@@ -59,9 +59,9 @@ set(QGIS_APP_SRCS
   qgsmapcanvasdockwidget.cpp
   qgsmapsavedialog.cpp
   qgsprojectlistitemdelegate.cpp
-  qgsprovidersublayersdialog.cpp
   qgspuzzlewidget.cpp
   qgsversionmigration.cpp
+  qgsrasterattributetableapputils.cpp
   qgssnappinglayertreemodel.cpp
   qgssnappingwidget.cpp
   qgsstatusbarcoordinateswidget.cpp
@@ -110,6 +110,8 @@ set(QGIS_APP_SRCS
   annotations/qgsannotationitempropertieswidget.cpp
   annotations/qgsannotationlayerproperties.cpp
 
+  canvas/qgscanvasrefreshblocker.cpp
+
   decorations/qgsdecorationitem.cpp
   decorations/qgsdecorationtitle.cpp
   decorations/qgsdecorationtitledialog.cpp
@@ -131,8 +133,6 @@ set(QGIS_APP_SRCS
   pointcloud/qgspointcloudlayerstylewidget.cpp
 
   raster/qgsrasterelevationpropertieswidget.cpp
-
-  vectortile/qgsvectortilelayerproperties.cpp
 
   vertextool/qgslockedfeature.cpp
   vertextool/qgsvertexeditor.cpp
@@ -199,6 +199,8 @@ set(QGIS_APP_SRCS
   labeling/qgsmaptoolmovelabel.cpp
   labeling/qgsmaptoolrotatelabel.cpp
 
+  layers/qgsapplayerhandling.cpp
+
   layout/qgslayoutappmenuprovider.cpp
   layout/qgslayoutdesignerdialog.cpp
   layout/qgslayoutimagedrophandler.cpp
@@ -211,6 +213,7 @@ set(QGIS_APP_SRCS
 
   locator/qgsactionlocatorfilter.cpp
   locator/qgsactivelayerfeatureslocatorfilter.cpp
+  locator/qgslayermetadatalocatorfilter.cpp
   locator/qgsalllayersfeatureslocatorfilter.cpp
   locator/qgsbookmarklocatorfilter.cpp
   locator/qgsexpressioncalculatorlocatorfilter.cpp
@@ -253,12 +256,22 @@ set(QGIS_APP_SRCS
   options/qgscustomprojectionoptions.cpp
   options/qgsfontoptions.cpp
   options/qgsgpsdeviceoptions.cpp
+  options/qgsgpsoptions.cpp
   options/qgsoptions.cpp
   options/qgsoptionsutils.cpp
+  options/qgsrasterrenderingoptions.cpp
+  options/qgsrenderingoptions.cpp
+  options/qgsvectorrenderingoptions.cpp
 
+  gps/qgsappgpsconnection.cpp
+  gps/qgsappgpsdigitizing.cpp
+  gps/qgsappgpslogging.cpp
+  gps/qgsappgpssettingsmenu.cpp
   gps/qgsgpsbearingitem.cpp
+  gps/qgsgpscanvasbridge.cpp
   gps/qgsgpsinformationwidget.cpp
   gps/qgsgpsmarker.cpp
+  gps/qgsgpstoolbar.cpp
 
   project/qgsprojectelevationsettingswidget.cpp
 
@@ -350,6 +363,7 @@ if (WITH_3D)
     layout/qgslayout3dmapwidget.cpp
     3d/qgsskyboxrenderingsettingswidget.cpp
     3d/qgsshadowrenderingsettingswidget.cpp
+    3d/qgsambientocclusionsettingswidget.cpp
     3d/qgspointcloud3dsymbolwidget.cpp
     3d/qgspointcloudlayer3drendererwidget.cpp
     3d/qgs3dmapcanvaswidget.cpp
@@ -357,8 +371,9 @@ if (WITH_3D)
   )
 endif()
 
+find_package(${QT_VERSION_BASE} COMPONENTS UiTools REQUIRED)
 
-set (WITH_QWTPOLAR FALSE CACHE BOOL "Determines whether QwtPolar should be built")
+set (WITH_QWTPOLAR FALSE CACHE BOOL "Determines whether QwtPolar is available or whether functionality requiring QwtPolar should be disabled.")
 
 if (WITH_QWTPOLAR)
   add_definitions(-DWITH_QWTPOLAR)

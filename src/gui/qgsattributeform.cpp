@@ -289,6 +289,11 @@ void QgsAttributeForm::changeAttribute( const QString &field, const QVariant &va
   }
 }
 
+void QgsAttributeForm::changeGeometry( const QgsGeometry &geometry )
+{
+  mFeature.setGeometry( geometry );
+}
+
 void QgsAttributeForm::setFeature( const QgsFeature &feature )
 {
   mIsSettingFeature = true;
@@ -442,9 +447,9 @@ bool QgsAttributeForm::saveEdits( QString *error )
 
           QgsDebugMsgLevel( QStringLiteral( "Updating field %1" ).arg( i ), 2 );
           QgsDebugMsgLevel( QStringLiteral( "dst:'%1' (type:%2, isNull:%3, isValid:%4)" )
-                            .arg( dst.at( i ).toString(), dst.at( i ).typeName() ).arg( dst.at( i ).isNull() ).arg( dst.at( i ).isValid() ), 2 );
+                            .arg( dst.at( i ).toString(), dst.at( i ).typeName() ).arg( QgsVariantUtils::isNull( dst.at( i ) ) ).arg( dst.at( i ).isValid() ), 2 );
           QgsDebugMsgLevel( QStringLiteral( "src:'%1' (type:%2, isNull:%3, isValid:%4)" )
-                            .arg( src.at( i ).toString(), src.at( i ).typeName() ).arg( src.at( i ).isNull() ).arg( src.at( i ).isValid() ), 2 );
+                            .arg( src.at( i ).toString(), src.at( i ).typeName() ).arg( QgsVariantUtils::isNull( src.at( i ) ) ).arg( src.at( i ).isValid() ), 2 );
 
           newValues[i] = dst.at( i );
           oldValues[i] = src.at( i );
@@ -750,23 +755,25 @@ bool QgsAttributeForm::saveMultiEdits()
 {
   //find changed attributes
   QgsAttributeMap newAttributeValues;
-  QMap< int, QgsAttributeFormEditorWidget * >::const_iterator wIt = mFormEditorWidgets.constBegin();
-  for ( ; wIt != mFormEditorWidgets.constEnd(); ++ wIt )
+  const QList<int> fieldIndexes = mFormEditorWidgets.uniqueKeys();
+  mFormEditorWidgets.constBegin();
+  for ( int fieldIndex : fieldIndexes )
   {
-    QgsAttributeFormEditorWidget *w = wIt.value();
-    if ( !w->hasChanged() )
+    const QList<QgsAttributeFormEditorWidget *> widgets = mFormEditorWidgets.values( fieldIndex );
+    if ( !widgets.first()->hasChanged() )
       continue;
 
-    if ( !w->currentValue().isValid() // if the widget returns invalid (== do not change)
-         || !fieldIsEditable( wIt.key() ) ) // or the field cannot be edited ...
+    if ( !widgets.first()->currentValue().isValid() // if the widget returns invalid (== do not change)
+         || !fieldIsEditable( fieldIndex ) ) // or the field cannot be edited ...
     {
       continue;
     }
 
     // let editor know we've accepted the changes
-    w->changesCommitted();
+    for ( QgsAttributeFormEditorWidget *widget : widgets )
+      widget->changesCommitted();
 
-    newAttributeValues.insert( wIt.key(), w->currentValue() );
+    newAttributeValues.insert( fieldIndex, widgets.first()->currentValue() );
   }
 
   if ( newAttributeValues.isEmpty() )
@@ -1043,6 +1050,15 @@ void QgsAttributeForm::onAttributeChanged( const QVariant &value, const QVariant
   // Updates expression controlled labels
   updateLabels();
 
+  // Update other widgets pointing to the same field
+  const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = mFormEditorWidgets.values( eww->fieldIdx() );
+  for ( QgsAttributeFormEditorWidget *formEditorWidget : formEditorWidgets )
+  {
+    if ( formEditorWidget->editorWidget() == eww )
+      continue;
+    formEditorWidget->editorWidget()->setValue( value );
+  }
+
   if ( !signalEmitted )
   {
     Q_NOWARN_DEPRECATED_PUSH
@@ -1211,7 +1227,7 @@ bool QgsAttributeForm::currentFormValuesFeature( QgsFeature &feature )
       {
         // need to check dstVar.isNull() != srcVar.isNull()
         // otherwise if dstVar=NULL and scrVar=0, then dstVar = srcVar
-        if ( ( !qgsVariantEqual( dstVars[i], srcVars[i] ) || dstVars[i].isNull() != srcVars[i].isNull() ) && srcVars[i].isValid() )
+        if ( ( !qgsVariantEqual( dstVars[i], srcVars[i] ) || QgsVariantUtils::isNull( dstVars[i] ) != QgsVariantUtils::isNull( srcVars[i] ) ) && srcVars[i].isValid() )
         {
           dst[fieldIndexes[i]] = srcVars[i];
         }
@@ -1355,9 +1371,9 @@ void QgsAttributeForm::onConstraintStatusChanged( const QString &constraint,
   QgsEditorWidgetWrapper *eww = qobject_cast<QgsEditorWidgetWrapper *>( sender() );
   Q_ASSERT( eww );
 
-  QgsAttributeFormEditorWidget *formEditorWidget = mFormEditorWidgets.value( eww->fieldIdx() );
+  const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = mFormEditorWidgets.values( eww->fieldIdx() );
 
-  if ( formEditorWidget )
+  for ( QgsAttributeFormEditorWidget *formEditorWidget : formEditorWidgets )
     formEditorWidget->setConstraintStatus( constraint, description, err, result );
 }
 
@@ -1460,9 +1476,9 @@ void QgsAttributeForm::synchronizeState()
     QgsEditorWidgetWrapper *eww = qobject_cast<QgsEditorWidgetWrapper *>( ww );
     if ( eww )
     {
-      QgsAttributeFormEditorWidget *formWidget = mFormEditorWidgets.value( eww->fieldIdx() );
+      const QList<QgsAttributeFormEditorWidget *> formWidgets = mFormEditorWidgets.values( eww->fieldIdx() );
 
-      if ( formWidget )
+      for ( QgsAttributeFormEditorWidget *formWidget : formWidgets )
         formWidget->setConstraintResultVisible( isEditable );
 
       eww->setConstraintResultVisible( isEditable );
@@ -1877,7 +1893,7 @@ void QgsAttributeForm::init()
 
       if ( eww )
       {
-        addWidgetWrapper( eww );
+        mWidgets.append( eww );
         mIconMap[eww->widget()] = i;
       }
 
@@ -2222,7 +2238,7 @@ QgsAttributeForm::WidgetInfo QgsAttributeForm::createWidgetFromDef( const QgsAtt
         formWidget->createSearchWidgetWrappers( mContext );
 
         newWidgetInfo.widget = formWidget;
-        addWidgetWrapper( eww );
+        mWidgets.append( eww );
 
         newWidgetInfo.widget->setObjectName( fields.at( fldIdx ).name() );
         newWidgetInfo.hint = fields.at( fldIdx ).comment();
@@ -2484,27 +2500,6 @@ QgsAttributeForm::WidgetInfo QgsAttributeForm::createWidgetFromDef( const QgsAtt
   return newWidgetInfo;
 }
 
-void QgsAttributeForm::addWidgetWrapper( QgsEditorWidgetWrapper *eww )
-{
-  for ( QgsWidgetWrapper *ww : std::as_const( mWidgets ) )
-  {
-    QgsEditorWidgetWrapper *meww = qobject_cast<QgsEditorWidgetWrapper *>( ww );
-    if ( meww )
-    {
-      // if another widget wrapper exists for the same field
-      // synchronise them
-      if ( meww->field() == eww->field() )
-      {
-        connect( meww, &QgsEditorWidgetWrapper::valuesChanged, eww, &QgsEditorWidgetWrapper::setValues );
-        connect( eww, &QgsEditorWidgetWrapper::valuesChanged, meww, &QgsEditorWidgetWrapper::setValues );
-        break;
-      }
-    }
-  }
-
-  mWidgets.append( eww );
-}
-
 void QgsAttributeForm::createWrappers()
 {
   QList<QWidget *> myWidgets = findChildren<QWidget *>();
@@ -2538,7 +2533,7 @@ void QgsAttributeForm::createWrappers()
           int idx = mLayer->fields().lookupField( field.name() );
 
           QgsEditorWidgetWrapper *eww = QgsGui::editorWidgetRegistry()->create( mLayer, idx, myWidget, this, mContext );
-          addWidgetWrapper( eww );
+          mWidgets.append( eww );
         }
       }
     }
@@ -2661,7 +2656,7 @@ void QgsAttributeForm::setMultiEditFeatureIds( const QgsFeatureIds &fids )
   if ( fids.isEmpty() )
   {
     // no selected features
-    QMap< int, QgsAttributeFormEditorWidget * >::const_iterator wIt = mFormEditorWidgets.constBegin();
+    QMultiMap< int, QgsAttributeFormEditorWidget * >::const_iterator wIt = mFormEditorWidgets.constBegin();
     for ( ; wIt != mFormEditorWidgets.constEnd(); ++ wIt )
     {
       wIt.value()->initialize( QVariant() );
@@ -2685,49 +2680,55 @@ void QgsAttributeForm::setMultiEditFeatureIds( const QgsFeatureIds &fids )
   const auto constMixedValueFields = mixedValueFields;
   for ( int fieldIndex : std::as_const( mixedValueFields ) )
   {
-    if ( QgsAttributeFormEditorWidget *w = mFormEditorWidgets.value( fieldIndex, nullptr ) )
-    {
-      const QStringList additionalFields = w->editorWidget()->additionalFields();
-      QVariantList additionalFieldValues;
-      for ( const QString &additionalField : additionalFields )
-        additionalFieldValues << firstFeature.attribute( additionalField );
+    const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = mFormEditorWidgets.values( fieldIndex );
+    if ( formEditorWidgets.isEmpty() )
+      continue;
+
+    const QStringList additionalFields = formEditorWidgets.first()->editorWidget()->additionalFields();
+    QVariantList additionalFieldValues;
+    for ( const QString &additionalField : additionalFields )
+      additionalFieldValues << firstFeature.attribute( additionalField );
+
+    for ( QgsAttributeFormEditorWidget *w : formEditorWidgets )
       w->initialize( firstFeature.attribute( fieldIndex ), true, additionalFieldValues );
-    }
   }
   QHash< int, QVariant >::const_iterator sharedValueIt = fieldSharedValues.constBegin();
   for ( ; sharedValueIt != fieldSharedValues.constEnd(); ++sharedValueIt )
   {
-    if ( QgsAttributeFormEditorWidget *w = mFormEditorWidgets.value( sharedValueIt.key(), nullptr ) )
+    const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = mFormEditorWidgets.values( sharedValueIt.key() );
+    if ( formEditorWidgets.isEmpty() )
+      continue;
+
+    bool mixed = false;
+    const QStringList additionalFields = formEditorWidgets.first()->editorWidget()->additionalFields();
+    for ( const QString &additionalField : additionalFields )
     {
-      bool mixed = false;
-      const QStringList additionalFields = w->editorWidget()->additionalFields();
+      int index = mLayer->fields().indexFromName( additionalField );
+      if ( constMixedValueFields.contains( index ) )
+      {
+        // if additional field are mixed, it is considered as mixed
+        mixed = true;
+        break;
+      }
+    }
+    QVariantList additionalFieldValues;
+    if ( mixed )
+    {
+      for ( const QString &additionalField : additionalFields )
+        additionalFieldValues << firstFeature.attribute( additionalField );
+      for ( QgsAttributeFormEditorWidget *w : formEditorWidgets )
+        w->initialize( firstFeature.attribute( sharedValueIt.key() ), true, additionalFieldValues );
+    }
+    else
+    {
       for ( const QString &additionalField : additionalFields )
       {
         int index = mLayer->fields().indexFromName( additionalField );
-        if ( constMixedValueFields.contains( index ) )
-        {
-          // if additional field are mixed, it is considered as mixed
-          mixed = true;
-          break;
-        }
+        Q_ASSERT( fieldSharedValues.contains( index ) );
+        additionalFieldValues << fieldSharedValues.value( index );
       }
-      QVariantList additionalFieldValues;
-      if ( mixed )
-      {
-        for ( const QString &additionalField : additionalFields )
-          additionalFieldValues << firstFeature.attribute( additionalField );
-        w->initialize( firstFeature.attribute( sharedValueIt.key() ), true, additionalFieldValues );
-      }
-      else
-      {
-        for ( const QString &additionalField : additionalFields )
-        {
-          int index = mLayer->fields().indexFromName( additionalField );
-          Q_ASSERT( fieldSharedValues.contains( index ) );
-          additionalFieldValues << fieldSharedValues.value( index );
-        }
+      for ( QgsAttributeFormEditorWidget *w : formEditorWidgets )
         w->initialize( sharedValueIt.value(), false, additionalFieldValues );
-      }
     }
   }
 

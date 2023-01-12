@@ -24,6 +24,7 @@
 #include <QObject>
 #include <QTime>
 #include <QElapsedTimer>
+#include <QPicture>
 
 #include "qgsrendercontext.h"
 #include "qgslabelsink.h"
@@ -97,6 +98,9 @@ class LayerRenderJob
 
     //! If TRUE, img already contains cached image from previous rendering
     bool cached = false;
+
+    //! Whether layer should be rendered above labels
+    bool renderAboveLabels = false;
 
     QgsWeakMapLayerPointer layer;
 

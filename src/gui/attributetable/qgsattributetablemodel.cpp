@@ -15,7 +15,6 @@
 
 #include "qgsapplication.h"
 #include "qgsattributetablemodel.h"
-#include "qgsattributetablefiltermodel.h"
 
 #include "qgsactionmanager.h"
 #include "qgseditorwidgetregistry.h"
@@ -26,19 +25,13 @@
 #include "qgsfields.h"
 #include "qgsfieldformatter.h"
 #include "qgslogger.h"
-#include "qgsmapcanvas.h"
-#include "qgsmaplayeractionregistry.h"
-#include "qgsrenderer.h"
+#include "qgsmaplayeraction.h"
 #include "qgsvectorlayer.h"
 #include "qgsvectordataprovider.h"
-#include "qgssymbollayerutils.h"
 #include "qgsfieldformatterregistry.h"
 #include "qgsgui.h"
 #include "qgsexpressionnodeimpl.h"
-#include "qgsvectorlayerjoininfo.h"
-#include "qgsvectorlayerjoinbuffer.h"
 #include "qgsfieldmodel.h"
-#include "qgstexteditwidgetfactory.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgsstringutils.h"
 #include "qgsvectorlayerutils.h"
@@ -106,8 +99,18 @@ int QgsAttributeTableModel::extraColumns() const
 
 void QgsAttributeTableModel::setExtraColumns( int extraColumns )
 {
-  mExtraColumns = extraColumns;
-  loadAttributes();
+  if ( extraColumns > mExtraColumns )
+  {
+    beginInsertColumns( QModelIndex(), mFieldCount + mExtraColumns, mFieldCount + extraColumns - 1 );
+    mExtraColumns = extraColumns;
+    endInsertColumns();
+  }
+  else if ( extraColumns < mExtraColumns )
+  {
+    beginRemoveColumns( QModelIndex(), mFieldCount + extraColumns, mFieldCount + mExtraColumns - 1 );
+    mExtraColumns = extraColumns;
+    endRemoveColumns();
+  }
 }
 
 void QgsAttributeTableModel::featuresDeleted( const QgsFeatureIds &fids )
@@ -364,7 +367,11 @@ void QgsAttributeTableModel::attributeValueChanged( QgsFeatureId fid, int idx, c
   if ( mFeatureRequest.filterType() == QgsFeatureRequest::FilterNone )
   {
     if ( loadFeatureAtId( fid ) )
-      setData( index( idToRow( fid ), fieldCol( idx ) ), value, Qt::EditRole );
+    {
+      const QModelIndex modelIndex = index( idToRow( fid ), fieldCol( idx ) );
+      setData( modelIndex, value, Qt::EditRole );
+      emit dataChanged( modelIndex, modelIndex, QVector<int>() << Qt::DisplayRole );
+    }
   }
   else
   {
@@ -380,7 +387,9 @@ void QgsAttributeTableModel::attributeValueChanged( QgsFeatureId fid, int idx, c
         else
         {
           // Update representation
-          setData( index( idToRow( fid ), fieldCol( idx ) ), value, Qt::EditRole );
+          const QModelIndex modelIndex = index( idToRow( fid ), fieldCol( idx ) );
+          setData( modelIndex, value, Qt::EditRole );
+          emit dataChanged( modelIndex, modelIndex, QVector<int>() << Qt::DisplayRole );
         }
       }
       else
@@ -403,10 +412,15 @@ void QgsAttributeTableModel::loadAttributes()
     return;
   }
 
+  const QgsFields fields = mLayer->fields();
+  if ( mFields == fields )
+    return;
+
+  mFields = fields;
+
   bool ins = false, rm = false;
 
   QgsAttributeList attributes;
-  const QgsFields &fields = mLayer->fields();
 
   mWidgetFactories.clear();
   mAttributeWidgetCaches.clear();
@@ -667,13 +681,8 @@ QVariant QgsAttributeTableModel::data( const QModelIndex &index, int role ) cons
          && role != Qt::EditRole
          && role != FeatureIdRole
          && role != FieldIndexRole
-#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
-         && role != Qt::BackgroundColorRole
-         && role != Qt::TextColorRole
-#else
          && role != Qt::BackgroundRole
          && role != Qt::ForegroundRole
-#endif
          && role != Qt::DecorationRole
          && role != Qt::FontRole
          && role < SortRole
@@ -746,11 +755,7 @@ QVariant QgsAttributeTableModel::data( const QModelIndex &index, int role ) cons
       return val;
 
     case Qt::BackgroundRole:
-#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
-    case Qt::TextColorRole:
-#else
     case Qt::ForegroundRole:
-#endif
     case Qt::DecorationRole:
     case Qt::FontRole:
     {
@@ -776,11 +781,7 @@ QVariant QgsAttributeTableModel::data( const QModelIndex &index, int role ) cons
       {
         if ( role == Qt::BackgroundRole && style.validBackgroundColor() )
           return style.backgroundColor();
-#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
-        if ( role == Qt::TextColorRole && style.validTextColor() )
-#else
         if ( role == Qt::ForegroundRole )
-#endif
           return style.textColor();
         if ( role == Qt::DecorationRole )
           return style.icon();
@@ -922,10 +923,13 @@ void QgsAttributeTableModel::executeAction( QUuid action, const QModelIndex &idx
   mLayer->actions()->doAction( action, f, fieldIdx( idx.column() ) );
 }
 
-void QgsAttributeTableModel::executeMapLayerAction( QgsMapLayerAction *action, const QModelIndex &idx ) const
+void QgsAttributeTableModel::executeMapLayerAction( QgsMapLayerAction *action, const QModelIndex &idx, const QgsMapLayerActionContext &context ) const
 {
   const QgsFeature f = feature( idx );
+  Q_NOWARN_DEPRECATED_PUSH
   action->triggerForFeature( mLayer, f );
+  Q_NOWARN_DEPRECATED_POP
+  action->triggerForFeature( mLayer, f, context );
 }
 
 QgsFeature QgsAttributeTableModel::feature( const QModelIndex &idx ) const

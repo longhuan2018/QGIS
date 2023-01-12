@@ -38,11 +38,11 @@
 #include "qgsmarkersymbollayer.h"
 #include "qgsfillsymbol.h"
 
-class TestQgsLabelingEngine : public QObject
+class TestQgsLabelingEngine : public QgsTest
 {
     Q_OBJECT
   public:
-    TestQgsLabelingEngine() = default;
+    TestQgsLabelingEngine() : QgsTest( QStringLiteral( "Labeling Engine Tests" ) ) {}
 
   private slots:
     void initTestCase();
@@ -71,6 +71,9 @@ class TestQgsLabelingEngine : public QObject
     void testTouchingParts();
     void testMergingLinesWithForks();
     void testMergingLinesWithMinimumSize();
+    void testCurvedLabelsHtmlFormatting();
+    void testCurvedLabelsHtmlSuperSubscript();
+    void testPointLabelHtmlFormatting();
     void testCurvedLabelsWithTinySegments();
     void testCurvedLabelCorrectLinePlacement();
     void testCurvedLabelNegativeDistance();
@@ -79,6 +82,24 @@ class TestQgsLabelingEngine : public QObject
     void testCurvedLabelLineOrientationBelow();
     void testCurvedLabelAllowUpsideDownAbove();
     void testCurvedLabelAllowUpsideDownBelow();
+    void testCurvedLabelAllowUpsideDownAbovePositiveOffset();
+    void testCurvedLabelAllowUpsideDownAboveNegativeOffset();
+    void testCurvedLabelAllowUpsideDownLeftPositiveOffset();
+    void testCurvedLabelAllowUpsideDownLeftNegativeOffset();
+    void testCurvedLabelAllowUpsideDownRightPositiveOffset();
+    void testCurvedLabelAllowUpsideDownRightNegativeOffset();
+
+
+    void testCurvedLabelAllowUpsideDownHintAbove();
+    void testCurvedLabelAllowUpsideDownHintBelow();
+    void testCurvedLabelAllowUpsideDownHintAbovePositiveOffset();
+    void testCurvedLabelAllowUpsideDownHintAboveNegativeOffset();
+    void testCurvedLabelAllowUpsideDownHintLeftPositiveOffset();
+    void testCurvedLabelAllowUpsideDownHintLeftNegativeOffset();
+    void testCurvedLabelAllowUpsideDownHintRightPositiveOffset();
+    void testCurvedLabelAllowUpsideDownHintRightNegativeOffset();
+
+
     void testRepeatDistanceWithSmallLine();
     void testParallelPlacementPreferAbove();
     void testLabelBoundary();
@@ -100,6 +121,7 @@ class TestQgsLabelingEngine : public QObject
     void testRotationBasedOrientationLine();
     void testMapUnitLetterSpacing();
     void testMapUnitWordSpacing();
+    void testLineHeightAbsolute();
     void testReferencedFields();
     void testClipping();
     void testLineAnchorParallel();
@@ -119,8 +141,6 @@ class TestQgsLabelingEngine : public QObject
   private:
     QgsVectorLayer *vl = nullptr;
 
-    QString mReport;
-
     void setDefaultLabelParams( QgsPalLayerSettings &settings );
     QgsLabelingEngineSettings createLabelEngineSettings();
     bool imageCheck( const QString &testName, QImage &image, int mismatchCount );
@@ -129,8 +149,6 @@ class TestQgsLabelingEngine : public QObject
 
 void TestQgsLabelingEngine::initTestCase()
 {
-  mReport += QLatin1String( "<h1>Labeling Engine Tests</h1>\n" );
-
   QgsApplication::init();
   QgsApplication::initQgis();
   QgsApplication::showSettings();
@@ -140,14 +158,6 @@ void TestQgsLabelingEngine::initTestCase()
 void TestQgsLabelingEngine::cleanupTestCase()
 {
   QgsApplication::exitQgis();
-  const QString myReportFile = QDir::tempPath() + "/qgistest.html";
-  QFile myFile( myReportFile );
-  if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
-  {
-    QTextStream myQTextStream( &myFile );
-    myQTextStream << mReport;
-    myFile.close();
-  }
 }
 
 void TestQgsLabelingEngine::init()
@@ -172,20 +182,20 @@ void TestQgsLabelingEngine::testEngineSettings()
   QgsLabelingEngineSettings settings;
 
   // default for new projects should be placement engine v2
-  QCOMPARE( settings.placementVersion(), QgsLabelingEngineSettings::PlacementEngineVersion2 );
+  QCOMPARE( settings.placementVersion(), Qgis::LabelPlacementEngineVersion::Version2 );
 
   settings.setDefaultTextRenderFormat( Qgis::TextRenderFormat::AlwaysText );
   QCOMPARE( settings.defaultTextRenderFormat(), Qgis::TextRenderFormat::AlwaysText );
   settings.setDefaultTextRenderFormat( Qgis::TextRenderFormat::AlwaysOutlines );
   QCOMPARE( settings.defaultTextRenderFormat(), Qgis::TextRenderFormat::AlwaysOutlines );
 
-  settings.setPlacementVersion( QgsLabelingEngineSettings::PlacementEngineVersion1 );
-  QCOMPARE( settings.placementVersion(), QgsLabelingEngineSettings::PlacementEngineVersion1 );
+  settings.setPlacementVersion( Qgis::LabelPlacementEngineVersion::Version1 );
+  QCOMPARE( settings.placementVersion(), Qgis::LabelPlacementEngineVersion::Version1 );
 
-  settings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, true );
-  QVERIFY( settings.testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
-  settings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, false );
-  QVERIFY( !settings.testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
+  settings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, true );
+  QVERIFY( settings.testFlag( Qgis::LabelingFlag::DrawUnplacedLabels ) );
+  settings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, false );
+  QVERIFY( !settings.testFlag( Qgis::LabelingFlag::DrawUnplacedLabels ) );
 
   settings.setUnplacedLabelColor( QColor( 0, 255, 0 ) );
   QCOMPARE( settings.unplacedLabelColor().name(), QStringLiteral( "#00ff00" ) );
@@ -193,23 +203,23 @@ void TestQgsLabelingEngine::testEngineSettings()
   // reading from project
   QgsProject p;
   settings.setDefaultTextRenderFormat( Qgis::TextRenderFormat::AlwaysText );
-  settings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, true );
+  settings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, true );
   settings.setUnplacedLabelColor( QColor( 0, 255, 0 ) );
-  settings.setPlacementVersion( QgsLabelingEngineSettings::PlacementEngineVersion1 );
+  settings.setPlacementVersion( Qgis::LabelPlacementEngineVersion::Version1 );
   settings.writeSettingsToProject( &p );
   QgsLabelingEngineSettings settings2;
   settings2.readSettingsFromProject( &p );
   QCOMPARE( settings2.defaultTextRenderFormat(), Qgis::TextRenderFormat::AlwaysText );
-  QVERIFY( settings2.testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
+  QVERIFY( settings2.testFlag( Qgis::LabelingFlag::DrawUnplacedLabels ) );
   QCOMPARE( settings2.unplacedLabelColor().name(), QStringLiteral( "#00ff00" ) );
 
   settings.setDefaultTextRenderFormat( Qgis::TextRenderFormat::AlwaysOutlines );
-  settings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, false );
+  settings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, false );
   settings.writeSettingsToProject( &p );
   settings2.readSettingsFromProject( &p );
   QCOMPARE( settings2.defaultTextRenderFormat(), Qgis::TextRenderFormat::AlwaysOutlines );
-  QVERIFY( !settings2.testFlag( QgsLabelingEngineSettings::DrawUnplacedLabels ) );
-  QCOMPARE( settings2.placementVersion(), QgsLabelingEngineSettings::PlacementEngineVersion1 );
+  QVERIFY( !settings2.testFlag( Qgis::LabelingFlag::DrawUnplacedLabels ) );
+  QCOMPARE( settings2.placementVersion(), Qgis::LabelPlacementEngineVersion::Version1 );
 
   // test that older setting is still respected as a fallback
   QgsProject p2;
@@ -225,7 +235,7 @@ void TestQgsLabelingEngine::testEngineSettings()
   // when opening an older project, labeling engine version should be 1
   p2.removeEntry( QStringLiteral( "PAL" ), QStringLiteral( "/PlacementEngineVersion" ) );
   settings3.readSettingsFromProject( &p2 );
-  QCOMPARE( settings3.placementVersion(), QgsLabelingEngineSettings::PlacementEngineVersion1 );
+  QCOMPARE( settings3.placementVersion(), Qgis::LabelPlacementEngineVersion::Version1 );
 }
 
 void TestQgsLabelingEngine::testScaledFont()
@@ -271,7 +281,7 @@ void TestQgsLabelingEngine::setDefaultLabelParams( QgsPalLayerSettings &settings
 QgsLabelingEngineSettings TestQgsLabelingEngine::createLabelEngineSettings()
 {
   QgsLabelingEngineSettings settings;
-  settings.setPlacementVersion( QgsLabelingEngineSettings::PlacementEngineVersion2 );
+  settings.setPlacementVersion( Qgis::LabelPlacementEngineVersion::Version2 );
   return settings;
 }
 
@@ -391,7 +401,11 @@ void TestQgsLabelingEngine::testRuleBased()
   s1.dist = 2;
   QgsTextFormat format = s1.format();
   format.setColor( QColor( 200, 0, 200 ) );
-  format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
+  QFont font = QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) );
+#ifdef HAS_KDE_QT5_FONT_STRETCH_FIX
+  font.setStretch( 100 );
+#endif
+  format.setFont( font );
   format.setSize( 12 );
   s1.setFormat( format );
   s1.placement = Qgis::LabelPlacement::OverPoint;
@@ -407,7 +421,8 @@ void TestQgsLabelingEngine::testRuleBased()
   s2.dist = 2;
   format = s2.format();
   format.setColor( Qt::red );
-  format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
+  format.setFont( font );
+
   s2.setFormat( format );
   s2.placement = Qgis::LabelPlacement::OverPoint;
   s2.quadOffset = Qgis::LabelQuadrantPosition::BelowRight;
@@ -887,7 +902,6 @@ bool TestQgsLabelingEngine::imageCheck( const QString &testName, QImage &image, 
   painter.drawImage( 0, 0, image );
   painter.end();
 
-  mReport += "<h2>" + testName + "</h2>\n";
   const QString tempDir = QDir::tempPath() + '/';
   const QString fileName = tempDir + testName + ".png";
   imageWithBackground.save( fileName, "PNG" );
@@ -984,8 +998,8 @@ void TestQgsLabelingEngine::testRotateHidePartial()
   mapSettings.setRotation( 45 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1055,8 +1069,8 @@ void TestQgsLabelingEngine::testParallelLabelSmallFeature()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1124,8 +1138,8 @@ void TestQgsLabelingEngine::testAllowDegradedPlacements()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1219,8 +1233,8 @@ void TestQgsLabelingEngine::testOverlapHandling()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1382,8 +1396,8 @@ void TestQgsLabelingEngine::testAllowOverlapsIgnoresObstacles()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1466,9 +1480,9 @@ void TestQgsLabelingEngine::testAdjacentParts()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1521,9 +1535,9 @@ void TestQgsLabelingEngine::testTouchingParts()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1588,9 +1602,9 @@ void TestQgsLabelingEngine::testMergingLinesWithForks()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1655,9 +1669,9 @@ void TestQgsLabelingEngine::testMergingLinesWithMinimumSize()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1666,6 +1680,171 @@ void TestQgsLabelingEngine::testMergingLinesWithMinimumSize()
 
   QImage img = job.renderedImage();
   QVERIFY( imageCheck( QStringLiteral( "label_merged_minimum_size" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testPointLabelHtmlFormatting()
+{
+  // test point label rendering with HTML formatting
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  format.setAllowHtmlFormatting( true );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'<i>test</i> <b style=\"font-size: 30pt\">HTML</b> <span style=\"color: red\">label<p><span style=\"color: rgba(255,0,0,0.5); text-decoration: underline; font-size:60pt\">point</span></span>'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::OverPoint;
+  settings.labelPerPart = false;
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "Point?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsNullSymbolRenderer() );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  const QgsGeometry refGeom = QgsGeometry::fromWkt( QStringLiteral( "LineString (190000 5000010, 190100 5000000, 190200 5000000)" ) );
+  f.setGeometry( refGeom.centroid() );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( refGeom.boundingBox() );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_point_html_rendering" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelsHtmlSuperSubscript()
+{
+  // test line label rendering with HTML formatting
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 50 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  format.setAllowHtmlFormatting( true );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'<sub>sub</sub>n<sup>sup</sup>'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.lineSettings().setLineAnchorPercent( 0.5 );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsNullSymbolRenderer() );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190000 5000010, 190100 5000000, 190200 5000000)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( f.geometry().boundingBox() );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_html_supersubscript" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelsHtmlFormatting()
+{
+  // test line label rendering with HTML formatting
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  format.setAllowHtmlFormatting( true );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'<i>test</i> <b style=\"font-size: 30pt\">HTML</b> <span style=\"color: red\">label <span style=\"color: rgba(255,0,0,0.5); text-decoration: underline; font-size:60pt\">curve</span></span>'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.lineSettings().setLineAnchorPercent( 0.5 );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsNullSymbolRenderer() );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190000 5000010, 190100 5000000, 190200 5000000)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( f.geometry().boundingBox() );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_html_rendering" ), img, 20 ) );
 }
 
 void TestQgsLabelingEngine::testCurvedLabelsWithTinySegments()
@@ -1711,9 +1890,9 @@ void TestQgsLabelingEngine::testCurvedLabelsWithTinySegments()
   mapSettings.setFlag( Qgis::MapSettingsFlag::UseRenderingOptimization, false );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1767,9 +1946,9 @@ void TestQgsLabelingEngine::testCurvedLabelCorrectLinePlacement()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1831,9 +2010,9 @@ void TestQgsLabelingEngine::testCurvedLabelNegativeDistance()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1884,9 +2063,9 @@ void TestQgsLabelingEngine::testCurvedLabelOnSmallLineNearCenter()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -1936,9 +2115,9 @@ void TestQgsLabelingEngine::testCurvedLabelLineOrientationAbove()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2001,9 +2180,9 @@ void TestQgsLabelingEngine::testCurvedLabelLineOrientationBelow()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2070,9 +2249,9 @@ void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownAbove()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2138,9 +2317,9 @@ void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownBelow()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2161,6 +2340,948 @@ void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownBelow()
 
   img = job2.renderedImage();
   QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_below" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownAbovePositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_above_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_above_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownAboveNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_above_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_above_negative_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownLeftPositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_left_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_left_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownLeftNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_left_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_left_negative_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownRightPositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_right_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_right_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownRightNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::Strict );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_right_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_reversed_right_negative_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintAbove()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'a'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_above" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_above" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintBelow()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'a'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_below" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_below" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintAbovePositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 10;
+  settings.lineSettings().setLineAnchorPercent( 0.0 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_above_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_above_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintAboveNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine | QgsLabeling::LinePlacementFlag::MapOrientation );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_above_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_above_negative_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintLeftPositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 10;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_left_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_left_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintLeftNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_left_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_left_negative_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintRightPositiveOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  settings.dist = 10;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_right_positive_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_right_positive_offset" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testCurvedLabelAllowUpsideDownHintRightNegativeOffset()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 20 );
+  format.setColor( QColor( 0, 0, 0 ) );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'ABC'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Curved;
+  settings.labelPerPart = false;
+  settings.upsidedownLabels = Qgis::UpsideDownLabelHandling::AlwaysAllowUpsideDown;
+  // large enough negative distance to get label to be placed below line
+  settings.dist = -20;
+  settings.lineSettings().setLineAnchorPercent( 0.05 );
+  settings.lineSettings().setAnchorTextPoint( QgsLabelLineSettings::AnchorTextPoint::CenterOfText );
+  settings.lineSettings().setAnchorType( QgsLabelLineSettings::AnchorType::HintOnly );
+  settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::BelowLine );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190100 5000007, 190094 5000012, 190096 5000019, 190103 5000024, 190111 5000023, 190114 5000018)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190080, 5000000, 190130, 5000030 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_right_negative_offset" ), img, 20 ) );
+
+  // reverse line and retry, label should be flipped to other side of line
+  f.setGeometry( QgsGeometry( qgsgeometry_cast< QgsLineString * >( f.geometry().constGet() )->reversed() ) );
+  vl2->dataProvider()->truncate();
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  QgsMapRendererSequentialJob job2( mapSettings );
+  job2.start();
+  job2.waitForFinished();
+
+  img = job2.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_curved_line_allow_upside_down_hint_reversed_right_negative_offset" ), img, 20 ) );
 }
 
 void TestQgsLabelingEngine::testRepeatDistanceWithSmallLine()
@@ -2204,10 +3325,10 @@ void TestQgsLabelingEngine::testRepeatDistanceWithSmallLine()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2258,9 +3379,9 @@ void TestQgsLabelingEngine::testParallelPlacementPreferAbove()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2319,8 +3440,8 @@ void TestQgsLabelingEngine::testLabelBoundary()
   mapSettings.setLabelBoundaryGeometry( QgsGeometry::fromWkt( QStringLiteral( "Polygon((3 1, 12 1, 12 9, 3 9, 3 1),(8 4, 10 4, 10 7, 8 7, 8 4))" ) ) );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2391,9 +3512,9 @@ void TestQgsLabelingEngine::testLabelBlockingRegion()
   mapSettings.setLabelBlockingRegions( regions );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2470,9 +3591,9 @@ void TestQgsLabelingEngine::testLabelRotationWithReprojection()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2574,7 +3695,7 @@ void TestQgsLabelingEngine::drawUnplaced()
 
   // test a label with 0 candidates (line is too short for label)
   std::unique_ptr< QgsVectorLayer> vl3( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:4326&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
-  vl3->setRenderer( new QgsSingleSymbolRenderer( QgsLineSymbol::createSimple( { {QStringLiteral( "color" ), QStringLiteral( "#000000" )}, {QStringLiteral( "outline_width" ), 0.6} } ) ) );
+  vl3->setRenderer( new QgsNullSymbolRenderer() );
   f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString(-6.250851540391068 60.6, -6.250851640391068 60.6 )" ) ) );
   QVERIFY( vl3->dataProvider()->addFeature( f ) );
 
@@ -2596,8 +3717,8 @@ void TestQgsLabelingEngine::drawUnplaced()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, true );
   engineSettings.setUnplacedLabelColor( QColor( 255, 0, 255 ) );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
@@ -2659,9 +3780,9 @@ void TestQgsLabelingEngine::labelingResults()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2730,7 +3851,7 @@ void TestQgsLabelingEngine::labelingResults()
   settings.priority = 1;
   vl3->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );
   vl3->setLabelsEnabled( true );
-  engineSettings.setFlag( QgsLabelingEngineSettings::CollectUnplacedLabels, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::CollectUnplacedLabels, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob jobB( mapSettings );
@@ -2864,9 +3985,9 @@ void TestQgsLabelingEngine::labelingResultsCurved()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -2993,9 +4114,9 @@ void TestQgsLabelingEngine::labelingResultsWithCallouts()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3424,9 +4545,9 @@ void TestQgsLabelingEngine::curvedOverrun()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3500,9 +4621,9 @@ void TestQgsLabelingEngine::parallelOverrun()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3579,9 +4700,9 @@ void TestQgsLabelingEngine::testDataDefinedLabelAllParts()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3661,7 +4782,7 @@ void TestQgsLabelingEngine::testVerticalOrientation()
   settings.fieldName = QStringLiteral( "Class" );
   setDefaultLabelParams( settings );
   QgsTextFormat format = settings.format();
-  format.setOrientation( QgsTextFormat::VerticalOrientation );
+  format.setOrientation( Qgis::TextOrientation::Vertical );
   settings.setFormat( format );
 
   vl->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
@@ -3707,7 +4828,7 @@ void TestQgsLabelingEngine::testVerticalOrientationLetterLineSpacing()
   settings.isExpression = true;
   setDefaultLabelParams( settings );
   QgsTextFormat format = settings.format();
-  format.setOrientation( QgsTextFormat::VerticalOrientation );
+  format.setOrientation( Qgis::TextOrientation::Vertical );
   format.setLineHeight( 1.5 );
   QFont font = format.font();
   font.setLetterSpacing( QFont::AbsoluteSpacing, 3.75 );
@@ -3757,7 +4878,7 @@ void TestQgsLabelingEngine::testRotationBasedOrientationPoint()
   setDefaultLabelParams( settings );
   settings.dataDefinedProperties().setProperty( QgsPalLayerSettings::LabelRotation, QgsProperty::fromExpression( QStringLiteral( "\"Heading\"" ) ) );
   QgsTextFormat format = settings.format();
-  format.setOrientation( QgsTextFormat::RotationBasedOrientation );
+  format.setOrientation( Qgis::TextOrientation::RotationBased );
   settings.setFormat( format );
 
   vl->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
@@ -3810,7 +4931,7 @@ void TestQgsLabelingEngine::testRotationBasedOrientationLine()
   settings.placement = Qgis::LabelPlacement::Line;
   settings.lineSettings().setPlacementFlags( QgsLabeling::LinePlacementFlag::AboveLine );
   QgsTextFormat format = settings.format();
-  format.setOrientation( QgsTextFormat::RotationBasedOrientation );
+  format.setOrientation( Qgis::TextOrientation::RotationBased );
   settings.setFormat( format );
 
   vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
@@ -3872,8 +4993,8 @@ void TestQgsLabelingEngine::testMapUnitLetterSpacing()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3926,8 +5047,8 @@ void TestQgsLabelingEngine::testMapUnitWordSpacing()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -3936,6 +5057,59 @@ void TestQgsLabelingEngine::testMapUnitWordSpacing()
 
   QImage img = job.renderedImage();
   QVERIFY( imageCheck( QStringLiteral( "label_word_spacing_map_units" ), img, 20 ) );
+}
+
+void TestQgsLabelingEngine::testLineHeightAbsolute()
+{
+  QgsPalLayerSettings settings;
+  setDefaultLabelParams( settings );
+
+  QgsTextFormat format = settings.format();
+  format.setSize( 26 );
+  format.setSizeUnit( QgsUnitTypes::RenderPoints );
+  format.setColor( QColor( 0, 0, 0 ) );
+  format.setLineHeight( 20 );
+  format.setLineHeightUnit( QgsUnitTypes::RenderPoints );
+  settings.setFormat( format );
+
+  settings.fieldName = QStringLiteral( "'X\nX\nX'" );
+  settings.isExpression = true;
+  settings.placement = Qgis::LabelPlacement::Horizontal;
+  settings.setFormat( format );
+
+  std::unique_ptr< QgsVectorLayer> vl2( new QgsVectorLayer( QStringLiteral( "LineString?crs=epsg:3946&field=id:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) ) );
+  vl2->setRenderer( new QgsNullSymbolRenderer() );
+
+  QgsFeature f;
+  f.setAttributes( QgsAttributes() << 1 );
+  f.setGeometry( QgsGeometry::fromWkt( QStringLiteral( "LineString (190020 5000000, 190180 5000000)" ) ) );
+  QVERIFY( vl2->dataProvider()->addFeature( f ) );
+
+  vl2->setLabeling( new QgsVectorLayerSimpleLabeling( settings ) );  // TODO: this should not be necessary!
+  vl2->setLabelsEnabled( true );
+
+  // make a fake render context
+  const QSize size( 640, 480 );
+  QgsMapSettings mapSettings;
+  mapSettings.setLabelingEngineSettings( createLabelEngineSettings() );
+  mapSettings.setDestinationCrs( vl2->crs() );
+
+  mapSettings.setOutputSize( size );
+  mapSettings.setExtent( QgsRectangle( 190000, 5000000, 190200, 5000010 ) );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << vl2.get() );
+  mapSettings.setOutputDpi( 96 );
+
+  QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
+  mapSettings.setLabelingEngineSettings( engineSettings );
+
+  QgsMapRendererSequentialJob job( mapSettings );
+  job.start();
+  job.waitForFinished();
+
+  QImage img = job.renderedImage();
+  QVERIFY( imageCheck( QStringLiteral( "label_absolute_line_spacing" ), img, 20 ) );
 }
 
 void TestQgsLabelingEngine::testReferencedFields()
@@ -4001,8 +5175,8 @@ void TestQgsLabelingEngine::testClipping()
   mapSettings.addClippingRegion( region2 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  //engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  //engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4063,9 +5237,9 @@ void TestQgsLabelingEngine::testLineAnchorParallel()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4127,9 +5301,9 @@ void TestQgsLabelingEngine::testLineAnchorParallelConstraints()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4325,9 +5499,9 @@ void TestQgsLabelingEngine::testLineAnchorDataDefinedType()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4392,9 +5566,9 @@ void TestQgsLabelingEngine::testLineAnchorCurved()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4477,9 +5651,9 @@ void TestQgsLabelingEngine::testLineAnchorCurvedConstraints()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4678,9 +5852,9 @@ void TestQgsLabelingEngine::testLineAnchorCurvedOverrun()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4748,9 +5922,9 @@ void TestQgsLabelingEngine::testLineAnchorCurvedStrictAllUpsideDown()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4803,9 +5977,9 @@ void TestQgsLabelingEngine::testLineAnchorHorizontal()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4876,9 +6050,9 @@ void TestQgsLabelingEngine::testLineAnchorHorizontalConstraints()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -4959,9 +6133,9 @@ void TestQgsLabelingEngine::testLineAnchorClipping()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::UsePartialCandidates, false );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UsePartialCandidates, false );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );
@@ -5020,10 +6194,10 @@ void TestQgsLabelingEngine::testShowAllLabelsWhenALabelHasNoCandidates()
   mapSettings.setOutputDpi( 96 );
 
   QgsLabelingEngineSettings engineSettings = mapSettings.labelingEngineSettings();
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawLabelRectOnly, true );
-  engineSettings.setFlag( QgsLabelingEngineSettings::UseAllLabels, true );
-  engineSettings.setFlag( QgsLabelingEngineSettings::DrawUnplacedLabels, true );
-  // engineSettings.setFlag( QgsLabelingEngineSettings::DrawCandidates, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawLabelRectOnly, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::UseAllLabels, true );
+  engineSettings.setFlag( Qgis::LabelingFlag::DrawUnplacedLabels, true );
+  // engineSettings.setFlag( Qgis::LabelingFlag::DrawCandidates, true );
   mapSettings.setLabelingEngineSettings( engineSettings );
 
   QgsMapRendererSequentialJob job( mapSettings );

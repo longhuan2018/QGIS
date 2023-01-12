@@ -228,11 +228,11 @@ class ProviderTestCase(FeatureSourceTestCase):
             # Subset string AND filter fid
             ids = {f[self.pk_name]: f.id() for f in self.source.getFeatures()}
             self.source.setSubsetString(subset)
-            request = QgsFeatureRequest().setFilterFid(4)
+            request = QgsFeatureRequest().setFilterFid(ids[4])
             result = set([f.id() for f in self.source.getFeatures(request)])
             all_valid = (all(f.isValid() for f in self.source.getFeatures(request)))
             self.source.setSubsetString(None)
-            expected = set([4])
+            expected = set([ids[4]])
             assert set(expected) == result, 'Expected {} and got {} when testing subset string {}'.format(set(expected),
                                                                                                           result, subset)
             self.assertTrue(all_valid)
@@ -516,7 +516,7 @@ class ProviderTestCase(FeatureSourceTestCase):
         self.assertEqual(len(result), 2)
         self.assertTrue(result.issubset(set(['Pear', 'Orange', 'Apple'])))
 
-        assert set([u'Apple', u'Honey', u'Orange', u'Pear', NULL]) == set(
+        assert set(['Apple', 'Honey', 'Orange', 'Pear', NULL]) == set(
             self.source.uniqueValues(field_index)), 'Got {}'.format(set(self.source.uniqueValues(field_index)))
 
         if self.source.supportsSubsetString():

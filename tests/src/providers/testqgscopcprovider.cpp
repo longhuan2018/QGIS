@@ -26,6 +26,7 @@
 #include <QVector>
 #include <QTest>
 #include <QStandardPaths>
+#include <QQueue>
 
 //qgis includes...
 #include "qgis.h"
@@ -52,9 +53,13 @@
  * \ingroup UnitTests
  * This is a unit test for the COPC provider
  */
-class TestQgsCopcProvider : public QObject
+class TestQgsCopcProvider : public QgsTest
 {
     Q_OBJECT
+
+  public:
+
+    TestQgsCopcProvider() : QgsTest( QStringLiteral( "COPC Provider Tests" ) ) {}
 
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
@@ -82,12 +87,12 @@ class TestQgsCopcProvider : public QObject
     void testPointCloudIndex();
     void testStatsCalculator();
     void testSaveLoadStats();
+    void testPointCloudRequest();
 
     void testQgsRangeRequestCache();
 
   private:
     QString mTestDataDir;
-    QString mReport;
 };
 
 //runs before all tests
@@ -98,21 +103,12 @@ void TestQgsCopcProvider::initTestCase()
   QgsApplication::initQgis();
 
   mTestDataDir = QStringLiteral( TEST_DATA_DIR ) + '/'; //defined in CmakeLists.txt
-  mReport = QStringLiteral( "<h1>COPC Provider Tests</h1>\n" );
 }
 
 //runs after all tests
 void TestQgsCopcProvider::cleanupTestCase()
 {
   QgsApplication::exitQgis();
-  const QString myReportFile = QDir::tempPath() + "/qgistest.html";
-  QFile myFile( myReportFile );
-  if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
-  {
-    QTextStream myQTextStream( &myFile );
-    myQTextStream << mReport;
-    myFile.close();
-  }
 }
 
 void TestQgsCopcProvider::filters()
@@ -388,9 +384,9 @@ void TestQgsCopcProvider::testIdentify()
     expected[ QStringLiteral( "Z" ) ] = 75.0;
     // compare values using toDouble() so that fuzzy comparison is used in case of
     // tiny rounding errors (e.g. 74.6 vs 74.60000000000001)
-    for ( const QString &k : expected.keys() )
+    for ( auto it = expected.constBegin(); it != expected.constEnd(); it++ )
     {
-      QCOMPARE( identifiedPoint[k].toDouble(), expected[k].toDouble() );
+      QCOMPARE( identifiedPoint[it.key()].toDouble(), it.value().toDouble() );
     }
   }
 
@@ -921,5 +917,72 @@ void TestQgsCopcProvider::testSaveLoadStats()
   QVERIFY( calculatedStats.toStatisticsJson() == readStats.toStatisticsJson() );
 }
 
+void TestQgsCopcProvider::testPointCloudRequest()
+{
+  std::unique_ptr< QgsPointCloudLayer > layer = std::make_unique< QgsPointCloudLayer >( mTestDataDir + QStringLiteral( "point_clouds/copc/lone-star.copc.laz" ), QStringLiteral( "layer" ), QStringLiteral( "copc" ) );
+  QVERIFY( layer->isValid() );
+
+  QgsPointCloudIndex *index = layer->dataProvider()->index();
+  QVERIFY( index->isValid() );
+
+  QVector<IndexedPointCloudNode> nodes;
+  QQueue<IndexedPointCloudNode> queue;
+  queue.push_back( index->root() );
+  while ( !queue.empty() )
+  {
+    IndexedPointCloudNode node = queue.front();
+    queue.pop_front();
+    nodes.push_back( node );
+
+    for ( const IndexedPointCloudNode &child : index->nodeChildren( node ) )
+    {
+      queue.push_back( child );
+    }
+  }
+
+  QgsPointCloudRequest request;
+  request.setAttributes( layer->attributes() );
+  // If request.setFilterRect() is not called, no filter should be applied
+  int count = 0;
+  for ( IndexedPointCloudNode node : nodes )
+  {
+    auto block = index->nodeData( node, request );
+    count += block->pointCount();
+  }
+  QCOMPARE( count, layer->pointCount() );
+
+  // Now let's repeat the counting with an extent
+  QgsRectangle extent( 515390, 4918360, 515400, 4918370 );
+  request.setFilterRect( extent );
+  count = 0;
+  for ( IndexedPointCloudNode node : nodes )
+  {
+    auto block = index->nodeData( node, request );
+    count += block->pointCount();
+  }
+  QCOMPARE( count, 217600 );
+
+  // Now let's repeat the counting with an extent away from the pointcloud
+  extent = QgsRectangle( 0, 0, 1, 1 );
+  request.setFilterRect( extent );
+  count = 0;
+  for ( IndexedPointCloudNode node : nodes )
+  {
+    auto block = index->nodeData( node, request );
+    count += block->pointCount();
+  }
+  QCOMPARE( count, 0 );
+
+  // An empty extent should fetch all points again
+  count = 0;
+  extent = QgsRectangle();
+  request.setFilterRect( extent );
+  for ( IndexedPointCloudNode node : nodes )
+  {
+    auto block = index->nodeData( node, request );
+    count += block->pointCount();
+  }
+  QCOMPARE( count, layer->pointCount() );
+}
 QGSTEST_MAIN( TestQgsCopcProvider )
 #include "testqgscopcprovider.moc"

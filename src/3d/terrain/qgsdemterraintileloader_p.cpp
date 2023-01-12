@@ -126,7 +126,6 @@ Qt3DCore::QEntity *QgsDemTerrainTileLoader::createEntity( Qt3DCore::QEntity *par
   mNode->setExactBbox( QgsAABB( x0, zMin * map.terrainVerticalScale(), -y0, x0 + side, zMax * map.terrainVerticalScale(), -( y0 + side ) ) );
   mNode->updateParentBoundingBoxesRecursively();
 
-  entity->setEnabled( false );
   entity->setParent( parent );
   return entity;
 }
@@ -171,6 +170,8 @@ QgsDemHeightMapGenerator::~QgsDemHeightMapGenerator()
 
 static QByteArray _readDtmData( QgsRasterDataProvider *provider, const QgsRectangle &extent, int res, const QgsCoordinateReferenceSystem &destCrs )
 {
+  provider->moveToThread( QThread::currentThread() );
+
   QgsEventTracing::ScopedEvent e( QStringLiteral( "3D" ), QStringLiteral( "DEM" ) );
 
   // TODO: use feedback object? (but GDAL currently does not support cancellation anyway)
@@ -205,6 +206,9 @@ static QByteArray _readDtmData( QgsRasterDataProvider *provider, const QgsRectan
       }
     }
   }
+
+  provider->moveToThread( nullptr );
+
   return data;
 }
 
@@ -235,9 +239,14 @@ int QgsDemHeightMapGenerator::render( const QgsChunkNodeId &nodeId )
   connect( fw, &QFutureWatcher<QByteArray>::finished, fw, &QObject::deleteLater );
   // make a clone of the data provider so it is safe to use in worker thread
   if ( mDtm )
+  {
+    mClonedProvider->moveToThread( nullptr );
     jd.future = QtConcurrent::run( _readDtmData, mClonedProvider, extent, mResolution, mTilingScheme.crs() );
+  }
   else
+  {
     jd.future = QtConcurrent::run( _readOnlineDtm, mDownloader.get(), extent, mResolution, mTilingScheme.crs(), mTransformContext );
+  }
 
   fw->setFuture( jd.future );
 
@@ -248,14 +257,16 @@ int QgsDemHeightMapGenerator::render( const QgsChunkNodeId &nodeId )
 
 void QgsDemHeightMapGenerator::waitForFinished()
 {
-  for ( QFutureWatcher<QByteArray> *fw : mJobs.keys() )
+  for ( auto it = mJobs.keyBegin(); it != mJobs.keyEnd(); it++ )
   {
+    QFutureWatcher<QByteArray> *fw = *it;
     disconnect( fw, &QFutureWatcher<QByteArray>::finished, this, &QgsDemHeightMapGenerator::onFutureFinished );
     disconnect( fw, &QFutureWatcher<QByteArray>::finished, fw, &QObject::deleteLater );
   }
   QVector<QFutureWatcher<QByteArray>*> toBeDeleted;
-  for ( QFutureWatcher<QByteArray> *fw : mJobs.keys() )
+  for ( auto it = mJobs.keyBegin(); it != mJobs.keyEnd(); it++ )
   {
+    QFutureWatcher<QByteArray> *fw = *it;
     fw->waitForFinished();
     JobData jobData = mJobs.value( fw );
     toBeDeleted.push_back( fw );

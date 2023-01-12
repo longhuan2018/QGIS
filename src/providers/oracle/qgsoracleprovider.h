@@ -443,6 +443,7 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
     QString getStyleById( const QString &uri, const QString &styleId, QString &errCause ) override;
     int listStyles( const QString &uri, QStringList &ids, QStringList &names, QStringList &descriptions, QString &errCause ) override;
     QString loadStyle( const QString &uri, QString &errCause ) override;
+    QString loadStoredStyle( const QString &uri, QString &styleName, QString &errCause ) override;
     bool styleExists( const QString &uri, const QString &styleId, QString &errorCause ) override;
     bool saveStyle( const QString &uri, const QString &qmlStyle, const QString &sldStyle, const QString &styleName,
                     const QString &styleDescription, const QString &uiFileContent, bool useAsDefault, QString &errCause ) override;
@@ -467,6 +468,12 @@ class QgsOracleProviderMetadata final: public QgsProviderMetadata
     QVariantMap decodeUri( const QString &uri ) const override;
     QString encodeUri( const QVariantMap &parts ) const override;
     QList< QgsMapLayerType > supportedLayerTypes() const override;
+
+  private:
+
+    // helper method to check if LAYER_STYLES table exists
+    bool layerStylesTableExists( QgsOracleConn *conn, const QgsDataSourceUri &dsUri, QString &errCause );
+
 };
 
 #ifdef HAVE_GUI

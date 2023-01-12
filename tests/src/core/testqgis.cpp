@@ -23,14 +23,13 @@
 //qgis includes...
 #include "qgis.h"
 #include "qgsmaplayermodel.h"
-#include "qgsattributeeditorelement.h"
 #include "qgsfieldproxymodel.h"
 
 /**
  * \ingroup UnitTests
  * Includes unit tests for the Qgis namespace
  */
-class TestQgis : public QObject
+class TestQgis : public QgsTest
 {
     Q_OBJECT
 
@@ -43,9 +42,10 @@ class TestQgis : public QObject
     };
     Q_ENUM( TestEnum )
 
+  public:
+    TestQgis() : QgsTest( QStringLiteral( "Qgis Tests" ) ) {}
+
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
     void init() {}// will be called before each testfunction is executed.
     void cleanup() {}// will be called after every testfunction.
 
@@ -67,29 +67,9 @@ class TestQgis : public QObject
     void testQgsFlagValueToKeys();
     void testQgsFlagKeysToValue();
     void testQMapQVariantList();
-
-  private:
-    QString mReport;
+    void testQgsMapJoin();
+    void testQgsSetJoin();
 };
-
-//runs before all tests
-void TestQgis::initTestCase()
-{
-  mReport = QStringLiteral( "<h1>Qgis Tests</h1>\n" );
-}
-
-//runs after all tests
-void TestQgis::cleanupTestCase()
-{
-  QString myReportFile = QDir::tempPath() + "/qgistest.html";
-  QFile myFile( myReportFile );
-  if ( myFile.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
-  {
-    QTextStream myQTextStream( &myFile );
-    myQTextStream << mReport;
-    myFile.close();
-  }
-}
 
 void TestQgis::permissiveToDouble()
 {
@@ -549,6 +529,49 @@ void TestQgis::testQMapQVariantList()
 
   QVERIFY( it != ids.constEnd() );
   QCOMPARE( it.value(), 5L );
+}
+
+void TestQgis::testQgsMapJoin()
+{
+  QMap< QString, int> map;
+
+  map.insert( "tutu", 3 );
+  map.insert( "titi", 4 );
+  map.insert( "tata", 5 );
+
+  QString res = qgsMapJoinValues( map, QStringLiteral( ", " ) );
+
+  QRegularExpression re( "[3|4|5], [3|4|5], [3|4|5]" );
+  QVERIFY( re.match( res ).hasMatch() );
+  QVERIFY( res.contains( "3" ) );
+  QVERIFY( res.contains( "4" ) );
+  QVERIFY( res.contains( "5" ) );
+
+  res = qgsMapJoinKeys( map, QStringLiteral( ", " ) );
+
+  re.setPattern( "(tutu|titi|tata), (tutu|titi|tata), (tutu|titi|tata)" );
+  QVERIFY( re.match( res ).hasMatch() );
+  QVERIFY( res.contains( "tutu" ) );
+  QVERIFY( res.contains( "titi" ) );
+  QVERIFY( res.contains( "tata" ) );
+}
+
+void TestQgis::testQgsSetJoin()
+{
+  QSet<int> set;
+
+  set.insert( 3 );
+  set.insert( 4 );
+  set.insert( 4 );
+  set.insert( 5 );
+
+  const QString res = qgsSetJoin( set, QStringLiteral( ", " ) );
+
+  QRegularExpression re( "[3|4|5], [3|4|5], [3|4|5]" );
+  QVERIFY( re.match( res ).hasMatch() );
+  QVERIFY( res.contains( "3" ) );
+  QVERIFY( res.contains( "4" ) );
+  QVERIFY( res.contains( "5" ) );
 }
 
 

@@ -54,14 +54,17 @@
 #include "qgssimplelinematerialsettings.h"
 #include "qgsfillsymbol.h"
 #include "qgsmarkersymbol.h"
+#include "qgsgoochmaterialsettings.h"
 
 #include <QFileInfo>
 #include <QDir>
-#include <QDesktopWidget>
 
-class TestQgs3DRendering : public QObject
+class TestQgs3DRendering : public QgsTest
 {
     Q_OBJECT
+
+  public:
+    TestQgs3DRendering() : QgsTest( QStringLiteral( "3D Rendering Tests" ) ) {}
 
   private slots:
     void initTestCase();// will be called before the first testfunction is executed.
@@ -73,6 +76,7 @@ class TestQgs3DRendering : public QObject
     void testEpsg4978LineRendering();
     void testExtrudedPolygons();
     void testExtrudedPolygonsDataDefined();
+    void testExtrudedPolygonsGoochShading();
     void testPolygonsEdges();
     void testLineRendering();
     void testLineRenderingCurved();
@@ -85,12 +89,11 @@ class TestQgs3DRendering : public QObject
     void testRuleBasedRenderer();
     void testAnimationExport();
     void testBillboardRendering();
+    void testInstancedRendering();
 
   private:
     // color tolerance < 2 was failing polygon3d_extrusion test
     bool renderCheck( const QString &testName, QImage &image, int mismatchCount = 0, int colorTolerance = 2 );
-
-    QString mReport;
 
     std::unique_ptr<QgsProject> mProject;
     QgsRasterLayer *mLayerDtm;
@@ -109,8 +112,6 @@ void TestQgs3DRendering::initTestCase()
   QgsApplication::init();
   QgsApplication::initQgis();
   Qgs3D::initialize();
-
-  mReport = QStringLiteral( "<h1>3D Rendering Tests</h1>\n" );
 
   mProject.reset( new QgsProject );
 
@@ -131,10 +132,10 @@ void TestQgs3DRendering::initTestCase()
   // so we do not get some possible artifacts
   mLayerBuildings->setRenderer( nullptr );
 
-  QgsPhongMaterialSettings material;
-  material.setAmbient( Qt::lightGray );
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::lightGray );
   QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
-  symbol3d->setMaterial( material.clone() );
+  symbol3d->setMaterialSettings( materialSettings.clone() );
   symbol3d->setExtrusionHeight( 10.f );
   QgsVectorLayer3DRenderer *renderer3d = new QgsVectorLayer3DRenderer( symbol3d );
   mLayerBuildings->setRenderer3D( renderer3d );
@@ -210,16 +211,6 @@ void TestQgs3DRendering::initTestCase()
 void TestQgs3DRendering::cleanupTestCase()
 {
   mProject.reset();
-
-  const QString myReportFile = QDir::tempPath() + "/qgistest.html";
-  QFile myFile( myReportFile );
-  if ( myFile.open( QIODevice::WriteOnly | QIODevice::Append ) )
-  {
-    QTextStream myQTextStream( &myFile );
-    myQTextStream << mReport;
-    myFile.close();
-  }
-
   QgsApplication::exitQgis();
 }
 
@@ -265,6 +256,10 @@ void TestQgs3DRendering::testFlatTerrain()
   // change camera lens field of view
   map->setFieldOfView( 85.0f );
   QImage img4 = Qgs3DUtils::captureSceneImage( engine, scene );
+
+  delete scene;
+  delete map;
+
   QVERIFY( renderCheck( "flat_terrain_4", img4, 40 ) );
 }
 
@@ -294,6 +289,9 @@ void TestQgs3DRendering::testDemTerrain()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img3 = Qgs3DUtils::captureSceneImage( engine, scene );
+
+  delete scene;
+  delete map;
 
   QVERIFY( renderCheck( "dem_terrain_1", img3, 40 ) );
 }
@@ -336,8 +334,11 @@ void TestQgs3DRendering::testTerrainShading()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img3 = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
 
   QVERIFY( renderCheck( "shaded_terrain_no_layers", img3, 40 ) );
+
 }
 
 void TestQgs3DRendering::testMeshTerrain()
@@ -371,7 +372,11 @@ void TestQgs3DRendering::testMeshTerrain()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
+
   QVERIFY( renderCheck( "mesh_terrain_1", img, 40 ) );
+
 }
 
 void TestQgs3DRendering::testExtrudedPolygons()
@@ -405,6 +410,22 @@ void TestQgs3DRendering::testExtrudedPolygons()
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
 
   QVERIFY( renderCheck( "polygon3d_extrusion", img, 40 ) );
+
+  // change opacity
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::lightGray );
+  materialSettings.setOpacity( 0.5f );
+  QgsPolygon3DSymbol *symbol3dOpacity = new QgsPolygon3DSymbol;
+  symbol3dOpacity->setMaterialSettings( materialSettings.clone() );
+  symbol3dOpacity->setExtrusionHeight( 10.f );
+  QgsVectorLayer3DRenderer *renderer3dOpacity = new QgsVectorLayer3DRenderer( symbol3dOpacity );
+  mLayerBuildings->setRenderer3D( renderer3dOpacity );
+  QImage img2 = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
+
+  QVERIFY( renderCheck( "polygon3d_extrusion_opacity", img2, 40 ) );
+
 }
 
 void TestQgs3DRendering::testExtrudedPolygonsDataDefined()
@@ -419,11 +440,11 @@ void TestQgs3DRendering::testExtrudedPolygonsDataDefined()
   propertyColection.setProperty( QgsAbstractMaterialSettings::Diffuse, diffuseColor );
   propertyColection.setProperty( QgsAbstractMaterialSettings::Ambient, ambientColor );
   propertyColection.setProperty( QgsAbstractMaterialSettings::Specular, specularColor );
-  QgsPhongMaterialSettings material;
-  material.setDataDefinedProperties( propertyColection );
-  material.setAmbient( Qt::red );
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setDataDefinedProperties( propertyColection );
+  materialSettings.setAmbient( Qt::red );
   QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
-  symbol3d->setMaterial( material.clone() );
+  symbol3d->setMaterialSettings( materialSettings.clone() );
   symbol3d->setExtrusionHeight( 10.f );
   QgsVectorLayer3DRenderer *renderer3d = new QgsVectorLayer3DRenderer( symbol3d );
   mLayerBuildings->setRenderer3D( renderer3d );
@@ -457,6 +478,55 @@ void TestQgs3DRendering::testExtrudedPolygonsDataDefined()
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
 
   QVERIFY( renderCheck( "polygon3d_extrusion_data_defined", img, 40 ) );
+  delete scene;
+  delete map;
+}
+
+void TestQgs3DRendering::testExtrudedPolygonsGoochShading()
+{
+  const QgsRectangle fullExtent = mLayerDtm->extent();
+
+  Qgs3DMapSettings *map = new Qgs3DMapSettings;
+  map->setCrs( mProject->crs() );
+  QgsPointLightSettings defaultLight;
+  defaultLight.setIntensity( 0.5 );
+  defaultLight.setPosition( QgsVector3D( 0, 1000, 0 ) );
+  map->setLightSources( {defaultLight.clone() } );
+  map->setOrigin( QgsVector3D( fullExtent.center().x(), fullExtent.center().y(), 0 ) );
+  map->setLayers( QList<QgsMapLayer *>() << mLayerBuildings << mLayerRgb );
+
+  QgsFlatTerrainGenerator *flatTerrain = new QgsFlatTerrainGenerator;
+  flatTerrain->setCrs( map->crs() );
+  flatTerrain->setExtent( fullExtent );
+  map->setTerrainGenerator( flatTerrain );
+
+  QgsOffscreen3DEngine engine;
+  Qgs3DMapScene *scene = new Qgs3DMapScene( *map, &engine );
+  engine.setRootEntity( scene );
+
+  QgsGoochMaterialSettings materialSettings;
+  materialSettings.setWarm( QColor( 224, 224, 17 ) );
+  materialSettings.setCool( QColor( 21, 187, 235 ) );
+  materialSettings.setAlpha( 0.2f );
+  materialSettings.setBeta( 0.6f );
+  QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
+  symbol3d->setMaterialSettings( materialSettings.clone() );
+  symbol3d->setExtrusionHeight( 10.f );
+  QgsVectorLayer3DRenderer *renderer3dOpacity = new QgsVectorLayer3DRenderer( symbol3d );
+  mLayerBuildings->setRenderer3D( renderer3dOpacity );
+
+  scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 250 ), 500, 45, 0 );
+
+  // When running the test on Travis, it would initially return empty rendered image.
+  // Capturing the initial image and throwing it away fixes that. Hopefully we will
+  // find a better fix in the future.
+  Qgs3DUtils::captureSceneImage( engine, scene );
+  QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+
+  delete scene;
+  delete map;
+
+  QVERIFY( renderCheck( "polygon3d_extrusion_gooch_shading", img, 40 ) );
 }
 
 void TestQgs3DRendering::testPolygonsEdges()
@@ -467,10 +537,10 @@ void TestQgs3DRendering::testPolygonsEdges()
   map->setCrs( mProject->crs() );
   map->setOrigin( QgsVector3D( fullExtent.center().x(), fullExtent.center().y(), 0 ) );
 
-  QgsPhongMaterialSettings material;
-  material.setAmbient( Qt::lightGray );
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::lightGray );
   QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
-  symbol3d->setMaterial( material.clone() );
+  symbol3d->setMaterialSettings( materialSettings.clone() );
   symbol3d->setExtrusionHeight( 10.f );
   symbol3d->setHeight( 20.f );
   symbol3d->setEdgesEnabled( true );
@@ -509,6 +579,9 @@ void TestQgs3DRendering::testPolygonsEdges()
   Qgs3DUtils::captureSceneImage( engine, scene );
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
 
+  delete scene;
+  delete map;
+
   QVERIFY( renderCheck( "polygon_edges_height", img, 40 ) );
 }
 
@@ -521,9 +594,9 @@ void TestQgs3DRendering::testLineRendering()
   QgsLine3DSymbol *lineSymbol = new QgsLine3DSymbol;
   lineSymbol->setRenderAsSimpleLines( true );
   lineSymbol->setWidth( 10 );
-  QgsSimpleLineMaterialSettings mat;
-  mat.setAmbient( Qt::red );
-  lineSymbol->setMaterial( mat.clone() );
+  QgsSimpleLineMaterialSettings matSettings;
+  matSettings.setAmbient( Qt::red );
+  lineSymbol->setMaterialSettings( matSettings.clone() );
   layerLines->setRenderer3D( new QgsVectorLayer3DRenderer( lineSymbol ) );
 
   QVector<QgsPoint> pts;
@@ -564,9 +637,10 @@ void TestQgs3DRendering::testLineRendering()
   scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 2500, 45, 45 );
 
   QImage img2 = Qgs3DUtils::captureSceneImage( engine, scene );
-  QVERIFY( renderCheck( "line_rendering_2", img2, 40 ) );
-
+  delete scene;
+  delete map;
   delete layerLines;
+  QVERIFY( renderCheck( "line_rendering_2", img2, 40 ) );
 }
 
 void TestQgs3DRendering::testLineRenderingCurved()
@@ -579,9 +653,9 @@ void TestQgs3DRendering::testLineRenderingCurved()
   QgsLine3DSymbol *lineSymbol = new QgsLine3DSymbol;
   lineSymbol->setRenderAsSimpleLines( true );
   lineSymbol->setWidth( 10 );
-  QgsSimpleLineMaterialSettings mat;
-  mat.setAmbient( Qt::red );
-  lineSymbol->setMaterial( mat.clone() );
+  QgsSimpleLineMaterialSettings matSettings;
+  matSettings.setAmbient( Qt::red );
+  lineSymbol->setMaterialSettings( matSettings.clone() );
   layerLines->setRenderer3D( new QgsVectorLayer3DRenderer( lineSymbol ) );
 
   QVector<QgsPoint> pts;
@@ -621,9 +695,10 @@ void TestQgs3DRendering::testLineRenderingCurved()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
-  QVERIFY( renderCheck( "line_rendering_1", img, 40 ) );
-
+  delete scene;
+  delete map;
   delete layerLines;
+  QVERIFY( renderCheck( "line_rendering_1", img, 40 ) );
 }
 
 void TestQgs3DRendering::testBufferedLineRendering()
@@ -636,9 +711,9 @@ void TestQgs3DRendering::testBufferedLineRendering()
   QgsLine3DSymbol *lineSymbol = new QgsLine3DSymbol;
   lineSymbol->setWidth( 10 );
   lineSymbol->setExtrusionHeight( 30 );
-  QgsPhongMaterialSettings mat;
-  mat.setAmbient( Qt::red );
-  lineSymbol->setMaterial( mat.clone() );
+  QgsPhongMaterialSettings matSettings;
+  matSettings.setAmbient( Qt::red );
+  lineSymbol->setMaterialSettings( matSettings.clone() );
   layerLines->setRenderer3D( new QgsVectorLayer3DRenderer( lineSymbol ) );
 
   Qgs3DMapSettings *map = new Qgs3DMapSettings;
@@ -667,9 +742,11 @@ void TestQgs3DRendering::testBufferedLineRendering()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
-  QVERIFY( renderCheck( "buffered_lines", img, 40 ) );
-
+  delete scene;
+  delete map;
   delete layerLines;
+
+  QVERIFY( renderCheck( "buffered_lines", img, 40 ) );
 }
 
 void TestQgs3DRendering::testBufferedLineRenderingWidth()
@@ -683,9 +760,9 @@ void TestQgs3DRendering::testBufferedLineRenderingWidth()
   lineSymbol->setWidth( 20 );
   lineSymbol->setExtrusionHeight( 30 );
   lineSymbol->setHeight( 10 );
-  QgsPhongMaterialSettings mat;
-  mat.setAmbient( Qt::red );
-  lineSymbol->setMaterial( mat.clone() );
+  QgsPhongMaterialSettings matSettings;
+  matSettings.setAmbient( Qt::red );
+  lineSymbol->setMaterialSettings( matSettings.clone() );
   layerLines->setRenderer3D( new QgsVectorLayer3DRenderer( lineSymbol ) );
 
   Qgs3DMapSettings *map = new Qgs3DMapSettings;
@@ -714,9 +791,10 @@ void TestQgs3DRendering::testBufferedLineRenderingWidth()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
-  QVERIFY( renderCheck( "buffered_lines_width", img, 40 ) );
-
+  delete scene;
+  delete map;
   delete layerLines;
+  QVERIFY( renderCheck( "buffered_lines_width", img, 40 ) );
 }
 
 void TestQgs3DRendering::testMapTheme()
@@ -750,6 +828,8 @@ void TestQgs3DRendering::testMapTheme()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
   QVERIFY( renderCheck( "terrain_theme", img, 40 ) );
 }
 
@@ -781,6 +861,8 @@ void TestQgs3DRendering::testMesh()
   // find a better fix in the future.
   scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 3000, 25, 45 );
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
 
   QVERIFY( renderCheck( "mesh3d", img, 40 ) );
 }
@@ -822,6 +904,8 @@ void TestQgs3DRendering::testMesh_datasetOnFaces()
   // find a better fix in the future.
   scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 3000, 25, 45 );
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
 
   QVERIFY( renderCheck( "mesh3dOnFace", img, 40 ) );
 }
@@ -888,24 +972,25 @@ void TestQgs3DRendering::testMeshSimplified()
     // find a better fix in the future.
     Qgs3DUtils::captureSceneImage( engine, scene );
     QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+    delete scene;
+    delete map;
 
     QVERIFY( renderCheck( QString( "mesh_simplified_%1" ).arg( i ), img, 40 ) );
   }
-
 }
 
 void TestQgs3DRendering::testRuleBasedRenderer()
 {
-  QgsPhongMaterialSettings material;
-  material.setAmbient( Qt::lightGray );
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::lightGray );
   QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
-  symbol3d->setMaterial( material.clone() );
+  symbol3d->setMaterialSettings( materialSettings.clone() );
   symbol3d->setExtrusionHeight( 10.f );
 
-  QgsPhongMaterialSettings material2;
-  material2.setAmbient( Qt::red );
+  QgsPhongMaterialSettings materialSettings2;
+  materialSettings2.setAmbient( Qt::red );
   QgsPolygon3DSymbol *symbol3d2 = new QgsPolygon3DSymbol;
-  symbol3d2->setMaterial( material2.clone() );
+  symbol3d2->setMaterialSettings( materialSettings2.clone() );
   symbol3d2->setExtrusionHeight( 10.f );
 
   QgsRuleBased3DRenderer::Rule *root = new QgsRuleBased3DRenderer::Rule( nullptr );
@@ -946,12 +1031,15 @@ void TestQgs3DRendering::testRuleBasedRenderer()
   Qgs3DUtils::captureSceneImage( engine, scene );
 
   QImage img = Qgs3DUtils::captureSceneImage( engine, scene );
+
+  delete scene;
+  delete map;
+
   QVERIFY( renderCheck( "rulebased", img, 40 ) );
 }
 
 bool TestQgs3DRendering::renderCheck( const QString &testName, QImage &image, int mismatchCount, int colorTolerance )
 {
-  mReport += "<h2>" + testName + "</h2>\n";
   const QString myTmpDir = QDir::tempPath() + '/';
   const QString myFileName = myTmpDir + testName + ".png";
   image.save( myFileName, "PNG" );
@@ -1004,6 +1092,81 @@ void TestQgs3DRendering::testAnimationExport()
 
   QVERIFY( success );
   QVERIFY( QFileInfo::exists( ( QDir( dir ).filePath( QStringLiteral( "test3danimation001.png" ) ) ) ) );
+}
+
+void TestQgs3DRendering::testInstancedRendering()
+{
+  const QgsRectangle fullExtent( 1000, 1000, 2000, 2000 );
+
+  std::unique_ptr<QgsVectorLayer> layerPointsZ( new QgsVectorLayer( "PointZ?crs=EPSG:27700", "points Z", "memory" ) );
+
+  QgsPoint *p1 = new QgsPoint( 1000, 1000, 50 );
+  QgsPoint *p2 = new QgsPoint( 1000, 2000, 100 );
+  QgsPoint *p3 = new QgsPoint( 2000, 2000, 200 );
+
+  QgsFeature f1( layerPointsZ->fields() );
+  QgsFeature f2( layerPointsZ->fields() );
+  QgsFeature f3( layerPointsZ->fields() );
+
+  f1.setGeometry( QgsGeometry( p1 ) );
+  f2.setGeometry( QgsGeometry( p2 ) );
+  f3.setGeometry( QgsGeometry( p3 ) );
+
+  QgsFeatureList featureList;
+  featureList << f1 << f2 << f3;
+  layerPointsZ->dataProvider()->addFeatures( featureList );
+
+  QgsPoint3DSymbol *sphere3DSymbol = new QgsPoint3DSymbol();
+  sphere3DSymbol->setShape( QgsPoint3DSymbol::Sphere );
+  QVariantMap vmSphere;
+  vmSphere[QStringLiteral( "radius" )] = 80.0f;
+  sphere3DSymbol->setShapeProperties( vmSphere );
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::gray );
+  sphere3DSymbol->setMaterialSettings( materialSettings.clone() );
+
+  layerPointsZ->setRenderer3D( new QgsVectorLayer3DRenderer( sphere3DSymbol ) );
+
+  Qgs3DMapSettings *mapSettings = new Qgs3DMapSettings;
+  mapSettings->setCrs( mProject->crs() );
+  mapSettings->setOrigin( QgsVector3D( fullExtent.center().x(), fullExtent.center().y(), 0 ) );
+  mapSettings->setLayers( QList<QgsMapLayer *>() << layerPointsZ.get() );
+
+  QgsFlatTerrainGenerator *flatTerrain = new QgsFlatTerrainGenerator;
+  flatTerrain->setCrs( mapSettings->crs() );
+  flatTerrain->setExtent( fullExtent );
+  mapSettings->setTerrainGenerator( flatTerrain );
+
+  QgsOffscreen3DEngine engine;
+  Qgs3DMapScene *scene = new Qgs3DMapScene( *mapSettings, &engine );
+  engine.setRootEntity( scene );
+
+  scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 2500, 45, 0 );
+
+  // When running the test on Travis, it would initially return empty rendered image.
+  // Capturing the initial image and throwing it away fixes that. Hopefully we will
+  // find a better fix in the future.
+  Qgs3DUtils::captureSceneImage( engine, scene );
+
+  QImage imgSphere = Qgs3DUtils::captureSceneImage( engine, scene );
+  QVERIFY( renderCheck( "sphere_rendering", imgSphere, 40 ) );
+
+  QgsPoint3DSymbol *cylinder3DSymbol = new QgsPoint3DSymbol();
+  cylinder3DSymbol->setShape( QgsPoint3DSymbol::Cylinder );
+  QVariantMap vmCylinder;
+  vmCylinder[QStringLiteral( "radius" )] = 20.0f;
+  vmCylinder[QStringLiteral( "length" )] = 200.0f;
+  cylinder3DSymbol->setShapeProperties( vmCylinder );
+  cylinder3DSymbol->setMaterialSettings( materialSettings.clone() );
+
+  layerPointsZ->setRenderer3D( new QgsVectorLayer3DRenderer( cylinder3DSymbol ) );
+
+  scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 2500, 60, 0 );
+
+  QImage imgCylinder = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete mapSettings;
+  QVERIFY( renderCheck( "cylinder_rendering", imgCylinder, 40 ) );
 }
 
 void TestQgs3DRendering::testBillboardRendering()
@@ -1069,6 +1232,9 @@ void TestQgs3DRendering::testBillboardRendering()
   scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 2500, 45, 45 );
 
   QImage img2 = Qgs3DUtils::captureSceneImage( engine, scene );
+  delete scene;
+  delete map;
+
   QVERIFY( renderCheck( "billboard_rendering_2", img2, 40 ) );
 }
 
@@ -1076,23 +1242,23 @@ void TestQgs3DRendering::testEpsg4978LineRendering()
 {
   const QgsRectangle fullExtent( 0, 0, 1000, 1000 );
 
-  QgsCoordinateReferenceSystem oldCrs = mProject->crs();
-  QgsCoordinateReferenceSystem newCrs;
-  newCrs.createFromString( "EPSG:4978" );
-  mProject->setCrs( newCrs );
+  QgsProject p;
+
+  QgsCoordinateReferenceSystem newCrs( QStringLiteral( "EPSG:4978" ) );
+  p.setCrs( newCrs );
 
   QgsVectorLayer *layerLines = new QgsVectorLayer( QString( TEST_DATA_DIR ) + "/3d/earth_size_sphere_4978.gpkg", "lines", "ogr" );
 
   QgsLine3DSymbol *lineSymbol = new QgsLine3DSymbol;
   lineSymbol->setRenderAsSimpleLines( true );
   lineSymbol->setWidth( 2 );
-  QgsSimpleLineMaterialSettings mat;
-  mat.setAmbient( Qt::red );
-  lineSymbol->setMaterial( mat.clone() );
+  QgsSimpleLineMaterialSettings matSettings;
+  matSettings.setAmbient( Qt::red );
+  lineSymbol->setMaterialSettings( matSettings.clone() );
   layerLines->setRenderer3D( new QgsVectorLayer3DRenderer( lineSymbol ) );
 
   Qgs3DMapSettings *map = new Qgs3DMapSettings;
-  map->setCrs( mProject->crs() );
+  map->setCrs( p.crs() );
   map->setOrigin( QgsVector3D( fullExtent.center().x(), fullExtent.center().y(), 0 ) );
   map->setLayers( QList<QgsMapLayer *>() << layerLines );
 
@@ -1120,10 +1286,11 @@ void TestQgs3DRendering::testEpsg4978LineRendering()
   scene->cameraController()->setLookingAtPoint( QgsVector3D( 0, 0, 0 ), 1.5e7, 45, 45 );
 
   QImage img2 = Qgs3DUtils::captureSceneImage( engine, scene );
-  QVERIFY( renderCheck( "4978_line_rendering_2", img2, 40, 15 ) );
-
+  delete scene;
+  delete map;
   delete layerLines;
-  mProject->setCrs( oldCrs );
+
+  QVERIFY( renderCheck( "4978_line_rendering_2", img2, 40, 15 ) );
 }
 
 QGSTEST_MAIN( TestQgs3DRendering )

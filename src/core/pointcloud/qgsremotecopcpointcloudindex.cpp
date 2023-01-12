@@ -76,7 +76,7 @@ QList<IndexedPointCloudNode> QgsRemoteCopcPointCloudIndex::nodeChildren( const I
   {
     int dx = i & 1, dy = !!( i & 2 ), dz = !!( i & 4 );
     const IndexedPointCloudNode n2( d, x + dx, y + dy, z + dz );
-    if ( fetchNodeHierarchy( n2 ) && mHierarchy[n] > 0 )
+    if ( fetchNodeHierarchy( n2 ) && mHierarchy[n] >= 0 )
       lst.append( n2 );
   }
   return lst;
@@ -135,7 +135,7 @@ QgsPointCloudBlockRequest *QgsRemoteCopcPointCloudIndex::asyncNodeData( const In
   int pointCount = mHierarchy.value( n );
 
   return new QgsCopcPointCloudBlockRequest( n, mUrl.toString(), attributes(), requestAttributes,
-         scale(), offset(), filterExpression,
+         scale(), offset(), filterExpression, request.filterRect(),
          blockOffset, blockSize, pointCount, *mLazInfo.get() );
 }
 

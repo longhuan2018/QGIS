@@ -133,6 +133,7 @@ QgsMapTool::Flags QgsMapToolSelect::flags() const
       break;
 
     case QgsMapToolSelectionHandler::SelectSimple:
+    case QgsMapToolSelectionHandler::SelectOnMouseOver:
     case QgsMapToolSelectionHandler::SelectFreehand:
     case QgsMapToolSelectionHandler::SelectRadius:
       return QgsMapTool::flags() | QgsMapTool::ShowContextMenu;
@@ -150,6 +151,8 @@ bool QgsMapToolSelect::populateContextMenuWithEvent( QMenu *menu, QgsMapMouseEve
     return false;
 
   QgsVectorLayer *vlayer = qobject_cast< QgsVectorLayer * >( layer );
+  if ( !vlayer->isSpatial() )
+    return false;
 
   menu->addSeparator();
 

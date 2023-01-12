@@ -15,6 +15,7 @@ RUN dnf -y --refresh install \
     git \
     gdal-devel \
     geos-devel \
+    gpsbabel \
     grass \
     grass-devel \
     gsl-devel \
@@ -39,10 +40,13 @@ RUN dnf -y --refresh install \
     qt6-qtdeclarative-devel \
     qt6-qttools-static \
     qt6-qtsvg-devel \
+    qt6-qtpositioning-devel \
+    qt6-qtdeclarative-devel \
     qt6-qt5compat-devel \
     spatialindex-devel \
     sqlite-devel \
     unzip \
+    unixODBC-devel \
     xorg-x11-server-Xvfb \
     util-linux \
     wget \
@@ -86,10 +90,10 @@ RUN cd /usr/src \
 
 
 RUN cd /usr/src \
-  && wget https://www.riverbankcomputing.com/static/Downloads/QScintilla/2.13.0/QScintilla_src-2.13.0.zip \
-  && unzip QScintilla_src-2.13.0.zip \
-  && rm QScintilla_src-2.13.0.zip \
-  && cd QScintilla_src-2.13.0 \
+  && wget https://www.riverbankcomputing.com/static/Downloads/QScintilla/2.13.3/QScintilla_src-2.13.3.zip \
+  && unzip QScintilla_src-2.13.3.zip \
+  && rm QScintilla_src-2.13.3.zip \
+  && cd QScintilla_src-2.13.3 \
   && qmake6 src/qscintilla.pro \
   && make -j4 \
   && make install

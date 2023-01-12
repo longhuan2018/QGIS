@@ -39,6 +39,8 @@
 
 #include "qgswfsgetfeature.h"
 
+#include <QRegularExpression>
+
 namespace QgsWfs
 {
 
@@ -272,7 +274,8 @@ namespace QgsWfs
         for ( const QgsField &field : fields )
         {
           fieldnames.append( field.name() );
-          propertynames.append( field.name().replace( ' ', '_' ).replace( cleanTagNameRegExp, QString() ) );
+          const thread_local QRegularExpression sCleanTagNameRegExp( QStringLiteral( "[^\\w\\.-_]" ), QRegularExpression::PatternOption::UseUnicodePropertiesOption );
+          propertynames.append( field.name().replace( ' ', '_' ).replace( sCleanTagNameRegExp, QString() ) );
         }
         QString fieldName;
         for ( plstIt = propertyList.constBegin(); plstIt != propertyList.constEnd(); ++plstIt )
@@ -1035,7 +1038,7 @@ namespace QgsWfs
       {
         response.setHeader( "Content-Type", "application/vnd.geo+json; charset=utf-8" );
         fcString = QStringLiteral( "{\"type\": \"FeatureCollection\",\n" );
-        fcString += QStringLiteral( " \"timeStamp\": \"%1\"\n" ).arg( now.toString( Qt::ISODate ) );
+        fcString += QStringLiteral( " \"timeStamp\": \"%1\",\n" ).arg( now.toString( Qt::ISODate ) );
         fcString += QStringLiteral( " \"numberOfFeatures\": %1\n" ).arg( QString::number( numberOfFeatures ) );
         fcString += QLatin1Char( '}' );
       }
@@ -1061,7 +1064,8 @@ namespace QgsWfs
         else
           query.addQueryItem( QStringLiteral( "VERSION" ), QStringLiteral( "1.0.0" ) );
 
-        for ( auto param : query.queryItems() )
+        const auto constItems { query.queryItems() };
+        for ( const auto &param : std::as_const( constItems ) )
         {
           if ( sParamFilter.contains( param.first.toUpper() ) )
             query.removeAllQueryItems( param.first );
@@ -1280,6 +1284,15 @@ namespace QgsWfs
           fcString += QLatin1String( "  " );
         else
           fcString += QLatin1String( " ," );
+
+        const QgsCoordinateReferenceSystem destinationCrs { params.srsName.isEmpty( ) ? QStringLiteral( "EPSG:4326" ) : params.srsName };
+        if ( ! destinationCrs.isValid() )
+        {
+          throw QgsRequestNotWellFormedException( QStringLiteral( "srsName error: '%1' is not valid." ).arg( params.srsName ) );
+        }
+
+        mJsonExporter.setDestinationCrs( destinationCrs );
+        mJsonExporter.setTransformGeometries( true );
         mJsonExporter.setSourceCrs( params.crs );
         mJsonExporter.setIncludeGeometry( false );
         mJsonExporter.setIncludeAttributes( !params.attributeIndexes.isEmpty() );
@@ -1547,9 +1560,10 @@ namespace QgsWfs
     QDomElement createFieldElement( const QgsField &field, const QVariant &value, QDomDocument &doc )
     {
       const QgsEditorWidgetSetup setup = field.editorWidgetSetup();
-      const QString attributeName = field.name().replace( ' ', '_' ).replace( cleanTagNameRegExp, QString() );
+      const thread_local QRegularExpression sCleanTagNameRegExp( QStringLiteral( "[^\\w\\.-_]" ), QRegularExpression::PatternOption::UseUnicodePropertiesOption );
+      const QString attributeName = field.name().replace( ' ', '_' ).replace( sCleanTagNameRegExp, QString() );
       QDomElement fieldElem = doc.createElement( QStringLiteral( "qgs:" ) + attributeName );
-      if ( value.isNull() )
+      if ( QgsVariantUtils::isNull( value ) )
       {
         fieldElem.setAttribute( QStringLiteral( "xsi:nil" ), QStringLiteral( "true" ) );
       }
@@ -1571,19 +1585,40 @@ namespace QgsWfs
 
     QString encodeValueToText( const QVariant &value, const QgsEditorWidgetSetup &setup )
     {
-      if ( value.isNull() )
+      if ( QgsVariantUtils::isNull( value ) )
         return QString();
 
       if ( setup.type() ==  QStringLiteral( "DateTime" ) )
       {
-        const QVariantMap config = setup.config();
-        const QString fieldFormat = config.value( QStringLiteral( "field_format" ), QgsDateTimeFieldFormatter::defaultFormat( value.type() ) ).toString();
-        QDateTime date = value.toDateTime();
+        // For time fields use const TIME_FORMAT
+        if ( value.type() == QVariant::Time )
+        {
+          return value.toTime().toString( QgsDateTimeFieldFormatter::TIME_FORMAT );
+        }
 
+        // Get editor widget setup config
+        const QVariantMap config = setup.config();
+        // Get field format, for ISO format then use const display format
+        // else use field format saved in editor widget setup config
+        const QString fieldFormat =
+          config.value( QStringLiteral( "field_iso_format" ), false ).toBool() ?
+          QgsDateTimeFieldFormatter::DISPLAY_FOR_ISO_FORMAT :
+          config.value( QStringLiteral( "field_format" ), QgsDateTimeFieldFormatter::defaultFormat( value.type() ) ).toString();
+
+        // Convert value to date time
+        QDateTime date = value.toDateTime();
+        // if not valid try to convert to date with field format
+        if ( !date.isValid() )
+        {
+          date = QDateTime::fromString( value.toString(), fieldFormat );
+        }
+        // if the date is valid, convert to string with field format
         if ( date.isValid() )
         {
           return date.toString( fieldFormat );
         }
+        // else provide the value as string
+        return value.toString();
       }
       else if ( setup.type() ==  QStringLiteral( "Range" ) )
       {

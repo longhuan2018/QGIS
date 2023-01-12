@@ -28,10 +28,8 @@
 #include "qgsnewnamedialog.h"
 #include "qgsbrowserguimodel.h"
 #include "qgsbrowserdockwidget_p.h"
-#include "qgswindowmanagerinterface.h"
 #include "qgsrasterlayer.h"
 #include "qgsnewvectorlayerdialog.h"
-#include "qgsnewgeopackagelayerdialog.h"
 #include "qgsfileutils.h"
 #include "qgsapplication.h"
 #include "processing/qgsprojectstylealgorithms.h"
@@ -41,7 +39,6 @@
 #include "qgsabstractdatabaseproviderconnection.h"
 #include "qgsprovidermetadata.h"
 #include "qgsnewvectortabledialog.h"
-#include "qgsdataitemproviderregistry.h"
 #include "qgscolordialog.h"
 #include "qgsdirectoryitem.h"
 #include "qgsdatacollectionitem.h"
@@ -54,12 +51,15 @@
 #include "qgsfielddomain.h"
 #include "qgsconnectionsitem.h"
 #include "qgsqueryresultwidget.h"
-#include "qgsogrproviderutils.h"
 #include "qgsprojectutils.h"
 #include "qgsvariantutils.h"
 #include "qgsfielddomainwidget.h"
 #include "qgsgeopackagedataitems.h"
 #include "qgsfilebaseddataitemprovider.h"
+#include "qgsvectorlayerexporter.h"
+#include "qgsmessageoutput.h"
+#include "qgsrelationshipsitem.h"
+#include "qgsprovidersqlquerybuilder.h"
 
 #include <QFileInfo>
 #include <QMenu>
@@ -121,18 +121,49 @@ void QgsAppDirectoryItemGuiProvider::populateContextMenu( QgsDataItem *item, QMe
   createGpkg->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionNewGeoPackageLayer.svg" ) ) );
   connect( createGpkg, &QAction::triggered, this, [ = ]
   {
-    QgsNewGeoPackageLayerDialog dialog( QgisApp::instance() );
     QDir dir( directoryItem->dirPath() );
-    dialog.setDatabasePath( dir.filePath( QStringLiteral( "new_geopackage" ) ) );
-    dialog.setCrs( QgsProject::instance()->defaultCrsForNewLayers() );
-    dialog.setAddToProject( false );
-    if ( dialog.exec() )
+    QString newName = tr( "New GeoPackage.gpkg" );
+    int i = 1;
+    while ( QFileInfo::exists( dir.absoluteFilePath( newName ) ) )
     {
-      QString file = dialog.databasePath();
-      file = QgsFileUtils::ensureFileNameHasExtension( file, QStringList() << QStringLiteral( "gpkg" ) );
-      context.messageBar()->pushSuccess( tr( "New GeoPackage" ), tr( "Created <a href=\"%1\">%2</a>" ).arg(
-                                           QUrl::fromLocalFile( file ).toString(), QDir::toNativeSeparators( file ) ) );
-      item->refresh();
+      i += 1;
+      newName = tr( "New GeoPackage (%1).gpkg" ).arg( i );
+    }
+
+    const QString fileName = dir.absoluteFilePath( newName );
+    if ( QgsProviderMetadata *ogrMetadata = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) ) )
+    {
+      QString error;
+      if ( ! ogrMetadata->createDatabase( fileName, error ) )
+      {
+        context.messageBar()->pushCritical( tr( "New GeoPackage" ), tr( "GeoPackage creation failed: %1" ).arg( error ) );
+      }
+      else
+      {
+        QObject *contextObject = new QObject();
+        connect( directoryItem, &QgsDataItem::stateChanged, contextObject, [contextObject, fileName, context]( QgsDataItem * item, Qgis::BrowserItemState )
+        {
+          if ( item->state() == Qgis::BrowserItemState::Populated )
+          {
+            // find the new item and select it
+            const QVector<QgsDataItem *> children = item->children();
+            for ( QgsDataItem *child : children )
+            {
+              if ( child->path() == fileName )
+              {
+                if ( QgsBrowserTreeView *view = context.view() )
+                {
+                  if ( view->setSelectedItem( child ) )
+                    view->edit( view->currentIndex() );
+                }
+                break;
+              }
+            }
+            contextObject->deleteLater();
+          }
+        } );
+        directoryItem->refresh();
+      }
     }
   } );
   newMenu->addAction( createGpkg );
@@ -157,6 +188,59 @@ void QgsAppDirectoryItemGuiProvider::populateContextMenu( QgsDataItem *item, QMe
     }
   } );
   newMenu->addAction( createShp );
+
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
+  QAction *createFgdb = new QAction( tr( "ESRI FileGeodatabase…" ), newMenu );
+  createFgdb->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionNewFileGeodatabase.svg" ) ) );
+  connect( createFgdb, &QAction::triggered, this, [ = ]
+  {
+    QDir dir( directoryItem->dirPath() );
+    QString newName = tr( "New File Geodatabase.gdb" );
+    int i = 1;
+    while ( QFileInfo::exists( dir.absoluteFilePath( newName ) ) )
+    {
+      i += 1;
+      newName = tr( "New File Geodatabase (%1).gdb" ).arg( i );
+    }
+
+    const QString fileName = dir.absoluteFilePath( newName );
+    if ( QgsProviderMetadata *ogrMetadata = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) ) )
+    {
+      QString error;
+      if ( ! ogrMetadata->createDatabase( fileName, error ) )
+      {
+        context.messageBar()->pushCritical( tr( "New ESRI File Geodatabase" ), tr( "Database creation failed: %1" ).arg( error ) );
+      }
+      else
+      {
+        QObject *contextObject = new QObject();
+        connect( directoryItem, &QgsDataItem::stateChanged, contextObject, [contextObject, fileName, context]( QgsDataItem * item, Qgis::BrowserItemState )
+        {
+          if ( item->state() == Qgis::BrowserItemState::Populated )
+          {
+            // find the new item and select it
+            const QVector<QgsDataItem *> children = item->children();
+            for ( QgsDataItem *child : children )
+            {
+              if ( child->path() == fileName )
+              {
+                if ( QgsBrowserTreeView *view = context.view() )
+                {
+                  if ( view->setSelectedItem( child ) )
+                    view->edit( view->currentIndex() );
+                }
+                break;
+              }
+            }
+            contextObject->deleteLater();
+          }
+        } );
+        directoryItem->refresh();
+      }
+    }
+  } );
+  newMenu->addAction( createFgdb );
+#endif
 
   menu->addMenu( newMenu );
 
@@ -725,8 +809,13 @@ bool QgsAppFileItemGuiProvider::rename( QgsDataItem *item, const QString &name, 
   const QString oldPath = item->path();
 
   QString newName = name;
+
   if ( QFileInfo( newName ).suffix().isEmpty() )
     newName = newName + '.' + QFileInfo( oldPath ).suffix();
+
+  const QString newPath = QFileInfo( oldPath ).dir().filePath( newName );
+  if ( newPath == oldPath )
+    return false; // don't need to do anything
 
   const QStringList existingNames = QFileInfo( oldPath ).dir().entryList();
   if ( existingNames.contains( newName ) )
@@ -990,6 +1079,22 @@ void QgsLayerItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *men
   } );
   menu->addAction( addAction );
 
+  for ( QAction *action : menu->actions() )
+  {
+    const QString insertAfter = action->property( "insertAfter" ).toString();
+    if ( !insertAfter.isEmpty() && insertAfter == "addLayerToProject" )
+    {
+      // temporarily unset the parent -- we don't want the action to be deleted automatically if it was parented to the menu
+      QObject *prevParent = action->parent();
+      action->setParent( nullptr );
+
+      menu->removeAction( action );
+      menu->addAction( action );
+
+      action->setParent( prevParent );
+    }
+  }
+
   QAction *propertiesAction = new QAction( tr( "Layer Properties…" ), menu );
   connect( propertiesAction, &QAction::triggered, this, [ = ]
   {
@@ -1195,13 +1300,15 @@ void QgsFieldsItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *me
       {
         QAction *addColumnAction = new QAction( tr( "Add New Field…" ), menu );
         QPointer<QgsDataItem>itemPtr { item };
+        const QSet< QString > illegalFieldNames = conn->illegalFieldNames();
 
-        connect( addColumnAction, &QAction::triggered, fieldsItem, [ md, fieldsItem, context, itemPtr, menu ]
+        connect( addColumnAction, &QAction::triggered, fieldsItem, [ md, fieldsItem, context, itemPtr, menu, illegalFieldNames ]
         {
           std::unique_ptr<QgsVectorLayer> layer { fieldsItem->layer() };
           if ( layer )
           {
             QgsAddAttrDialog dialog( layer.get(), menu );
+            dialog.setIllegalFieldNames( illegalFieldNames );
             if ( dialog.exec() == QDialog::Accepted )
             {
               std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn2 { static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( fieldsItem->connectionUri(), {} ) ) };
@@ -1342,6 +1449,34 @@ void QgsFieldItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *men
           } );
         }
 
+        if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::RenameField ) )
+        {
+          QAction *renameFieldAction = new QAction( tr( "Rename Field…" ), menu );
+          const QString itemName { item->name() };
+
+          connect( renameFieldAction, &QAction::triggered, fieldsItem, [ md, fieldsItem, itemName, context ]
+          {
+            // Confirmation dialog
+            QgsNewNameDialog dlg( tr( "field “%1”" ).arg( itemName ), itemName );
+            dlg.setWindowTitle( tr( "Rename Field" ) );
+            if ( dlg.exec() != QDialog::Accepted || dlg.name() == itemName )
+              return;
+
+            std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn2 { static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( fieldsItem->connectionUri(), {} ) ) };
+            try
+            {
+              conn2->renameField( fieldsItem->schema(), fieldsItem->tableName(), itemName, dlg.name() );
+              fieldsItem->refresh();
+            }
+            catch ( const QgsProviderConnectionException &ex )
+            {
+              notify( tr( "Rename Field" ), tr( "Failed to rename field '%1': %2" ).arg( itemName, ex.what() ), context, Qgis::MessageLevel::Critical );
+            }
+          } );
+
+          menu->addAction( renameFieldAction );
+        }
+
         if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::DeleteField ) )
         {
           QAction *deleteFieldAction = new QAction( tr( "Delete Field…" ), menu );
@@ -1397,6 +1532,42 @@ void QgsFieldItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *men
       QgsDebugMsg( QStringLiteral( "Error getting parent fields for %1" ).arg( item->name() ) );
     }
   }
+}
+
+bool QgsFieldItemGuiProvider::rename( QgsDataItem *item, const QString &name, QgsDataItemGuiContext context )
+{
+  if ( QgsFieldItem *fieldItem = qobject_cast<QgsFieldItem *>( item ) )
+  {
+    QPointer< QgsFieldsItem > fieldsItem { qobject_cast<QgsFieldsItem *>( fieldItem->parent() ) };
+    if ( fieldsItem )
+    {
+      const QString connectionUri = fieldsItem->connectionUri();
+      const QString providerKey = fieldsItem->providerKey();
+
+      // Check if it is supported
+      QgsProviderMetadata *md { QgsProviderRegistry::instance()->providerMetadata( providerKey ) };
+      if ( md )
+      {
+        std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn { static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( connectionUri, {} ) ) };
+        if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::RenameField ) )
+        {
+          const QString itemName { item->name() };
+
+          try
+          {
+            conn->renameField( fieldsItem->schema(), fieldsItem->tableName(), itemName, name );
+            fieldsItem->refresh();
+          }
+          catch ( const QgsProviderConnectionException &ex )
+          {
+            notify( tr( "Rename Field" ), tr( "Failed to rename field '%1': %2" ).arg( itemName, ex.what() ), context, Qgis::MessageLevel::Critical );
+          }
+        }
+      }
+    }
+    return true;
+  }
+  return false;
 }
 
 QWidget *QgsFieldItemGuiProvider::createParamWidget( QgsDataItem *item, QgsDataItemGuiContext )
@@ -1521,7 +1692,7 @@ void QgsDatabaseItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *
     }
 
     // SQL dialog
-    if ( std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn( item->databaseConnection() ); conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::ExecuteSql ) )
+    if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::ExecuteSql ) )
     {
       QAction *sqlAction = new QAction( QObject::tr( "Execute SQL…" ), menu );
 
@@ -1559,22 +1730,16 @@ void QgsDatabaseItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *
             tableName = item->name();
           }
 
-          if ( conn2->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::Schemas ) )
-          {
-            // Ok, this is gross: we lack a connection API for quoting properly...
-            sql = QStringLiteral( "SELECT * FROM %1.%2 LIMIT 10" ).arg( QgsSqliteUtils::quotedIdentifier( item->parent()->name() ), QgsSqliteUtils::quotedIdentifier( tableName ) );
-          }
-          else
-          {
-            // Ok, this is gross: we lack a connection API for quoting properly...
-            sql = QStringLiteral( "SELECT * FROM %1 LIMIT 10" ).arg( QgsSqliteUtils::quotedIdentifier( tableName ) );
-          }
+          std::unique_ptr< QgsProviderSqlQueryBuilder > queryBuilder( conn2->queryBuilder() );
+          sql = queryBuilder->createLimitQueryForTable(
+                  conn2->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::Schemas ) ? item->parent()->name() : QString(),
+                  tableName, 10 );
         }
 
         QgsGui::enableAutoGeometryRestore( &dialog );
         QgsQueryResultWidget *widget { new QgsQueryResultWidget( &dialog, conn2.release() ) };
         widget->setQuery( sql );
-        widget->layout()->setMargin( 0 );
+        widget->layout()->setContentsMargins( 0, 0, 0, 0 );
         dialog.layout()->addWidget( widget );
 
         connect( widget, &QgsQueryResultWidget::createSqlVectorLayer, widget, [ item, context ]( const QString &, const QString &, const QgsAbstractDatabaseProviderConnection::SqlVectorLayerOptions & options )
@@ -1597,7 +1762,191 @@ void QgsDatabaseItemGuiProvider::populateContextMenu( QgsDataItem *item, QMenu *
       } );
       menu->addAction( sqlAction );
     }
+
+    // Check if domain creation is supported
+    if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::Vacuum ) )
+    {
+      QAction *compactAction = new QAction( tr( "Compact Database (VACUUM)" ), menu );
+      menu->addAction( compactAction );
+
+      const QString connectionUri = conn->uri();
+      const QString providerKey = conn->providerKey();
+
+      connect( compactAction, &QAction::triggered, compactAction, [context, connectionUri, providerKey]
+      {
+        QgsProviderMetadata *md { QgsProviderRegistry::instance()->providerMetadata( providerKey ) };
+        if ( !md )
+          return;
+
+        std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn( qgis::down_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( connectionUri, QVariantMap() ) ) );
+        QString errCause;
+        if ( conn )
+        {
+          try
+          {
+            QgsTemporaryCursorOverride override( Qt::WaitCursor );
+            conn->vacuum( QString(), QString() );
+          }
+          catch ( QgsProviderConnectionException &ex )
+          {
+            errCause = ex.what();
+          }
+        }
+        else
+        {
+          errCause = QObject::tr( "There was an error retrieving the connection to %1" ).arg( connectionUri );
+        }
+
+        if ( !errCause.isEmpty() )
+        {
+          notify( tr( "Database compact (VACUUM)" ), errCause, context, Qgis::MessageLevel::Critical );
+        }
+        else if ( context.messageBar() )
+        {
+          context.messageBar()->pushMessage( tr( "Database compacted" ), Qgis::MessageLevel::Success );
+        }
+      } );
+    }
   }
+}
+
+bool QgsDatabaseItemGuiProvider::acceptDrop( QgsDataItem *item, QgsDataItemGuiContext )
+{
+  if ( !qobject_cast< QgsFileDataCollectionItem * >( item ) )
+    return false;
+
+  if ( qobject_cast< QgsGeoPackageCollectionItem * >( item ) )
+    return false; // GPKG is handled elsewhere (QgsGeoPackageItemGuiProvider)
+
+  std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn( item->databaseConnection() );
+  if ( conn && conn->capabilities().testFlag( QgsAbstractDatabaseProviderConnection::Capability::CreateVectorTable ) )
+  {
+    return true;
+  }
+
+  return false;
+}
+
+bool QgsDatabaseItemGuiProvider::handleDrop( QgsDataItem *item, QgsDataItemGuiContext context, const QMimeData *data, Qt::DropAction )
+{
+  if ( !qobject_cast< QgsFileDataCollectionItem * >( item ) )
+    return false;
+
+  if ( qobject_cast< QgsGeoPackageCollectionItem * >( item ) )
+    return false; // GPKG is handled elsewhere (QgsGeoPackageItemGuiProvider)
+
+  if ( !QgsMimeDataUtils::isUriList( data ) )
+    return false;
+
+  QString uri;
+
+  QStringList importResults;
+  bool hasError = false;
+
+  // Main task
+  std::unique_ptr< QgsConcurrentFileWriterImportTask > mainTask( new QgsConcurrentFileWriterImportTask( tr( "Layer import" ) ) );
+  QgsTaskList importTasks;
+
+  const QgsMimeDataUtils::UriList lst = QgsMimeDataUtils::decodeUriList( data );
+  for ( const QgsMimeDataUtils::Uri &dropUri : lst )
+  {
+    // Check that we are not copying over self
+    if ( dropUri.uri.startsWith( item->path() ) )
+    {
+      importResults.append( tr( "You cannot import layer %1 over itself!" ).arg( dropUri.name ) );
+      hasError = true;
+    }
+    else
+    {
+      QgsVectorLayer *srcLayer = nullptr;
+      bool owner;
+      QString error;
+      if ( dropUri.layerType == QLatin1String( "vector" ) )
+      {
+        // open the source layer
+        srcLayer = dropUri.vectorLayer( owner, error );
+      }
+      else
+      {
+        // unsupported
+        hasError = true;
+        continue;
+      }
+
+      if ( !srcLayer )
+      {
+        importResults.append( tr( "%1: %2" ).arg( dropUri.name, error ) );
+        hasError = true;
+        continue;
+      }
+
+      if ( srcLayer->isValid() )
+      {
+        uri = item->path();
+
+        // check if the destination layer already exists
+        bool exists = false;
+        const QVector< QgsDataItem * > c( item->children() );
+        for ( const QgsDataItem *child : c )
+        {
+          if ( child->name() == dropUri.name )
+          {
+            exists = true;
+          }
+        }
+
+        if ( ! exists || QMessageBox::question( nullptr, tr( "Overwrite Layer" ),
+                                                tr( "Destination layer <b>%1</b> already exists. Do you want to overwrite it?" ).arg( dropUri.name ), QMessageBox::Yes |  QMessageBox::No ) == QMessageBox::Yes )
+        {
+          QgsVectorLayer *vectorSrcLayer = qobject_cast < QgsVectorLayer * >( srcLayer );
+          QVariantMap options;
+          //  options.insert( QStringLiteral( "driverName" ), QStringLiteral( "GPKG" ) );
+          options.insert( QStringLiteral( "update" ), true );
+          options.insert( QStringLiteral( "overwrite" ), true );
+          options.insert( QStringLiteral( "layerName" ), dropUri.name );
+          QgsVectorLayerExporterTask *exportTask = new QgsVectorLayerExporterTask( vectorSrcLayer, uri, QStringLiteral( "ogr" ), vectorSrcLayer->crs(), options, owner );
+          mainTask->addSubTask( exportTask, importTasks );
+          importTasks << exportTask;
+          // when export is successful:
+          connect( exportTask, &QgsVectorLayerExporterTask::exportComplete, item, [ = ]()
+          {
+            notify( tr( "Import to database" ), tr( "Import was successful." ), context, Qgis::MessageLevel::Success );
+            item->refresh();
+          } );
+
+          // when an error occurs:
+          connect( exportTask, &QgsVectorLayerExporterTask::errorOccurred, item, [ = ]( Qgis::VectorExportResult error, const QString & errorMessage )
+          {
+            if ( error != Qgis::VectorExportResult::UserCanceled )
+            {
+              QgsMessageOutput *output = QgsMessageOutput::createMessageOutput();
+              output->setTitle( tr( "Import to database" ) );
+              output->setMessage( tr( "Failed to import some vector layers!\n\n" ) + errorMessage, QgsMessageOutput::MessageText );
+              output->showMessage();
+            }
+          } );
+        }
+      }
+      else
+      {
+        importResults.append( tr( "%1: Not a valid layer!" ).arg( dropUri.name ) );
+        hasError = true;
+      }
+    }
+  }
+
+  if ( hasError )
+  {
+    QgsMessageOutput *output = QgsMessageOutput::createMessageOutput();
+    output->setTitle( tr( "Import to database" ) );
+    output->setMessage( tr( "Failed to import some layers!\n\n" ) + importResults.join( QLatin1Char( '\n' ) ), QgsMessageOutput::MessageText );
+    output->showMessage();
+  }
+  if ( ! importTasks.isEmpty() )
+  {
+    QgsApplication::taskManager()->addTask( mainTask.release() );
+  }
+  return true;
 }
 
 
@@ -1918,6 +2267,199 @@ QgsFieldDomainsDetailsWidget::QgsFieldDomainsDetailsWidget( QWidget *parent, con
     mTextBrowser->setPlainText( ex.what() );
   }
 }
+
+
+
+
+
+//
+// QgsRelationshipItemGuiProvider
+//
+
+QString QgsRelationshipItemGuiProvider::name()
+{
+  return QStringLiteral( "relationship_item" );
+}
+
+QWidget *QgsRelationshipItemGuiProvider::createParamWidget( QgsDataItem *item, QgsDataItemGuiContext )
+{
+  if ( QgsRelationshipItem *relationshipItem = qobject_cast< QgsRelationshipItem * >( item ) )
+  {
+    return new QgsRelationshipDetailsWidget( nullptr, relationshipItem->relation() );
+  }
+  else if ( QgsRelationshipsItem *relationsItem = qobject_cast< QgsRelationshipsItem * >( item ) )
+  {
+    return new QgsRelationshipsDetailsWidget( nullptr, relationsItem->providerKey(), relationsItem->connectionUri(), relationsItem->schema(), relationsItem->tableName() );
+  }
+  else
+  {
+    return nullptr;
+  }
+}
+
+//
+// QgsRelationshipDetailsWidget
+//
+
+QgsRelationshipDetailsWidget::QgsRelationshipDetailsWidget( QWidget *parent, const QgsWeakRelation &relation )
+  : QWidget( parent )
+  , mRelation( relation )
+{
+  setupUi( this );
+
+  const QString style = QgsApplication::reportStyleSheet();
+  mTextBrowser->document()->setDefaultStyleSheet( style );
+
+
+  QString metadata = QStringLiteral( "<html>\n<body>\n" );
+  metadata += htmlMetadata( mRelation, mRelation.name() );
+
+  mTextBrowser->setHtml( metadata );
+}
+
+QString QgsRelationshipDetailsWidget::htmlMetadata( const QgsWeakRelation &relation, const QString &title )
+{
+  QString metadata;
+  metadata += QStringLiteral( "<h1>" ) + title + QStringLiteral( "</h1>\n<hr>\n" ) + QStringLiteral( "<table class=\"list-view\">\n" );
+
+  if ( title != relation.name() )
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Name" ) + QStringLiteral( "</td><td>" ) + relation.name() + QStringLiteral( "</td></tr>\n" );
+
+  if ( relation.cardinality() != Qgis::RelationshipCardinality::ManyToMany )
+  {
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Tables" ) + QStringLiteral( "</td><td>" )
+                + QStringLiteral( "%1 → %2" ).arg( relation.referencedLayerName(),
+                    relation.referencingLayerName() ) + QStringLiteral( "</td></tr>\n" );
+
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Fields" ) + QStringLiteral( "</td><td>" );
+    QStringList fieldMetadata;
+    for ( int i = 0; i < std::min( relation.referencedLayerFields().size(), relation.referencingLayerFields().size() ); ++i )
+    {
+      fieldMetadata << QStringLiteral( "%1.%2 → %3.%4" ).arg(
+                      relation.referencedLayerName(),
+                      relation.referencedLayerFields().at( i ),
+                      relation.referencingLayerName(),
+                      relation.referencingLayerFields().at( i ) );
+    }
+    metadata += fieldMetadata.join( QLatin1String( "<br>" ) );
+    metadata += QLatin1String( "</td></tr>\n" );
+  }
+  else
+  {
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Tables" ) + QStringLiteral( "</td><td>" )
+                + QStringLiteral( "%1 → %2 → %3" ).arg( relation.referencedLayerName(),
+                    relation.mappingTableName(),
+                    relation.referencingLayerName() ) + QStringLiteral( "</td></tr>\n" );
+
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Fields" ) + QStringLiteral( "</td><td>" );
+    QStringList fieldMetadata;
+    for ( int i = 0; i < std::min( relation.referencedLayerFields().size(), relation.mappingReferencedLayerFields().size() ); ++i )
+    {
+      fieldMetadata << QStringLiteral( "%1.%2 → %3.%4" ).arg(
+                      relation.referencedLayerName(),
+                      relation.referencedLayerFields().at( i ),
+                      relation.mappingTableName(),
+                      relation.mappingReferencedLayerFields().at( i ) );
+    }
+    for ( int i = 0; i < std::min( relation.referencingLayerFields().size(), relation.mappingReferencingLayerFields().size() ); ++i )
+    {
+      fieldMetadata << QStringLiteral( "%1.%2 → %3.%4" ).arg(
+                      relation.mappingTableName(),
+                      relation.mappingReferencingLayerFields().at( i ),
+                      relation.referencingLayerName(),
+                      relation.referencingLayerFields().at( i )
+                    );
+    }
+    metadata += fieldMetadata.join( QLatin1String( "<br>" ) );
+    metadata += QLatin1String( "</td></tr>\n" );
+  }
+
+  metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Cardinality" ) + QStringLiteral( "</td><td>" ) + QgsRelation::cardinalityToDisplayString( relation.cardinality() ) + QStringLiteral( "</td></tr>\n" );
+  metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Strength" ) + QStringLiteral( "</td><td>" ) + QgsRelation::strengthToDisplayString( relation.strength() ) + QStringLiteral( "</td></tr>\n" );
+
+  if ( !relation.forwardPathLabel().isEmpty() )
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Forward label" ) + QStringLiteral( "</td><td>" ) + relation.forwardPathLabel() + QStringLiteral( "</td></tr>\n" );
+  if ( !relation.backwardPathLabel().isEmpty() )
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Backward label" ) + QStringLiteral( "</td><td>" ) + relation.backwardPathLabel() + QStringLiteral( "</td></tr>\n" );
+
+  if ( !relation.relatedTableType().isEmpty() )
+    metadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Relation type" ) + QStringLiteral( "</td><td>" ) + relation.relatedTableType() + QStringLiteral( "</td></tr>\n" );
+
+  metadata += QLatin1String( "</table>" );
+
+  return metadata;
+}
+
+QgsRelationshipDetailsWidget::~QgsRelationshipDetailsWidget() = default;
+
+//
+// QgsRelationshipsDetailsWidget
+//
+
+QgsRelationshipsDetailsWidget::QgsRelationshipsDetailsWidget( QWidget *parent, const QString &providerKey, const QString &uri, const QString &schema, const QString &tableName )
+  : QWidget( parent )
+{
+  setupUi( this );
+
+  const QString style = QgsApplication::reportStyleSheet();
+  mTextBrowser->document()->setDefaultStyleSheet( style );
+
+  try
+  {
+    QgsProviderMetadata *md { QgsProviderRegistry::instance()->providerMetadata( providerKey ) };
+    if ( md )
+    {
+      std::unique_ptr<QgsAbstractDatabaseProviderConnection> conn { static_cast<QgsAbstractDatabaseProviderConnection *>( md->createConnection( uri, {} ) ) };
+      if ( conn && ( conn->capabilities() & QgsAbstractDatabaseProviderConnection::Capability::RetrieveRelationships ) )
+      {
+        QString relationError;
+        QList< QgsWeakRelation > relationships;
+        try
+        {
+          relationships = conn->relationships( schema, tableName );
+        }
+        catch ( QgsProviderConnectionException &ex )
+        {
+          relationError = ex.what();
+        }
+
+        QString metadata = QStringLiteral( "<html>\n<body>\n" );
+        metadata += QStringLiteral( "<h1>" ) + tr( "Relationships" ) + QStringLiteral( "</h1>\n<hr>\n" ) + QStringLiteral( "<table width=\"100%\" class=\"tabular-view\">\n" );
+
+        int i = 0;
+
+        for ( const QgsWeakRelation &relation : std::as_const( relationships ) )
+        {
+          QString rowClass;
+          if ( i % 2 )
+            rowClass = QStringLiteral( "class=\"odd-row\"" );
+
+          metadata += QStringLiteral( "<tr %1><td class=\"highlight\">" ).arg( rowClass ) + relation.name() + QStringLiteral( "</td><td>" ) + relation.referencedLayerName()
+                      + QStringLiteral( " → " ) + relation.referencingLayerName()
+                      + QStringLiteral( "</td><td>" ) + QObject::tr( "%1 (%2)" ).arg( QgsRelation::cardinalityToDisplayString( relation.cardinality() ),
+                          QgsRelation::strengthToDisplayString( relation.strength() ) )
+                      + QStringLiteral( "</td></tr>\n" );
+          i++;
+        }
+        metadata += QLatin1String( "</table>\n<br><br>\n" );
+
+        if ( !relationError.isEmpty() )
+        {
+          mTextBrowser->setPlainText( relationError );
+        }
+        else
+        {
+          mTextBrowser->setHtml( metadata );
+        }
+      }
+    }
+  }
+  catch ( const QgsProviderConnectionException &ex )
+  {
+    mTextBrowser->setPlainText( ex.what() );
+  }
+}
+
 
 //
 // QgsFieldsDetailsWidget

@@ -29,6 +29,7 @@
 #include <QAction>
 #include <QToolButton>
 #include <QMenu>
+#include <QActionGroup>
 
 QgsMapToolsDigitizingTechniqueManager::QgsMapToolsDigitizingTechniqueManager( QObject *parent )
   : QObject( parent )
@@ -103,7 +104,7 @@ void QgsMapToolsDigitizingTechniqueManager::setupToolBars()
       break;
   }
 
-  QgisApp::instance()->mAdvancedDigitizeToolBar->insertWidget( QgisApp::instance()->mAdvancedDigitizeToolBar->actions().at( 0 ), mDigitizeModeToolButton );
+  QgisApp::instance()->mDigitizeToolBar->insertWidget( QgisApp::instance()->mDigitizeToolBar->actions().at( 3 ), mDigitizeModeToolButton );
 
   // Digitizing shape tools
   const QList<QgsMapToolShapeMetadata *> mapTools = QgsGui::mapToolShapeRegistry()->mapToolMetadatas();
@@ -273,10 +274,10 @@ void QgsMapToolsDigitizingTechniqueManager::enableDigitizingTechniqueActions( bo
     {
       if ( triggeredFromToolAction == tool->action() || ( !triggeredFromToolAction && QgisApp::instance()->mapCanvas()->mapTool() == tool ) )
       {
-        for ( Qgis::CaptureTechnique technique : mTechniqueActions.keys() )
+        for ( auto technique = mTechniqueActions.keyBegin(); technique != mTechniqueActions.keyEnd(); technique++ )
         {
-          if ( tool->supportsTechnique( technique ) )
-            supportedTechniques.insert( technique );
+          if ( tool->supportsTechnique( *technique ) )
+            supportedTechniques.insert( *technique );
         }
         break;
       }

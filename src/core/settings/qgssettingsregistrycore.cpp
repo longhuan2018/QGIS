@@ -25,9 +25,12 @@
 #include "qgsnewsfeedparser.h"
 #include "qgsowsconnection.h"
 #include "qgsprocessing.h"
-#include "qgsvectorlayer.h"
 #include "qgsogrdbconnection.h"
 #include "qgsfontmanager.h"
+#include "qgsgpsconnection.h"
+#include "qgsbabelformatregistry.h"
+#include "qgsgpslogger.h"
+
 
 QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   : QgsSettingsRegistry()
@@ -106,6 +109,7 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
   addSettingsEntry( &settingsDigitizingTracingMaxFeatureCount );
   addSettingsEntry( &settingsGpsBabelPath );
   addSettingsEntry( &settingsLayerTreeShowFeatureCountForNewLayers );
+  addSettingsEntry( &settingsEnableWMSTilePrefetching );
 
   addSettingsEntry( &QgsOwsConnection::settingsConnectionSelected );
   addSettingsEntryGroup( &QgsOwsConnection::settingsServiceConnectionDetailsGroup );
@@ -113,6 +117,26 @@ QgsSettingsRegistryCore::QgsSettingsRegistryCore()
 
   addSettingsEntry( &QgsFontManager::settingsFontFamilyReplacements );
   addSettingsEntry( &QgsFontManager::settingsDownloadMissingFonts );
+
+  addSettingsEntry( &QgsGpsConnection::settingsGpsConnectionType );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdHostName );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdPortNumber );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsdDeviceName );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsSerialDevice );
+  addSettingsEntry( &QgsGpsConnection::settingGpsAcquisitionInterval );
+  addSettingsEntry( &QgsGpsConnection::settingGpsDistanceThreshold );
+  addSettingsEntry( &QgsGpsConnection::settingGpsBearingFromTravelDirection );
+  addSettingsEntry( &QgsGpsConnection::settingGpsApplyLeapSecondsCorrection );
+  addSettingsEntry( &QgsGpsConnection::settingGpsLeapSeconds );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampSpecification );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampTimeZone );
+  addSettingsEntry( &QgsGpsConnection::settingsGpsTimeStampOffsetFromUtc );
+
+  addSettingsEntry( &QgsBabelFormatRegistry::settingsBabelDeviceList );
+  addSettingsEntryGroup( &QgsBabelFormatRegistry::settingsBabelDeviceGroup );
+
+  addSettingsEntry( &QgsGpsLogger::settingsGpsStoreAttributeInMValues );
+  addSettingsEntry( &QgsGpsLogger::settingsGpsMValueComponent );
 }
 
 QgsSettingsRegistryCore::~QgsSettingsRegistryCore()

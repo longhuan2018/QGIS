@@ -148,6 +148,7 @@ library object.
       PriorityForUri,
       LayerTypesForUri,
       QuerySublayers,
+      CreateDatabase,
     };
     typedef QFlags<QgsProviderMetadata::ProviderMetadataCapability> ProviderMetadataCapabilities;
 
@@ -395,6 +396,16 @@ The optional ``feedback`` argument can be used to provide cancellation support f
 .. versionadded:: 3.22
 %End
 
+    virtual QString suggestGroupNameForUri( const QString &uri ) const;
+%Docstring
+Returns a name that can be used as a group name for sublayers retrieved from
+the specified ``uri``.
+
+The default implementation returns an empty string.
+
+.. versionadded:: 3.30
+%End
+
     virtual QgsDataProvider *createProvider( const QString &uri,
         const QgsDataProvider::ProviderOptions &options,
         QgsDataProvider::ReadFlags flags = QgsDataProvider::ReadFlags() ) /Factory/;
@@ -425,6 +436,27 @@ eg. "yes" value will be returned as ``True``, 0 will be returned as ``False``
 %End
 
 
+
+    virtual bool createDatabase( const QString &uri, QString &errorMessage /Out/ );
+%Docstring
+Creates a new empty database at the specified ``uri``.
+
+This method can be used for supported providers to construct a new empty database. For instance, the OGR provider
+metadata :py:func:`~QgsProviderMetadata.createDatabase` method can be used to create new empty GeoPackage or FileGeodatabase databases.
+
+:param uri: destination URI for newly created database.
+
+:return: - ``True`` if the database was successfully created
+         - errorMessage: will be set to a descriptive error message if the database could not be successfully created.
+
+
+.. note::
+
+   This method is only supported by providers which return the QgsProviderMetadata.ProviderMetadataCapability.CreateDatabase capability.
+
+
+.. versionadded:: 3.28
+%End
 
     virtual QgsRasterDataProvider *createRasterDataProvider(
       const QString &uri,
@@ -587,6 +619,19 @@ Saves a layer style to provider.
 Loads a layer style defined by ``uri``
 
 .. versionadded:: 3.10
+%End
+
+    virtual QString loadStoredStyle( const QString &uri, QString &styleName, QString &errCause );
+%Docstring
+Loads a layer style from the provider storage, reporting its name.
+
+:param uri: data source uri
+:param styleName: the name of the style if available, empty otherwise
+:param errCause: report errors
+
+:return: the style QML (XML)
+
+.. versionadded:: 3.30
 %End
 
     virtual bool saveLayerMetadata( const QString &uri, const QgsLayerMetadata &metadata, QString &errorMessage /Out/ ) throw( QgsNotSupportedException );

@@ -155,7 +155,7 @@ QgsPointCloudBlockRequest *QgsRemoteEptPointCloudIndex::asyncNodeData( const Ind
   QgsPointCloudExpression filterExpression = mFilterExpression;
   QgsPointCloudAttributeCollection requestAttributes = request.attributes();
   requestAttributes.extend( attributes(), filterExpression.referencedAttributes() );
-  return new QgsEptPointCloudBlockRequest( n, fileUrl, mDataType, attributes(), requestAttributes, scale(), offset(), filterExpression );
+  return new QgsEptPointCloudBlockRequest( n, fileUrl, mDataType, attributes(), requestAttributes, scale(), offset(), filterExpression, request.filterRect() );
 }
 
 bool QgsRemoteEptPointCloudIndex::hasNode( const IndexedPointCloudNode &n ) const
@@ -228,7 +228,7 @@ bool QgsRemoteEptPointCloudIndex::loadNodeHierarchy( const IndexedPointCloudNode
       const int nodePointCount = it.value().toInt();
       const IndexedPointCloudNode nodeId = IndexedPointCloudNode::fromString( nodeIdStr );
       mHierarchyMutex.lock();
-      if ( nodePointCount > 0 )
+      if ( nodePointCount >= 0 )
         mHierarchy[nodeId] = nodePointCount;
       else if ( nodePointCount == -1 )
         mHierarchyNodes.insert( nodeId );

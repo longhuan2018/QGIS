@@ -10,7 +10,6 @@
 
 
 
-
 class QgsPhongMaterialSettings : QgsAbstractMaterialSettings
 {
 %Docstring(signature="appended")
@@ -97,7 +96,7 @@ Sets shininess of the surface
 
     void setOpacity( float opacity );
 %Docstring
-Sets shininess of the surface
+Sets opacity of the surface
 
 .. versionadded:: 3.26
 %End
