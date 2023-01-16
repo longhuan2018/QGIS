@@ -1856,7 +1856,7 @@ static QVariant fcnMapToHtmlTable( const QVariantList &values, const QgsExpressi
     cells.push_back( it.value().toString( ).toHtmlEscaped() );
   }
 
-  return table.arg( headers.join( QStringLiteral( "</th><th>" ) ), cells.join( QStringLiteral( "</td><td>" ) ) );
+  return table.arg( headers.join( QLatin1String( "</th><th>" ) ), cells.join( QLatin1String( "</td><td>" ) ) );
 }
 
 static QVariant fcnMapToHtmlDefinitionList( const QVariantList &values, const QgsExpressionContext *, QgsExpression *parent, const QgsExpressionNodeFunction * )
@@ -1919,11 +1919,11 @@ static QVariant fcnValidateFeature( const QVariantList &values, const QgsExpress
 
   QgsFieldConstraints::ConstraintStrength constraintStrength = QgsFieldConstraints::ConstraintStrengthNotSet;
   const QString strength = QgsExpressionUtils::getStringValue( values.at( 2 ), parent ).toLower();
-  if ( strength == QStringLiteral( "hard" ) )
+  if ( strength == QLatin1String( "hard" ) )
   {
     constraintStrength = QgsFieldConstraints::ConstraintStrengthHard;
   }
-  else if ( strength == QStringLiteral( "soft" ) )
+  else if ( strength == QLatin1String( "soft" ) )
   {
     constraintStrength = QgsFieldConstraints::ConstraintStrengthSoft;
   }
@@ -1990,11 +1990,11 @@ static QVariant fcnValidateAttribute( const QVariantList &values, const QgsExpre
 
   QgsFieldConstraints::ConstraintStrength constraintStrength = QgsFieldConstraints::ConstraintStrengthNotSet;
   const QString strength = QgsExpressionUtils::getStringValue( values.at( 3 ), parent ).toLower();
-  if ( strength == QStringLiteral( "hard" ) )
+  if ( strength == QLatin1String( "hard" ) )
   {
     constraintStrength = QgsFieldConstraints::ConstraintStrengthHard;
   }
-  else if ( strength == QStringLiteral( "soft" ) )
+  else if ( strength == QLatin1String( "soft" ) )
   {
     constraintStrength = QgsFieldConstraints::ConstraintStrengthSoft;
   }
@@ -6058,6 +6058,14 @@ static QVariant fcnGetGeometry( const QVariantList &values, const QgsExpressionC
   return QVariant();
 }
 
+static QVariant fcnGetFeatureId( const QVariantList &values, const QgsExpressionContext *, QgsExpression *parent, const QgsExpressionNodeFunction * )
+{
+  const QgsFeature feat = QgsExpressionUtils::getFeature( values.at( 0 ), parent );
+  if ( !feat.isValid() )
+    return QVariant();
+  return feat.id();
+}
+
 static QVariant fcnTransformGeometry( const QVariantList &values, const QgsExpressionContext *context, QgsExpression *parent, const QgsExpressionNodeFunction * )
 {
   QgsGeometry fGeom = QgsExpressionUtils::getGeometry( values.at( 0 ), parent );
@@ -8730,6 +8738,7 @@ const QList<QgsExpressionFunction *> &QgsExpression::Functions()
     functions << uuidFunc;
 
     functions
+        << new QgsStaticExpressionFunction( QStringLiteral( "feature_id" ), QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "feature" ) ), fcnGetFeatureId, QStringLiteral( "Record and Attributes" ), QString(), true )
         << new QgsStaticExpressionFunction( QStringLiteral( "get_feature" ), QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "layer" ) )
                                             << QgsExpressionFunction::Parameter( QStringLiteral( "attribute" ) )
                                             << QgsExpressionFunction::Parameter( QStringLiteral( "value" ), true ),

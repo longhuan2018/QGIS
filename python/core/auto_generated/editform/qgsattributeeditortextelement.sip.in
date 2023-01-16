@@ -1,7 +1,7 @@
 /************************************************************************
  * This file has been generated automatically from                      *
  *                                                                      *
- * src/gui/vector/qgsvectorlayerproperties.h                            *
+ * src/core/editform/qgsattributeeditortextelement.h                    *
  *                                                                      *
  * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
  ************************************************************************/
@@ -9,37 +9,47 @@
 
 
 
-
-
-
-class QgsVectorLayerProperties : QgsOptionsDialogBase
+class QgsAttributeEditorTextElement : QgsAttributeEditorElement
 {
+%Docstring(signature="appended")
+An attribute editor widget that will represent arbitrary text code.
+
+.. versionadded:: 3.30
+%End
 
 %TypeHeaderCode
-#include "qgsvectorlayerproperties.h"
+#include "qgsattributeeditortextelement.h"
 %End
   public:
 
-    QgsVectorLayerProperties( QgsMapCanvas *canvas, QgsMessageBar *messageBar, QgsVectorLayer *lyr = 0, QWidget *parent = 0, Qt::WindowFlags fl = QgsGuiUtils::ModalDialogFlags );
-
-    void addPropertiesPageFactory( const QgsMapLayerConfigWidgetFactory *factory );
+    QgsAttributeEditorTextElement( const QString &name, QgsAttributeEditorElement *parent );
 %Docstring
-Adds a properties page factory to the vector layer properties dialog.
+Creates a new element which can display text
+
+:param name: The name of the widget
+:param parent: The parent (used as container)
 %End
 
-  protected slots:
-    void optionsStackedWidget_CurrentChanged( int index ) final;
-
-  signals:
+    virtual QgsAttributeEditorElement *clone( QgsAttributeEditorElement *parent ) const /Factory/;
 
 
+    QString text() const;
+%Docstring
+The Text that will be represented within this widget.
+%End
+
+    void setText( const QString &text );
+%Docstring
+Sets the text that will be represented within this widget to ``text``
+%End
 
 };
+
 
 /************************************************************************
  * This file has been generated automatically from                      *
  *                                                                      *
- * src/gui/vector/qgsvectorlayerproperties.h                            *
+ * src/core/editform/qgsattributeeditortextelement.h                    *
  *                                                                      *
  * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
  ************************************************************************/
