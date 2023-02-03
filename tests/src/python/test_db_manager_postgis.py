@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for the DBManager GPKG plugin
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -148,7 +147,7 @@ class TestPyQgsDBManagerPostgis(unittest.TestCase):
 
         cls.server = subprocess.Popen([os.path.join(QGIS_POSTGRES_EXECUTABLE_PATH, 'postgres'), '-D',
                                        cls.data_path, '-c',
-                                       "config_file=%s" % cls.pg_conf],
+                                       f"config_file={cls.pg_conf}"],
                                       env=os.environ,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.PIPE)
@@ -167,7 +166,7 @@ class TestPyQgsDBManagerPostgis(unittest.TestCase):
         test_sql = os.path.join(unitTestDataPath('provider'), 'testdata_pg.sql')
         subprocess.check_call([os.path.join(QGIS_POSTGRES_EXECUTABLE_PATH, 'psql'), '-h', 'localhost', '-p', cls.port, '-f', test_sql, cls.dbname])
         # Create a role
-        subprocess.check_call([os.path.join(QGIS_POSTGRES_EXECUTABLE_PATH, 'psql'), '-h', 'localhost', '-p', cls.port, '-c', 'CREATE ROLE "%s" WITH SUPERUSER LOGIN' % cls.username, cls.dbname])
+        subprocess.check_call([os.path.join(QGIS_POSTGRES_EXECUTABLE_PATH, 'psql'), '-h', 'localhost', '-p', cls.port, '-c', f'CREATE ROLE "{cls.username}" WITH SUPERUSER LOGIN', cls.dbname])
 
     @classmethod
     def setUpProvider(cls, authId):
@@ -183,7 +182,7 @@ class TestPyQgsDBManagerPostgis(unittest.TestCase):
         if provider is None:
             raise Exception("cannot create postgres provider")
         if not provider.isValid():
-            raise Exception("Created postgres provider is not valid: {}".format(str(provider.errors())))
+            raise Exception(f"Created postgres provider is not valid: {str(provider.errors())}")
         # save provider config that is the way how db_manager is aware of a PG connection
         cls.addConnectionConfig(TEST_CONNECTION_NAME, uri)
 

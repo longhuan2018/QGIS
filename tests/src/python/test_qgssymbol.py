@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     test_qgssymbol.py
@@ -80,7 +78,7 @@ class TestQgsSymbol(unittest.TestCase):
         self.report = "<h1>Python QgsSymbol Tests</h1>\n"
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -290,7 +288,7 @@ class TestQgsSymbol(unittest.TestCase):
             def get_geom():
                 if 'geom' not in test:
                     geom = QgsGeometry.fromWkt(test['wkt'])
-                    assert geom and not geom.isNull(), 'Could not create geometry {}'.format(test['wkt'])
+                    assert geom and not geom.isNull(), f"Could not create geometry {test['wkt']}"
                 else:
                     geom = test['geom']
                 return geom
@@ -856,7 +854,7 @@ class TestQgsSymbol(unittest.TestCase):
             self.assertTrue(self.imageCheck(test['name'], test['reference_image'], rendered_image, '_collection'), test['name'])
 
     def imageCheck(self, name, reference_image, image, extra=''):
-        self.report += "<h2>Render {}</h2>\n".format(name)
+        self.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'symbol_' + name + extra + ".png"
         image.save(file_name, "PNG")
@@ -867,7 +865,7 @@ class TestQgsSymbol(unittest.TestCase):
         checker.setColorTolerance(2)
         result = checker.compareImages(name, 20)
         self.report += checker.report()
-        print((self.report))
+        print(self.report)
         return result
 
 
@@ -877,7 +875,7 @@ class TestQgsMarkerSymbol(unittest.TestCase):
         self.report = "<h1>Python QgsMarkerSymbol Tests</h1>\n"
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -1136,7 +1134,7 @@ class TestQgsMarkerSymbol(unittest.TestCase):
         return image
 
     def imageCheck(self, name, reference_image, image):
-        self.report += "<h2>Render {}</h2>\n".format(name)
+        self.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'symbol_' + name + ".png"
         image.save(file_name, "PNG")
@@ -1147,7 +1145,7 @@ class TestQgsMarkerSymbol(unittest.TestCase):
         checker.setColorTolerance(2)
         result = checker.compareImages(name, 20)
         self.report += checker.report()
-        print((self.report))
+        print(self.report)
         return result
 
 
@@ -1157,7 +1155,7 @@ class TestQgsLineSymbol(unittest.TestCase):
         self.report = "<h1>Python QgsLineSymbol Tests</h1>\n"
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -1222,7 +1220,7 @@ class TestQgsFillSymbol(unittest.TestCase):
         self.report = "<h1>Python QgsFillSymbol Tests</h1>\n"
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -1304,7 +1302,7 @@ class TestQgsFillSymbol(unittest.TestCase):
         return image
 
     def imageCheck(self, name, reference_image, image):
-        self.report += "<h2>Render {}</h2>\n".format(name)
+        self.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'symbol_' + name + ".png"
         image.save(file_name, "PNG")
@@ -1315,7 +1313,7 @@ class TestQgsFillSymbol(unittest.TestCase):
         checker.setColorTolerance(2)
         result = checker.compareImages(name, 20)
         self.report += checker.report()
-        print((self.report))
+        print(self.report)
         return result
 
 

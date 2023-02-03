@@ -209,6 +209,7 @@ set(QGIS_GUI_SRCS
   editorwidgets/qgsrelationreferencefactory.cpp
   editorwidgets/qgsrelationreferencesearchwidgetwrapper.cpp
   editorwidgets/qgsrelationreferencewidget.cpp
+  editorwidgets/qgsspacerwidgetwrapper.cpp
   editorwidgets/qgsrelationreferencewidgetwrapper.cpp
   editorwidgets/qgstexteditconfigdlg.cpp
   editorwidgets/qgstexteditsearchwidgetwrapper.cpp
@@ -230,6 +231,7 @@ set(QGIS_GUI_SRCS
   editorwidgets/qgsvaluerelationwidgetfactory.cpp
 
   elevation/qgselevationprofilecanvas.cpp
+  elevation/qgselevationprofilelayertreeview.cpp
 
   history/qgshistoryprovider.cpp
   history/qgshistoryproviderregistry.cpp
@@ -260,6 +262,7 @@ set(QGIS_GUI_SRCS
   layout/qgslayoutattributetablewidget.cpp
   layout/qgslayoutcombobox.cpp
   layout/qgslayoutcustomdrophandler.cpp
+  layout/qgslayoutelevationprofilewidget.cpp
   layout/qgslayoutguidewidget.cpp
   layout/qgslayouthtmlwidget.cpp
   layout/qgslayoutimageexportoptionsdialog.cpp
@@ -485,11 +488,13 @@ set(QGIS_GUI_SRCS
   qgsdataitemguiproviderregistry.cpp
   qgsdatumtransformdialog.cpp
   qgsdatasourceselectdialog.cpp
+  qgsdbrelationshipwidget.cpp
   qgsdetaileditemdata.cpp
   qgsdetaileditemdelegate.cpp
   qgsdetaileditemwidget.cpp
   qgsdial.cpp
   qgsdialog.cpp
+  qgsdirectionallightwidget.cpp
   qgsdoublevalidator.cpp
   qgsdockwidget.cpp
   qgsencodingfiledialog.cpp
@@ -588,6 +593,7 @@ set(QGIS_GUI_SRCS
   qgsmaptoolzoom.cpp
   qgsmaplayerconfigwidget.cpp
   qgsmaterialsettingswidget.cpp
+  qgsmediawidget.cpp
   qgsmenuheader.cpp
   qgsmessagebar.cpp
   qgsmessagebaritem.cpp
@@ -747,6 +753,7 @@ set(QGIS_GUI_HDRS
   qgsdataitemguiproviderregistry.h
   qgsdatasourcemanagerdialog.h
   qgsdatasourceselectdialog.h
+  qgsdbrelationshipwidget.h
   qgsnewdatabasetablenamewidget.h
   qgsdatumtransformdialog.h
   qgsdetaileditemdata.h
@@ -754,6 +761,7 @@ set(QGIS_GUI_HDRS
   qgsdetaileditemwidget.h
   qgsdial.h
   qgsdialog.h
+  qgsdirectionallightwidget.h
   qgsdockwidget.h
   qgsdoublevalidator.h
   qgsencodingfiledialog.h
@@ -852,6 +860,7 @@ set(QGIS_GUI_HDRS
   qgsmaptoolzoom.h
   qgsmaskingwidget.h
   qgsmaterialsettingswidget.h
+  qgsmediawidget.h
   qgsmenuheader.h
   qgsmessagebar.h
   qgsmessagebaritem.h
@@ -1082,6 +1091,7 @@ set(QGIS_GUI_HDRS
   editorwidgets/qgsrelationreferencewidgetwrapper.h
   editorwidgets/qgsrelationwidgetwrapper.h
   editorwidgets/qgssearchwidgettoolbutton.h
+  editorwidgets/qgsspacerwidgetwrapper.h
   editorwidgets/qgsspinbox.h
   editorwidgets/qgstexteditconfigdlg.h
   editorwidgets/qgstexteditsearchwidgetwrapper.h
@@ -1108,6 +1118,7 @@ set(QGIS_GUI_HDRS
   effects/qgspainteffectwidget.h
 
   elevation/qgselevationprofilecanvas.h
+  elevation/qgselevationprofilelayertreeview.h
 
   history/qgshistoryprovider.h
   history/qgshistoryproviderregistry.h
@@ -1139,6 +1150,7 @@ set(QGIS_GUI_HDRS
   layout/qgslayoutcombobox.h
   layout/qgslayoutcustomdrophandler.h
   layout/qgslayoutdesignerinterface.h
+  layout/qgslayoutelevationprofilewidget.h
   layout/qgslayoutguidewidget.h
   layout/qgslayouthtmlwidget.h
   layout/qgslayoutimageexportoptionsdialog.h
@@ -1398,7 +1410,7 @@ set(QGIS_GUI_PRIVATE_HDRS
   attributetable/qgsfeaturefilterwidget_p.h
 )
 
-find_package(${QT_VERSION_BASE} COMPONENTS Qml QuickWidgets UiTools REQUIRED)
+find_package(${QT_VERSION_BASE} COMPONENTS Multimedia MultimediaWidgets Qml QuickWidgets UiTools REQUIRED)
 
 if(${QT_VERSION_BASE}Qml_FOUND)
   add_definitions(-DWITH_QML)
@@ -1680,6 +1692,8 @@ target_link_libraries(qgis_gui
   ${QWT_LIBRARY}
   ${QSCINTILLA_LIBRARY}
   ${QT_VERSION_BASE}::QuickWidgets
+  ${QT_VERSION_BASE}::Multimedia
+  ${QT_VERSION_BASE}::MultimediaWidgets
 )
 
 if (BUILD_WITH_QT6)

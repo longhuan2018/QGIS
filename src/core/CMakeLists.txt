@@ -141,6 +141,7 @@ set(QGIS_CORE_SRCS
   editform/qgsattributeeditorhtmlelement.cpp
   editform/qgsattributeeditortextelement.cpp
   editform/qgsattributeeditorqmlelement.cpp
+  editform/qgsattributeeditorspacerelement.cpp
 
   effects/qgsblureffect.cpp
   effects/qgscoloreffect.cpp
@@ -376,6 +377,7 @@ set(QGIS_CORE_SRCS
   qgsdiagramrenderer.cpp
   qgsdistancearea.cpp
   qgselevationmap.cpp
+  qgselevationshadingrenderer.cpp
   qgselevationutils.cpp
   qgserror.cpp
   qgseventtracing.cpp
@@ -582,6 +584,7 @@ set(QGIS_CORE_SRCS
   layout/qgslayoutgeopdfexporter.cpp
   layout/qgslayoutitem.cpp
   layout/qgslayoutitemattributetable.cpp
+  layout/qgslayoutitemelevationprofile.cpp
   layout/qgslayoutitemgroup.cpp
   layout/qgslayoutitemgroupundocommand.cpp
   layout/qgslayoutitemhtml.cpp
@@ -850,14 +853,13 @@ set(QGIS_CORE_SRCS
   fieldformatter/qgsvaluemapfieldformatter.cpp
   fieldformatter/qgsvaluerelationfieldformatter.cpp
 
-  geocms/geonode/qgsgeonodeconnection.cpp
-  geocms/geonode/qgsgeonoderequest.cpp
-
   settings/qgssettings.cpp
   settings/qgssettingsentry.cpp
+  settings/qgssettingsentrygroup.cpp
   settings/qgssettingsentryimpl.cpp
   settings/qgssettingsregistry.cpp
   settings/qgssettingsregistrycore.cpp
+  settings/qgssettingstreenode.cpp
 
   validity/qgsabstractvaliditycheck.cpp
   validity/qgsvaliditycheckcontext.cpp
@@ -1040,6 +1042,7 @@ set(QGIS_CORE_HDRS
   qgsdistancearea.h
   qgseditorwidgetsetup.h
   qgselevationmap.h
+  qgselevationshadingrenderer.h
   qgselevationutils.h
   qgserror.h
   qgseventtracing.h
@@ -1319,6 +1322,7 @@ set(QGIS_CORE_HDRS
   editform/qgsattributeeditorhtmlelement.h
   editform/qgsattributeeditortextelement.h
   editform/qgsattributeeditorqmlelement.h
+  editform/qgsattributeeditorspacerelement.h
 
   elevation/qgsabstractprofilegenerator.h
   elevation/qgsabstractprofilesurfacegenerator.h
@@ -1358,9 +1362,6 @@ set(QGIS_CORE_HDRS
   fieldformatter/qgsrelationreferencefieldformatter.h
   fieldformatter/qgsvaluemapfieldformatter.h
   fieldformatter/qgsvaluerelationfieldformatter.h
-
-  geocms/geonode/qgsgeonodeconnection.h
-  geocms/geonode/qgsgeonoderequest.h
 
   geocoding/qgsabstractgeocoderlocatorfilter.h
   geocoding/qgsgeocoder.h
@@ -1464,6 +1465,7 @@ set(QGIS_CORE_HDRS
   layout/qgslayoutguidecollection.h
   layout/qgslayoutitem.h
   layout/qgslayoutitemattributetable.h
+  layout/qgslayoutitemelevationprofile.h
   layout/qgslayoutitemgroup.h
   layout/qgslayoutitemgroupundocommand.h
   layout/qgslayoutitemhtml.h
@@ -1855,10 +1857,12 @@ set(QGIS_CORE_HDRS
 
   settings/qgssettings.h
   settings/qgssettingsentry.h
+  settings/qgssettingsentrygroup.h
   settings/qgssettingsentryenumflag.h
   settings/qgssettingsentryimpl.h
   settings/qgssettingsregistry.h
   settings/qgssettingsregistrycore.h
+  settings/qgssettingstreenode.h
 
   validity/qgsabstractvaliditycheck.h
   validity/qgsvaliditycheckcontext.h
@@ -2181,8 +2185,6 @@ target_include_directories(qgis_core PUBLIC
   externalstorage
   fieldformatter
   geometry
-  geocms
-  geocms/geonode
   geocoding
   gps
   labeling

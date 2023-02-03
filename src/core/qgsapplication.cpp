@@ -115,6 +115,16 @@
 #include <QAuthenticator>
 #include <QRecursiveMutex>
 
+const QgsSettingsEntryString *QgsApplication::settingsLocaleUserLocale = new QgsSettingsEntryString( QStringLiteral( "userLocale" ), QgsSettings::sTreeLocale, QString() );
+
+const QgsSettingsEntryBool *QgsApplication::settingsLocaleOverrideFlag = new QgsSettingsEntryBool( QStringLiteral( "overrideFlag" ), QgsSettings::sTreeLocale, false );
+
+const QgsSettingsEntryString *QgsApplication::settingsLocaleGlobalLocale = new QgsSettingsEntryString( QStringLiteral( "globalLocale" ), QgsSettings::sTreeLocale, QString() );
+
+const QgsSettingsEntryBool *QgsApplication::settingsLocaleShowGroupSeparator = new QgsSettingsEntryBool( QStringLiteral( "showGroupSeparator" ), QgsSettings::sTreeLocale, false );
+
+const QgsSettingsEntryStringList *QgsApplication::settingsSearchPathsForSVG = new QgsSettingsEntryStringList( QStringLiteral( "searchPathsForSVG" ), QgsSettings::sTreeSvg, QStringList() );
+
 #ifndef Q_OS_WIN
 #include <netinet/in.h>
 #include <pwd.h>
@@ -181,6 +191,7 @@ Q_GLOBAL_STATIC( QString, sAuthDbDirPath )
 Q_GLOBAL_STATIC( QString, sUserName )
 Q_GLOBAL_STATIC( QString, sUserFullName )
 Q_GLOBAL_STATIC_WITH_ARGS( QString, sPlatformName, ( "external" ) )
+Q_GLOBAL_STATIC( QString, sApplicationFullName )
 Q_GLOBAL_STATIC( QString, sTranslation )
 
 Q_GLOBAL_STATIC( QTemporaryDir, sIconCacheDir )
@@ -1171,7 +1182,7 @@ QString QgsApplication::srsDatabaseFilePath()
 
 void QgsApplication::setSvgPaths( const QStringList &svgPaths )
 {
-  settingsSearchPathsForSVG.setValue( svgPaths );
+  settingsSearchPathsForSVG->setValue( svgPaths );
   members()->mSvgPathCacheValid = false;
 }
 
@@ -1190,7 +1201,7 @@ QStringList QgsApplication::svgPaths()
     locker.changeMode( QgsReadWriteLocker::Write );
     //local directories to search when looking for an SVG with a given basename
     //defined by user in options dialog
-    const QStringList pathList = settingsSearchPathsForSVG.value();
+    const QStringList pathList = settingsSearchPathsForSVG->value();
 
     // maintain user set order while stripping duplicates
     QStringList paths;
@@ -1214,7 +1225,7 @@ QStringList QgsApplication::layoutTemplatePaths()
 {
   //local directories to search when looking for an template with a given basename
   //defined by user in options dialog
-  return QgsLayout::settingsSearchPathForTemplates.value();
+  return QgsLayout::settingsSearchPathForTemplates->value();
 }
 
 QMap<QString, QString> QgsApplication::systemEnvVars()
@@ -1375,11 +1386,30 @@ QString QgsApplication::platform()
   return *sPlatformName();
 }
 
+QString QgsApplication::applicationFullName()
+{
+  if ( !sApplicationFullName()->isEmpty() )
+    return *sApplicationFullName();
+
+  //use environment variables
+  *sApplicationFullName() = qgetenv( "QGIS_APPLICATION_FULL_NAME" );
+  if ( !sApplicationFullName()->isEmpty() )
+    return *sApplicationFullName();
+
+  //last resort
+  QgsSettings settings;
+  *sApplicationFullName() = settings.value(
+                              QStringLiteral( "/qgis/application_full_name" ),
+                              QStringLiteral( "%1 %2" ).arg( applicationName(), platform() )
+                            ).toString();
+  return *sApplicationFullName();
+}
+
 QString QgsApplication::locale()
 {
-  if ( settingsLocaleOverrideFlag.value() )
+  if ( settingsLocaleOverrideFlag->value() )
   {
-    QString locale = settingsLocaleUserLocale.value();
+    QString locale = settingsLocaleUserLocale->value();
     // don't differentiate en_US and en_GB
     if ( locale.startsWith( QLatin1String( "en" ), Qt::CaseInsensitive ) )
     {

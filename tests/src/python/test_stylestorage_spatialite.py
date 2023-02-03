@@ -1,4 +1,3 @@
-# coding=utf-8
 """"Style storage tests for Spatialite
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -38,7 +37,7 @@ class StyleStorageTest(StyleStorageTestCaseBase, StyleStorageTestBase):
         self.temp_path = self.temp_dir.path()
         md = QgsProviderRegistry.instance().providerMetadata(self.providerKey)
         shutil.copy(os.path.join(TEST_DATA_DIR, 'provider', 'spatialite.db'), os.path.join(self.temp_path, 'spatialite.db'))
-        self.test_uri = "dbname='{}'".format(os.path.join(self.temp_path, 'spatialite.db'))
+        self.test_uri = f"dbname='{os.path.join(self.temp_path, 'spatialite.db')}'"
         self.uri = self.test_uri
 
     def layerUri(self, conn, schema_name, table_name):

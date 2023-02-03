@@ -90,6 +90,7 @@ The development version
       {
       UnknownDataType,
       Byte,
+      Int8,
       UInt16,
       Int16,
       UInt32,
@@ -150,6 +151,7 @@ The development version
 
     enum class SettingsType
       {
+      Custom,
       Variant,
       String,
       StringList,
@@ -165,6 +167,7 @@ The development version
     {
       NoOptions,
       Svg,
+      Png,
     };
     typedef QFlags<Qgis::SldExportOption> SldExportOptions;
 
@@ -1464,6 +1467,13 @@ The development version
       CustomCrs,
     };
 
+    enum class SettingsOrigin
+    {
+      Any,
+      Global,
+      Local,
+    };
+
     enum class ScriptLanguage
     {
       Css,
@@ -1596,6 +1606,12 @@ The development version
       Text,
       Html,
       Feature,
+    };
+
+    enum class ElevationMapCombineMethod
+    {
+      HighestElevation,
+      NewerElevation,
     };
 
     static const double DEFAULT_SEARCH_RADIUS_MM;

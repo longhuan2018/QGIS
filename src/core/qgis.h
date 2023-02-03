@@ -129,6 +129,7 @@ class CORE_EXPORT Qgis
       {
       UnknownDataType = 0, //!< Unknown or unspecified type
       Byte = 1, //!< Eight bit unsigned integer (quint8)
+      Int8 = 14, //!< Eight bit signed integer (qint8) (added in QGIS 3.30)
       UInt16 = 2, //!< Sixteen bit unsigned integer (quint16)
       Int16 = 3, //!< Sixteen bit signed integer (qint16)
       UInt32 = 4, //!< Thirty two bit unsigned integer (quint32)
@@ -229,6 +230,7 @@ class CORE_EXPORT Qgis
      */
     enum class SettingsType SIP_MONKEYPATCH_SCOPEENUM_UNNEST( QgsSettingsEntryBase, SettingsType ) : int
       {
+      Custom, //!< Custom implementation
       Variant, //!< Generic variant
       String, //!< String
       StringList, //!< List of strings
@@ -250,6 +252,7 @@ class CORE_EXPORT Qgis
     {
       NoOptions = 0,                      //!< Default SLD export
       Svg = 1 << 0,                       //!< Export complex styles to separate SVG files for better compatibility with OGC servers
+      Png = 1 << 1,                       //!< Export complex styles to separate PNG files for better compatibility with OGC servers
     };
     Q_ENUM( SldExportOption )
     Q_DECLARE_FLAGS( SldExportOptions, SldExportOption )
@@ -409,7 +412,7 @@ class CORE_EXPORT Qgis
     enum class BrowserItemCapability SIP_MONKEYPATCH_SCOPEENUM_UNNEST( QgsDataItem, Capability ) : int
       {
       NoCapabilities = 0, //!< Item has no capabilities
-      SetCrs = 1 << 0, //!< Can set CRS on layer or group of layers. \deprecated since QGIS 3.6 -- no longer used by QGIS and will be removed in QGIS 4.0
+      SetCrs = 1 << 0, //!< Can set CRS on layer or group of layers. deprecated since QGIS 3.6 -- no longer used by QGIS and will be removed in QGIS 4.0
       Fertile = 1 << 1, //!< Can create children. Even items without this capability may have children, but cannot create them, it means that children are created by item ancestors.
       Fast = 1 << 2, //!< CreateChildren() is fast enough to be run in main thread when refreshing items, most root items (wms,wfs,wcs,postgres...) are considered fast because they are reading data only from QgsSettings
       Collapse = 1 << 3, //!< The collapse/expand status for this items children should be ignored in order to avoid undesired network connections (wms etc.)
@@ -2527,6 +2530,19 @@ class CORE_EXPORT Qgis
     Q_ENUM( CoordinateDisplayType )
 
     /**
+     * The setting origin describes where a setting is stored.
+     *
+     * \since QGIS 3.30
+     */
+    enum class SettingsOrigin : int
+    {
+      Any, //!< From any origin
+      Global, //!< Global settings are stored in `global_settings.ini`
+      Local, //!< Local settings are stored in the user profile
+    };
+    Q_ENUM( SettingsOrigin )
+
+    /**
      * Scripting languages.
      *
      * \since QGIS 3.30
@@ -2773,6 +2789,18 @@ class CORE_EXPORT Qgis
       Feature SIP_MONKEYPATCH_COMPAT_NAME( IdentifyFormatFeature ) = 1 << 3, //!< WMS GML/JSON -> feature
     };
     Q_ENUM( RasterIdentifyFormat )
+
+    /**
+     * Methods used to select the elevation when two elevation maps are combined
+     *
+     * \since QGIS 3.30
+     */
+    enum class ElevationMapCombineMethod : int
+    {
+      HighestElevation, //!< Keep the highest elevation if it is not null
+      NewerElevation, //!< Keep the new elevation regardless of its value if it is not null
+    };
+    Q_ENUM( ElevationMapCombineMethod )
 
     /**
      * Identify search radius in mm

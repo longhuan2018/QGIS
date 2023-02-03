@@ -152,6 +152,10 @@ Qgis::DataType QgsGdalProviderBase::dataTypeFromGdal( const GDALDataType gdalDat
 {
   switch ( gdalDataType )
   {
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,7,0)
+    case GDT_Int8:
+      return Qgis::DataType::Int8;
+#endif
     case GDT_Byte:
       return Qgis::DataType::Byte;
     case GDT_UInt16:

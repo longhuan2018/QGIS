@@ -20,19 +20,19 @@ __date__ = 'July 2016'
 __copyright__ = '(C) 2012, Andrea Aime'
 
 import qgis  # NOQA
-
-from qgis.PyQt.QtCore import Qt, QDir, QFile, QIODevice, QPointF, QSizeF
+import os
+from qgis.PyQt.QtCore import Qt, QDir, QFile, QIODevice, QPointF, QSizeF, QTemporaryDir
 from qgis.PyQt.QtXml import QDomDocument
-from qgis.PyQt.QtGui import QColor, QFont
+from qgis.PyQt.QtGui import QColor, QFont, QImage
 
 from qgis.core import (
     Qgis,
-    QgsSimpleMarkerSymbolLayer, QgsSimpleMarkerSymbolLayerBase, QgsUnitTypes, QgsSvgMarkerSymbolLayer,
+    QgsSimpleMarkerSymbolLayerBase, QgsUnitTypes, QgsSvgMarkerSymbolLayer,
     QgsFontMarkerSymbolLayer, QgsEllipseSymbolLayer, QgsSimpleLineSymbolLayer,
     QgsMarkerLineSymbolLayer, QgsMarkerSymbol, QgsSimpleFillSymbolLayer, QgsSVGFillSymbolLayer,
     QgsLinePatternFillSymbolLayer, QgsPointPatternFillSymbolLayer, QgsVectorLayer, QgsVectorLayerSimpleLabeling,
     QgsTextBufferSettings, QgsPalLayerSettings, QgsTextBackgroundSettings, QgsRuleBasedLabeling,
-    QgsLineSymbol, QgsSymbolLayer, QgsSimpleMarkerSymbolLayer, QgsProperty)
+    QgsLineSymbol, QgsSymbolLayer, QgsSimpleMarkerSymbolLayer, QgsProperty, QgsSldExportContext)
 from qgis.testing import start_app, unittest
 from utilities import unitTestDataPath
 
@@ -160,7 +160,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
         # No way to build it programmatically...
         mTestName = 'QgsEllipseSymbolLayer'
         mFilePath = QDir.toNativeSeparators(
-            '%s/symbol_layer/%s.sld' % (unitTestDataPath(), mTestName))
+            f'{unitTestDataPath()}/symbol_layer/{mTestName}.sld')
 
         mDoc = QDomDocument(mTestName)
         mFile = QFile(mFilePath)
@@ -385,7 +385,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
 
     def testSingleSymbolNoScaleDependencies(self):
         layer = QgsVectorLayer("Point", "addfeat", "memory")
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "singleSymbol"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/singleSymbol.qml")
         layer.loadNamedStyle(mFilePath)
 
         dom, root = self.layerToSld(layer)
@@ -395,7 +395,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
 
     def testSingleSymbolScaleDependencies(self):
         layer = QgsVectorLayer("Point", "addfeat", "memory")
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "singleSymbol"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/singleSymbol.qml")
         layer.loadNamedStyle(mFilePath)
         layer.setMaximumScale(1000)
         layer.setMinimumScale(500000)
@@ -408,7 +408,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
 
     def testCategorizedNoScaleDependencies(self):
         layer = QgsVectorLayer("Polygon", "addfeat", "memory")
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "categorized"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/categorized.qml")
         layer.loadNamedStyle(mFilePath)
 
         dom, root = self.layerToSld(layer)
@@ -420,7 +420,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
 
     def testCategorizedWithScaleDependencies(self):
         layer = QgsVectorLayer("Polygon", "addfeat", "memory")
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "categorized"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/categorized.qml")
         layer.loadNamedStyle(mFilePath)
         layer.setMaximumScale(1000)
         layer.setMinimumScale(500000)
@@ -436,7 +436,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
     def testGraduatedNoScaleDependencies(self):
         layer = QgsVectorLayer("Polygon", "addfeat", "memory")
 
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "graduated"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/graduated.qml")
         status = layer.loadNamedStyle(mFilePath)  # NOQA
 
         dom, root = self.layerToSld(layer)
@@ -462,7 +462,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
     def testRuleBasedNoRootScaleDependencies(self):
         layer = QgsVectorLayer("Polygon", "addfeat", "memory")
 
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "ruleBased"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/ruleBased.qml")
         status = layer.loadNamedStyle(mFilePath)  # NOQA
         layer.setMaximumScale(5000)
         layer.setMinimumScale(50000000)
@@ -479,7 +479,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
         layer = QgsVectorLayer("Point", "addfeat", "memory")
 
         mFilePath = QDir.toNativeSeparators(
-            '%s/symbol_layer/%s.qml' % (unitTestDataPath(), "categorizedFunctionConflict"))
+            f"{unitTestDataPath()}/symbol_layer/categorizedFunctionConflict.qml")
         status = layer.loadNamedStyle(mFilePath)  # NOQA
 
         dom, root = self.layerToSld(layer)
@@ -804,13 +804,13 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
     def testPointPlacementBelow(self):
         self.assertLabelQuadrant(QgsPalLayerSettings.QuadrantBelow, "Below", 0.5, 1)
 
-    def testPointPlacementAboveRight(self):
+    def testPointPlacementBelowRight(self):
         self.assertLabelQuadrant(QgsPalLayerSettings.QuadrantBelowRight, "BelowRight", 0, 1)
 
-    def testPointPlacementCartoraphic(self):
+    def testPointPlacementCartoraphicOrderedPositionsAroundPoint(self):
         self.assertPointPlacementDistance(QgsPalLayerSettings.OrderedPositionsAroundPoint)
 
-    def testPointPlacementCartoraphic(self):
+    def testPointPlacementCartoraphicAroundPoint(self):
         self.assertPointPlacementDistance(QgsPalLayerSettings.AroundPoint)
 
     def testLineParallelPlacement(self):
@@ -1138,7 +1138,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
 
     def loadStyleWithCustomProperties(self, layer, qmlFileName):
         # load the style, only vector symbology
-        path = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), qmlFileName))
+        path = QDir.toNativeSeparators(f'{unitTestDataPath()}/symbol_layer/{qmlFileName}.qml')
 
         # labeling is in custom properties, they need to be loaded separately
         status = layer.loadNamedStyle(path)
@@ -1213,7 +1213,7 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
     def testRuleBaseEmptyFilter(self):
         layer = QgsVectorLayer("Point", "addfeat", "memory")
 
-        mFilePath = QDir.toNativeSeparators('%s/symbol_layer/%s.qml' % (unitTestDataPath(), "categorizedEmptyValue"))
+        mFilePath = QDir.toNativeSeparators(f"{unitTestDataPath()}/symbol_layer/categorizedEmptyValue.qml")
         status = layer.loadNamedStyle(mFilePath)  # NOQA
 
         dom, root = self.layerToSld(layer)
@@ -1236,6 +1236,64 @@ class TestQgsSymbolLayerCreateSld(unittest.TestCase):
         rot = dom.elementsByTagName('se:Rotation').at(0).firstChild().toElement()
         self.assertEqual(rot.tagName(), 'ogc:PropertyName')
         self.assertEqual(rot.text(), 'field_a')
+
+    def testSaveSldStyleV2Png(self):
+        """Test SLD export for polygons with PNG tiles"""
+
+        # Point pattern
+        layer = QgsVectorLayer("Polygon", "addfeat", "memory")
+        error, ok = layer.loadSldStyle(os.path.join(unitTestDataPath('symbol_layer'), 'QgsPointPatternFillSymbolLayer.sld'))
+        self.assertTrue(ok)
+        temp_dir = QTemporaryDir()
+        temp_path = temp_dir.path()
+        sld_path = os.path.join(temp_path, 'export.sld')
+        context = QgsSldExportContext(Qgis.SldExportOption.Png, Qgis.SldExportVendorExtension.NoVendorExtension, sld_path)
+        message, ok = layer.saveSldStyleV2(context)
+        self.assertTrue(ok)
+        self.assertTrue(os.path.exists(os.path.join(temp_path, 'export.png')))
+
+        with open(sld_path) as f:
+            self.assertIn('export.png', f.read())
+
+        image = QImage(os.path.join(temp_path, 'export.png'))
+        self.assertTrue(image.hasAlphaChannel())
+        self.assertEqual(image.height(), 33)
+        self.assertEqual(image.width(), 33)
+
+        for x, y in ((16, 0), (0, 16), (16, 16), (32, 16), (16, 32)):
+            self.assertEqual(image.pixelColor(x, y).name(), '#000000')
+            self.assertEqual(image.pixelColor(x, y).alpha(), 0)
+
+        for x, y in ((0, 0), (0, 32), (32, 0), (32, 32)):
+            self.assertNotEqual(image.pixelColor(x, y).name(), '#000000')
+            self.assertGreater(image.pixelColor(x, y).alpha(), 0)
+
+        # Line pattern
+        error, ok = layer.loadSldStyle(os.path.join(unitTestDataPath('symbol_layer'), 'QgsLinePatternFillSymbolLayer.sld'))
+        self.assertTrue(ok)
+        temp_dir = QTemporaryDir()
+        temp_path = temp_dir.path()
+        sld_path = os.path.join(temp_path, 'export.sld')
+        context = QgsSldExportContext(Qgis.SldExportOption.Png, Qgis.SldExportVendorExtension.NoVendorExtension, sld_path)
+        message, ok = layer.saveSldStyleV2(context)
+        self.assertTrue(ok)
+        self.assertTrue(os.path.exists(os.path.join(temp_path, 'export.png')))
+
+        with open(sld_path) as f:
+            self.assertIn('export.png', f.read())
+
+        image = QImage(os.path.join(temp_path, 'export.png'))
+        self.assertTrue(image.hasAlphaChannel())
+        self.assertEqual(image.height(), 7)
+        self.assertEqual(image.width(), 4)
+
+        for x, y in ((0, 0), (3, 3), (3, 3), (0, 6)):
+            self.assertEqual(image.pixelColor(x, y).name(), '#000000')
+            self.assertEqual(image.pixelColor(x, y).alpha(), 0)
+
+        for x, y in ((2, 0), (0, 3), (3, 6)):
+            self.assertNotEqual(image.pixelColor(x, y).name(), '#000000')
+            self.assertGreater(image.pixelColor(x, y).alpha(), 0)
 
     def assertScaleDenominator(self, root, expectedMinScale, expectedMaxScale, index=0):
         rule = root.elementsByTagName('se:Rule').item(index).toElement()

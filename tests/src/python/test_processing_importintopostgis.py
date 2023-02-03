@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for Processing Export to Postgis algorithm.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -87,7 +86,7 @@ class TestExportToPostGis(unittest.TestCase):
         # Check that data have been imported correctly
         exported = QgsVectorLayer(unitTestDataPath() + '/points.shp', 'exported')
         self.assertTrue(exported.isValid())
-        imported = QgsVectorLayer("service='qgis_test' table=\"CamelCaseSchema\".\"%s\" (geom)" % table_name, 'imported', 'postgres')
+        imported = QgsVectorLayer(f"service='qgis_test' table=\"CamelCaseSchema\".\"{table_name}\" (geom)", 'imported', 'postgres')
         self.assertTrue(imported.isValid())
         imported_fields = [f.name() for f in imported.fields()]
         for f in exported.fields():

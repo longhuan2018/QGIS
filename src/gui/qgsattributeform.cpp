@@ -15,6 +15,7 @@
 
 #include "qgsattributeform.h"
 
+#include "qgsattributeeditorspacerelement.h"
 #include "qgsattributeforminterface.h"
 #include "qgsattributeformlegacyinterface.h"
 #include "qgsattributeformrelationeditorwidget.h"
@@ -48,6 +49,7 @@
 #include "qgsactionwidgetwrapper.h"
 #include "qgsqmlwidgetwrapper.h"
 #include "qgshtmlwidgetwrapper.h"
+#include "qgsspacerwidgetwrapper.h"
 #include "qgsapplication.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgsfeaturerequest.h"
@@ -97,6 +99,7 @@ QgsAttributeForm::QgsAttributeForm( QgsVectorLayer *vl, const QgsFeature &featur
 
   updateContainersVisibility();
   updateLabels();
+  updateEditableState();
 
 }
 
@@ -1049,8 +1052,9 @@ void QgsAttributeForm::onAttributeChanged( const QVariant &value, const QVariant
     mAlreadyUpdatedFields.removeAll( eww->fieldIdx() );
   }
 
-  // Updates expression controlled labels
+  // Updates expression controlled labels and editable state
   updateLabels();
+  updateEditableState();
 
   // Update other widgets pointing to the same field
   const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = mFormEditorWidgets.values( eww->fieldIdx() );
@@ -1188,6 +1192,29 @@ void QgsAttributeForm::updateLabels()
         if ( ok && ! value.isEmpty() )
         {
           label->setText( value );
+        }
+      }
+    }
+  }
+}
+
+void QgsAttributeForm::updateEditableState()
+{
+  if ( ! mEditableDataDefinedProperties.isEmpty() )
+  {
+    QgsFeature currentFeature;
+    if ( currentFormValuesFeature( currentFeature ) )
+    {
+      QgsExpressionContext context = createExpressionContext( currentFeature );
+
+      for ( auto it = mEditableDataDefinedProperties.constBegin() ; it != mEditableDataDefinedProperties.constEnd(); ++it )
+      {
+        QWidget *w { it.key() };
+        bool ok;
+        const bool isEditable { it->valueAsBool( context, true, &ok ) };
+        if ( ok )
+        {
+          w->setEnabled( isEditable );
         }
       }
     }
@@ -1782,9 +1809,17 @@ void QgsAttributeForm::init()
             if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Alias ) )
             {
               const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Alias ) };
-              if ( property.isActive() && ! property.expressionString().isEmpty() )
+              if ( property.isActive() )
               {
                 mLabelDataDefinedProperties[ label ] = property;
+              }
+            }
+            if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Editable ) )
+            {
+              const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Editable ) };
+              if ( property.isActive() )
+              {
+                mEditableDataDefinedProperties[ widgetInfo.widget ] = property;
               }
             }
           }
@@ -1865,7 +1900,7 @@ void QgsAttributeForm::init()
       if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Alias ) )
       {
         const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Alias ) };
-        if ( property.isActive() && ! property.expressionString().isEmpty() )
+        if ( property.isActive() )
         {
           mLabelDataDefinedProperties[ label ] = property;
         }
@@ -1883,6 +1918,15 @@ void QgsAttributeForm::init()
         formWidget->createSearchWidgetWrappers( mContext );
 
         label->setBuddy( eww->widget() );
+
+        if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Editable ) )
+        {
+          const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Editable ) };
+          if ( property.isActive() )
+          {
+            mEditableDataDefinedProperties[ formWidget ] = property;
+          }
+        }
       }
       else
       {
@@ -2395,9 +2439,17 @@ QgsAttributeForm::WidgetInfo QgsAttributeForm::createWidgetFromDef( const QgsAtt
               if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Alias ) )
               {
                 const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Alias ) };
-                if ( property.isActive() && ! property.expressionString().isEmpty() )
+                if ( property.isActive() )
                 {
                   mLabelDataDefinedProperties[ mypLabel ] = property;
+                }
+              }
+              if ( mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).hasProperty( QgsEditFormConfig::DataDefinedProperty::Editable ) )
+              {
+                const QgsProperty property { mLayer->editFormConfig().dataDefinedFieldProperties( fieldName ).property( QgsEditFormConfig::DataDefinedProperty::Editable ) };
+                if ( property.isActive() )
+                {
+                  mEditableDataDefinedProperties[ widgetInfo.widget ] = property;
                 }
               }
             }
@@ -2509,6 +2561,20 @@ QgsAttributeForm::WidgetInfo QgsAttributeForm::createWidgetFromDef( const QgsAtt
       newWidgetInfo.labelOnTop = false;
       newWidgetInfo.showLabel = widgetDef->showLabel();
       mNeedsGeometry |= textWrapper->needsGeometry();
+      break;
+    }
+
+    case QgsAttributeEditorElement::AeTypeSpacerElement:
+    {
+      const QgsAttributeEditorSpacerElement *elementDef = static_cast<const QgsAttributeEditorSpacerElement *>( widgetDef );
+      QgsSpacerWidgetWrapper *spacerWrapper = new QgsSpacerWidgetWrapper( mLayer, nullptr, this );
+      spacerWrapper->setDrawLine( elementDef->drawLine() );
+      context.setAttributeFormMode( mMode );
+      mWidgets.append( spacerWrapper );
+
+      newWidgetInfo.widget = spacerWrapper->widget();
+      newWidgetInfo.labelOnTop = false;
+      newWidgetInfo.showLabel = false;
       break;
     }
 

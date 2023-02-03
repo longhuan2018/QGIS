@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsPlot
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -51,7 +50,7 @@ class TestQgsPlot(unittest.TestCase):
         self.report = "<h1>Python QgsPlot Tests</h1>\n"
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -412,7 +411,7 @@ class TestQgsPlot(unittest.TestCase):
         self.assertEqual(res.yAxis().gridMajorSymbol().color().name(), '#0066ff')
 
     def imageCheck(self, name, reference_image, image):
-        self.report += "<h2>Render {}</h2>\n".format(name)
+        self.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'plot_' + name + ".png"
         image.save(file_name, "PNG")
@@ -423,7 +422,7 @@ class TestQgsPlot(unittest.TestCase):
         checker.setColorTolerance(2)
         result = checker.compareImages(name, 20)
         self.report += checker.report()
-        print((self.report))
+        print(self.report)
         return result
 
 

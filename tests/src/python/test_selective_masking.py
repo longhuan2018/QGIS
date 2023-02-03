@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsVirtualLayerDefinition
 
 From build dir, run: ctest -R PyQgsSelectiveMasking -V
@@ -16,7 +15,6 @@ __date__ = '28/06/2019'
 import qgis  # NOQA
 import os
 import subprocess
-import difflib
 
 from qgis.PyQt.QtCore import (
     Qt,
@@ -36,10 +34,7 @@ from qgis.testing import unittest, start_app
 from utilities import (
     unitTestDataPath,
     getTempfilePath,
-    renderMapToImage,
-    loadTestFonts,
     getTestFont,
-    openInBrowserTab
 )
 
 from qgis.core import (
@@ -53,8 +48,6 @@ from qgis.core import (
     QgsMapRendererSequentialJob,
     QgsMapRendererCustomPainterJob,
     QgsRenderChecker,
-    QgsSimpleMarkerSymbolLayer,
-    QgsSimpleMarkerSymbolLayerBase,
     QgsMarkerSymbol,
     QgsMaskMarkerSymbolLayer,
     QgsSingleSymbolRenderer,
@@ -64,11 +57,8 @@ from qgis.core import (
     QgsUnitTypes,
     QgsOuterGlowEffect,
     QgsPalLayerSettings,
-    QgsRuleBasedLabeling,
-    QgsPalLayerSettings,
     QgsProperty,
     QgsRenderContext,
-    QgsVectorLayerSimpleLabeling,
     QgsLayout,
     QgsLayoutItemPage,
     QgsLayoutSize,
@@ -155,7 +145,7 @@ class TestSelectiveMasking(unittest.TestCase):
         self.map_settings.setLayers([self.points_layer, self.lines_layer, self.polys_layer])
 
     def tearDown(self):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(self.report)
 
@@ -178,7 +168,7 @@ class TestSelectiveMasking(unittest.TestCase):
                     renderMapToImageWithTime(self.map_settings, parallel=do_parallel, cache=cache)
                 img, t = renderMapToImageWithTime(self.map_settings, parallel=do_parallel, cache=cache)
                 img.save(tmp)
-                print("Image rendered in {}".format(tmp))
+                print(f"Image rendered in {tmp}")
 
                 self.checker.setControlName(control_name)
                 self.checker.setRenderedImage(tmp)
@@ -187,7 +177,7 @@ class TestSelectiveMasking(unittest.TestCase):
                 self.report += self.checker.report()
                 self.assertTrue(res)
 
-                print("=== Rendering took {}s".format(float(t) / 1000.0))
+                print(f"=== Rendering took {float(t) / 1000.0}s")
 
     def check_layout_export(self, control_name, expected_nb_raster, layers=None, dpiTarget=None):
         """

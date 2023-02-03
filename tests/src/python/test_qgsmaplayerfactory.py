@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsMapLayerFactory.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -111,7 +110,7 @@ class TestQgsMapLayerFactory(unittest.TestCase):
         # vector tile layer
         ds = QgsDataSourceUri()
         ds.setParam("type", "xyz")
-        ds.setParam("url", "file://{}/{{z}}-{{x}}-{{y}}.pbf".format(os.path.join(unitTestDataPath(), 'vector_tile')))
+        ds.setParam("url", f"file://{os.path.join(unitTestDataPath(), 'vector_tile')}/{{z}}-{{x}}-{{y}}.pbf")
         ds.setParam("zmax", "1")
         ml = QgsMapLayerFactory.createLayer(ds.encodedUri().data().decode(), 'vtl', QgsMapLayerType.VectorTileLayer, options)
         self.assertTrue(ml.isValid())

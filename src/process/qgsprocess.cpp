@@ -998,12 +998,21 @@ int QgsProcessingExec::showAlgorithmHelp( const QString &inputId, bool useJson )
   return 0;
 }
 
-int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &params, const QString &ellipsoid, QgsUnitTypes::DistanceUnit distanceUnit, QgsUnitTypes::AreaUnit areaUnit, QgsProcessingContext::LogLevel logLevel, bool useJson, const QString &projectPath )
+int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &inputs, const QString &ellipsoid, QgsUnitTypes::DistanceUnit distanceUnit, QgsUnitTypes::AreaUnit areaUnit, QgsProcessingContext::LogLevel logLevel, bool useJson, const QString &projectPath )
 {
   QVariantMap json;
   if ( useJson )
   {
     addVersionInformation( json );
+  }
+
+  bool ok = false;
+  QString error;
+  const QVariantMap params = QgsProcessingUtils::preprocessQgisProcessParameters( inputs, ok, error );
+  if ( !ok )
+  {
+    std::cerr << error.toLocal8Bit().constData();
+    return 1;
   }
 
   QString id = inputId;
@@ -1105,7 +1114,7 @@ int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &param
     std::cout << "----------------\n\n";
   }
   QVariantMap inputsJson;
-  for ( auto it = params.constBegin(); it != params.constEnd(); ++it )
+  for ( auto it = inputs.constBegin(); it != inputs.constEnd(); ++it )
   {
     if ( !useJson )
       std::cout << it.key().toLocal8Bit().constData() << ":\t" << it.value().toString().toLocal8Bit().constData() << '\n';
@@ -1200,7 +1209,7 @@ int QgsProcessingExec::execute( const QString &inputId, const QVariantMap &param
   } );
 #endif
 
-  bool ok = false;
+  ok = false;
   if ( !useJson )
     std::cout << "\n";
 

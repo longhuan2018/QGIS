@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsFieldValidator.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -115,7 +114,7 @@ class TestQgsFieldValidator(unittest.TestCase):
 
         # Invalid
         _test('12345-1234', QValidator.Invalid)
-        _test('12345%s1234' % DECIMAL_SEPARATOR, QValidator.Invalid)
+        _test(f'12345{DECIMAL_SEPARATOR}1234', QValidator.Invalid)
         _test('onetwothree', QValidator.Invalid)
 
     def test_doubleValidator(self):

@@ -41,6 +41,7 @@
 %Include auto_generated/qgsdistancearea.sip
 %Include auto_generated/qgseditorwidgetsetup.sip
 %Include auto_generated/qgselevationmap.sip
+%Include auto_generated/qgselevationshadingrenderer.sip
 %Include auto_generated/qgselevationutils.sip
 %Include auto_generated/qgserror.sip
 %Include auto_generated/qgsexpressioncontext.sip
@@ -281,6 +282,7 @@
 %Include auto_generated/editform/qgsattributeeditorhtmlelement.sip
 %Include auto_generated/editform/qgsattributeeditortextelement.sip
 %Include auto_generated/editform/qgsattributeeditorqmlelement.sip
+%Include auto_generated/editform/qgsattributeeditorspacerelement.sip
 %Include auto_generated/elevation/qgsabstractprofilegenerator.sip
 %Include auto_generated/elevation/qgsabstractprofilesource.sip
 %Include auto_generated/elevation/qgsprofilepoint.sip
@@ -313,8 +315,6 @@
 %Include auto_generated/fieldformatter/qgsrelationreferencefieldformatter.sip
 %Include auto_generated/fieldformatter/qgsvaluemapfieldformatter.sip
 %Include auto_generated/fieldformatter/qgsvaluerelationfieldformatter.sip
-%Include auto_generated/geocms/geonode/qgsgeonodeconnection.sip
-%Include auto_generated/geocms/geonode/qgsgeonoderequest.sip
 %Include auto_generated/geocoding/qgsabstractgeocoderlocatorfilter.sip
 %Include auto_generated/geocoding/qgsgeocoder.sip
 %Include auto_generated/geocoding/qgsgeocodercontext.sip
@@ -401,6 +401,7 @@
 %Include auto_generated/layout/qgslayoutguidecollection.sip
 %Include auto_generated/layout/qgslayoutitem.sip
 %Include auto_generated/layout/qgslayoutitemattributetable.sip
+%Include auto_generated/layout/qgslayoutitemelevationprofile.sip
 %Include auto_generated/layout/qgslayoutitemgroup.sip
 %Include auto_generated/layout/qgslayoutitemhtml.sip
 %Include auto_generated/layout/qgslayoutitemlabel.sip
@@ -702,9 +703,11 @@
 %Include auto_generated/textrenderer/qgstextshadowsettings.sip
 %Include auto_generated/settings/qgssettings.sip
 %Include auto_generated/settings/qgssettingsentry.sip
+%Include auto_generated/settings/qgssettingsentrygroup.sip
 %Include auto_generated/settings/qgssettingsentryimpl.sip
 %Include auto_generated/settings/qgssettingsregistry.sip
 %Include auto_generated/settings/qgssettingsregistrycore.sip
+%Include auto_generated/settings/qgssettingstreenode.sip
 %Include auto_generated/validity/qgsabstractvaliditycheck.sip
 %Include auto_generated/validity/qgsvaliditycheckcontext.sip
 %Include auto_generated/validity/qgsvaliditycheckregistry.sip

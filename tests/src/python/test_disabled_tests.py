@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Contains tests which reveal broken behavior in QGIS.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -16,7 +15,6 @@ import shutil
 
 from qgis.PyQt.QtCore import QEventLoop, QT_VERSION
 from qgis.core import QgsDataCollectionItem, QgsLayerItem
-from qgis.testing import start_app, unittest
 from qgis.PyQt.QtCore import QVariant, QLocale
 from qgis.PyQt.QtGui import QValidator
 from qgis.core import QgsVectorLayer

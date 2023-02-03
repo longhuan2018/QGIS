@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsAnnotationLineItem.
 
 From build dir, run: ctest -R PyQgsAnnotationLineItem -V
@@ -59,7 +58,7 @@ class TestQgsAnnotationLineItem(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(cls.report)
 
@@ -252,7 +251,7 @@ class TestQgsAnnotationLineItem(unittest.TestCase):
         self.assertTrue(self.imageCheck('linestring_item_transform', 'linestring_item_transform', image))
 
     def imageCheck(self, name, reference_image, image):
-        TestQgsAnnotationLineItem.report += "<h2>Render {}</h2>\n".format(name)
+        TestQgsAnnotationLineItem.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'patch_' + name + ".png"
         image.save(file_name, "PNG")

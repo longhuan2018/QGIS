@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsServer.
 
 From build dir, run: ctest -R PyQgsServerAccessControlWFS -V
@@ -48,7 +47,7 @@ class TestQgsServerAccessControlFixFilters(TestQgsServerAccessControl):
         response, headers = self._get_fullaccess(wfs_query_string)
         self.assertTrue(
             str(response).find("<qgs:pk>1</qgs:pk>") != -1,
-            "No result in GetFeature\n%s" % response)
+            f"No result in GetFeature\n{response}")
 
         # Execute a restricted WMS request
         # That will store the filter expression in cache
@@ -63,7 +62,7 @@ class TestQgsServerAccessControlFixFilters(TestQgsServerAccessControl):
         response, headers = self._get_fullaccess(wfs_query_string)
         self.assertTrue(
             str(response).find("<qgs:pk>1</qgs:pk>") != -1,
-            "No result in GetFeature\n%s" % response)
+            f"No result in GetFeature\n{response}")
 
 
 if __name__ == "__main__":

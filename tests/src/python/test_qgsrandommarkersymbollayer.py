@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     test_qgsrandommarkersymbollayer.py
@@ -35,7 +33,6 @@ from qgis.core import (QgsGeometry,
                        QgsRenderContext,
                        QgsFeature,
                        QgsMapSettings,
-                       QgsMultiRenderChecker,
                        QgsReadWriteContext,
                        QgsSymbolLayerUtils,
                        QgsSimpleMarkerSymbolLayer,
@@ -65,7 +62,7 @@ class TestQgsRandomMarkerSymbolLayer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(cls.report)
 
@@ -325,7 +322,7 @@ class TestQgsRandomMarkerSymbolLayer(unittest.TestCase):
         return image
 
     def imageCheck(self, name, reference_image, image, expect_fail=False):
-        self.report += "<h2>Render {}</h2>\n".format(name)
+        self.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'symbol_' + name + ".png"
         image.save(file_name, "PNG")

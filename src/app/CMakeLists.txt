@@ -30,6 +30,7 @@ set(QGIS_APP_SRCS
   qgsdevtoolspanelwidget.cpp
   qgsdiscoverrelationsdialog.cpp
   qgsdxfexportdialog.cpp
+  qgselevationshadingrenderersettingswidget.cpp
   qgsformannotationdialog.cpp
   qgsguivectorlayertools.cpp
   qgshtmlannotationdialog.cpp
@@ -180,8 +181,6 @@ set(QGIS_APP_SRCS
 
   elevation/qgselevationprofileexportsettingswidget.cpp
   elevation/qgselevationprofileimageexportdialog.cpp
-  elevation/qgselevationprofilelayertreemodel.cpp
-  elevation/qgselevationprofilelayertreeview.cpp
   elevation/qgselevationprofilepdfexportdialog.cpp
   elevation/qgselevationprofiletoolidentify.cpp
   elevation/qgselevationprofiletoolmeasure.cpp

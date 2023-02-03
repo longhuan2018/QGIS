@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsRasterFileWriter.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -43,7 +42,7 @@ class TestQgsRasterFileWriter(unittest.TestCase):
     def write(self, theRasterName):
         print(theRasterName)
 
-        path = "%s/%s" % (self.testDataDir, theRasterName)
+        path = f"{self.testDataDir}/{theRasterName}"
         rasterLayer = QgsRasterLayer(path, "test")
         if not rasterLayer.isValid():
             return False
@@ -86,14 +85,14 @@ class TestQgsRasterFileWriter(unittest.TestCase):
         return ok
 
     def testWrite(self):
-        for name in glob.glob("%s/raster/*.tif" % self.testDataDir):
+        for name in glob.glob(f"{self.testDataDir}/raster/*.tif"):
             baseName = os.path.basename(name)
             allOk = True
-            ok = self.write("raster/%s" % baseName)
+            ok = self.write(f"raster/{baseName}")
             if not ok:
                 allOk = False
 
-        reportFilePath = "%s/qgistest.html" % QDir.tempPath()
+        reportFilePath = f"{QDir.tempPath()}/qgistest.html"
         reportFile = open(reportFilePath, 'a')
         reportFile.write(self.report)
         reportFile.close()
@@ -170,7 +169,7 @@ class TestQgsRasterFileWriter(unittest.TestCase):
                                         provider.crs()), 0)
 
         # Check that the test geopackage contains the raster layer and compare
-        rlayer = QgsRasterLayer('GPKG:%s:imported_table' % test_gpkg)
+        rlayer = QgsRasterLayer(f'GPKG:{test_gpkg}:imported_table')
         self.assertTrue(rlayer.isValid())
         out_provider = rlayer.dataProvider()
         for i in range(3):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsRenderContext.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -15,7 +14,7 @@ import qgis  # NOQA
 from qgis.core import (QgsRenderContext,
                        QgsMapSettings,
                        QgsDistanceArea,
-                       QgsRectangle, QgsPointXY,
+                       QgsPointXY,
                        QgsCoordinateReferenceSystem,
                        QgsMapUnitScale,
                        QgsUnitTypes,

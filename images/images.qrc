@@ -245,7 +245,6 @@
         <file>themes/default/mActionAddXyzLayer.svg</file>
         <file>themes/default/mActionAddVectorTileLayer.svg</file>
         <file>themes/default/mActionAddPointCloudLayer.svg</file>
-        <file>themes/default/mActionAddGeonodeLayer.svg</file>
         <file>themes/default/mActionAddDelimitedTextLayer.svg</file>
         <file>themes/default/mActionAddVirtualLayer.svg</file>
         <file>themes/default/mActionAlignBottom.svg</file>
@@ -369,6 +368,7 @@
         <file>themes/default/mActionOpenTable.svg</file>
         <file>themes/default/mActionOpenTableEdited.svg</file>
         <file>themes/default/mActionOpenTableSelected.svg</file>
+        <file>themes/default/mActionOpenTableInvalid.svg</file>
         <file>themes/default/mActionOpenTableVisible.svg</file>
         <file>themes/default/mActionAddTable.svg</file>
         <file>themes/default/mActionOffsetPointSymbols.svg</file>
@@ -517,7 +517,6 @@
         <file>themes/default/mIconFieldTime.svg</file>
         <file>themes/default/mIconFile.svg</file>
         <file>themes/default/mIconFileLink.svg</file>
-        <file>themes/default/mIconGeonode.svg</file>
         <file>themes/default/mIconInfo.svg</file>
         <file>themes/default/mIconImport.gif</file>
         <file>themes/default/mIconLabelQuadrantCenter.svg</file>
@@ -967,12 +966,16 @@
         <file>themes/default/mActionNewFileGeodatabase.svg</file>
         <file>themes/default/mIconBrowserRelations.svg</file>
         <file>themes/default/mActionIdentifyByMouseOver.svg</file>
+        <file>themes/default/mShadingRenderer.svg</file>
         <file>themes/default/gpsicons/mIconGpsConnect.svg</file>
         <file>themes/default/gpsicons/mIconGpsDisconnect.svg</file>
         <file>themes/default/gpsicons/mActionRecenter.svg</file>
         <file>themes/default/gpsicons/mActionReset.svg</file>
         <file>themes/default/gpsicons/mActionAddTrackPoint.svg</file>
         <file>themes/default/gpsicons/mIconGpsDestinationLayer.svg</file>
+        <file>themes/default/mLayoutItemElevationProfile.svg</file>
+        <file>themes/default/mActionElevationProfile.svg</file>
+        <file>themes/default/mActionCopyProfileSettings.svg</file>
     </qresource>
     <qresource prefix="/images/tips">
         <file alias="symbol_levels.png">qgis_tips/symbol_levels.png</file>

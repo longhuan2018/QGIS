@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsMapLayerStore.
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -560,7 +559,7 @@ class TestQgsMapLayerStore(unittest.TestCase):
 
         doc = QDomDocument()
         doc.setContent(
-            '<maplayer><provider encoding="UTF-8">ogr</provider><layername>fixed</layername><id>%s</id></maplayer>' % vl2.id())
+            f'<maplayer><provider encoding="UTF-8">ogr</provider><layername>fixed</layername><id>{vl2.id()}</id></maplayer>')
         layer_node = QDomNode(doc.firstChild())
         self.assertTrue(vl2.writeXml(layer_node, doc, QgsReadWriteContext()))
         datasource_node = doc.createElement("datasource")

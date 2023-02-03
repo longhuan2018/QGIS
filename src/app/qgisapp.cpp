@@ -103,6 +103,7 @@
 #include "qgsdockablewidgethelper.h"
 #include "vertextool/qgsvertexeditor.h"
 #include "qgsvectorlayerutils.h"
+#include "qgsvectorlayereditutils.h"
 #include "qgsadvanceddigitizingdockwidget.h"
 #include "qgsabstractdatasourcewidget.h"
 #include "qgsmeshlayer.h"
@@ -288,6 +289,7 @@ Q_GUI_EXPORT extern int qt_defaultDpiX();
 #include "qgslayoutqptdrophandler.h"
 #include "qgslayoutimagedrophandler.h"
 #include "qgslayoutguiutils.h"
+#include "qgslayoutelevationprofilewidget.h"
 #include "qgslocatorwidget.h"
 #include "qgslocator.h"
 #include "qgsactionlocatorfilter.h"
@@ -368,6 +370,7 @@ Q_GUI_EXPORT extern int qt_defaultDpiX();
 #include "qgsscalevisibilitydialog.h"
 #include "qgsgroupwmsdatadialog.h"
 #include "qgsselectbyformdialog.h"
+#include "qgselevationshadingrenderersettingswidget.h"
 #include "qgsshortcutsmanager.h"
 #include "qgssnappingwidget.h"
 #include "qgsstatisticalsummarydockwidget.h"
@@ -1497,6 +1500,7 @@ QgisApp::QgisApp( QSplashScreen *splash, bool restorePlugins, bool skipBadLayers
   addWindow( mWindowAction );
 #endif
 
+  registerMapLayerPropertiesFactory( new QgsElevationShadingRendererSettingsWidgetFactory( this ) );
   registerProjectPropertiesWidgetFactory( new QgsProjectElevationSettingsWidgetFactory( this ) );
 
   activateDeactivateLayerRelatedActions( nullptr ); // after members were created
@@ -2902,6 +2906,7 @@ void QgisApp::createActions()
   connect( mActionAddXyzLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "xyz" ) ); } );
   connect( mActionAddVectorTileLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "vectortile" ) ); } );
   connect( mActionAddPointCloudLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "pointcloud" ) ); } );
+  connect( mActionAddGpsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "gpx" ) ); } );
   connect( mActionAddWcsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "wcs" ) ); } );
 #ifdef HAVE_SPATIALITE
   connect( mActionAddWfsLayer, &QAction::triggered, this, [ = ] { dataSourceManager( QStringLiteral( "WFS" ) ); } );
@@ -3937,6 +3942,7 @@ void QgisApp::createStatusBar()
   mRenderSuppressionCBox->setFont( statusBarFont );
   mRenderSuppressionCBox->setToolTip( tr( "Toggle map rendering" ) );
   mStatusBar->addPermanentWidget( mRenderSuppressionCBox, 0 );
+
   // On the fly projection status bar icon
   // Changed this to a tool button since a QPushButton is
   // sculpted on OS X and the icon is never displayed [gsherman]
@@ -9633,9 +9639,8 @@ void QgisApp::mergeSelectedFeatures()
     return;
   }
 
-  //get selected feature ids (as a QSet<int> )
-  const QgsFeatureIds &featureIdSet = vl->selectedFeatureIds();
-  if ( featureIdSet.size() < 2 )
+  // Check at least two features are selected
+  if ( vl->selectedFeatureIds().size() < 2 )
   {
     visibleMessageBar()->pushMessage(
       tr( "Not enough features selected" ),
@@ -9709,104 +9714,38 @@ void QgisApp::mergeSelectedFeatures()
       }
       return;
     }
+    else if ( !QgsWkbTypes::isMultiType( vl->wkbType() ) )
+    {
+      const QgsGeometryCollection *c = qgsgeometry_cast<const QgsGeometryCollection *>( unionGeom.constGet() );
+      if ( ( c && c->partCount() > 1 ) || !unionGeom.convertToSingleType() )
+      {
+        visibleMessageBar()->pushMessage(
+          tr( "Merge failed" ),
+          tr( "Resulting geometry type (multipart) is incompatible with layer type (singlepart)." ),
+          Qgis::MessageLevel::Critical );
+        return;
+      }
+    }
   }
 
-  QgsAttributes attrs = d.mergedAttributes();
-  QgsAttributeMap newAttributes;
   QString errorMessage;
-  QgsFeatureId mergeFeatureId = FID_NULL;
-  for ( int i = 0; i < attrs.count(); ++i )
+  QgsVectorLayerEditUtils vectorLayerEditUtils( vl );
+  bool success = vectorLayerEditUtils.mergeFeatures( d.targetFeatureId(), vl->selectedFeatureIds(), d.mergedAttributes(), unionGeom, errorMessage );
+
+  if ( !success )
   {
-    QVariant val = attrs.at( i );
-    bool isDefaultValue = vl->fields().fieldOrigin( i ) == QgsFields::OriginProvider &&
-                          vl->dataProvider() &&
-                          vl->dataProvider()->defaultValueClause( vl->fields().fieldOriginIndex( i ) ) == val;
-    bool isPrimaryKey =  vl->fields().fieldOrigin( i ) == QgsFields::OriginProvider &&
-                         vl->dataProvider() &&
-                         vl->dataProvider()->pkAttributeIndexes().contains( vl->fields().fieldOriginIndex( i ) );
-
-    if ( isPrimaryKey && !isDefaultValue )
-    {
-      QgsFeatureRequest request;
-      request.setFlags( QgsFeatureRequest::Flag::NoGeometry );
-      // Handle multi pks
-      if ( vl->dataProvider()->pkAttributeIndexes().count() > 1 && vl->dataProvider()->pkAttributeIndexes().count() <= attrs.count() )
-      {
-        const auto pkIdxList { vl->dataProvider()->pkAttributeIndexes() };
-        QStringList conditions;
-        QStringList fieldNames;
-        for ( const int &pkIdx : std::as_const( pkIdxList ) )
-        {
-          const QgsField pkField { vl->fields().field( pkIdx ) };
-          conditions.push_back( QgsExpression::createFieldEqualityExpression( pkField.name(), attrs.at( pkIdx ), pkField.type( ) ) );
-          fieldNames.push_back( pkField.name() );
-        }
-        request.setSubsetOfAttributes( fieldNames, vl->fields( ) );
-        request.setFilterExpression( conditions.join( QLatin1String( " AND " ) ) );
-      }
-      else  // single pk
-      {
-        const QgsField pkField { vl->fields().field( i ) };
-        request.setSubsetOfAttributes( QStringList() << pkField.name(), vl->fields( ) );
-        request.setFilterExpression( QgsExpression::createFieldEqualityExpression( pkField.name(), val, pkField.type( ) ) );
-      }
-
-      QgsFeature f;
-      QgsFeatureIterator featureIterator = vl->getFeatures( request );
-      if ( featureIterator.nextFeature( f ) )
-      {
-        mergeFeatureId = f.id( );
-      }
-    }
-
-    // convert to destination data type
-    if ( !isDefaultValue && !vl->fields().at( i ).convertCompatible( val, &errorMessage ) )
-    {
-      visibleMessageBar()->pushMessage(
-        tr( "Invalid result" ),
-        tr( "Could not store value '%1' in field of type %2: %3" ).arg( attrs.at( i ).toString(), vl->fields().at( i ).typeName(), errorMessage ),
-        Qgis::MessageLevel::Warning );
-    }
-    newAttributes[ i ] = val;
+    visibleMessageBar()->pushMessage(
+      tr( "Merge failed" ),
+      errorMessage,
+      Qgis::MessageLevel::Critical );
   }
-
-  vl->beginEditCommand( tr( "Merged features" ) );
-
-  QgsFeature mergeFeature;
-  if ( mergeFeatureId == FID_NULL )
+  else if ( success && !errorMessage.isEmpty() )
   {
-    // Create new feature
-    mergeFeature = QgsVectorLayerUtils::createFeature( vl, unionGeom, newAttributes );
+    visibleMessageBar()->pushMessage(
+      tr( "Invalid result" ),
+      errorMessage,
+      Qgis::MessageLevel::Warning );
   }
-  else
-  {
-    // Merge into existing feature
-    featureIdsAfter.remove( mergeFeatureId );
-  }
-
-  // Delete other features
-  QgsFeatureIds::const_iterator feature_it = featureIdsAfter.constBegin();
-  for ( ; feature_it != featureIdsAfter.constEnd(); ++feature_it )
-  {
-    vl->deleteFeature( *feature_it );
-  }
-
-
-  if ( mergeFeatureId == FID_NULL )
-  {
-    // Add the new feature
-    vl->addFeature( mergeFeature );
-  }
-  else
-  {
-    // Modify merge feature
-    vl->changeGeometry( mergeFeatureId, unionGeom );
-    vl->changeAttributeValues( mergeFeatureId, newAttributes );
-  }
-
-  vl->endEditCommand();
-
-  vl->triggerRepaint();
 }
 
 void QgisApp::vertexTool()
@@ -10745,8 +10684,8 @@ bool QgisApp::toggleEditingVectorLayer( QgsVectorLayer *vlayer, bool allowCancel
 
     QgsProject::instance()->startEditing( vlayer );
 
-    QString markerType = QgsSettingsRegistryCore::settingsDigitizingMarkerStyle.value();
-    bool markSelectedOnly = QgsSettingsRegistryCore::settingsDigitizingMarkerOnlyForSelected.value();
+    QString markerType = QgsSettingsRegistryCore::settingsDigitizingMarkerStyle->value();
+    bool markSelectedOnly = QgsSettingsRegistryCore::settingsDigitizingMarkerOnlyForSelected->value();
 
     // redraw only if markers will be drawn
     if ( ( !markSelectedOnly || vlayer->selectedFeatureCount() > 0 ) &&
@@ -13104,6 +13043,31 @@ void QgisApp::initLayouts()
   registerCustomLayoutDropHandler( mLayoutQptDropHandler );
   mLayoutImageDropHandler = new QgsLayoutImageDropHandler( this );
   registerCustomLayoutDropHandler( mLayoutImageDropHandler );
+
+  QgsLayoutElevationProfileWidget::sBuildCopyMenuFunction = [ = ]( QgsLayoutElevationProfileWidget * layoutWidget, QMenu * menu )
+  {
+    menu->clear();
+    const QList<QgsElevationProfileWidget *> elevationProfileWidgets = findChildren< QgsElevationProfileWidget * >();
+
+    if ( elevationProfileWidgets.empty() )
+    {
+      QAction *action = new QAction( tr( "No Elevation Profiles Found" ), menu );
+      action->setEnabled( false );
+      menu->addAction( action );
+    }
+    else
+    {
+      for ( QgsElevationProfileWidget *widget : elevationProfileWidgets )
+      {
+        QAction *action = new QAction( tr( "Copy From %1" ).arg( widget->canvasName() ), menu );
+        connect( action, &QAction::triggered, widget, [ = ]
+        {
+          layoutWidget->copySettingsFromProfileCanvas( widget->profileCanvas() );
+        } );
+        menu->addAction( action );
+      }
+    }
+  };
 }
 
 Qgs3DMapCanvasWidget *QgisApp::createNew3DMapCanvasDock( const QString &name, bool isDocked )
@@ -13136,7 +13100,20 @@ Qgs3DMapCanvasWidget *QgisApp::createNew3DMapCanvasDock( const QString &name, bo
 
 QgsElevationProfileWidget *QgisApp::createNewElevationProfile()
 {
-  QgsElevationProfileWidget *widget = new QgsElevationProfileWidget( tr( "Elevation Profile" ) );
+  const QList<QgsElevationProfileWidget *> elevationProfileWidgets = findChildren< QgsElevationProfileWidget * >();
+  const int existingProfileCount = elevationProfileWidgets.size();
+
+  QString title;
+  if ( existingProfileCount == 0 )
+  {
+    title = tr( "Elevation Profile" );
+  }
+  else
+  {
+    title = tr( "Elevation Profile (%1)" ).arg( existingProfileCount + 1 );
+  }
+
+  QgsElevationProfileWidget *widget = new QgsElevationProfileWidget( title );
   widget->setMainCanvas( mMapCanvas );
   return widget;
 }
@@ -15664,12 +15641,29 @@ void QgisApp::keyPressEvent( QKeyEvent *e )
 
 void QgisApp::newProfile()
 {
-  QString text = QInputDialog::getText( this, tr( "New profile name" ), tr( "New profile name" ) );
-  if ( text.isEmpty() )
+  QgsNewNameDialog dlg( QString(), QString(), QStringList(), userProfileManager()->allProfiles(), Qt::CaseInsensitive, this );
+  dlg.setConflictingNameWarning( tr( "A profile with this name already exists" ) );
+  dlg.setOverwriteEnabled( false );
+  dlg.setHintString( tr( "New profile name" ) );
+  dlg.setWindowTitle( tr( "New profile name" ) );
+
+  // Prevent from entering slashes and backslashes
+  dlg.setRegularExpression( "[^/\\\\]+" );
+
+  if ( dlg.exec() != QDialog::Accepted )
     return;
 
-  userProfileManager()->createUserProfile( text );
-  userProfileManager()->loadUserProfile( text );
+  QString profileName = dlg.name();
+  QgsError error = userProfileManager()->createUserProfile( profileName );
+  if ( error.isEmpty() )
+  {
+    userProfileManager()->loadUserProfile( profileName );
+  }
+  else
+  {
+    QMessageBox::warning( this, tr( "New Profile" ), tr( "Cannot create folder '%1'" ).arg( profileName ) );
+    return;
+  }
 }
 
 void QgisApp::onTaskCompleteShowNotify( long taskId, int status )
@@ -15920,11 +15914,6 @@ void QgisApp::read3DMapViewSettings( Qgs3DMapCanvasWidget *widget, QDomElement &
   // these things are not saved in project
   map->setSelectionColor( mMapCanvas->selectionColor() );
   map->setBackgroundColor( mMapCanvas->canvasColor() );
-  if ( map->terrainRenderingEnabled() && map->terrainGenerator() && map->terrainGenerator()->type() == QgsTerrainGenerator::Flat )
-  {
-    QgsFlatTerrainGenerator *flatTerrainGen = static_cast<QgsFlatTerrainGenerator *>( map->terrainGenerator() );
-    flatTerrainGen->setExtent( mMapCanvas->projectExtent() );
-  }
   map->setOutputDpi( QGuiApplication::primaryScreen()->logicalDotsPerInch() );
 
   widget->setMapSettings( map );

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsServer WMS.
 
 From build dir, run: ctest -R PyQgsServerWMS -V
@@ -53,7 +52,7 @@ class TestQgsServerWMSTestBase(QgsServerTestBase):
         if not os.path.exists(project):
             project = os.path.join(self.testdata_path, project)
         assert os.path.exists(project), "Project file not found: " + project
-        query_string = 'https://www.qgis.org/?MAP=%s&SERVICE=WMS&VERSION=%s&REQUEST=%s' % (urllib.parse.quote(project), version, request)
+        query_string = f'https://www.qgis.org/?MAP={urllib.parse.quote(project)}&SERVICE=WMS&VERSION={version}&REQUEST={request}'
         if extra is not None:
             query_string += extra
         header, body = self._execute_request(query_string)
@@ -95,7 +94,7 @@ class TestQgsServerWMSTestBase(QgsServerTestBase):
                 response = re.sub(RE_STRIP_EXTENTS, b'*****', response)
                 expected = re.sub(RE_STRIP_EXTENTS, b'*****', expected)
 
-            msg = "request %s failed.\nQuery: %s\nExpected file: %s\nResponse:\n%s" % (query_string, request, reference_path, response.decode('utf-8'))
+            msg = f"request {query_string} failed.\nQuery: {request}\nExpected file: {reference_path}\nResponse:\n{response.decode('utf-8')}"
 
             try:
                 self.assertXMLEqual(response, expected, msg=msg, raw=raw)
@@ -132,7 +131,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         rh = response.headers()
         rk = sorted(rh.keys())
         for k in rk:
-            headers.append(("%s: %s" % (k, rh[k])).encode('utf-8'))
+            headers.append((f"{k}: {rh[k]}").encode())
 
         reference_path = os.path.join(self.testdata_path, 'wms_getcapabilities_rewriting.txt')
         f = open(reference_path, 'rb')
@@ -149,7 +148,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         self.wms_request_compare('GetContext')
 
     def test_operation_not_supported(self):
-        qs = '?MAP=%s&SERVICE=WMS&VERSION=1.3.0&REQUEST=NotAValidRequest' % urllib.parse.quote(self.projectPath)
+        qs = f'?MAP={urllib.parse.quote(self.projectPath)}&SERVICE=WMS&VERSION=1.3.0&REQUEST=NotAValidRequest'
         self._assert_status_code(501, qs)
 
     def test_describelayer(self):
@@ -186,8 +185,8 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
             "LAYERS": "db_point"
         }.items())])
         r, h = self._result(self._execute_request(qs))
-        assert "StyledLayerDescriptor" in str(r), "StyledLayerDescriptor not in %s" % r
-        assert "__sld_style" not in str(r), "__sld_style in %s" % r
+        assert "StyledLayerDescriptor" in str(r), f"StyledLayerDescriptor not in {r}"
+        assert "__sld_style" not in str(r), f"__sld_style in {r}"
 
         qs = "?" + "&".join(["%s=%s" % i for i in list({
             "MAP": urllib.parse.quote(self.projectPath),
@@ -213,8 +212,8 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
             "LAYERS": "db_point"
         }.items())])
         r, h = self._result(self._execute_request(qs))
-        assert "StyledLayerDescriptor" in str(r), "StyledLayerDescriptor not in %s" % r
-        assert "__sld_style" not in str(r), "__sld_style in %s" % r
+        assert "StyledLayerDescriptor" in str(r), f"StyledLayerDescriptor not in {r}"
+        assert "__sld_style" not in str(r), f"__sld_style in {r}"
 
     def test_wms_getschemaextension(self):
         self.wms_request_compare('GetSchemaExtension',
@@ -228,7 +227,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         project = QgsProject()
         project.read(projectPath)
 
-        query_string = 'https://www.qgis.org/?SERVICE=WMS&VERSION=1.3.0&REQUEST=%s' % (request)
+        query_string = f'https://www.qgis.org/?SERVICE=WMS&VERSION=1.3.0&REQUEST={request}'
         if extra is not None:
             query_string += extra
         header, body = self._execute_request_project(query_string, project)
@@ -241,7 +240,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         response = re.sub(RE_STRIP_UNCHECKABLE, b'*****', response)
         expected = re.sub(RE_STRIP_UNCHECKABLE, b'*****', expected)
 
-        self.assertXMLEqual(response, expected, msg="request %s failed.\nQuery: %s\nExpected file: %s\nResponse:\n%s" % (query_string, request, reference_path, response.decode('utf-8')))
+        self.assertXMLEqual(response, expected, msg=f"request {query_string} failed.\nQuery: {request}\nExpected file: {reference_path}\nResponse:\n{response.decode('utf-8')}")
 
     def test_wms_getcapabilities_project(self):
         """WMS GetCapabilities without map parameter"""
@@ -257,7 +256,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         project = self.testdata_path + "test_project_inspire.qgs"
         assert os.path.exists(project), "Project file not found: " + project
 
-        query_string = '?MAP=%s&SERVICE=WMS&VERSION=1.3.0&REQUEST=%s' % (urllib.parse.quote(project), request)
+        query_string = f'?MAP={urllib.parse.quote(project)}&SERVICE=WMS&VERSION=1.3.0&REQUEST={request}'
         header, body = self._execute_request(query_string)
         response = header + body
         reference_path = self.testdata_path + request.lower() + '_inspire.txt'
@@ -267,7 +266,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
         f.close()
         response = re.sub(RE_STRIP_UNCHECKABLE, b'', response)
         expected = re.sub(RE_STRIP_UNCHECKABLE, b'', expected)
-        self.assertXMLEqual(response, expected, msg="request %s failed.\nQuery: %s\nExpected file: %s\nResponse:\n%s" % (query_string, request, reference_path, response.decode('utf-8')))
+        self.assertXMLEqual(response, expected, msg=f"request {query_string} failed.\nQuery: {request}\nExpected file: {reference_path}\nResponse:\n{response.decode('utf-8')}")
 
     def test_project_wms_inspire(self):
         """Test some WMS request"""
@@ -407,7 +406,7 @@ class TestQgsServerWMS(TestQgsServerWMSTestBase):
 
         # read getcapabilities document
         docPath = self.testdata_path + 'getcapabilities.txt'
-        f = open(docPath, 'r')
+        f = open(docPath)
         doc = f.read()
         f.close()
 

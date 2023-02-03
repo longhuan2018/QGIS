@@ -35,6 +35,9 @@ Qgis.UnknownDataType.__doc__ = "Unknown or unspecified type"
 Qgis.Byte = Qgis.DataType.Byte
 Qgis.Byte.is_monkey_patched = True
 Qgis.Byte.__doc__ = "Eight bit unsigned integer (quint8)"
+Qgis.Int8 = Qgis.DataType.Int8
+Qgis.Int8.is_monkey_patched = True
+Qgis.Int8.__doc__ = "Eight bit signed integer (qint8) (added in QGIS 3.30)"
 Qgis.UInt16 = Qgis.DataType.UInt16
 Qgis.UInt16.is_monkey_patched = True
 Qgis.UInt16.__doc__ = "Sixteen bit unsigned integer (quint16)"
@@ -71,7 +74,7 @@ Qgis.ARGB32.__doc__ = "Color, alpha, red, green, blue, 4 bytes the same as QImag
 Qgis.ARGB32_Premultiplied = Qgis.DataType.ARGB32_Premultiplied
 Qgis.ARGB32_Premultiplied.is_monkey_patched = True
 Qgis.ARGB32_Premultiplied.__doc__ = "Color, alpha, red, green, blue, 4 bytes  the same as QImage.Format_ARGB32_Premultiplied"
-Qgis.DataType.__doc__ = 'Raster data types.\nThis is modified and extended copy of GDALDataType.\n\n' + '* ``UnknownDataType``: ' + Qgis.DataType.UnknownDataType.__doc__ + '\n' + '* ``Byte``: ' + Qgis.DataType.Byte.__doc__ + '\n' + '* ``UInt16``: ' + Qgis.DataType.UInt16.__doc__ + '\n' + '* ``Int16``: ' + Qgis.DataType.Int16.__doc__ + '\n' + '* ``UInt32``: ' + Qgis.DataType.UInt32.__doc__ + '\n' + '* ``Int32``: ' + Qgis.DataType.Int32.__doc__ + '\n' + '* ``Float32``: ' + Qgis.DataType.Float32.__doc__ + '\n' + '* ``Float64``: ' + Qgis.DataType.Float64.__doc__ + '\n' + '* ``CInt16``: ' + Qgis.DataType.CInt16.__doc__ + '\n' + '* ``CInt32``: ' + Qgis.DataType.CInt32.__doc__ + '\n' + '* ``CFloat32``: ' + Qgis.DataType.CFloat32.__doc__ + '\n' + '* ``CFloat64``: ' + Qgis.DataType.CFloat64.__doc__ + '\n' + '* ``ARGB32``: ' + Qgis.DataType.ARGB32.__doc__ + '\n' + '* ``ARGB32_Premultiplied``: ' + Qgis.DataType.ARGB32_Premultiplied.__doc__
+Qgis.DataType.__doc__ = 'Raster data types.\nThis is modified and extended copy of GDALDataType.\n\n' + '* ``UnknownDataType``: ' + Qgis.DataType.UnknownDataType.__doc__ + '\n' + '* ``Byte``: ' + Qgis.DataType.Byte.__doc__ + '\n' + '* ``Int8``: ' + Qgis.DataType.Int8.__doc__ + '\n' + '* ``UInt16``: ' + Qgis.DataType.UInt16.__doc__ + '\n' + '* ``Int16``: ' + Qgis.DataType.Int16.__doc__ + '\n' + '* ``UInt32``: ' + Qgis.DataType.UInt32.__doc__ + '\n' + '* ``Int32``: ' + Qgis.DataType.Int32.__doc__ + '\n' + '* ``Float32``: ' + Qgis.DataType.Float32.__doc__ + '\n' + '* ``Float64``: ' + Qgis.DataType.Float64.__doc__ + '\n' + '* ``CInt16``: ' + Qgis.DataType.CInt16.__doc__ + '\n' + '* ``CInt32``: ' + Qgis.DataType.CInt32.__doc__ + '\n' + '* ``CFloat32``: ' + Qgis.DataType.CFloat32.__doc__ + '\n' + '* ``CFloat64``: ' + Qgis.DataType.CFloat64.__doc__ + '\n' + '* ``ARGB32``: ' + Qgis.DataType.ARGB32.__doc__ + '\n' + '* ``ARGB32_Premultiplied``: ' + Qgis.DataType.ARGB32_Premultiplied.__doc__
 # --
 Qgis.DataType.baseClass = Qgis
 # monkey patching scoped based enum
@@ -149,6 +152,9 @@ Qgis.ScaleMethod.__doc__ = 'Scale methods\n\n.. versionadded:: 3.20\n\n' + '* ``
 Qgis.ScaleMethod.baseClass = Qgis
 QgsSettingsEntryBase.SettingsType = Qgis.SettingsType
 # monkey patching scoped based enum
+QgsSettingsEntryBase.Custom = Qgis.SettingsType.Custom
+QgsSettingsEntryBase.Custom.is_monkey_patched = True
+QgsSettingsEntryBase.Custom.__doc__ = "Custom implementation"
 QgsSettingsEntryBase.Variant = Qgis.SettingsType.Variant
 QgsSettingsEntryBase.Variant.is_monkey_patched = True
 QgsSettingsEntryBase.Variant.__doc__ = "Generic variant"
@@ -176,13 +182,14 @@ QgsSettingsEntryBase.EnumFlag.__doc__ = "Enum or Flag"
 QgsSettingsEntryBase.Color = Qgis.SettingsType.Color
 QgsSettingsEntryBase.Color.is_monkey_patched = True
 QgsSettingsEntryBase.Color.__doc__ = "Color"
-Qgis.SettingsType.__doc__ = 'Types of settings entries\n\n.. versionadded:: 3.26\n\n' + '* ``Variant``: ' + Qgis.SettingsType.Variant.__doc__ + '\n' + '* ``String``: ' + Qgis.SettingsType.String.__doc__ + '\n' + '* ``StringList``: ' + Qgis.SettingsType.StringList.__doc__ + '\n' + '* ``VariantMap``: ' + Qgis.SettingsType.VariantMap.__doc__ + '\n' + '* ``Bool``: ' + Qgis.SettingsType.Bool.__doc__ + '\n' + '* ``Integer``: ' + Qgis.SettingsType.Integer.__doc__ + '\n' + '* ``Double``: ' + Qgis.SettingsType.Double.__doc__ + '\n' + '* ``EnumFlag``: ' + Qgis.SettingsType.EnumFlag.__doc__ + '\n' + '* ``Color``: ' + Qgis.SettingsType.Color.__doc__
+Qgis.SettingsType.__doc__ = 'Types of settings entries\n\n.. versionadded:: 3.26\n\n' + '* ``Custom``: ' + Qgis.SettingsType.Custom.__doc__ + '\n' + '* ``Variant``: ' + Qgis.SettingsType.Variant.__doc__ + '\n' + '* ``String``: ' + Qgis.SettingsType.String.__doc__ + '\n' + '* ``StringList``: ' + Qgis.SettingsType.StringList.__doc__ + '\n' + '* ``VariantMap``: ' + Qgis.SettingsType.VariantMap.__doc__ + '\n' + '* ``Bool``: ' + Qgis.SettingsType.Bool.__doc__ + '\n' + '* ``Integer``: ' + Qgis.SettingsType.Integer.__doc__ + '\n' + '* ``Double``: ' + Qgis.SettingsType.Double.__doc__ + '\n' + '* ``EnumFlag``: ' + Qgis.SettingsType.EnumFlag.__doc__ + '\n' + '* ``Color``: ' + Qgis.SettingsType.Color.__doc__
 # --
 Qgis.SettingsType.baseClass = Qgis
 # monkey patching scoped based enum
 Qgis.SldExportOption.NoOptions.__doc__ = "Default SLD export"
 Qgis.SldExportOption.Svg.__doc__ = "Export complex styles to separate SVG files for better compatibility with OGC servers"
-Qgis.SldExportOption.__doc__ = 'SLD export options\n\n.. versionadded:: 3.30\n\n' + '* ``NoOptions``: ' + Qgis.SldExportOption.NoOptions.__doc__ + '\n' + '* ``Svg``: ' + Qgis.SldExportOption.Svg.__doc__
+Qgis.SldExportOption.Png.__doc__ = "Export complex styles to separate PNG files for better compatibility with OGC servers"
+Qgis.SldExportOption.__doc__ = 'SLD export options\n\n.. versionadded:: 3.30\n\n' + '* ``NoOptions``: ' + Qgis.SldExportOption.NoOptions.__doc__ + '\n' + '* ``Svg``: ' + Qgis.SldExportOption.Svg.__doc__ + '\n' + '* ``Png``: ' + Qgis.SldExportOption.Png.__doc__
 # --
 Qgis.SldExportOption.baseClass = Qgis
 Qgis.SldExportOptions.baseClass = Qgis
@@ -334,7 +341,7 @@ QgsDataItem.NoCapabilities.is_monkey_patched = True
 QgsDataItem.NoCapabilities.__doc__ = "Item has no capabilities"
 QgsDataItem.SetCrs = Qgis.BrowserItemCapability.SetCrs
 QgsDataItem.SetCrs.is_monkey_patched = True
-QgsDataItem.SetCrs.__doc__ = "Can set CRS on layer or group of layers. \deprecated since QGIS 3.6 -- no longer used by QGIS and will be removed in QGIS 4.0"
+QgsDataItem.SetCrs.__doc__ = "Can set CRS on layer or group of layers. deprecated since QGIS 3.6 -- no longer used by QGIS and will be removed in QGIS 4.0"
 QgsDataItem.Fertile = Qgis.BrowserItemCapability.Fertile
 QgsDataItem.Fertile.is_monkey_patched = True
 QgsDataItem.Fertile.__doc__ = "Can create children. Even items without this capability may have children, but cannot create them, it means that children are created by item ancestors."
@@ -2212,6 +2219,13 @@ Qgis.CoordinateDisplayType.__doc__ = 'Formats for displaying coordinates\n\n.. v
 # --
 Qgis.CoordinateDisplayType.baseClass = Qgis
 # monkey patching scoped based enum
+Qgis.SettingsOrigin.Any.__doc__ = "From any origin"
+Qgis.SettingsOrigin.Global.__doc__ = "Global settings are stored in `global_settings.ini`"
+Qgis.SettingsOrigin.Local.__doc__ = "Local settings are stored in the user profile"
+Qgis.SettingsOrigin.__doc__ = 'The setting origin describes where a setting is stored.\n\n.. versionadded:: 3.30\n\n' + '* ``Any``: ' + Qgis.SettingsOrigin.Any.__doc__ + '\n' + '* ``Global``: ' + Qgis.SettingsOrigin.Global.__doc__ + '\n' + '* ``Local``: ' + Qgis.SettingsOrigin.Local.__doc__
+# --
+Qgis.SettingsOrigin.baseClass = Qgis
+# monkey patching scoped based enum
 Qgis.ScriptLanguage.Css.__doc__ = "CSS"
 Qgis.ScriptLanguage.QgisExpression.__doc__ = "QGIS expressions"
 Qgis.ScriptLanguage.Html.__doc__ = "HTML"
@@ -2454,3 +2468,9 @@ QgsRaster.IdentifyFormatFeature.__doc__ = "WMS GML/JSON -> feature"
 Qgis.RasterIdentifyFormat.__doc__ = 'Raster identify formats.\n\n.. note::\n\n   Prior to QGIS 3.30 this was available as :py:class:`QgsRaster`.IdentifyFormat\n\n.. versionadded:: 3.30\n\n' + '* ``IdentifyFormatUndefined``: ' + Qgis.RasterIdentifyFormat.Undefined.__doc__ + '\n' + '* ``IdentifyFormatValue``: ' + Qgis.RasterIdentifyFormat.Value.__doc__ + '\n' + '* ``IdentifyFormatText``: ' + Qgis.RasterIdentifyFormat.Text.__doc__ + '\n' + '* ``IdentifyFormatHtml``: ' + Qgis.RasterIdentifyFormat.Html.__doc__ + '\n' + '* ``IdentifyFormatFeature``: ' + Qgis.RasterIdentifyFormat.Feature.__doc__
 # --
 Qgis.RasterIdentifyFormat.baseClass = Qgis
+# monkey patching scoped based enum
+Qgis.ElevationMapCombineMethod.HighestElevation.__doc__ = "Keep the highest elevation if it is not null"
+Qgis.ElevationMapCombineMethod.NewerElevation.__doc__ = "Keep the new elevation regardless of its value if it is not null"
+Qgis.ElevationMapCombineMethod.__doc__ = 'Methods used to select the elevation when two elevation maps are combined\n\n.. versionadded:: 3.30\n\n' + '* ``HighestElevation``: ' + Qgis.ElevationMapCombineMethod.HighestElevation.__doc__ + '\n' + '* ``NewerElevation``: ' + Qgis.ElevationMapCombineMethod.NewerElevation.__doc__
+# --
+Qgis.ElevationMapCombineMethod.baseClass = Qgis

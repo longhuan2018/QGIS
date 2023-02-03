@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsServer.
 
 From build dir, run: ctest -R PyQgsServerAccessControlWCS -V
@@ -32,12 +31,12 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_fullaccess(query_string)
         self.assertTrue(
             str(response).find("<name>dem</name>") != -1,
-            "No dem layer in WCS/GetCapabilities\n%s" % response)
+            f"No dem layer in WCS/GetCapabilities\n{response}")
 
         response, headers = self._get_restricted(query_string)
         self.assertTrue(
             str(response).find("<name>dem</name>") != -1,
-            "No dem layer in WCS/GetCapabilities\n%s" % response)
+            f"No dem layer in WCS/GetCapabilities\n{response}")
 
         query_string = "&".join(["%s=%s" % i for i in list({
             "MAP": urllib.parse.quote(self.projectPath),
@@ -50,7 +49,7 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_restricted(query_string)
         self.assertFalse(
             str(response).find("<name>dem</name>") != -1,
-            "Unexpected dem layer in WCS/GetCapabilities\n%s" % response)
+            f"Unexpected dem layer in WCS/GetCapabilities\n{response}")
 
     def test_wcs_describecoverage(self):
         query_string = "&".join(["%s=%s" % i for i in list({
@@ -64,12 +63,12 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_fullaccess(query_string)
         self.assertTrue(
             str(response).find("<name>dem</name>") != -1,
-            "No dem layer in DescribeCoverage\n%s" % response)
+            f"No dem layer in DescribeCoverage\n{response}")
 
         response, headers = self._get_restricted(query_string)
         self.assertTrue(
             str(response).find("<name>dem</name>") != -1,
-            "No dem layer in DescribeCoverage\n%s" % response)
+            f"No dem layer in DescribeCoverage\n{response}")
 
         query_string = "&".join(["%s=%s" % i for i in list({
             "MAP": urllib.parse.quote(self.projectPath),
@@ -83,7 +82,7 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_restricted(query_string)
         self.assertFalse(
             str(response).find("<name>dem</name>") != -1,
-            "Unexpected dem layer in DescribeCoverage\n%s" % response)
+            f"Unexpected dem layer in DescribeCoverage\n{response}")
 
     def test_wcs_getcoverage(self):
         query_string = "&".join(["%s=%s" % i for i in list({
@@ -102,7 +101,7 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_fullaccess(query_string)
         self.assertEqual(
             headers.get("Content-Type"), "image/tiff",
-            "Content type for GetMap is wrong: %s" % headers.get("Content-Type"))
+            f"Content type for GetMap is wrong: {headers.get('Content-Type')}")
         self.assertTrue(
             self._geo_img_diff(response, "WCS_GetCoverage.geotiff") == 0,
             "Image for GetCoverage is wrong")
@@ -110,7 +109,7 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_restricted(query_string)
         self.assertEqual(
             headers.get("Content-Type"), "image/tiff",
-            "Content type for GetMap is wrong: %s" % headers.get("Content-Type"))
+            f"Content type for GetMap is wrong: {headers.get('Content-Type')}")
         self.assertTrue(
             self._geo_img_diff(response, "WCS_GetCoverage.geotiff") == 0,
             "Image for GetCoverage is wrong")
@@ -132,7 +131,7 @@ class TestQgsServerAccessControlWCS(TestQgsServerAccessControl):
         response, headers = self._get_restricted(query_string)
         self.assertEqual(
             headers.get("Content-Type"), "text/xml; charset=utf-8",
-            "Content type for GetMap is wrong: %s" % headers.get("Content-Type"))
+            f"Content type for GetMap is wrong: {headers.get('Content-Type')}")
         self.assertTrue(
             str(response).find('<ServiceException code="RequestNotWellFormed">') != -1,
             "The layer for the COVERAGE 'dem' is not found")

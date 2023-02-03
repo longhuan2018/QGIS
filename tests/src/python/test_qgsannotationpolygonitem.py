@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsAnnotationPolygonItem.
 
 From build dir, run: ctest -R PyQgsAnnotationPolygonItem -V
@@ -61,7 +60,7 @@ class TestQgsAnnotationPolygonItem(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(cls.report)
 
@@ -265,7 +264,7 @@ class TestQgsAnnotationPolygonItem(unittest.TestCase):
         self.assertTrue(self.imageCheck('polygon_item_transform', 'polygon_item_transform', image))
 
     def imageCheck(self, name, reference_image, image):
-        TestQgsAnnotationPolygonItem.report += "<h2>Render {}</h2>\n".format(name)
+        TestQgsAnnotationPolygonItem.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'patch_' + name + ".png"
         image.save(file_name, "PNG")

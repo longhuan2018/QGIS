@@ -880,7 +880,7 @@ void QgsMapCanvas::rendererJobFinished()
     QPainter p( &img );
     emit renderComplete( &p );
 
-    if ( QgsMapRendererJob::settingsLogCanvasRefreshEvent.value() )
+    if ( QgsMapRendererJob::settingsLogCanvasRefreshEvent->value() )
     {
       QString logMsg = tr( "Canvas refresh: %1 ms" ).arg( mJob->renderingTime() );
       QgsMessageLog::logMessage( logMsg, tr( "Rendering" ) );
@@ -1229,7 +1229,7 @@ void QgsMapCanvas::updateDevicePixelFromScreen()
 {
   mSettings.setDevicePixelRatio( devicePixelRatio() );
   // TODO: QGIS 4 -> always respect screen dpi
-  if ( QgsSettingsRegistryGui::settingsRespectScreenDPI.value() )
+  if ( QgsSettingsRegistryGui::settingsRespectScreenDPI->value() )
   {
     if ( window()->windowHandle() )
     {
@@ -1243,6 +1243,17 @@ void QgsMapCanvas::updateDevicePixelFromScreen()
     mSettings.setOutputDpi( window()->windowHandle()->screen()->logicalDotsPerInch() );
     mSettings.setDpiTarget( window()->windowHandle()->screen()->logicalDotsPerInch() );
   }
+  refresh();
+}
+
+void QgsMapCanvas::onElevationShadingRendererChanged()
+{
+  if ( !mProject )
+    return;
+  bool wasDeactivated = !mSettings.elevationShadingRenderer().isActive();
+  mSettings.setElevationShadingRenderer( mProject->elevationShadingRenderer() );
+  if ( mCache && wasDeactivated )
+    mCache->clear();
   refresh();
 }
 
@@ -2739,7 +2750,13 @@ void QgsMapCanvas::unsetMapTool( QgsMapTool *tool )
 
 void QgsMapCanvas::setProject( QgsProject *project )
 {
+  if ( mProject )
+    disconnect( mProject, &QgsProject::elevationShadingRendererChanged, this, &QgsMapCanvas::onElevationShadingRendererChanged );
+
   mProject = project;
+
+  if ( mProject )
+    connect( mProject, &QgsProject::elevationShadingRendererChanged, this, &QgsMapCanvas::onElevationShadingRendererChanged );
 }
 
 void QgsMapCanvas::setCanvasColor( const QColor &color )

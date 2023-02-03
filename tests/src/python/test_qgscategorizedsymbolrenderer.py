@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsCategorizedSymbolRenderer
 
 From build dir, run: ctest -R PyQgsCategorizedSymbolRenderer -V
@@ -25,7 +24,6 @@ from qgis.core import (QgsCategorizedSymbolRenderer,
                        QgsField,
                        QgsFields,
                        QgsFeature,
-                       QgsRenderContext,
                        QgsSymbol,
                        QgsStyle,
                        QgsVectorLayer,

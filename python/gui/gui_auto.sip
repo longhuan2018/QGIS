@@ -47,12 +47,14 @@
 %Include auto_generated/qgsdataitemguiprovider.sip
 %Include auto_generated/qgsdataitemguiproviderregistry.sip
 %Include auto_generated/qgsdatasourceselectdialog.sip
+%Include auto_generated/qgsdbrelationshipwidget.sip
 %Include auto_generated/qgsnewdatabasetablenamewidget.sip
 %Include auto_generated/qgsdetaileditemdata.sip
 %Include auto_generated/qgsdetaileditemdelegate.sip
 %Include auto_generated/qgsdetaileditemwidget.sip
 %Include auto_generated/qgsdial.sip
 %Include auto_generated/qgsdialog.sip
+%Include auto_generated/qgsdirectionallightwidget.sip
 %Include auto_generated/qgsdockwidget.sip
 %Include auto_generated/qgsdoublevalidator.sip
 %Include auto_generated/qgsencodingfiledialog.sip
@@ -137,6 +139,7 @@
 %Include auto_generated/qgsmaptoolidentifyfeature.sip
 %Include auto_generated/qgsmaptoolpan.sip
 %Include auto_generated/qgsmaptoolzoom.sip
+%Include auto_generated/qgsmediawidget.sip
 %Include auto_generated/qgsmenuheader.sip
 %Include auto_generated/qgsmessagebar.sip
 %Include auto_generated/qgsmessagebaritem.sip
@@ -325,6 +328,7 @@
 %Include auto_generated/editorwidgets/qgsrelationreferencewidgetwrapper.sip
 %Include auto_generated/editorwidgets/qgsrelationwidgetwrapper.sip
 %Include auto_generated/editorwidgets/qgssearchwidgettoolbutton.sip
+%Include auto_generated/editorwidgets/qgsspacerwidgetwrapper.sip
 %Include auto_generated/editorwidgets/qgsspinbox.sip
 %Include auto_generated/editorwidgets/qgstextwidgetwrapper.sip
 %Include auto_generated/editorwidgets/qgsvaluemapsearchwidgetwrapper.sip

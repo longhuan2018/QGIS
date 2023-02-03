@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsAnnotationPointTextItem.
 
 From build dir, run: ctest -R PyQgsAnnotationPointTextItem -V
@@ -59,7 +58,7 @@ class TestQgsAnnotationPointTextItem(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(cls.report)
 
@@ -287,7 +286,7 @@ class TestQgsAnnotationPointTextItem(unittest.TestCase):
         self.assertTrue(self.imageCheck('pointtext_item_transform', 'pointtext_item_transform', image))
 
     def imageCheck(self, name, reference_image, image):
-        TestQgsAnnotationPointTextItem.report += "<h2>Render {}</h2>\n".format(name)
+        TestQgsAnnotationPointTextItem.report += f"<h2>Render {name}</h2>\n"
         temp_dir = QDir.tempPath() + '/'
         file_name = temp_dir + 'patch_' + name + ".png"
         image.save(file_name, "PNG")

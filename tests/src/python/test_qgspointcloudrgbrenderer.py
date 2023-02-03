@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """QGIS Unit tests for QgsPointCloudRgbRenderer
 
 .. note:: This program is free software; you can redistribute it and/or modify
@@ -49,7 +48,7 @@ class TestQgsPointCloudRgbRenderer(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        report_file_path = "%s/qgistest.html" % QDir.tempPath()
+        report_file_path = f"{QDir.tempPath()}/qgistest.html"
         with open(report_file_path, 'a') as report_file:
             report_file.write(cls.report)
 
