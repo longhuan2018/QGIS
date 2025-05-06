@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 /***************************************************************************
 Name                 : Versioning plugin for DB Manager
@@ -32,8 +30,12 @@ from qgis.PyQt.QtGui import QIcon
 
 def load(db, mainwindow):
     # add the action to the DBManager menu
-    action = QAction(QIcon(), QApplication.translate("DBManagerPlugin", "&Change Logging…"), db)
-    mainwindow.registerAction(action, QApplication.translate("DBManagerPlugin", "&Table"), run)
+    action = QAction(
+        QIcon(), QApplication.translate("DBManagerPlugin", "&Change Logging…"), db
+    )
+    mainwindow.registerAction(
+        action, QApplication.translate("DBManagerPlugin", "&Table"), run
+    )
 
 
 # The run function is called once the user clicks on the action TopoViewer
@@ -48,6 +50,6 @@ def run(item, action, mainwindow):
 
     QApplication.restoreOverrideCursor()
     try:
-        dlg.exec_()
+        dlg.exec()
     finally:
-        QApplication.setOverrideCursor(Qt.WaitCursor)
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)

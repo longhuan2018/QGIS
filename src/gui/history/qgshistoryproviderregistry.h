@@ -30,55 +30,10 @@
 #include "qgssqliteutils.h"
 
 class QgsAbstractHistoryProvider;
+class QgsHistoryEntry;
 
 /**
- * Encapsulates a history entry.
- *
- * \ingroup gui
- * \since QGIS 3.24
- */
-class GUI_EXPORT QgsHistoryEntry
-{
-  public:
-
-    /**
-     * Constructor for QgsHistoryEntry \a entry, with the specified \a providerId and \a timestamp.
-     */
-    QgsHistoryEntry( const QString &providerId, const QDateTime &timestamp, const QVariantMap &entry );
-
-    /**
-     * Constructor for QgsHistoryEntry \a entry.
-     *
-     * The entry timestamp will be automatically set to the current date/time.
-     */
-    QgsHistoryEntry( const QVariantMap &entry );
-
-    //! Entry timestamp
-    QDateTime timestamp;
-
-    //! Associated history provider ID
-    QString providerId;
-
-    /**
-     * Entry details.
-     *
-     * Entries details are stored as a free-form map. Interpretation of this map is the responsibility of the
-     * associated history provider.
-     */
-    QVariantMap entry;
-
-#ifdef SIP_RUN
-    SIP_PYOBJECT __repr__();
-    % MethodCode
-    const QString str = QStringLiteral( "<QgsHistoryEntry: %1 %2>" ).arg( sipCpp->providerId, sipCpp->timestamp.toString( Qt::ISODate ) );
-    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
-    % End
-#endif
-
-};
-
-/**
- * The QgsHistoryProviderRegistry is a registry for objects which track user history (i.e. operations performed through the GUI).
+ * A registry for objects which track user history (i.e. operations performed through the GUI).
  *
  * QgsHistoryProviderRegistry is not usually directly created, but rather accessed through
  * QgsGui::historyProviderRegistry().
@@ -91,7 +46,6 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
     Q_OBJECT
 
   public:
-
     /**
      * Creates a new empty history provider registry.
      *
@@ -145,7 +99,6 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
     class HistoryEntryOptions
     {
       public:
-
         /**
          * Constructor for HistoryEntryOptions.
          */
@@ -180,13 +133,18 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
      * \param options options
      *
      * \returns ID of newly added entry.
+     *
+     * \see entryAdded()
      */
     long long addEntry( const QgsHistoryEntry &entry, bool &ok SIP_OUT, QgsHistoryProviderRegistry::HistoryEntryOptions options = QgsHistoryProviderRegistry::HistoryEntryOptions() );
 
     /**
      * Adds a list of \a entries to the history logs.
+     *
+     * \see addEntry()
+     * \see entryAdded()
      */
-    bool addEntries( const QList< QgsHistoryEntry > &entries, QgsHistoryProviderRegistry::HistoryEntryOptions options = QgsHistoryProviderRegistry::HistoryEntryOptions() );
+    bool addEntries( const QList<QgsHistoryEntry> &entries, QgsHistoryProviderRegistry::HistoryEntryOptions options = QgsHistoryProviderRegistry::HistoryEntryOptions() );
 
     /**
      * Returns the entry with matching ID, from the specified \a backend.
@@ -212,8 +170,7 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
      *
      * The optional \a providerId and \a backends arguments can be used to filter entries.
      */
-    QList< QgsHistoryEntry > queryEntries( const QDateTime &start = QDateTime(), const QDateTime &end = QDateTime(),
-                                           const QString &providerId = QString(), Qgis::HistoryProviderBackends backends = Qgis::HistoryProviderBackend::LocalProfile ) const;
+    QList<QgsHistoryEntry> queryEntries( const QDateTime &start = QDateTime(), const QDateTime &end = QDateTime(), const QString &providerId = QString(), Qgis::HistoryProviderBackends backends = Qgis::HistoryProviderBackend::LocalProfile ) const;
 
     /**
      * Returns the path to user's local history database.
@@ -222,11 +179,38 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
 
     /**
      * Clears the history for the specified \a backend.
+     *
+     * \see historyCleared()
      */
-    bool clearHistory( Qgis::HistoryProviderBackend backend );
+    bool clearHistory( Qgis::HistoryProviderBackend backend, const QString &providerId = QString() );
+
+  signals:
+
+    /**
+     * Emitted when an \a entry is added.
+     *
+     * \since QGIS 3.32
+     */
+    void entryAdded( long long id, const QgsHistoryEntry &entry, Qgis::HistoryProviderBackend backend );
+
+    /**
+     * Emitted when an \a entry is updated.
+     *
+     * \since QGIS 3.32
+     */
+    void entryUpdated( long long id, const QVariantMap &entry, Qgis::HistoryProviderBackend backend );
+
+    /**
+     * Emitted when the history is cleared for a \a backend.
+     *
+     * If \a providerId is non-empty then the history has only been cleared for the
+     * specified provider.
+     *
+     * \since QGIS 3.32
+     */
+    void historyCleared( Qgis::HistoryProviderBackend backend, const QString &providerId );
 
   private:
-
     /**
      * Creates an on-disk history database.
      */
@@ -248,10 +232,9 @@ class GUI_EXPORT QgsHistoryProviderRegistry : public QObject
      */
     bool runEmptyQuery( const QString &query );
 
-    QMap< QString, QgsAbstractHistoryProvider * > mProviders;
+    QMap<QString, QgsAbstractHistoryProvider *> mProviders;
 
     sqlite3_database_unique_ptr mLocalDB;
-
 };
 
 #endif //QGSHISTORYPROVIDERREGISTRY_H

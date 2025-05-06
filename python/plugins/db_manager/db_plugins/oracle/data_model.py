@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 /***************************************************************************
 Name                 : DB Manager
@@ -22,15 +20,16 @@ The content of this file is based on
  *                                                                         *
  ***************************************************************************/
 """
-from builtins import str
 
-from qgis.PyQt.QtCore import QTime
+from qgis.PyQt.QtCore import QElapsedTimer
 from qgis.core import QgsMessageLog
-from ..data_model import (TableDataModel,
-                          SqlResultModel,
-                          SqlResultModelAsync,
-                          SqlResultModelTask,
-                          BaseTableModel)
+from ..data_model import (
+    TableDataModel,
+    SqlResultModel,
+    SqlResultModelAsync,
+    SqlResultModelTask,
+    BaseTableModel,
+)
 from ..plugin import DbError
 from ..plugin import BaseError
 
@@ -49,39 +48,38 @@ class ORTableDataModel(TableDataModel):
 
     def _createCursor(self):
         fields_txt = ", ".join(self.fields)
-        table_txt = self.db.quoteId(
-            (self.table.schemaName(), self.table.name))
+        table_txt = self.db.quoteId((self.table.schemaName(), self.table.name))
 
         self.cursor = self.db._get_cursor()
-        sql = "SELECT {0} FROM {1}".format(fields_txt, table_txt)
+        sql = f"SELECT {fields_txt} FROM {table_txt}"
 
         self.db._execute(self.cursor, sql)
 
     def _sanitizeTableField(self, field):
         # get fields, ignore geometry columns
         if field.dataType.upper() == "SDO_GEOMETRY":
-            return ("CASE WHEN {0} IS NULL THEN NULL ELSE 'GEOMETRY'"
-                    "END AS {0}".format(
-                        self.db.quoteId(field.name)))
+            return (
+                "CASE WHEN {0} IS NULL THEN NULL ELSE 'GEOMETRY'"
+                "END AS {0}".format(self.db.quoteId(field.name))
+            )
         if field.dataType.upper() == "DATE":
-            return "CAST({} AS VARCHAR2(8))".format(
-                self.db.quoteId(field.name))
+            return f"CAST({self.db.quoteId(field.name)} AS VARCHAR2(8))"
         if "TIMESTAMP" in field.dataType.upper():
             return "TO_CHAR({}, 'YYYY-MM-DD HH:MI:SS.FF')".format(
-                self.db.quoteId(field.name))
+                self.db.quoteId(field.name)
+            )
         if field.dataType.upper() == "NUMBER":
             if not field.charMaxLen:
-                return "CAST({} AS VARCHAR2(135))".format(
-                    self.db.quoteId(field.name))
+                return f"CAST({self.db.quoteId(field.name)} AS VARCHAR2(135))"
             elif field.modifier:
-                nbChars = 2 + int(field.charMaxLen) + \
-                    int(field.modifier)
+                nbChars = 2 + int(field.charMaxLen) + int(field.modifier)
                 return "CAST({} AS VARCHAR2({}))".format(
-                    self.db.quoteId(field.name),
-                    str(nbChars))
+                    self.db.quoteId(field.name), str(nbChars)
+                )
 
-        return "CAST({0} As VARCHAR2({1}))".format(
-            self.db.quoteId(field.name), field.charMaxLen)
+        return "CAST({} As VARCHAR2({}))".format(
+            self.db.quoteId(field.name), field.charMaxLen
+        )
 
     def _deleteCursor(self):
         self.db._close_cursor(self.cursor)
@@ -92,8 +90,7 @@ class ORTableDataModel(TableDataModel):
         self._deleteCursor()
 
     def getData(self, row, col):
-        if (row < self.fetchedFrom or
-                row >= self.fetchedFrom + self.fetchedCount):
+        if row < self.fetchedFrom or row >= self.fetchedFrom + self.fetchedCount:
             margin = self.fetchedCount / 2
             if row + margin >= self.rowCount():
                 start = int(self.rowCount() - margin)
@@ -154,7 +151,7 @@ class ORSqlResultModel(SqlResultModel):
     def __init__(self, db, sql, parent=None):
         self.db = db.connector
 
-        t = QTime()
+        t = QElapsedTimer()
         t.start()
         c = self.db._execute(None, str(sql))
 

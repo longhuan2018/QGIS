@@ -24,7 +24,7 @@
 #include "qgsstyleentityvisitor.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgsmarkersymbol.h"
-
+#include "qgssldexportcontext.h"
 #include <QDomElement>
 #include <QPainter>
 
@@ -35,18 +35,24 @@ QgsPointDistanceRenderer::QgsPointDistanceRenderer( const QString &rendererName,
   , mLabelAttributeName( labelAttributeName )
   , mLabelIndex( -1 )
   , mTolerance( 3 )
-  , mToleranceUnit( QgsUnitTypes::RenderMillimeters )
+  , mToleranceUnit( Qgis::RenderUnit::Millimeters )
   , mDrawLabels( true )
 
 {
-  mRenderer.reset( QgsFeatureRenderer::defaultRenderer( QgsWkbTypes::PointGeometry ) );
+  mRenderer.reset( QgsFeatureRenderer::defaultRenderer( Qgis::GeometryType::Point ) );
 }
 
 void QgsPointDistanceRenderer::toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const
 {
-  mRenderer->toSld( doc, element, props );
+  QgsSldExportContext context;
+  context.setExtraProperties( props );
+  toSld( doc, element, context );
 }
 
+bool QgsPointDistanceRenderer::toSld( QDomDocument &doc, QDomElement &element, QgsSldExportContext &context ) const
+{
+  return mRenderer->toSld( doc, element, context );
+}
 
 bool QgsPointDistanceRenderer::renderFeature( const QgsFeature &feature, QgsRenderContext &context, int layer, bool selected, bool drawVertexMarker )
 {
@@ -71,8 +77,8 @@ bool QgsPointDistanceRenderer::renderFeature( const QgsFeature &feature, QgsRend
 
   //point position in screen coords
   QgsGeometry geom = feature.geometry();
-  const QgsWkbTypes::Type geomType = geom.wkbType();
-  if ( QgsWkbTypes::geometryType( geomType ) != QgsWkbTypes::PointGeometry )
+  const Qgis::WkbType geomType = geom.wkbType();
+  if ( QgsWkbTypes::geometryType( geomType ) != Qgis::GeometryType::Point )
   {
     //can only render point type
     return false;
@@ -428,7 +434,7 @@ void QgsPointDistanceRenderer::drawLabels( QPointF centerPoint, QgsSymbolRenderC
   //scale font (for printing)
   QFont pixelSizeFont = mLabelFont;
 
-  const double fontSizeInPixels = context.renderContext().convertToPainterUnits( mLabelFont.pointSizeF(), QgsUnitTypes::RenderPoints );
+  const double fontSizeInPixels = context.renderContext().convertToPainterUnits( mLabelFont.pointSizeF(), Qgis::RenderUnit::Points );
   pixelSizeFont.setPixelSize( static_cast< int >( std::round( fontSizeInPixels ) ) );
   QFont scaledFont = pixelSizeFont;
   scaledFont.setPixelSize( pixelSizeFont.pixelSize() );

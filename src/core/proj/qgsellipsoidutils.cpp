@@ -263,7 +263,7 @@ QList<QgsEllipsoidUtils::EllipsoidDefinition> QgsEllipsoidUtils::definitions()
         while ( char *code = *codesIt )
         {
           const QgsProjUtils::proj_pj_unique_ptr ellipsoid( proj_create_from_database( context, authority, code, PJ_CATEGORY_ELLIPSOID, 0, nullptr ) );
-          if ( ellipsoid.get() )
+          if ( ellipsoid )
           {
             EllipsoidDefinition def;
             QString name = QString( proj_get_name( ellipsoid.get() ) );
@@ -271,9 +271,7 @@ QList<QgsEllipsoidUtils::EllipsoidDefinition> QgsEllipsoidUtils::definitions()
             name.replace( '_', ' ' );
             def.description = QStringLiteral( "%1 (%2:%3)" ).arg( name, authority, code );
 
-#if PROJ_VERSION_MAJOR>8 || (PROJ_VERSION_MAJOR==8 && PROJ_VERSION_MINOR>=1)
             def.celestialBodyName = proj_get_celestial_body_name( context, ellipsoid.get() );
-#endif
 
             double semiMajor, semiMinor, invFlattening;
             int semiMinorComputed = 0;

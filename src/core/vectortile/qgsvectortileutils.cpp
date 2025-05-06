@@ -18,6 +18,8 @@
 #include <math.h>
 
 #include <QPolygon>
+#include <QJsonDocument>
+#include <QJsonArray>
 
 #include "qgscoordinatetransform.h"
 #include "qgsgeometrycollection.h"
@@ -27,9 +29,150 @@
 #include "qgsrectangle.h"
 #include "qgsvectorlayer.h"
 
+#include "qgsvectortileloader.h"
 #include "qgsvectortilemvtdecoder.h"
 #include "qgsvectortilelayer.h"
 #include "qgsvectortilerenderer.h"
+#include "qgsmapboxglstyleconverter.h"
+#include "qgssetrequestinitiator_p.h"
+#include "qgsblockingnetworkrequest.h"
+#include "qgsjsonutils.h"
+#include "qgsvectortileconnection.h"
+
+
+void QgsVectorTileUtils::updateUriSources( QString &uri, bool forceUpdate )
+{
+  QgsVectorTileProviderConnection::Data data = QgsVectorTileProviderConnection::decodedUri( uri );
+  if ( forceUpdate || ( data.url.isEmpty() && !data.styleUrl.isEmpty() ) )
+  {
+    const QMap<QString, QString> sources = QgsVectorTileUtils::parseStyleSourceUrl( data.styleUrl, data.httpHeaders, data.authCfg );
+    QMap<QString, QString>::const_iterator it = sources.constBegin();
+    int i = 0;
+    for ( ; it != sources.constEnd(); ++it )
+    {
+      i += 1;
+      QString urlKey = QStringLiteral( "url" );
+      QString nameKey = QStringLiteral( "urlName" );
+      if ( i > 1 )
+      {
+        urlKey.append( QString( "_%1" ).arg( i ) );
+        nameKey.append( QString( "_%1" ).arg( i ) );
+      }
+      uri.append( QString( "&%1=%2" ).arg( nameKey, it.key() ) );
+      uri.append( QString( "&%1=%2" ).arg( urlKey, it.value() ) );
+    }
+  }
+}
+
+QMap<QString, QString> QgsVectorTileUtils::parseStyleSourceUrl( const QString &styleUrl, const QgsHttpHeaders &headers, const QString &authCfg )
+{
+  QNetworkRequest nr;
+  nr.setUrl( QUrl( styleUrl ) );
+  headers.updateNetworkRequest( nr );
+
+  QgsBlockingNetworkRequest req;
+  req.setAuthCfg( authCfg );
+  QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr, false );
+  if ( errCode != QgsBlockingNetworkRequest::NoError )
+  {
+    QgsDebugError( QStringLiteral( "Request failed: " ) + styleUrl );
+    return QMap<QString, QString>();
+  }
+  QgsNetworkReplyContent reply = req.reply();
+
+  QJsonParseError err;
+  const QJsonDocument doc = QJsonDocument::fromJson( reply.content(), &err );
+  if ( doc.isNull() )
+  {
+    QgsDebugError( QStringLiteral( "Could not load style: %1" ).arg( err.errorString() ) );
+  }
+  else if ( !doc.isObject() )
+  {
+    QgsDebugError( QStringLiteral( "Could not read style, JSON object is expected" ) );
+  }
+  else
+  {
+    QMap<QString, QString> sources;
+    QJsonObject sourcesData = doc.object().value( QStringLiteral( "sources" ) ).toObject();
+    if ( sourcesData.count() == 0 )
+    {
+      QgsDebugError( QStringLiteral( "Could not read sources in the style" ) );
+    }
+    else
+    {
+      QJsonObject::const_iterator it = sourcesData.constBegin();
+      for ( ; it != sourcesData.constEnd(); ++it )
+      {
+        const QString sourceName = it.key();
+        const QJsonObject sourceData = it.value().toObject();
+        if ( sourceData.value( QStringLiteral( "type" ) ).toString() != QLatin1String( "vector" ) )
+        {
+          // raster layers are handled separately
+          // ideally we should handle the sources here also, the same way than for vector
+          continue;
+        }
+        QVariantList tiles;
+        if ( sourceData.contains( QStringLiteral( "tiles" ) ) )
+        {
+          tiles = sourceData["tiles"].toArray().toVariantList();
+        }
+        else if ( sourceData.contains( QStringLiteral( "url" ) ) )
+        {
+          tiles = parseStyleSourceContentUrl( sourceData.value( QStringLiteral( "url" ) ).toString(), headers, authCfg );
+        }
+        else
+        {
+          QgsDebugError( QStringLiteral( "Could not read source %1" ).arg( sourceName ) );
+        }
+        if ( tiles.count() == 0 )
+        {
+          QgsDebugError( QStringLiteral( "Could not read source %1, not tiles found" ).arg( sourceName ) );
+        }
+        else
+        {
+          // take a random one from the list
+          // we might want to save the alternatives for a fallback later
+          sources.insert( sourceName, tiles[rand() % tiles.count()].toString() );
+        }
+      }
+      return sources;
+    }
+  }
+  return QMap<QString, QString>();
+}
+
+QVariantList QgsVectorTileUtils::parseStyleSourceContentUrl( const QString &sourceUrl, const QgsHttpHeaders &headers, const QString &authCfg )
+{
+  QNetworkRequest nr;
+  nr.setUrl( QUrl( sourceUrl ) );
+  headers.updateNetworkRequest( nr );
+
+  QgsBlockingNetworkRequest req;
+  req.setAuthCfg( authCfg );
+  QgsBlockingNetworkRequest::ErrorCode errCode = req.get( nr, false );
+  if ( errCode != QgsBlockingNetworkRequest::NoError )
+  {
+    QgsDebugError( QStringLiteral( "Request failed: " ) + sourceUrl );
+    return QVariantList();
+  }
+  QgsNetworkReplyContent reply = req.reply();
+
+  QJsonParseError err;
+  const QJsonDocument doc = QJsonDocument::fromJson( reply.content(), &err );
+  if ( doc.isNull() )
+  {
+    QgsDebugError( QStringLiteral( "Could not load style: %1" ).arg( err.errorString() ) );
+  }
+  else if ( !doc.isObject() )
+  {
+    QgsDebugError( QStringLiteral( "Could not read style, JSON object is expected" ) );
+  }
+  else
+  {
+    return doc.object().value( QStringLiteral( "tiles" ) ).toArray().toVariantList();
+  }
+  return QVariantList();
+}
 
 
 
@@ -55,7 +198,7 @@ QgsFields QgsVectorTileUtils::makeQgisFields( const QSet<QString> &flds )
   std::sort( fieldsSorted.begin(), fieldsSorted.end() );
   for ( const QString &fieldName : std::as_const( fieldsSorted ) )
   {
-    fields.append( QgsField( fieldName, QVariant::String ) );
+    fields.append( QgsField( fieldName, QMetaType::Type::QString ) );
   }
   return fields;
 }
@@ -83,7 +226,8 @@ int QgsVectorTileUtils::scaleToZoomLevel( double mapScale, int sourceMinZoom, in
 QgsVectorLayer *QgsVectorTileUtils::makeVectorLayerForTile( QgsVectorTileLayer *mvt, QgsTileXYZ tileID, const QString &layerName )
 {
   QgsVectorTileMVTDecoder decoder( mvt->tileMatrixSet() );
-  decoder.decode( tileID, mvt->getRawTile( tileID ) );
+  const QgsVectorTileRawData rawTile = mvt->getRawTile( tileID );
+  decoder.decode( rawTile );
   QSet<QString> fieldNames = qgis::listToSet( decoder.layerFieldNames( layerName ) );
   fieldNames << QStringLiteral( "_geom_type" );
   QMap<QString, QgsFields> perLayerFields;
@@ -160,22 +304,76 @@ struct LessThanTileRequest
   }
 };
 
-QVector<QgsTileXYZ> QgsVectorTileUtils::tilesInRange( QgsTileRange range, int zoomLevel )
-{
-  QVector<QgsTileXYZ> tiles;
-  for ( int tileRow = range.startRow(); tileRow <= range.endRow(); ++tileRow )
-  {
-    for ( int tileColumn = range.startColumn(); tileColumn <= range.endColumn(); ++tileColumn )
-    {
-      tiles.append( QgsTileXYZ( tileColumn, tileRow, zoomLevel ) );
-    }
-  }
-  return tiles;
-}
-
 void QgsVectorTileUtils::sortTilesByDistanceFromCenter( QVector<QgsTileXYZ> &tiles, QPointF center )
 {
   LessThanTileRequest cmp;
   cmp.center = center;
   std::sort( tiles.begin(), tiles.end(), cmp );
 }
+
+void QgsVectorTileUtils::loadSprites( const QVariantMap &styleDefinition, QgsMapBoxGlStyleConversionContext &context, const QString &styleUrl )
+{
+  if ( styleDefinition.contains( QStringLiteral( "sprite" ) ) && ( context.spriteDefinitions().empty() || context.spriteImage().isNull() ) )
+  {
+    // retrieve sprite definition
+    QString spriteUriBase;
+    if ( styleDefinition.value( QStringLiteral( "sprite" ) ).toString().startsWith( QLatin1String( "http" ) ) )
+    {
+      spriteUriBase = styleDefinition.value( QStringLiteral( "sprite" ) ).toString();
+    }
+    else
+    {
+      spriteUriBase = styleUrl + '/' + styleDefinition.value( QStringLiteral( "sprite" ) ).toString();
+    }
+
+    for ( int resolution = 2; resolution > 0; resolution-- )
+    {
+      QUrl spriteUrl = QUrl( spriteUriBase );
+      spriteUrl.setPath( spriteUrl.path() + QStringLiteral( "%1.json" ).arg( resolution > 1 ? QStringLiteral( "@%1x" ).arg( resolution ) : QString() ) );
+      QNetworkRequest request = QNetworkRequest( spriteUrl );
+      QgsSetRequestInitiatorClass( request, QStringLiteral( "QgsVectorTileLayer" ) )
+      QgsBlockingNetworkRequest networkRequest;
+      switch ( networkRequest.get( request ) )
+      {
+        case QgsBlockingNetworkRequest::NoError:
+        {
+          const QgsNetworkReplyContent content = networkRequest.reply();
+          const QVariantMap spriteDefinition = QgsJsonUtils::parseJson( content.content() ).toMap();
+
+          // retrieve sprite images
+          QUrl spriteUrl = QUrl( spriteUriBase );
+          spriteUrl.setPath( spriteUrl.path() + QStringLiteral( "%1.png" ).arg( resolution > 1 ? QStringLiteral( "@%1x" ).arg( resolution ) : QString() ) );
+          QNetworkRequest request = QNetworkRequest( spriteUrl );
+          QgsSetRequestInitiatorClass( request, QStringLiteral( "QgsVectorTileLayer" ) )
+          QgsBlockingNetworkRequest networkRequest;
+          switch ( networkRequest.get( request ) )
+          {
+            case QgsBlockingNetworkRequest::NoError:
+            {
+              const QgsNetworkReplyContent imageContent = networkRequest.reply();
+              const QImage spriteImage( QImage::fromData( imageContent.content() ) );
+              context.setSprites( spriteImage, spriteDefinition );
+              break;
+            }
+
+            case QgsBlockingNetworkRequest::NetworkError:
+            case QgsBlockingNetworkRequest::TimeoutError:
+            case QgsBlockingNetworkRequest::ServerExceptionError:
+              break;
+          }
+
+          break;
+        }
+
+        case QgsBlockingNetworkRequest::NetworkError:
+        case QgsBlockingNetworkRequest::TimeoutError:
+        case QgsBlockingNetworkRequest::ServerExceptionError:
+          break;
+      }
+
+      if ( !context.spriteDefinitions().isEmpty() )
+        break;
+    }
+  }
+}
+

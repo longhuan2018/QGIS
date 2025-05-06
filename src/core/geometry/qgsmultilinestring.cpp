@@ -14,6 +14,7 @@ email                : marco.hugentobler at sourcepole dot com
  ***************************************************************************/
 
 #include "qgsmultilinestring.h"
+#include "qgsabstractgeometry.h"
 #include "qgsapplication.h"
 #include "qgscurve.h"
 #include "qgscircularstring.h"
@@ -27,7 +28,35 @@ email                : marco.hugentobler at sourcepole dot com
 
 QgsMultiLineString::QgsMultiLineString()
 {
-  mWkbType = QgsWkbTypes::MultiLineString;
+  mWkbType = Qgis::WkbType::MultiLineString;
+}
+
+QgsMultiLineString::QgsMultiLineString( const QList<QgsLineString> &linestrings )
+{
+  if ( linestrings.empty() )
+    return;
+
+  mGeometries.reserve( linestrings.size() );
+  for ( const QgsLineString &line : linestrings )
+  {
+    mGeometries.append( line.clone() );
+  }
+
+  setZMTypeFromSubGeometry( &linestrings.at( 0 ), Qgis::WkbType::MultiLineString );
+}
+
+QgsMultiLineString::QgsMultiLineString( const QList<QgsLineString *> &linestrings )
+{
+  if ( linestrings.empty() )
+    return;
+
+  mGeometries.reserve( linestrings.size() );
+  for ( QgsLineString *line : linestrings )
+  {
+    mGeometries.append( line );
+  }
+
+  setZMTypeFromSubGeometry( linestrings.at( 0 ), Qgis::WkbType::MultiLineString );
 }
 
 QgsLineString *QgsMultiLineString::lineStringN( int index )
@@ -60,7 +89,7 @@ QgsMultiLineString *QgsMultiLineString::clone() const
 void QgsMultiLineString::clear()
 {
   QgsMultiCurve::clear();
-  mWkbType = QgsWkbTypes::MultiLineString;
+  mWkbType = Qgis::WkbType::MultiLineString;
 }
 
 bool QgsMultiLineString::fromWkt( const QString &wkt )
@@ -138,7 +167,7 @@ bool QgsMultiLineString::addGeometry( QgsAbstractGeometry *g )
 
   if ( mGeometries.empty() )
   {
-    setZMTypeFromSubGeometry( g, QgsWkbTypes::MultiLineString );
+    setZMTypeFromSubGeometry( g, Qgis::WkbType::MultiLineString );
   }
   if ( is3D() && !g->is3D() )
     g->addZValue();
@@ -148,18 +177,62 @@ bool QgsMultiLineString::addGeometry( QgsAbstractGeometry *g )
     g->addMValue();
   else if ( !isMeasure() && g->isMeasure() )
     g->dropMValue();
-  return QgsGeometryCollection::addGeometry( g ); // clazy:exclude=skipped-base-method
+  return QgsGeometryCollection::addGeometry( g ); // NOLINT(bugprone-parent-virtual-call) clazy:exclude=skipped-base-method
+}
+
+bool QgsMultiLineString::addGeometries( const QVector<QgsAbstractGeometry *> &geometries )
+{
+  for ( QgsAbstractGeometry *g : geometries )
+  {
+    if ( !qgsgeometry_cast<QgsLineString *>( g ) )
+    {
+      qDeleteAll( geometries );
+      return false;
+    }
+  }
+
+  if ( mGeometries.empty() && !geometries.empty() )
+  {
+    setZMTypeFromSubGeometry( geometries.at( 0 ), Qgis::WkbType::MultiLineString );
+  }
+  mGeometries.reserve( mGeometries.size() + geometries.size() );
+  for ( QgsAbstractGeometry *g : geometries )
+  {
+    if ( is3D() && !g->is3D() )
+      g->addZValue();
+    else if ( !is3D() && g->is3D() )
+      g->dropZValue();
+    if ( isMeasure() && !g->isMeasure() )
+      g->addMValue();
+    else if ( !isMeasure() && g->isMeasure() )
+      g->dropMValue();
+    mGeometries.append( g );
+  }
+
+  clearCache();
+  return true;
 }
 
 bool QgsMultiLineString::insertGeometry( QgsAbstractGeometry *g, int index )
 {
-  if ( !g || QgsWkbTypes::flatType( g->wkbType() ) != QgsWkbTypes::LineString )
+  if ( !g || QgsWkbTypes::flatType( g->wkbType() ) != Qgis::WkbType::LineString )
   {
     delete g;
     return false;
   }
 
-  return QgsMultiCurve::insertGeometry( g, index ); // clazy:exclude=skipped-base-method
+  return QgsMultiCurve::insertGeometry( g, index );
+}
+
+QgsMultiLineString *QgsMultiLineString::simplifyByDistance( double tolerance ) const
+{
+  auto result = std::make_unique< QgsMultiLineString >();
+  result->reserve( mGeometries.size() );
+  for ( int i = 0; i < mGeometries.size(); ++i )
+  {
+    result->addGeometry( mGeometries.at( i )->simplifyByDistance( tolerance ) );
+  }
+  return result.release();
 }
 
 QgsMultiCurve *QgsMultiLineString::toCurveType() const
@@ -178,3 +251,33 @@ bool QgsMultiLineString::wktOmitChildType() const
   return true;
 }
 
+QgsMultiLineString *QgsMultiLineString::measuredLine( double start, double end ) const
+{
+  auto result = std::make_unique< QgsMultiLineString >();
+  if ( isEmpty() )
+  {
+    result->convertTo( QgsWkbTypes::addM( mWkbType ) );
+    return result.release();
+  }
+
+  /* Calculate the total length of the line */
+  const double length{this->length()};
+  const double range{end - start};
+  double lengthSoFar{0.0};
+
+  result->reserve( numGeometries() );
+  for ( int i = 0; i < numGeometries(); i++ )
+  {
+    const double subLength{geometryN( i )->length()};
+
+    const double subStart{ ( start + range *lengthSoFar / length ) };
+    const double subEnd{ ( start + range * ( lengthSoFar + subLength ) / length ) };
+
+    std::unique_ptr< QgsLineString > measuredLine = qgsgeometry_cast<const QgsLineString *>( geometryN( i ) )->measuredLine( subStart, subEnd );
+    result->addGeometry( measuredLine.release() );
+
+    lengthSoFar += subLength;
+  }
+
+  return result.release();
+}

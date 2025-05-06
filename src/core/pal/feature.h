@@ -43,13 +43,6 @@
 #include <cmath>
 #include <QString>
 
-/**
- * \ingroup core
- * \brief pal labeling engine
- * \class pal::LabelInfo
- * \note not available in Python bindings
- */
-
 namespace pal
 {
   class LabelPosition;
@@ -57,7 +50,7 @@ namespace pal
 
   /**
    * \ingroup core
-   * \brief Main class to handle feature
+   * \brief Represents a part of a label feature.
    * \class pal::FeaturePart
    * \note not available in Python bindings
    */
@@ -76,7 +69,7 @@ namespace pal
 
       /**
        * Creates a new generic feature.
-        * \param lf a pointer for a feature which contains the spatial entites
+        * \param lf a pointer for a feature which contains the spatial entities
         * \param geom a pointer to a GEOS geometry
         */
       FeaturePart( QgsLabelFeature *lf, const GEOSGeometry *geom );
@@ -220,11 +213,12 @@ namespace pal
        * \param distance distance to offset label along curve by
        * \param labeledLineSegmentIsRightToLeft if TRUE label is reversed from lefttoright to righttoleft
        * \param applyAngleConstraints TRUE if label feature character angle constraints should be applied
-       * \param uprightOnly TRUE if only upright label placement should be generated
+       * \param flags curved text behavior flags
        * \returns calculated label position
        */
       std::unique_ptr< LabelPosition > curvedPlacementAtOffset( PointSet *mapShape, const std::vector<double> &pathDistances,
-          QgsTextRendererUtils::LabelLineDirection direction, double distance, bool &labeledLineSegmentIsRightToLeft, bool applyAngleConstraints, bool uprightOnly );
+          QgsTextRendererUtils::LabelLineDirection direction, double distance, bool &labeledLineSegmentIsRightToLeft, bool applyAngleConstraints,
+          QgsTextRendererUtils::CurvedTextFlags flags );
 
       /**
        * Generate curved candidates for line features.
@@ -262,14 +256,12 @@ namespace pal
       bool hasSameLabelFeatureAs( FeaturePart *part ) const;
 
       /**
-       * Returns the width of the label, optionally taking an \a angle into account.
-       * \returns the width of the label
+       * Returns the width of the label, optionally taking an \a angle (in radians) into account.
        */
       double getLabelWidth( double angle = 0.0 ) const { return mLF->size( angle ).width(); }
 
       /**
-       * Returns the height of the label, optionally taking an \a angle into account.
-       * \returns the hieght of the label
+       * Returns the height of the label, optionally taking an \a angle (in radians) into account.
        */
       double getLabelHeight( double angle = 0.0 ) const { return mLF->size( angle ).height(); }
 
@@ -354,7 +346,7 @@ namespace pal
 
     private:
 
-      LabelPosition::Quadrant quadrantFromOffset() const;
+      Qgis::LabelQuadrantPosition quadrantFromOffset() const;
 
       int mTotalRepeats = 0;
 

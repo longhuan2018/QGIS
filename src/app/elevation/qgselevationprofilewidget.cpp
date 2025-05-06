@@ -15,15 +15,20 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgselevationprofilewidget.h"
+#include "moc_qgselevationprofilewidget.cpp"
 #include "qgisapp.h"
 #include "qgsapplication.h"
 #include "qgselevationprofilecanvas.h"
 #include "qgsdockablewidgethelper.h"
 #include "qgsmapcanvas.h"
+#include "qgsmaplayerelevationproperties.h"
+#include "qgsmaplayermodel.h"
 #include "qgsmaptoolprofilecurve.h"
 #include "qgsmaptoolprofilecurvefromfeature.h"
+#include "qgsprofilerenderer.h"
+#include "qgsprojectelevationproperties.h"
+#include "qgsvectorlayerelevationproperties.h"
 #include "qgsrubberband.h"
-#include "qgssettingsregistrycore.h"
 #include "qgsplottoolpan.h"
 #include "qgsplottoolxaxiszoom.h"
 #include "qgsplottoolzoom.h"
@@ -33,7 +38,6 @@
 #include "qgsmessagebar.h"
 #include "qgsplot.h"
 #include "qgsmulticurve.h"
-#include "qgsmaplayerutils.h"
 #include "qgslinesymbol.h"
 #include "qgslinesymbollayer.h"
 #include "qgsfillsymbol.h"
@@ -43,22 +47,101 @@
 #include "qgslayertree.h"
 #include "qgslayertreeregistrybridge.h"
 #include "qgselevationprofilelayertreeview.h"
-#include "qgsmaplayerelevationproperties.h"
 #include "qgsgui.h"
 #include "qgsshortcutsmanager.h"
 #include "qgselevationprofiletoolidentify.h"
 #include "qgselevationprofiletoolmeasure.h"
+#include "qgssettingsentryimpl.h"
+#include "qgssettingstree.h"
+#include "qgsmaplayerproxymodel.h"
+#include "qgselevationutils.h"
+#include "qgsprofileexporter.h"
+#include "qgsexpressioncontextutils.h"
+#include "qgsterrainprovider.h"
+#include "qgsprofilesourceregistry.h"
+#include "qgsnewnamedialog.h"
+#include "qgssymbolselectordialog.h"
+#include "qgsstyle.h"
 
 #include <QToolBar>
 #include <QProgressBar>
 #include <QTimer>
-#include <QPrinter>
+#include <QPdfWriter>
 #include <QSplitter>
 #include <QShortcut>
+#include <QActionGroup>
 
-const QgsSettingsEntryDouble *QgsElevationProfileWidget::settingTolerance = new QgsSettingsEntryDouble( QStringLiteral( "tolerance" ), QgsSettings::sTreeElevationProfile, 0.1, QStringLiteral( "Tolerance distance for elevation profile plots" ), Qgis::SettingsOptions(), 0 );
+const QgsSettingsEntryDouble *QgsElevationProfileWidget::settingTolerance = new QgsSettingsEntryDouble( QStringLiteral( "tolerance" ), QgsSettingsTree::sTreeElevationProfile, 0.1, QStringLiteral( "Tolerance distance for elevation profile plots" ), Qgis::SettingsOptions(), 0 );
 
-const QgsSettingsEntryBool *QgsElevationProfileWidget::settingShowLayerTree = new QgsSettingsEntryBool( QStringLiteral( "show-layer-tree" ), QgsSettings::sTreeElevationProfile, true, QStringLiteral( "Whether the layer tree should be shown for elevation profile plots" ) );
+const QgsSettingsEntryBool *QgsElevationProfileWidget::settingShowLayerTree = new QgsSettingsEntryBool( QStringLiteral( "show-layer-tree" ), QgsSettingsTree::sTreeElevationProfile, true, QStringLiteral( "Whether the layer tree should be shown for elevation profile plots" ) );
+const QgsSettingsEntryBool *QgsElevationProfileWidget::settingLockAxis = new QgsSettingsEntryBool( QStringLiteral( "lock-axis-ratio" ), QgsSettingsTree::sTreeElevationProfile, false, QStringLiteral( "Whether the the distance and elevation axis scales are locked to each other" ) );
+const QgsSettingsEntryString *QgsElevationProfileWidget::settingLastExportDir = new QgsSettingsEntryString( QStringLiteral( "last-export-dir" ), QgsSettingsTree::sTreeElevationProfile, QString(), QStringLiteral( "Last elevation profile export directory" ) );
+const QgsSettingsEntryColor *QgsElevationProfileWidget::settingBackgroundColor = new QgsSettingsEntryColor( QStringLiteral( "background-color" ), QgsSettingsTree::sTreeElevationProfile, QColor(), QStringLiteral( "Elevation profile chart background color" ) );
+const QgsSettingsEntryBool *QgsElevationProfileWidget::settingShowSubsections = new QgsSettingsEntryBool( QStringLiteral( "show-sub-sections" ), QgsSettingsTree::sTreeElevationProfile, false, QStringLiteral( "Whether to display subsections" ) );
+//
+// QgsElevationProfileLayersDialog
+//
+
+QgsElevationProfileLayersDialog::QgsElevationProfileLayersDialog( QWidget *parent )
+  : QDialog( parent )
+{
+  setupUi( this );
+  QgsGui::enableAutoGeometryRestore( this );
+
+  mFilterLineEdit->setShowClearButton( true );
+  mFilterLineEdit->setShowSearchIcon( true );
+
+  mModel = new QgsMapLayerProxyModel( listMapLayers );
+  listMapLayers->setModel( mModel );
+  const QModelIndex firstLayer = mModel->index( 0, 0 );
+  listMapLayers->selectionModel()->select( firstLayer, QItemSelectionModel::Select );
+
+  connect( listMapLayers, &QListView::doubleClicked, this, &QgsElevationProfileLayersDialog::accept );
+
+  connect( mFilterLineEdit, &QLineEdit::textChanged, mModel, &QgsMapLayerProxyModel::setFilterString );
+  connect( mCheckBoxVisibleLayers, &QCheckBox::toggled, this, &QgsElevationProfileLayersDialog::filterVisible );
+
+  mFilterLineEdit->setFocus();
+}
+
+void QgsElevationProfileLayersDialog::setVisibleLayers( const QList<QgsMapLayer *> &layers )
+{
+  mVisibleLayers = layers;
+}
+
+void QgsElevationProfileLayersDialog::setHiddenLayers( const QList<QgsMapLayer *> &layers )
+{
+  mModel->setExceptedLayerList( layers );
+}
+
+QList<QgsMapLayer *> QgsElevationProfileLayersDialog::selectedLayers() const
+{
+  QList<QgsMapLayer *> layers;
+
+  const QModelIndexList selection = listMapLayers->selectionModel()->selectedIndexes();
+  for ( const QModelIndex &index : selection )
+  {
+    const QModelIndex sourceIndex = mModel->mapToSource( index );
+    if ( !sourceIndex.isValid() )
+    {
+      continue;
+    }
+
+    QgsMapLayer *layer = mModel->sourceLayerModel()->layerFromIndex( sourceIndex );
+    if ( layer )
+      layers << layer;
+  }
+  return layers;
+}
+
+void QgsElevationProfileLayersDialog::filterVisible( bool enabled )
+{
+  if ( enabled )
+    mModel->setLayerAllowlist( mVisibleLayers );
+  else
+    mModel->setLayerAllowlist( QList<QgsMapLayer *>() );
+}
+
 
 QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   : QWidget( nullptr )
@@ -82,12 +165,19 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   connect( mCanvas, &QgsElevationProfileCanvas::activeJobCountChanged, this, &QgsElevationProfileWidget::onTotalPendingJobsCountChanged );
   connect( mCanvas, &QgsElevationProfileCanvas::canvasPointHovered, this, &QgsElevationProfileWidget::onCanvasPointHovered );
 
+  mCanvas->setLockAxisScales( settingLockAxis->value() );
+
+  mCanvas->setBackgroundColor( settingBackgroundColor->value() );
+  connect( QgsGui::instance(), &QgsGui::optionsChanged, this, [=] {
+    mCanvas->setBackgroundColor( settingBackgroundColor->value() );
+  } );
+
   mPanTool = new QgsPlotToolPan( mCanvas );
 
   mLayerTreeView = new QgsAppElevationProfileLayerTreeView( mLayerTree.get() );
+  connect( mLayerTreeView, &QgsAppElevationProfileLayerTreeView::addLayers, this, &QgsElevationProfileWidget::addLayersInternal );
 
-  connect( mLayerTreeView, &QAbstractItemView::doubleClicked, this, [ = ]( const QModelIndex & index )
-  {
+  connect( mLayerTreeView, &QAbstractItemView::doubleClicked, this, [=]( const QModelIndex &index ) {
     if ( QgsMapLayer *layer = mLayerTreeView->indexToLayer( index ) )
     {
       QgisApp::instance()->showLayerProperties( layer, QStringLiteral( "mOptsPage_Elevation" ) );
@@ -100,11 +190,15 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
 
   mCanvas->setTool( mIdentifyTool );
 
+  QAction *addLayerAction = new QAction( tr( "Add Layers" ), this );
+  addLayerAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionAddLayer.svg" ) ) );
+  connect( addLayerAction, &QAction::triggered, this, &QgsElevationProfileWidget::addLayers );
+  toolBar->addAction( addLayerAction );
+
   QAction *showLayerTree = new QAction( tr( "Show Layer Tree" ), this );
   showLayerTree->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mIconLayerTree.svg" ) ) );
   showLayerTree->setCheckable( true );
-  connect( showLayerTree, &QAction::toggled, this, [ = ]( bool checked )
-  {
+  connect( showLayerTree, &QAction::toggled, this, [=]( bool checked ) {
     settingShowLayerTree->setValue( checked );
     mLayerTreeView->setVisible( checked );
   } );
@@ -116,8 +210,7 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   mCaptureCurveAction = new QAction( tr( "Capture Curve" ), this );
   mCaptureCurveAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionCaptureLine.svg" ) ) );
   mCaptureCurveAction->setCheckable( true );
-  connect( mCaptureCurveAction, &QAction::triggered, this, [ = ]
-  {
+  connect( mCaptureCurveAction, &QAction::triggered, this, [=] {
     if ( mCaptureCurveMapTool && mMainCanvas )
     {
       mMainCanvas->setMapTool( mCaptureCurveMapTool.get() );
@@ -128,8 +221,7 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   mCaptureCurveFromFeatureAction = new QAction( tr( "Capture Curve From Feature" ), this );
   mCaptureCurveFromFeatureAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionCaptureCurveFromFeature.svg" ) ) );
   mCaptureCurveFromFeatureAction->setCheckable( true );
-  connect( mCaptureCurveFromFeatureAction, &QAction::triggered, this, [ = ]
-  {
+  connect( mCaptureCurveFromFeatureAction, &QAction::triggered, this, [=] {
     if ( mCaptureCurveFromFeatureMapTool && mMainCanvas )
     {
       mMainCanvas->setMapTool( mCaptureCurveFromFeatureMapTool.get() );
@@ -149,8 +241,7 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   mNudgeRightAction->setEnabled( false );
   toolBar->addAction( mNudgeRightAction );
 
-  auto createShortcuts = [ = ]( const QString & objectName, void ( QgsElevationProfileWidget::* slot )() )
-  {
+  auto createShortcuts = [=]( const QString &objectName, void ( QgsElevationProfileWidget::*slot )() ) {
     if ( QShortcut *sc = QgsGui::shortcutsManager()->shortcutByName( objectName ) )
       connect( sc, &QShortcut::activated, this, slot );
   };
@@ -169,7 +260,7 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   identifyToolAction->setCheckable( true );
   identifyToolAction->setChecked( true );
   mIdentifyTool->setAction( identifyToolAction );
-  connect( identifyToolAction, &QAction::triggered, mPanTool, [ = ] { mCanvas->setTool( mIdentifyTool ); } );
+  connect( identifyToolAction, &QAction::triggered, mPanTool, [=] { mCanvas->setTool( mIdentifyTool ); } );
   toolBar->addAction( identifyToolAction );
 
   QAction *panToolAction = new QAction( tr( "Pan" ), this );
@@ -177,21 +268,21 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   panToolAction->setCheckable( true );
   panToolAction->setChecked( false );
   mPanTool->setAction( panToolAction );
-  connect( panToolAction, &QAction::triggered, mPanTool, [ = ] { mCanvas->setTool( mPanTool ); } );
+  connect( panToolAction, &QAction::triggered, mPanTool, [=] { mCanvas->setTool( mPanTool ); } );
   toolBar->addAction( panToolAction );
 
   QAction *zoomXAxisToolAction = new QAction( tr( "Zoom X Axis" ), this );
   zoomXAxisToolAction->setCheckable( true );
   zoomXAxisToolAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomInXAxis.svg" ) ) );
   mXAxisZoomTool->setAction( zoomXAxisToolAction );
-  connect( zoomXAxisToolAction, &QAction::triggered, mXAxisZoomTool, [ = ] { mCanvas->setTool( mXAxisZoomTool ); } );
+  connect( zoomXAxisToolAction, &QAction::triggered, mXAxisZoomTool, [=] { mCanvas->setTool( mXAxisZoomTool ); } );
   toolBar->addAction( zoomXAxisToolAction );
 
   QAction *zoomToolAction = new QAction( tr( "Zoom" ), this );
   zoomToolAction->setCheckable( true );
   zoomToolAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionZoomIn.svg" ) ) );
   mZoomTool->setAction( zoomToolAction );
-  connect( zoomToolAction, &QAction::triggered, mZoomTool, [ = ] { mCanvas->setTool( mZoomTool ); } );
+  connect( zoomToolAction, &QAction::triggered, mZoomTool, [=] { mCanvas->setTool( mZoomTool ); } );
   toolBar->addAction( zoomToolAction );
 
   QAction *resetViewAction = new QAction( tr( "Zoom Full" ), this );
@@ -206,14 +297,13 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   connect( enabledSnappingAction, &QAction::toggled, mCanvas, &QgsElevationProfileCanvas::setSnappingEnabled );
   toolBar->addAction( enabledSnappingAction );
 
-  mMeasureTool = std::make_unique< QgsElevationProfileToolMeasure> ( mCanvas );
+  mMeasureTool = std::make_unique<QgsElevationProfileToolMeasure>( mCanvas );
 
   QAction *measureToolAction = new QAction( tr( "Measure Distances" ), this );
   measureToolAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/mActionMeasure.svg" ) ) );
   measureToolAction->setCheckable( true );
   mMeasureTool->setAction( measureToolAction );
-  connect( measureToolAction, &QAction::triggered, this, [ = ]
-  {
+  connect( measureToolAction, &QAction::triggered, this, [=] {
     mCanvas->setTool( mMeasureTool.get() );
   } );
   toolBar->addAction( measureToolAction );
@@ -230,22 +320,121 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   connect( exportAsImageAction, &QAction::triggered, this, &QgsElevationProfileWidget::exportAsImage );
   toolBar->addAction( exportAsImageAction );
 
+  QMenu *exportMenu = new QMenu( this );
+
+  QAction *exportAs3DFeaturesAction = new QAction( tr( "Export 3D Features…" ), this );
+  connect( exportAs3DFeaturesAction, &QAction::triggered, this, [this] { exportResults( Qgis::ProfileExportType::Features3D ); } );
+  exportMenu->addAction( exportAs3DFeaturesAction );
+
+  QAction *exportAs2DProfileAction = new QAction( tr( "Export 2D Profile…" ), this );
+  connect( exportAs2DProfileAction, &QAction::triggered, this, [this] { exportResults( Qgis::ProfileExportType::Profile2D ); } );
+  exportMenu->addAction( exportAs2DProfileAction );
+
+  QAction *exportAsTableAction = new QAction( tr( "Export Distance/Elevation Table…" ), this );
+  connect( exportAsTableAction, &QAction::triggered, this, [this] { exportResults( Qgis::ProfileExportType::DistanceVsElevationTable ); } );
+  exportMenu->addAction( exportAsTableAction );
+
+  QToolButton *exportResultsButton = new QToolButton();
+  exportResultsButton->setAutoRaise( true );
+  exportResultsButton->setToolTip( tr( "Export Results" ) );
+  exportResultsButton->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "mActionFileSaveAs.svg" ) ) );
+  exportResultsButton->setPopupMode( QToolButton::InstantPopup );
+  exportResultsButton->setMenu( exportMenu );
+
+  toolBar->addWidget( exportResultsButton );
+
   toolBar->addSeparator();
 
   // Options Menu
   mOptionsMenu = new QMenu( this );
 
+  mLockRatioAction = new QAction( tr( "Lock Distance/Elevation Scales" ), this );
+  mLockRatioAction->setCheckable( true );
+  mLockRatioAction->setChecked( settingLockAxis->value() );
+  connect( mLockRatioAction, &QAction::toggled, this, &QgsElevationProfileWidget::axisScaleLockToggled );
+  mOptionsMenu->addAction( mLockRatioAction );
+
+  mDistanceUnitMenu = new QMenu( tr( "Distance Units" ), this );
+  QActionGroup *unitGroup = new QActionGroup( this );
+  for ( Qgis::DistanceUnit unit :
+        {
+          Qgis::DistanceUnit::Kilometers,
+          Qgis::DistanceUnit::Meters,
+          Qgis::DistanceUnit::Centimeters,
+          Qgis::DistanceUnit::Millimeters,
+          Qgis::DistanceUnit::Miles,
+          Qgis::DistanceUnit::NauticalMiles,
+          Qgis::DistanceUnit::Yards,
+          Qgis::DistanceUnit::Feet,
+          Qgis::DistanceUnit::Inches,
+          Qgis::DistanceUnit::Degrees,
+        } )
+  {
+    QString title;
+    if ( ( QgsGui::higFlags() & QgsGui::HigDialogTitleIsTitleCase ) )
+    {
+      title = QgsStringUtils::capitalize( QgsUnitTypes::toString( unit ), Qgis::Capitalization::TitleCase );
+    }
+    else
+    {
+      title = QgsUnitTypes::toString( unit );
+    }
+    QAction *action = new QAction( title );
+    action->setData( QVariant::fromValue( unit ) );
+    action->setCheckable( true );
+    action->setActionGroup( unitGroup );
+    connect( action, &QAction::toggled, this, [=]( bool active ) {
+      if ( active )
+      {
+        mCanvas->setDistanceUnit( unit );
+      }
+    } );
+    mDistanceUnitMenu->addAction( action );
+  }
+  connect( mDistanceUnitMenu, &QMenu::aboutToShow, this, [=] {
+    for ( QAction *action : mDistanceUnitMenu->actions() )
+    {
+      if ( action->data().value<Qgis::DistanceUnit>() == mCanvas->distanceUnit() && !action->isChecked() )
+        action->setChecked( true );
+    }
+  } );
+
+  mOptionsMenu->addMenu( mDistanceUnitMenu );
+  mOptionsMenu->addSeparator();
+
   mSettingsAction = new QgsElevationProfileWidgetSettingsAction( mOptionsMenu );
 
   mSettingsAction->toleranceSpinBox()->setValue( settingTolerance->value() );
-  connect( mSettingsAction->toleranceSpinBox(), qOverload< double >( &QDoubleSpinBox::valueChanged ), this, [ = ]( double value )
-  {
+  connect( mSettingsAction->toleranceSpinBox(), qOverload<double>( &QDoubleSpinBox::valueChanged ), this, [=]( double value ) {
     settingTolerance->setValue( value );
     createOrUpdateRubberBands();
     scheduleUpdate();
   } );
 
   mOptionsMenu->addAction( mSettingsAction );
+
+  mOptionsMenu->addSeparator();
+
+  // show Subsections Indicator Action
+  // create a default simple symbology
+  mSubsectionsSymbol = QgsProfilePlotRenderer::defaultSubSectionsSymbol();
+  mShowSubsectionsAction = new QAction( tr( "Show Subsections Indicator" ), this );
+  mShowSubsectionsAction->setCheckable( true );
+  mShowSubsectionsAction->setChecked( settingShowSubsections->value() );
+  connect( mShowSubsectionsAction, &QAction::triggered, this, &QgsElevationProfileWidget::showSubsectionsTriggered );
+  mOptionsMenu->addAction( mShowSubsectionsAction );
+
+  // Edit Subsections Symbology action
+  mSubsectionsSymbologyAction = new QAction( tr( "Subsections Symbology…" ), this );
+  mSubsectionsSymbologyAction->setEnabled( settingShowSubsections->value() );
+  connect( mSubsectionsSymbologyAction, &QAction::triggered, this, &QgsElevationProfileWidget::editSubsectionsSymbology );
+  mOptionsMenu->addAction( mSubsectionsSymbologyAction );
+
+  mOptionsMenu->addSeparator();
+
+  mRenameProfileAction = new QAction( tr( "Rename Profile…" ), this );
+  connect( mRenameProfileAction, &QAction::triggered, this, &QgsElevationProfileWidget::renameProfileTriggered );
+  mOptionsMenu->addAction( mRenameProfileAction );
 
   mBtnOptions = new QToolButton();
   mBtnOptions->setAutoRaise( true );
@@ -274,7 +463,7 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   layout->addLayout( topLayout );
 
   QSplitter *splitter = new QSplitter( Qt::Horizontal );
-  splitter->addWidget( mLayerTreeView ) ;
+  splitter->addWidget( mLayerTreeView );
   splitter->addWidget( mCanvas );
   layout->addWidget( splitter );
   splitter->setCollapsible( 0, false );
@@ -283,19 +472,18 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
   QgsSettings settings;
   splitter->restoreState( settings.value( QStringLiteral( "Windows/ElevationProfile/SplitState" ) ).toByteArray() );
 
-  connect( splitter, &QSplitter::splitterMoved, this, [splitter]
-  {
+  connect( splitter, &QSplitter::splitterMoved, this, [splitter] {
     QgsSettings settings;
     settings.setValue( QStringLiteral( "Windows/ElevationProfile/SplitState" ), splitter->saveState() );
   } );
   setLayout( layout );
 
-  mDockableWidgetHelper = new QgsDockableWidgetHelper( true, mCanvasName, this, QgisApp::instance(), Qt::BottomDockWidgetArea,  QStringList(), true );
+  mDockableWidgetHelper = new QgsDockableWidgetHelper( mCanvasName, this, QgisApp::instance(), mCanvasName, QStringList(), QgsDockableWidgetHelper::OpeningMode::RespectSetting, false, Qt::DockWidgetArea::BottomDockWidgetArea, QgsDockableWidgetHelper::Option::RaiseTab );
+
   QToolButton *toggleButton = mDockableWidgetHelper->createDockUndockToolButton();
   toggleButton->setToolTip( tr( "Dock Elevation Profile View" ) );
   toolBar->addWidget( toggleButton );
-  connect( mDockableWidgetHelper, &QgsDockableWidgetHelper::closed, this, [ = ]()
-  {
+  connect( mDockableWidgetHelper, &QgsDockableWidgetHelper::closed, this, [=]() {
     close();
   } );
 
@@ -307,6 +495,9 @@ QgsElevationProfileWidget::QgsElevationProfileWidget( const QString &name )
 
   // initially populate layer tree with project layers
   mLayerTreeView->populateInitialLayers( QgsProject::instance() );
+
+  connect( QgsProject::instance()->elevationProperties(), &QgsProjectElevationProperties::changed, this, &QgsElevationProfileWidget::onProjectElevationPropertiesChanged );
+  connect( QgsProject::instance(), &QgsProject::crs3DChanged, this, &QgsElevationProfileWidget::onProjectElevationPropertiesChanged );
 
   updateCanvasLayers();
 }
@@ -334,11 +525,10 @@ void QgsElevationProfileWidget::setMainCanvas( QgsMapCanvas *canvas )
 {
   mMainCanvas = canvas;
 
-  mCaptureCurveMapTool = std::make_unique< QgsMapToolProfileCurve >( canvas, QgisApp::instance()->cadDockWidget() );
+  mCaptureCurveMapTool = std::make_unique<QgsMapToolProfileCurve>( canvas, QgisApp::instance()->cadDockWidget() );
   mCaptureCurveMapTool->setAction( mCaptureCurveAction );
-  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::curveCaptured, this, [ = ]( const QgsGeometry & curve ) {  setProfileCurve( curve, true ); } );
-  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::captureStarted, this, [ = ]
-  {
+  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::curveCaptured, this, [=]( const QgsGeometry &curve ) { setProfileCurve( curve, true ); } );
+  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::captureStarted, this, [=] {
     // if capturing a new curve, we just hide the existing rubber band -- if the user cancels the new curve digitizing then we'll
     // re-show the old curve rubber band
     if ( mRubberBand )
@@ -348,8 +538,7 @@ void QgsElevationProfileWidget::setMainCanvas( QgsMapCanvas *canvas )
     if ( mMapPointRubberBand )
       mMapPointRubberBand->hide();
   } );
-  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::captureCanceled, this, [ = ]
-  {
+  connect( mCaptureCurveMapTool.get(), &QgsMapToolProfileCurve::captureCanceled, this, [=] {
     if ( mRubberBand )
       mRubberBand->show();
     if ( mToleranceRubberBand )
@@ -358,11 +547,11 @@ void QgsElevationProfileWidget::setMainCanvas( QgsMapCanvas *canvas )
       mMapPointRubberBand->show();
   } );
 
-  mCaptureCurveFromFeatureMapTool = std::make_unique< QgsMapToolProfileCurveFromFeature >( canvas );
+  mCaptureCurveFromFeatureMapTool = std::make_unique<QgsMapToolProfileCurveFromFeature>( canvas );
   mCaptureCurveFromFeatureMapTool->setAction( mCaptureCurveFromFeatureAction );
-  connect( mCaptureCurveFromFeatureMapTool.get(), &QgsMapToolProfileCurveFromFeature::curveCaptured, this, [ = ]( const QgsGeometry & curve ) { setProfileCurve( curve, true ); } );
+  connect( mCaptureCurveFromFeatureMapTool.get(), &QgsMapToolProfileCurveFromFeature::curveCaptured, this, [=]( const QgsGeometry &curve ) { setProfileCurve( curve, true ); } );
 
-  mMapPointRubberBand.reset( new QgsRubberBand( canvas, QgsWkbTypes::PointGeometry ) );
+  mMapPointRubberBand.reset( new QgsRubberBand( canvas, Qgis::GeometryType::Point ) );
   mMapPointRubberBand->setZValue( 1000 );
   mMapPointRubberBand->setIcon( QgsRubberBand::ICON_FULL_DIAMOND );
   mMapPointRubberBand->setWidth( QgsGuiUtils::scaleIconSize( 8 ) );
@@ -370,6 +559,11 @@ void QgsElevationProfileWidget::setMainCanvas( QgsMapCanvas *canvas )
   mMapPointRubberBand->setSecondaryStrokeColor( QColor( 255, 255, 255, 100 ) );
   mMapPointRubberBand->setColor( QColor( 0, 0, 0 ) );
   mMapPointRubberBand->hide();
+
+  mCanvas->setDistanceUnit( mMainCanvas->mapSettings().destinationCrs().mapUnits() );
+  connect( mMainCanvas, &QgsMapCanvas::destinationCrsChanged, this, [=] {
+    mCanvas->setDistanceUnit( mMainCanvas->mapSettings().destinationCrs().mapUnits() );
+  } );
 }
 
 void QgsElevationProfileWidget::cancelJobs()
@@ -377,13 +571,68 @@ void QgsElevationProfileWidget::cancelJobs()
   mCanvas->cancelJobs();
 }
 
+void QgsElevationProfileWidget::addLayers()
+{
+  QgsElevationProfileLayersDialog addDialog( this );
+  const QMap<QString, QgsMapLayer *> allMapLayers = QgsProject::instance()->mapLayers();
+
+  // The add layers dialog should only show layers which CAN have elevation, yet currently don't
+  // have it enabled. So collect layers which don't match this criteria now for filtering out.
+  QList<QgsMapLayer *> layersWhichAlreadyHaveElevationOrCannotHaveElevation;
+  for ( auto it = allMapLayers.constBegin(); it != allMapLayers.constEnd(); ++it )
+  {
+    if ( !QgsElevationUtils::canEnableElevationForLayer( it.value() ) || it.value()->elevationProperties()->hasElevation() )
+    {
+      layersWhichAlreadyHaveElevationOrCannotHaveElevation << it.value();
+      continue;
+    }
+  }
+  addDialog.setHiddenLayers( layersWhichAlreadyHaveElevationOrCannotHaveElevation );
+
+  addDialog.setVisibleLayers( mMainCanvas->layers( true ) );
+
+  if ( addDialog.exec() == QDialog::Accepted )
+  {
+    addLayersInternal( addDialog.selectedLayers() );
+  }
+}
+
+void QgsElevationProfileWidget::addLayersInternal( const QList<QgsMapLayer *> &layers )
+{
+  QList<QgsMapLayer *> updatedLayers;
+  if ( !layers.empty() )
+  {
+    for ( QgsMapLayer *layer : layers )
+    {
+      if ( QgsElevationUtils::enableElevationForLayer( layer ) )
+        updatedLayers << layer;
+    }
+
+    mLayerTreeView->proxyModel()->invalidate();
+    for ( QgsMapLayer *layer : std::as_const( updatedLayers ) )
+    {
+      if ( QgsLayerTreeLayer *node = mLayerTree->findLayer( layer ) )
+      {
+        node->setItemVisibilityChecked( true );
+      }
+    }
+
+    updateCanvasLayers();
+    scheduleUpdate();
+  }
+}
+
 void QgsElevationProfileWidget::updateCanvasLayers()
 {
   QList<QgsMapLayer *> layers;
-  const QList< QgsMapLayer * > layerOrder = mLayerTree->layerOrder();
+  const QList<QgsMapLayer *> layerOrder = mLayerTree->layerOrder();
   layers.reserve( layerOrder.size() );
   for ( QgsMapLayer *layer : layerOrder )
   {
+    // safety check. maybe elevation properties have been disabled externally.
+    if ( !layer->elevationProperties() || !layer->elevationProperties()->hasElevation() )
+      continue;
+
     if ( mLayerTree->findLayer( layer )->isVisible() )
       layers << layer;
   }
@@ -406,11 +655,9 @@ void QgsElevationProfileWidget::onTotalPendingJobsCountChanged( int count )
       mJobProgressBarTimer.setSingleShot( true );
       mJobProgressBarTimer.setInterval( 500 );
       disconnect( mJobProgressBarTimerConnection );
-      mJobProgressBarTimerConnection = connect( &mJobProgressBarTimer, &QTimer::timeout, this, [ = ]()
-      {
+      mJobProgressBarTimerConnection = connect( &mJobProgressBarTimer, &QTimer::timeout, this, [=]() {
         mProgressPendingJobs->setVisible( true );
-      }
-                                              );
+      } );
       mJobProgressBarTimer.start();
     }
     else
@@ -430,11 +677,18 @@ void QgsElevationProfileWidget::setProfileCurve( const QgsGeometry &curve, bool 
 {
   mNudgeLeftAction->setEnabled( !curve.isEmpty() );
   mNudgeRightAction->setEnabled( !curve.isEmpty() );
+  mShowSubsectionsAction->setEnabled( !curve.isEmpty() );
 
   mProfileCurve = curve;
   createOrUpdateRubberBands();
   if ( resetView )
+  {
     mCanvas->invalidateCurrentPlotExtent();
+    if ( mMeasureTool->isActive() )
+    {
+      mMeasureTool->clear();
+    }
+  }
   scheduleUpdate();
 }
 
@@ -458,16 +712,17 @@ void QgsElevationProfileWidget::onCanvasPointHovered( const QgsPointXY &, const 
 void QgsElevationProfileWidget::updatePlot()
 {
   mCanvas->setTolerance( mSettingsAction->toleranceSpinBox()->value() );
-  mCanvas->setCrs( mMainCanvas->mapSettings().destinationCrs() );
+  mCanvas->setCrs( QgsProject::instance()->crs3D() );
+  showSubsectionsTriggered();
 
   if ( !mProfileCurve.isEmpty() )
   {
-    if ( const QgsCurve *curve = qgsgeometry_cast< const QgsCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
+    if ( const QgsCurve *curve = qgsgeometry_cast<const QgsCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
     {
       mCanvas->setProfileCurve( curve->clone() );
       mCanvas->refresh();
     }
-    else if ( const QgsMultiCurve *multiCurve = qgsgeometry_cast< const QgsMultiCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
+    else if ( const QgsMultiCurve *multiCurve = qgsgeometry_cast<const QgsMultiCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
     {
       // hm, just grab the first part!
       mCanvas->setProfileCurve( multiCurve->curveN( 0 )->clone() );
@@ -493,8 +748,14 @@ void QgsElevationProfileWidget::clear()
   if ( mMapPointRubberBand )
     mMapPointRubberBand->hide();
   mCanvas->clear();
+  if ( mMeasureTool->isActive() )
+  {
+    mMeasureTool->clear();
+  }
   mNudgeLeftAction->setEnabled( false );
   mNudgeRightAction->setEnabled( false );
+  mShowSubsectionsAction->setEnabled( false );
+  mProfileCurve = QgsGeometry();
 }
 
 void QgsElevationProfileWidget::exportAsPdf()
@@ -507,10 +768,11 @@ void QgsElevationProfileWidget::exportAsPdf()
   this->raise();
 #endif
   outputFileName = QFileDialog::getSaveFileName(
-                     this,
-                     tr( "Export to PDF" ),
-                     outputFileName,
-                     tr( "PDF Format" ) + " (*.pdf *.PDF)" );
+    this,
+    tr( "Export to PDF" ),
+    outputFileName,
+    tr( "PDF Format" ) + " (*.pdf *.PDF)"
+  );
   this->activateWindow();
   if ( outputFileName.isEmpty() )
   {
@@ -525,24 +787,17 @@ void QgsElevationProfileWidget::exportAsPdf()
   if ( !dialog.exec() )
     return;
 
-  QPrinter printer;
-  printer.setOutputFileName( outputFileName );
-  printer.setOutputFormat( QPrinter::PdfFormat );
+  QPdfWriter pdfWriter( outputFileName );
 
   const QgsLayoutSize pageSizeMM = dialog.pageSizeMM();
-  QPageLayout pageLayout( QPageSize( pageSizeMM.toQSizeF(), QPageSize::Millimeter ),
-                          QPageLayout::Portrait,
-                          QMarginsF( 0, 0, 0, 0 ) );
+  QPageLayout pageLayout( QPageSize( pageSizeMM.toQSizeF(), QPageSize::Millimeter ), QPageLayout::Portrait, QMarginsF( 0, 0, 0, 0 ) );
   pageLayout.setMode( QPageLayout::FullPageMode );
-  printer.setPageLayout( pageLayout );
-  printer.setFullPage( true );
-  printer.setPageMargins( QMarginsF( 0, 0, 0, 0 ) );
-  printer.setFullPage( true );
-  printer.setColorMode( QPrinter::Color );
-  printer.setResolution( 300 );
+  pdfWriter.setPageLayout( pageLayout );
+  pdfWriter.setPageMargins( QMarginsF( 0, 0, 0, 0 ) );
+  pdfWriter.setResolution( 1200 );
 
   QPainter p;
-  if ( !p.begin( &printer ) )
+  if ( !p.begin( &pdfWriter ) )
   {
     //error beginning print
     QgisApp::instance()->messageBar()->pushWarning( tr( "Save as PDF" ), tr( "Could not create %1" ).arg( QDir::toNativeSeparators( outputFileName ) ) );
@@ -560,8 +815,7 @@ void QgsElevationProfileWidget::exportAsPdf()
   Qgs2DPlot plotSettings;
   dialog.updatePlotSettings( plotSettings );
 
-  mCanvas->render( rc, rc.convertToPainterUnits( pageSizeMM.width(), QgsUnitTypes::RenderMillimeters ),
-                   rc.convertToPainterUnits( pageSizeMM.height(), QgsUnitTypes::RenderMillimeters ), plotSettings );
+  mCanvas->render( rc, rc.convertToPainterUnits( pageSizeMM.width(), Qgis::RenderUnit::Millimeters ), rc.convertToPainterUnits( pageSizeMM.height(), Qgis::RenderUnit::Millimeters ), plotSettings );
   p.end();
 
   QgisApp::instance()->messageBar()->pushSuccess( tr( "Save as PDF" ), tr( "Successfully saved the profile to <a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( outputFileName ).toString(), QDir::toNativeSeparators( outputFileName ) ) );
@@ -617,7 +871,90 @@ void QgsElevationProfileWidget::exportAsImage()
   image.save( fileWithExtension.first );
 
   QgisApp::instance()->messageBar()->pushSuccess( tr( "Save as Image" ), tr( "Successfully saved the profile to <a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( fileWithExtension.first ).toString(), QDir::toNativeSeparators( fileWithExtension.first ) ) );
+}
 
+void QgsElevationProfileWidget::exportResults( Qgis::ProfileExportType type )
+{
+  std::unique_ptr<QgsCurve> profileCurve;
+  if ( !mProfileCurve.isEmpty() )
+  {
+    if ( const QgsCurve *curve = qgsgeometry_cast<const QgsCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
+    {
+      profileCurve.reset( curve->clone() );
+    }
+    else if ( const QgsMultiCurve *multiCurve = qgsgeometry_cast<const QgsMultiCurve *>( mProfileCurve.constGet()->simplifiedTypeRef() ) )
+    {
+      // hm, just grab the first part!
+      profileCurve.reset( multiCurve->curveN( 0 )->clone() );
+    }
+  }
+  if ( !profileCurve )
+    return;
+
+  QString initialExportDirectory = settingLastExportDir->value();
+  if ( initialExportDirectory.isEmpty() )
+    initialExportDirectory = QDir::homePath();
+
+  QString selectedFilter;
+  QString file = QFileDialog::getSaveFileName( this, tr( "Select Output File" ), initialExportDirectory, QgsVectorFileWriter::fileFilterString(), &selectedFilter );
+  if ( file.isEmpty() )
+    return;
+
+  settingLastExportDir->setValue( QFileInfo( file ).path() );
+  file = QgsFileUtils::ensureFileNameHasExtension( file, QgsFileUtils::extensionsFromFilter( selectedFilter ) );
+
+  QgsProfileRequest request( profileCurve.release() );
+  request.setCrs( QgsProject::instance()->crs3D() );
+  request.setTolerance( mSettingsAction->toleranceSpinBox()->value() );
+  request.setTransformContext( QgsProject::instance()->transformContext() );
+  request.setTerrainProvider( QgsProject::instance()->elevationProperties()->terrainProvider() ? QgsProject::instance()->elevationProperties()->terrainProvider()->clone() : nullptr );
+  QgsExpressionContext context;
+  context.appendScope( QgsExpressionContextUtils::globalScope() );
+  context.appendScope( QgsExpressionContextUtils::projectScope( QgsProject::instance() ) );
+  request.setExpressionContext( context );
+
+  const QList<QgsMapLayer *> layersToGenerate = mCanvas->layers();
+  QList<QgsAbstractProfileSource *> sources;
+  const QList<QgsAbstractProfileSource *> registrySources = QgsApplication::profileSourceRegistry()->profileSources();
+  sources.reserve( layersToGenerate.size() + registrySources.size() );
+
+  sources << registrySources;
+  for ( QgsMapLayer *layer : layersToGenerate )
+  {
+    if ( QgsAbstractProfileSource *source = dynamic_cast<QgsAbstractProfileSource *>( layer ) )
+      sources.append( source );
+  }
+
+  QgsProfileExporterTask *exportTask = new QgsProfileExporterTask( sources, request, type, file, QgsProject::instance()->transformContext() );
+  connect( exportTask, &QgsTask::taskCompleted, this, [exportTask] {
+    switch ( exportTask->result() )
+    {
+      case QgsProfileExporterTask::ExportResult::Success:
+      {
+        if ( exportTask->createdFiles().size() == 1 )
+        {
+          const QString fileName = exportTask->createdFiles().at( 0 );
+          QgisApp::instance()->messageBar()->pushSuccess( tr( "Exported Profile" ), tr( "Successfully saved the profile to <a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( fileName ).toString(), QDir::toNativeSeparators( fileName ) ) );
+        }
+        else if ( !exportTask->createdFiles().empty() )
+        {
+          const QString firstFile = exportTask->createdFiles().at( 0 );
+          const QString firstFilePath = QFileInfo( firstFile ).path();
+          QgisApp::instance()->messageBar()->pushSuccess( tr( "Exported Profile" ), tr( "Successfully saved the profile to <a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( firstFile ).toString(), QDir::toNativeSeparators( firstFilePath ) ) );
+        }
+        break;
+      }
+
+      case QgsProfileExporterTask::ExportResult::Empty:
+      case QgsProfileExporterTask::ExportResult::DeviceError:
+      case QgsProfileExporterTask::ExportResult::DxfExportFailed:
+      case QgsProfileExporterTask::ExportResult::LayerExportFailed:
+      case QgsProfileExporterTask::ExportResult::Canceled:
+        QgisApp::instance()->messageBar()->pushCritical( tr( "Export Failed" ), tr( "The elevation profile could not be exported" ) );
+        break;
+    }
+  } );
+  QgsApplication::taskManager()->addTask( exportTask );
 }
 
 void QgsElevationProfileWidget::nudgeLeft()
@@ -641,50 +978,95 @@ void QgsElevationProfileWidget::nudgeCurve( Qgis::BufferSide side )
   setProfileCurve( nudgedCurve, false );
 }
 
-void QgsElevationProfileWidget::createOrUpdateRubberBands( )
+void QgsElevationProfileWidget::axisScaleLockToggled( bool active )
+{
+  settingLockAxis->setValue( active );
+  mCanvas->setLockAxisScales( active );
+}
+
+void QgsElevationProfileWidget::renameProfileTriggered()
+{
+  QgsNewNameDialog dlg( tr( "elevation profile" ), canvasName(), {}, {}, Qt::CaseSensitive, this );
+  dlg.setWindowTitle( tr( "Rename Elevation Profile" ) );
+  dlg.setHintString( tr( "Enter a new elevation profile title" ) );
+  dlg.setAllowEmptyName( false );
+  if ( dlg.exec() == QDialog::Accepted )
+  {
+    setCanvasName( dlg.name() );
+  }
+}
+
+void QgsElevationProfileWidget::showSubsectionsTriggered()
+{
+  const bool showSubSections = mShowSubsectionsAction->isChecked();
+
+  settingShowSubsections->setValue( showSubSections );
+  mSubsectionsSymbologyAction->setEnabled( showSubSections );
+
+  if ( showSubSections )
+  {
+    mCanvas->setSubsectionsSymbol( mSubsectionsSymbol->clone() );
+  }
+  else
+  {
+    mCanvas->setSubsectionsSymbol( nullptr );
+  }
+}
+
+void QgsElevationProfileWidget::editSubsectionsSymbology()
+{
+  QgsSymbolSelectorDialog symbolDialog( mSubsectionsSymbol.get(), QgsStyle::defaultStyle(), nullptr, this );
+  symbolDialog.setWindowTitle( tr( "Subsections Symbol Selector" ) );
+  if ( symbolDialog.exec() )
+  {
+    showSubsectionsTriggered();
+  }
+}
+
+void QgsElevationProfileWidget::createOrUpdateRubberBands()
 {
   if ( !mRubberBand )
   {
-    mRubberBand.reset( new QgsRubberBand( mMainCanvas, QgsWkbTypes::LineGeometry ) );
+    mRubberBand.reset( new QgsRubberBand( mMainCanvas, Qgis::GeometryType::Line ) );
     mRubberBand->setZValue( 1000 );
     mRubberBand->setWidth( QgsGuiUtils::scaleIconSize( 2 ) );
 
     QgsSymbolLayerList layers;
 
-    std::unique_ptr< QgsSimpleLineSymbolLayer > bottomLayer = std::make_unique< QgsSimpleLineSymbolLayer >();
+    auto bottomLayer = std::make_unique<QgsSimpleLineSymbolLayer>();
     bottomLayer->setWidth( 0.8 );
-    bottomLayer->setWidthUnit( QgsUnitTypes::RenderMillimeters );
+    bottomLayer->setWidthUnit( Qgis::RenderUnit::Millimeters );
     bottomLayer->setColor( QColor( 40, 40, 40, 100 ) );
     bottomLayer->setPenCapStyle( Qt::PenCapStyle::FlatCap );
     layers.append( bottomLayer.release() );
 
-    std::unique_ptr< QgsMarkerLineSymbolLayer > arrowLayer = std::make_unique< QgsMarkerLineSymbolLayer >();
+    auto arrowLayer = std::make_unique<QgsMarkerLineSymbolLayer>();
     arrowLayer->setPlacements( Qgis::MarkerLinePlacement::CentralPoint );
 
     QgsSymbolLayerList markerLayers;
-    std::unique_ptr< QgsSimpleMarkerSymbolLayer > arrowSymbolLayer = std::make_unique< QgsSimpleMarkerSymbolLayer >( Qgis::MarkerShape::EquilateralTriangle );
+    auto arrowSymbolLayer = std::make_unique<QgsSimpleMarkerSymbolLayer>( Qgis::MarkerShape::EquilateralTriangle );
     arrowSymbolLayer->setSize( 4 );
     arrowSymbolLayer->setAngle( 90 );
-    arrowSymbolLayer->setSizeUnit( QgsUnitTypes::RenderMillimeters );
+    arrowSymbolLayer->setSizeUnit( Qgis::RenderUnit::Millimeters );
     arrowSymbolLayer->setColor( QColor( 40, 40, 40, 100 ) );
     arrowSymbolLayer->setStrokeColor( QColor( 255, 255, 255, 255 ) );
     arrowSymbolLayer->setStrokeWidth( 0.2 );
     markerLayers.append( arrowSymbolLayer.release() );
 
-    std::unique_ptr< QgsMarkerSymbol > markerSymbol = std::make_unique< QgsMarkerSymbol >( markerLayers );
+    auto markerSymbol = std::make_unique<QgsMarkerSymbol>( markerLayers );
     arrowLayer->setSubSymbol( markerSymbol.release() );
 
     layers.append( arrowLayer.release() );
 
-    std::unique_ptr< QgsSimpleLineSymbolLayer > topLayer = std::make_unique< QgsSimpleLineSymbolLayer >();
+    auto topLayer = std::make_unique<QgsSimpleLineSymbolLayer>();
     topLayer->setWidth( 0.4 );
-    topLayer->setWidthUnit( QgsUnitTypes::RenderMillimeters );
+    topLayer->setWidthUnit( Qgis::RenderUnit::Millimeters );
     topLayer->setColor( QColor( 255, 255, 255, 255 ) );
     topLayer->setPenStyle( Qt::DashLine );
     topLayer->setPenCapStyle( Qt::PenCapStyle::FlatCap );
     layers.append( topLayer.release() );
 
-    std::unique_ptr< QgsLineSymbol > symbol = std::make_unique< QgsLineSymbol >( layers );
+    auto symbol = std::make_unique<QgsLineSymbol>( layers );
 
     mRubberBand->setSymbol( symbol.release() );
     mRubberBand->updatePosition();
@@ -698,17 +1080,17 @@ void QgsElevationProfileWidget::createOrUpdateRubberBands( )
   {
     if ( !mToleranceRubberBand )
     {
-      mToleranceRubberBand.reset( new QgsRubberBand( mMainCanvas, QgsWkbTypes::PolygonGeometry ) );
+      mToleranceRubberBand.reset( new QgsRubberBand( mMainCanvas, Qgis::GeometryType::Polygon ) );
       mToleranceRubberBand->setZValue( 999 );
 
       QgsSymbolLayerList layers;
 
-      std::unique_ptr< QgsSimpleFillSymbolLayer > bottomLayer = std::make_unique< QgsSimpleFillSymbolLayer >();
+      auto bottomLayer = std::make_unique<QgsSimpleFillSymbolLayer>();
       bottomLayer->setColor( QColor( 40, 40, 40, 50 ) );
       bottomLayer->setStrokeColor( QColor( 255, 255, 255, 150 ) );
       layers.append( bottomLayer.release() );
 
-      std::unique_ptr< QgsFillSymbol > symbol = std::make_unique< QgsFillSymbol >( layers );
+      auto symbol = std::make_unique<QgsFillSymbol>( layers );
       mToleranceRubberBand->setSymbol( symbol.release() );
     }
 
@@ -720,6 +1102,32 @@ void QgsElevationProfileWidget::createOrUpdateRubberBands( )
   {
     if ( mToleranceRubberBand )
       mToleranceRubberBand->hide();
+  }
+}
+
+void QgsElevationProfileWidget::onProjectElevationPropertiesChanged()
+{
+  // Only the vector layers whose clamping depend on the terrain need to be updated
+  // if the project elevation properties have changed.
+  // Therefore, update the plot if this criteria is met.
+  for ( QgsMapLayer *layer : mCanvas->layers() )
+  {
+    if ( layer->type() == Qgis::LayerType::Vector )
+    {
+      QgsVectorLayerElevationProperties *elevationProperties = qgis::down_cast<QgsVectorLayerElevationProperties *>( layer->elevationProperties() );
+      switch ( elevationProperties->clamping() )
+      {
+        case Qgis::AltitudeClamping::Relative:
+        case Qgis::AltitudeClamping::Terrain:
+        {
+          scheduleUpdate();
+          break;
+        }
+
+        case Qgis::AltitudeClamping::Absolute:
+          break;
+      }
+    }
   }
 }
 
@@ -750,7 +1158,6 @@ QgsElevationProfileWidgetSettingsAction::QgsElevationProfileWidgetSettingsAction
 QgsAppElevationProfileLayerTreeView::QgsAppElevationProfileLayerTreeView( QgsLayerTree *rootNode, QWidget *parent )
   : QgsElevationProfileLayerTreeView( rootNode, parent )
 {
-
 }
 
 void QgsAppElevationProfileLayerTreeView::contextMenuEvent( QContextMenuEvent *event )
@@ -764,8 +1171,7 @@ void QgsAppElevationProfileLayerTreeView::contextMenuEvent( QContextMenuEvent *e
     QMenu *menu = new QMenu();
 
     QAction *propertiesAction = new QAction( tr( "Properties…" ), menu );
-    connect( propertiesAction, &QAction::triggered, this, [layer]
-    {
+    connect( propertiesAction, &QAction::triggered, this, [layer] {
       QgisApp::instance()->showLayerProperties( layer, QStringLiteral( "mOptsPage_Elevation" ) );
     } );
     menu->addAction( propertiesAction );

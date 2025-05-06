@@ -13,12 +13,13 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgsarcgisrestdataitems.h"
+#include "moc_qgsarcgisrestdataitems.cpp"
 #include "qgslogger.h"
 #include "qgsowsconnection.h"
 #include "qgsarcgisrestutils.h"
 #include "qgsarcgisrestquery.h"
 #include "qgsarcgisportalutils.h"
-#include "qgsdataprovider.h"
+#include "qgssettingsentryimpl.h"
 
 #ifdef HAVE_GUI
 #include "qgsarcgisrestsourceselect.h"
@@ -72,58 +73,55 @@ void QgsArcGisRestRootItem::onConnectionsChanged()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void addFolderItems( QVector< QgsDataItem * > &items, const QVariantMap &serviceData, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, QgsDataItem *parent,
-                     const QString &supportedFormats )
+void addFolderItems( QVector<QgsDataItem *> &items, const QVariantMap &serviceData, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix, QgsDataItem *parent, const QString &supportedFormats )
 {
-  QgsArcGisRestQueryUtils::visitFolderItems( [parent, &baseUrl, &items, headers, authcfg, supportedFormats]( const QString & name, const QString & url )
-  {
-    std::unique_ptr< QgsArcGisRestFolderItem > folderItem = std::make_unique< QgsArcGisRestFolderItem >( parent, name, url, baseUrl, authcfg, headers );
+  QgsArcGisRestQueryUtils::visitFolderItems( [parent, &baseUrl, &items, headers, urlPrefix, authcfg, supportedFormats]( const QString &name, const QString &url ) {
+    auto folderItem = std::make_unique<QgsArcGisRestFolderItem>( parent, name, url, baseUrl, authcfg, headers, urlPrefix );
     folderItem->setSupportedFormats( supportedFormats );
     items.append( folderItem.release() );
-  }, serviceData, baseUrl );
+  },
+                                             serviceData, baseUrl );
 }
 
-void addServiceItems( QVector< QgsDataItem * > &items, const QVariantMap &serviceData, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, QgsDataItem *parent,
-                      const QString &supportedFormats )
+void addServiceItems( QVector<QgsDataItem *> &items, const QVariantMap &serviceData, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix, QgsDataItem *parent, const QString &supportedFormats )
 {
   QgsArcGisRestQueryUtils::visitServiceItems(
-    [&items, parent, authcfg, headers, supportedFormats]( const QString & name, const QString & url, Qgis::ArcGisRestServiceType serviceType )
-  {
-    switch ( serviceType )
-    {
-      case Qgis::ArcGisRestServiceType::MapServer:
-      case Qgis::ArcGisRestServiceType::ImageServer:
+    [&items, parent, authcfg, headers, urlPrefix, supportedFormats]( const QString &name, const QString &url, Qgis::ArcGisRestServiceType serviceType ) {
+      switch ( serviceType )
       {
-        std::unique_ptr< QgsArcGisMapServiceItem > serviceItem = std::make_unique< QgsArcGisMapServiceItem >( parent, name, url, url, authcfg, headers, serviceType );
-        items.append( serviceItem.release() );
-        break;
-      }
+        case Qgis::ArcGisRestServiceType::MapServer:
+        case Qgis::ArcGisRestServiceType::ImageServer:
+        {
+          auto serviceItem = std::make_unique<QgsArcGisMapServiceItem>( parent, name, url, url, authcfg, headers, urlPrefix, serviceType );
+          items.append( serviceItem.release() );
+          break;
+        }
 
-      case Qgis::ArcGisRestServiceType::FeatureServer:
-      {
-        std::unique_ptr< QgsArcGisFeatureServiceItem > serviceItem = std::make_unique< QgsArcGisFeatureServiceItem >( parent, name, url, url, authcfg, headers );
-        serviceItem->setSupportedFormats( supportedFormats );
-        items.append( serviceItem.release() );
-        break;
-      }
+        case Qgis::ArcGisRestServiceType::FeatureServer:
+        {
+          auto serviceItem = std::make_unique<QgsArcGisFeatureServiceItem>( parent, name, url, url, authcfg, headers, urlPrefix );
+          serviceItem->setSupportedFormats( supportedFormats );
+          items.append( serviceItem.release() );
+          break;
+        }
 
-      case Qgis::ArcGisRestServiceType::GlobeServer:
-      case Qgis::ArcGisRestServiceType::GPServer:
-      case Qgis::ArcGisRestServiceType::GeocodeServer:
-      case Qgis::ArcGisRestServiceType::Unknown:
-        break; // unsupported
-    }
-  }, serviceData, baseUrl );
+        case Qgis::ArcGisRestServiceType::GlobeServer:
+        case Qgis::ArcGisRestServiceType::GPServer:
+        case Qgis::ArcGisRestServiceType::GeocodeServer:
+        case Qgis::ArcGisRestServiceType::Unknown:
+          break; // unsupported
+      }
+    },
+    serviceData, baseUrl
+  );
 }
 
-void addLayerItems( QVector< QgsDataItem * > &items, const QVariantMap &serviceData, const QString &parentUrl, const QString &authcfg, const QgsHttpHeaders &headers, QgsDataItem *parent, QgsArcGisRestQueryUtils::ServiceTypeFilter serviceTypeFilter,
-                    const QString &supportedFormats )
+void addLayerItems( QVector<QgsDataItem *> &items, const QVariantMap &serviceData, const QString &parentUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString urlPrefix, QgsDataItem *parent, QgsArcGisRestQueryUtils::ServiceTypeFilter serviceTypeFilter, const QString &supportedFormats )
 {
-  QMultiMap< QString, QgsDataItem * > layerItems;
-  QMap< QString, QString > parents;
+  QMultiMap<QString, QgsDataItem *> layerItems;
+  QMap<QString, QString> parents;
 
-  QgsArcGisRestQueryUtils::addLayerItems( [parent, &layerItems, &parents, authcfg, headers, serviceTypeFilter, supportedFormats]( const QString & parentLayerId, QgsArcGisRestQueryUtils::ServiceTypeFilter serviceType, QgsWkbTypes::GeometryType geometryType, const QString & id, const QString & name, const QString & description, const QString & url, bool isParent, const QString & authid, const QString & format )
-  {
+  QgsArcGisRestQueryUtils::addLayerItems( [parent, &layerItems, &parents, authcfg, headers, urlPrefix, serviceTypeFilter, supportedFormats]( const QString &parentLayerId, QgsArcGisRestQueryUtils::ServiceTypeFilter serviceType, Qgis::GeometryType geometryType, const QString &id, const QString &name, const QString &description, const QString &url, bool isParent, const QgsCoordinateReferenceSystem &crs, const QString &format ) {
     Q_UNUSED( description )
 
     if ( !parentLayerId.isEmpty() )
@@ -133,24 +131,25 @@ void addLayerItems( QVector< QgsDataItem * > &items, const QVariantMap &serviceD
     {
       if ( !layerItems.value( id ) )
       {
-        std::unique_ptr< QgsArcGisRestParentLayerItem > layerItem = std::make_unique< QgsArcGisRestParentLayerItem >( parent, name, url, authcfg, headers );
+        auto layerItem = std::make_unique<QgsArcGisRestParentLayerItem>( parent, name, url, authcfg, headers, urlPrefix );
         layerItems.insert( id, layerItem.release() );
       }
     }
     else
     {
-      std::unique_ptr< QgsDataItem > layerItem;
+      std::unique_ptr<QgsDataItem> layerItem;
       switch ( serviceTypeFilter == QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes ? serviceType : serviceTypeFilter )
       {
         case QgsArcGisRestQueryUtils::ServiceTypeFilter::Vector:
-          layerItem = std::make_unique< QgsArcGisFeatureServiceLayerItem >( parent, name, url, name, authid, authcfg, headers, geometryType == QgsWkbTypes::PolygonGeometry ? Qgis::BrowserLayerType::Polygon :
-                      geometryType == QgsWkbTypes::LineGeometry ? Qgis::BrowserLayerType::Line
-                      : geometryType == QgsWkbTypes::PointGeometry ? Qgis::BrowserLayerType::Point : Qgis::BrowserLayerType::Vector );
+          layerItem = std::make_unique<QgsArcGisFeatureServiceLayerItem>( parent, url, name, crs, authcfg, headers, urlPrefix, geometryType == Qgis::GeometryType::Polygon ? Qgis::BrowserLayerType::Polygon : geometryType == Qgis::GeometryType::Line  ? Qgis::BrowserLayerType::Line
+                                                                                                                                                                                                             : geometryType == Qgis::GeometryType::Point ? Qgis::BrowserLayerType::Point
+                                                                                                                                                                                                             : geometryType == Qgis::GeometryType::Null  ? Qgis::BrowserLayerType::TableLayer
+                                                                                                                                                                                                                                                         : Qgis::BrowserLayerType::Vector );
           break;
 
         case QgsArcGisRestQueryUtils::ServiceTypeFilter::Raster:
-          layerItem = std::make_unique< QgsArcGisMapServiceLayerItem >( parent, name, url, id, name, authid, format, authcfg, headers );
-          static_cast< QgsArcGisMapServiceLayerItem * >( layerItem.get() )->setSupportedFormats( supportedFormats );
+          layerItem = std::make_unique<QgsArcGisMapServiceLayerItem>( parent, url, id, name, crs, format, authcfg, headers, urlPrefix );
+          static_cast<QgsArcGisMapServiceLayerItem *>( layerItem.get() )->setSupportedFormats( supportedFormats );
           break;
 
         case QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes:
@@ -159,8 +158,8 @@ void addLayerItems( QVector< QgsDataItem * > &items, const QVariantMap &serviceD
       if ( layerItem )
         layerItems.insert( id, layerItem.release() );
     }
-
-  }, serviceData, parentUrl, supportedFormats, serviceTypeFilter );
+  },
+                                          serviceData, parentUrl, supportedFormats, serviceTypeFilter );
 
   // create groups
   for ( auto it = layerItems.constBegin(); it != layerItems.constEnd(); ++it )
@@ -196,33 +195,34 @@ QVector<QgsDataItem *> QgsArcGisRestConnectionItem::createChildren()
   const QString url = QgsArcGisConnectionSettings::settingsUrl->value( mConnName );
   const QString authcfg = QgsArcGisConnectionSettings::settingsAuthcfg->value( mConnName );
 
-  QgsHttpHeaders headers( QgsArcGisConnectionSettings::settingsHeaders->value() );
+  QgsHttpHeaders headers( QgsArcGisConnectionSettings::settingsHeaders->value( mConnName ) );
+  const QString urlPrefix = QgsArcGisConnectionSettings::settingsUrlPrefix->value( mConnName );
 
   QVector<QgsDataItem *> items;
   if ( !mPortalCommunityEndpoint.isEmpty() && !mPortalContentEndpoint.isEmpty() )
   {
-    items << new QgsArcGisPortalGroupsItem( this, QStringLiteral( "groups" ), authcfg, headers, mPortalCommunityEndpoint, mPortalContentEndpoint );
-    items << new QgsArcGisRestServicesItem( this, url, QStringLiteral( "services" ), authcfg, headers );
+    items << new QgsArcGisPortalGroupsItem( this, QStringLiteral( "groups" ), authcfg, headers, urlPrefix, mPortalCommunityEndpoint, mPortalContentEndpoint );
+    items << new QgsArcGisRestServicesItem( this, url, QStringLiteral( "services" ), authcfg, headers, urlPrefix );
   }
   else
   {
     QString errorTitle, errorMessage;
-    const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, authcfg, errorTitle, errorMessage, headers );
+    const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, authcfg, errorTitle, errorMessage, headers, urlPrefix );
     if ( serviceData.isEmpty() )
     {
       if ( !errorMessage.isEmpty() )
       {
-        std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+        auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
         error->setToolTip( errorMessage );
         items.append( error.release() );
-        QgsDebugMsg( "Connection failed - " + errorMessage );
+        QgsDebugError( "Connection failed - " + errorMessage );
       }
       return items;
     }
 
-    addFolderItems( items, serviceData, url, authcfg, headers, this, QString() );
-    addServiceItems( items, serviceData, url, authcfg, headers, this, QString() );
-    addLayerItems( items, serviceData, url, authcfg, headers, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, QString() );
+    addFolderItems( items, serviceData, url, authcfg, headers, urlPrefix, this, QString() );
+    addServiceItems( items, serviceData, url, authcfg, headers, urlPrefix, this, QString() );
+    addLayerItems( items, serviceData, url, authcfg, headers, urlPrefix, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, QString() );
   }
 
   return items;
@@ -244,10 +244,11 @@ QString QgsArcGisRestConnectionItem::url() const
 // QgsArcGisPortalGroupsItem
 //
 
-QgsArcGisPortalGroupsItem::QgsArcGisPortalGroupsItem( QgsDataItem *parent, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers, const QString &communityEndpoint, const QString &contentEndpoint )
+QgsArcGisPortalGroupsItem::QgsArcGisPortalGroupsItem( QgsDataItem *parent, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix, const QString &communityEndpoint, const QString &contentEndpoint )
   : QgsDataCollectionItem( parent, tr( "Groups" ), path, QStringLiteral( "AFS" ) )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
   , mPortalCommunityEndpoint( communityEndpoint )
   , mPortalContentEndpoint( contentEndpoint )
 {
@@ -268,10 +269,10 @@ QVector<QgsDataItem *> QgsArcGisPortalGroupsItem::createChildren()
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
@@ -279,9 +280,7 @@ QVector<QgsDataItem *> QgsArcGisPortalGroupsItem::createChildren()
   for ( const QVariant &group : groups )
   {
     const QVariantMap groupData = group.toMap();
-    items << new QgsArcGisPortalGroupItem( this, groupData.value( QStringLiteral( "id" ) ).toString(),
-                                           groupData.value( QStringLiteral( "title" ) ).toString(),
-                                           mAuthCfg, mHeaders, mPortalCommunityEndpoint, mPortalContentEndpoint );
+    items << new QgsArcGisPortalGroupItem( this, groupData.value( QStringLiteral( "id" ) ).toString(), groupData.value( QStringLiteral( "title" ) ).toString(), mAuthCfg, mHeaders, mUrlPrefix, mPortalCommunityEndpoint, mPortalContentEndpoint );
     items.last()->setToolTip( groupData.value( QStringLiteral( "snippet" ) ).toString() );
   }
 
@@ -298,11 +297,12 @@ bool QgsArcGisPortalGroupsItem::equal( const QgsDataItem *other )
 //
 // QgsArcGisPortalGroupItem
 //
-QgsArcGisPortalGroupItem::QgsArcGisPortalGroupItem( QgsDataItem *parent, const QString &groupId, const QString &name, const QString &authcfg, const QgsHttpHeaders &headers, const QString &communityEndpoint, const QString &contentEndpoint )
+QgsArcGisPortalGroupItem::QgsArcGisPortalGroupItem( QgsDataItem *parent, const QString &groupId, const QString &name, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix, const QString &communityEndpoint, const QString &contentEndpoint )
   : QgsDataCollectionItem( parent, name, groupId, QStringLiteral( "AFS" ) )
   , mId( groupId )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
   , mPortalCommunityEndpoint( communityEndpoint )
   , mPortalContentEndpoint( contentEndpoint )
 {
@@ -317,18 +317,15 @@ QVector<QgsDataItem *> QgsArcGisPortalGroupItem::createChildren()
 
   QString errorTitle;
   QString errorMessage;
-  const QVariantList groupItems = QgsArcGisPortalUtils::retrieveGroupItemsOfType( mPortalContentEndpoint, mId, mAuthCfg, QList<int >() << static_cast< int >( Qgis::ArcGisRestServiceType::FeatureServer )
-                                  << static_cast< int >( Qgis::ArcGisRestServiceType::MapServer )
-                                  << static_cast< int >( Qgis::ArcGisRestServiceType::ImageServer ),
-                                  errorTitle, errorMessage, mHeaders );
+  const QVariantList groupItems = QgsArcGisPortalUtils::retrieveGroupItemsOfType( mPortalContentEndpoint, mId, mAuthCfg, QList<int>() << static_cast<int>( Qgis::ArcGisRestServiceType::FeatureServer ) << static_cast<int>( Qgis::ArcGisRestServiceType::MapServer ) << static_cast<int>( Qgis::ArcGisRestServiceType::ImageServer ), errorTitle, errorMessage, mHeaders );
   if ( groupItems.isEmpty() )
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
@@ -339,15 +336,11 @@ QVector<QgsDataItem *> QgsArcGisPortalGroupItem::createChildren()
 
     if ( itemData.value( QStringLiteral( "type" ) ).toString().compare( QStringLiteral( "Feature Service" ), Qt::CaseInsensitive ) == 0 )
     {
-      items << new QgsArcGisFeatureServiceItem( this, itemData.value( QStringLiteral( "title" ) ).toString(),
-            itemData.value( QStringLiteral( "url" ) ).toString(),
-            itemData.value( QStringLiteral( "url" ) ).toString(), mAuthCfg, mHeaders );
+      items << new QgsArcGisFeatureServiceItem( this, itemData.value( QStringLiteral( "title" ) ).toString(), itemData.value( QStringLiteral( "url" ) ).toString(), itemData.value( QStringLiteral( "url" ) ).toString(), mAuthCfg, mHeaders, mUrlPrefix );
     }
     else
     {
-      items << new QgsArcGisMapServiceItem( this, itemData.value( QStringLiteral( "title" ) ).toString(),
-                                            itemData.value( QStringLiteral( "url" ) ).toString(),
-                                            itemData.value( QStringLiteral( "url" ) ).toString(), mAuthCfg, mHeaders, itemData.value( QStringLiteral( "type" ) ).toString().compare( QStringLiteral( "Map Service" ), Qt::CaseInsensitive ) == 0 ? Qgis::ArcGisRestServiceType::MapServer : Qgis::ArcGisRestServiceType::ImageServer );
+      items << new QgsArcGisMapServiceItem( this, itemData.value( QStringLiteral( "title" ) ).toString(), itemData.value( QStringLiteral( "url" ) ).toString(), itemData.value( QStringLiteral( "url" ) ).toString(), mAuthCfg, mHeaders, mUrlPrefix, itemData.value( QStringLiteral( "type" ) ).toString().compare( QStringLiteral( "Map Service" ), Qt::CaseInsensitive ) == 0 ? Qgis::ArcGisRestServiceType::MapServer : Qgis::ArcGisRestServiceType::ImageServer );
     }
   }
 
@@ -365,11 +358,12 @@ bool QgsArcGisPortalGroupItem::equal( const QgsDataItem *other )
 // QgsArcGisRestServicesItem
 //
 
-QgsArcGisRestServicesItem::QgsArcGisRestServicesItem( QgsDataItem *parent, const QString &url, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers )
+QgsArcGisRestServicesItem::QgsArcGisRestServicesItem( QgsDataItem *parent, const QString &url, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers, const QString urlPrefix )
   : QgsDataCollectionItem( parent, tr( "Services" ), path, QStringLiteral( "AFS" ) )
   , mUrl( url )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
 {
   mIconName = QStringLiteral( "mIconDbSchema.svg" );
   mCapabilities |= Qgis::BrowserItemCapability::Collapse;
@@ -379,22 +373,22 @@ QVector<QgsDataItem *> QgsArcGisRestServicesItem::createChildren()
 {
   QVector<QgsDataItem *> items;
   QString errorTitle, errorMessage;
-  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( mUrl, mAuthCfg, errorTitle, errorMessage, mHeaders );
+  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( mUrl, mAuthCfg, errorTitle, errorMessage, mHeaders, mUrlPrefix );
   if ( serviceData.isEmpty() )
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
 
-  addFolderItems( items, serviceData, mUrl, mAuthCfg, mHeaders, this, QString() );
-  addServiceItems( items, serviceData, mUrl, mAuthCfg, mHeaders, this, QString() );
-  addLayerItems( items, serviceData, mUrl, mAuthCfg, mHeaders, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, QString() );
+  addFolderItems( items, serviceData, mUrl, mAuthCfg, mHeaders, mUrlPrefix, this, QString() );
+  addServiceItems( items, serviceData, mUrl, mAuthCfg, mHeaders, mUrlPrefix, this, QString() );
+  addLayerItems( items, serviceData, mUrl, mAuthCfg, mHeaders, mUrlPrefix, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, QString() );
   return items;
 }
 
@@ -405,15 +399,15 @@ bool QgsArcGisRestServicesItem::equal( const QgsDataItem *other )
 }
 
 
-
 //
 // QgsArcGisRestFolderItem
 //
-QgsArcGisRestFolderItem::QgsArcGisRestFolderItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers )
+QgsArcGisRestFolderItem::QgsArcGisRestFolderItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix )
   : QgsDataCollectionItem( parent, name, path, QStringLiteral( "AFS" ) )
   , mBaseUrl( baseUrl )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
 {
   mIconName = QStringLiteral( "mIconDbSchema.svg" );
   mCapabilities |= Qgis::BrowserItemCapability::Collapse;
@@ -437,17 +431,17 @@ QVector<QgsDataItem *> QgsArcGisRestFolderItem::createChildren()
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
 
-  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, mSupportedFormats );
-  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, mSupportedFormats );
-  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::Vector, mSupportedFormats );
+  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, mSupportedFormats );
+  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, mSupportedFormats );
+  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, mUrlPrefix, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::Vector, mSupportedFormats );
   return items;
 }
 
@@ -460,13 +454,14 @@ bool QgsArcGisRestFolderItem::equal( const QgsDataItem *other )
 //
 // QgsArcGisFeatureServiceItem
 //
-QgsArcGisFeatureServiceItem::QgsArcGisFeatureServiceItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers )
+QgsArcGisFeatureServiceItem::QgsArcGisFeatureServiceItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix )
   : QgsDataCollectionItem( parent, name, path, QStringLiteral( "AFS" ) )
   , mBaseUrl( baseUrl )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
 {
-  mIconName = QStringLiteral( "mIconDbSchema.svg" );
+  mIconName = QStringLiteral( "mIconAfs.svg" );
   mCapabilities |= Qgis::BrowserItemCapability::Collapse;
   setToolTip( path );
 }
@@ -482,22 +477,22 @@ QVector<QgsDataItem *> QgsArcGisFeatureServiceItem::createChildren()
 
   QVector<QgsDataItem *> items;
   QString errorTitle, errorMessage;
-  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, mAuthCfg, errorTitle, errorMessage, mHeaders );
+  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, mAuthCfg, errorTitle, errorMessage, mHeaders, mUrlPrefix );
   if ( serviceData.isEmpty() )
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
 
-  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, mSupportedFormats );
-  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, mSupportedFormats );
-  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::Vector, mSupportedFormats );
+  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, mSupportedFormats );
+  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, mSupportedFormats );
+  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, mUrlPrefix, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::Vector, mSupportedFormats );
   return items;
 }
 
@@ -512,14 +507,15 @@ bool QgsArcGisFeatureServiceItem::equal( const QgsDataItem *other )
 // QgsArcGisMapServiceItem
 //
 
-QgsArcGisMapServiceItem::QgsArcGisMapServiceItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, Qgis::ArcGisRestServiceType serviceType )
+QgsArcGisMapServiceItem::QgsArcGisMapServiceItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &baseUrl, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix, Qgis::ArcGisRestServiceType serviceType )
   : QgsDataCollectionItem( parent, name, path, QStringLiteral( "AMS" ) )
   , mBaseUrl( baseUrl )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
   , mServiceType( serviceType )
 {
-  mIconName = QStringLiteral( "mIconDbSchema.svg" );
+  mIconName = QStringLiteral( "mIconAms.svg" );
   mCapabilities |= Qgis::BrowserItemCapability::Collapse;
   setToolTip( path );
 }
@@ -530,26 +526,25 @@ QVector<QgsDataItem *> QgsArcGisMapServiceItem::createChildren()
 
   QVector<QgsDataItem *> items;
   QString errorTitle, errorMessage;
-  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, mAuthCfg, errorTitle, errorMessage, mHeaders );
+  const QVariantMap serviceData = QgsArcGisRestQueryUtils::getServiceInfo( url, mAuthCfg, errorTitle, errorMessage, mHeaders, mUrlPrefix );
   if ( serviceData.isEmpty() )
   {
     if ( !errorMessage.isEmpty() )
     {
-      std::unique_ptr< QgsErrorItem > error = std::make_unique< QgsErrorItem >( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
+      auto error = std::make_unique<QgsErrorItem>( this, tr( "Connection failed: %1" ).arg( errorTitle ), mPath + "/error" );
       error->setToolTip( errorMessage );
       items.append( error.release() );
-      QgsDebugMsg( "Connection failed - " + errorMessage );
+      QgsDebugError( "Connection failed - " + errorMessage );
     }
     return items;
   }
 
-  const QString supportedFormats = mServiceType == Qgis::ArcGisRestServiceType::ImageServer ?
-                                   QStringLiteral( "JPGPNG,PNG,PNG8,PNG24,JPG,BMP,GIF,TIFF,PNG32,BIP,BSQ,LERC" ) // ImageServer supported formats
-                                   : serviceData.value( QStringLiteral( "supportedImageFormatTypes" ) ).toString();
+  const QString supportedFormats = mServiceType == Qgis::ArcGisRestServiceType::ImageServer ? QStringLiteral( "JPGPNG,PNG,PNG8,PNG24,JPG,BMP,GIF,TIFF,PNG32,BIP,BSQ,LERC" ) // ImageServer supported formats
+                                                                                            : serviceData.value( QStringLiteral( "supportedImageFormatTypes" ) ).toString();
 
-  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, supportedFormats );
-  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, this, supportedFormats );
-  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, supportedFormats );
+  addFolderItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, supportedFormats );
+  addServiceItems( items, serviceData, mBaseUrl, mAuthCfg, mHeaders, mUrlPrefix, this, supportedFormats );
+  addLayerItems( items, serviceData, mPath, mAuthCfg, mHeaders, mUrlPrefix, this, QgsArcGisRestQueryUtils::ServiceTypeFilter::AllTypes, supportedFormats );
   return items;
 }
 
@@ -559,17 +554,35 @@ bool QgsArcGisMapServiceItem::equal( const QgsDataItem *other )
   return ( type() == other->type() && o && mPath == o->mPath && mName == o->mName );
 }
 
+//
+// QgsArcGisRestLayerItem
+//
+
+QgsArcGisRestLayerItem::QgsArcGisRestLayerItem( QgsDataItem *parent, const QString &url, const QString &title, const QgsCoordinateReferenceSystem &crs, Qgis::BrowserLayerType layerType, const QString &providerId )
+  : QgsLayerItem( parent, title, url, QString(), layerType, providerId )
+  , mCrs( crs )
+{
+}
+
+QgsCoordinateReferenceSystem QgsArcGisRestLayerItem::crs() const
+{
+  return mCrs;
+}
+
 
 //
 // QgsArcGisFeatureServiceLayerItem
 //
 
-QgsArcGisFeatureServiceLayerItem::QgsArcGisFeatureServiceLayerItem( QgsDataItem *parent, const QString &, const QString &url, const QString &title, const QString &authid, const QString &authcfg, const QgsHttpHeaders &headers, Qgis::BrowserLayerType geometryType )
-  : QgsLayerItem( parent, title, url, QString(), geometryType, QStringLiteral( "arcgisfeatureserver" ) )
+QgsArcGisFeatureServiceLayerItem::QgsArcGisFeatureServiceLayerItem( QgsDataItem *parent, const QString &url, const QString &title, const QgsCoordinateReferenceSystem &crs, const QString &authcfg, const QgsHttpHeaders &headers, const QString urlPrefix, Qgis::BrowserLayerType geometryType )
+  : QgsArcGisRestLayerItem( parent, url, title, crs, geometryType, QStringLiteral( "arcgisfeatureserver" ) )
 {
-  mUri = QStringLiteral( "crs='%1' url='%2'" ).arg( authid, url );
+  mUri = QStringLiteral( "url='%1'" ).arg( url );
   if ( !authcfg.isEmpty() )
     mUri += QStringLiteral( " authcfg='%1'" ).arg( authcfg );
+
+  if ( !urlPrefix.isEmpty() )
+    mUri += QStringLiteral( " urlprefix='%1'" ).arg( urlPrefix );
 
   mUri += headers.toSpacedString();
 
@@ -581,13 +594,16 @@ QgsArcGisFeatureServiceLayerItem::QgsArcGisFeatureServiceLayerItem( QgsDataItem 
 // QgsArcGisMapServiceLayerItem
 //
 
-QgsArcGisMapServiceLayerItem::QgsArcGisMapServiceLayerItem( QgsDataItem *parent, const QString &, const QString &url, const QString &id, const QString &title, const QString &authid, const QString &format, const QString &authcfg, const QgsHttpHeaders &headers )
-  : QgsLayerItem( parent, title, url, QString(), Qgis::BrowserLayerType::Raster, QStringLiteral( "arcgismapserver" ) )
+QgsArcGisMapServiceLayerItem::QgsArcGisMapServiceLayerItem( QgsDataItem *parent, const QString &url, const QString &id, const QString &title, const QgsCoordinateReferenceSystem &crs, const QString &format, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix )
+  : QgsArcGisRestLayerItem( parent, url, title, crs, Qgis::BrowserLayerType::Raster, QStringLiteral( "arcgismapserver" ) )
 {
   const QString trimmedUrl = id.isEmpty() ? url : url.left( url.length() - 1 - id.length() ); // trim '/0' from end of url -- AMS provider requires this omitted
-  mUri = QStringLiteral( "crs='%1' format='%2' layer='%3' url='%4'" ).arg( authid, format, id, trimmedUrl );
+  mUri = QStringLiteral( "format='%1' layer='%2' url='%3'" ).arg( format, id, trimmedUrl );
   if ( !authcfg.isEmpty() )
     mUri += QStringLiteral( " authcfg='%1'" ).arg( authcfg );
+
+  if ( !urlPrefix.isEmpty() )
+    mUri += QStringLiteral( " urlprefix='%1'" ).arg( urlPrefix );
 
   mUri += headers.toSpacedString();
 
@@ -599,10 +615,11 @@ QgsArcGisMapServiceLayerItem::QgsArcGisMapServiceLayerItem( QgsDataItem *parent,
 // QgsArcGisRestParentLayerItem
 //
 
-QgsArcGisRestParentLayerItem::QgsArcGisRestParentLayerItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers )
+QgsArcGisRestParentLayerItem::QgsArcGisRestParentLayerItem( QgsDataItem *parent, const QString &name, const QString &path, const QString &authcfg, const QgsHttpHeaders &headers, const QString &urlPrefix )
   : QgsDataItem( Qgis::BrowserItemType::Collection, parent, name, path )
   , mAuthCfg( authcfg )
   , mHeaders( headers )
+  , mUrlPrefix( urlPrefix )
 {
   mCapabilities |= Qgis::BrowserItemCapability::Fast;
   mIconName = QStringLiteral( "mIconDbSchema.svg" );
@@ -629,9 +646,9 @@ QString QgsArcGisRestDataItemProvider::name()
   return QStringLiteral( "AFS" );
 }
 
-int QgsArcGisRestDataItemProvider::capabilities() const
+Qgis::DataItemProviderCapabilities QgsArcGisRestDataItemProvider::capabilities() const
 {
-  return QgsDataProvider::Net;
+  return Qgis::DataItemProviderCapability::NetworkSources;
 }
 
 QgsDataItem *QgsArcGisRestDataItemProvider::createDataItem( const QString &path, QgsDataItem *parentItem )
@@ -653,4 +670,3 @@ QgsDataItem *QgsArcGisRestDataItemProvider::createDataItem( const QString &path,
 
   return nullptr;
 }
-

@@ -16,10 +16,10 @@
  ***************************************************************************/
 
 #include "qgsvectorfieldsymbollayer.h"
-#include "qgsvectorlayer.h"
 #include "qgsunittypes.h"
 #include "qgssymbollayerutils.h"
 #include "qgslinesymbol.h"
+#include "qgssldexportcontext.h"
 
 QgsVectorFieldSymbolLayer::QgsVectorFieldSymbolLayer()
 {
@@ -28,7 +28,7 @@ QgsVectorFieldSymbolLayer::QgsVectorFieldSymbolLayer()
 
 QgsVectorFieldSymbolLayer::~QgsVectorFieldSymbolLayer() = default;
 
-void QgsVectorFieldSymbolLayer::setOutputUnit( QgsUnitTypes::RenderUnit unit )
+void QgsVectorFieldSymbolLayer::setOutputUnit( Qgis::RenderUnit unit )
 {
   QgsMarkerSymbolLayer::setOutputUnit( unit );
   mDistanceUnit = unit;
@@ -36,13 +36,13 @@ void QgsVectorFieldSymbolLayer::setOutputUnit( QgsUnitTypes::RenderUnit unit )
     mLineSymbol->setOutputUnit( unit );
 }
 
-QgsUnitTypes::RenderUnit QgsVectorFieldSymbolLayer::outputUnit() const
+Qgis::RenderUnit QgsVectorFieldSymbolLayer::outputUnit() const
 {
   if ( QgsMarkerSymbolLayer::outputUnit() == mDistanceUnit )
   {
     return mDistanceUnit;
   }
-  return QgsUnitTypes::RenderUnknownUnit;
+  return Qgis::RenderUnit::Unknown;
 }
 
 void QgsVectorFieldSymbolLayer::setMapUnitScale( const QgsMapUnitScale &scale )
@@ -224,6 +224,7 @@ void QgsVectorFieldSymbolLayer::startRender( QgsSymbolRenderContext &context )
 {
   if ( mLineSymbol )
   {
+    mLineSymbol->setRenderHints( mLineSymbol->renderHints() | Qgis::SymbolRenderHint::IsSymbolLayerSubSymbol );
     mLineSymbol->startRender( context.renderContext(), context.fields() );
   }
 
@@ -280,15 +281,23 @@ QVariantMap QgsVectorFieldSymbolLayer::properties() const
 
 bool QgsVectorFieldSymbolLayer::usesMapUnits() const
 {
-  return mDistanceUnit == QgsUnitTypes::RenderMapUnits || mDistanceUnit == QgsUnitTypes::RenderMetersInMapUnits
-         || mOffsetUnit == QgsUnitTypes::RenderMapUnits || mOffsetUnit == QgsUnitTypes::RenderMetersInMapUnits
-         || mSizeUnit == QgsUnitTypes::RenderMapUnits || mSizeUnit == QgsUnitTypes::RenderMetersInMapUnits;
+  return mDistanceUnit == Qgis::RenderUnit::MapUnits || mDistanceUnit == Qgis::RenderUnit::MetersInMapUnits
+         || mOffsetUnit == Qgis::RenderUnit::MapUnits || mOffsetUnit == Qgis::RenderUnit::MetersInMapUnits
+         || mSizeUnit == Qgis::RenderUnit::MapUnits || mSizeUnit == Qgis::RenderUnit::MetersInMapUnits;
 }
 
 void QgsVectorFieldSymbolLayer::toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const
 {
-  element.appendChild( doc.createComment( QStringLiteral( "VectorField not implemented yet..." ) ) );
-  mLineSymbol->toSld( doc, element, props );
+  QgsSldExportContext context;
+  context.setExtraProperties( props );
+  toSld( doc, element, context );
+}
+
+bool QgsVectorFieldSymbolLayer::toSld( QDomDocument &doc, QDomElement &element, QgsSldExportContext &context ) const
+{
+  context.pushError( QObject::tr( "Vector field symbol layers cannot be converted to SLD" ) );
+  mLineSymbol->toSld( doc, element, context );
+  return false;
 }
 
 QgsSymbolLayer *QgsVectorFieldSymbolLayer::createFromSld( QDomElement &element )

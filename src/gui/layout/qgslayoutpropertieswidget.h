@@ -34,7 +34,7 @@ class QgsMasterLayoutInterface;
  * \note This class is not a part of public API
  * \since QGIS 3.12
  */
-class GUI_EXPORT QgsLayoutPropertiesWidget: public QgsPanelWidget, private Ui::QgsLayoutWidgetBase
+class GUI_EXPORT QgsLayoutPropertiesWidget : public QgsPanelWidget, private Ui::QgsLayoutWidgetBase
 {
     Q_OBJECT
   public:
@@ -52,10 +52,10 @@ class GUI_EXPORT QgsLayoutPropertiesWidget: public QgsPanelWidget, private Ui::Q
   private slots:
 
     void gridResolutionChanged( double d );
-    void gridResolutionUnitsChanged( QgsUnitTypes::LayoutUnit unit );
+    void gridResolutionUnitsChanged( Qgis::LayoutUnit unit );
     void gridOffsetXChanged( double d );
     void gridOffsetYChanged( double d );
-    void gridOffsetUnitsChanged( QgsUnitTypes::LayoutUnit unit );
+    void gridOffsetUnitsChanged( Qgis::LayoutUnit unit );
     void snapToleranceChanged( int tolerance );
     void resizeMarginsChanged();
     void resizeToContents();
@@ -68,13 +68,11 @@ class GUI_EXPORT QgsLayoutPropertiesWidget: public QgsPanelWidget, private Ui::Q
     void updateVariables();
 
   private:
-
     QgsLayout *mLayout = nullptr;
 
     void updateSnappingElements();
     void blockSignals( bool block );
     bool mBlockVariableUpdates = false;
-
 };
 
 #endif // QGSLAYOUTPROPERTIESWIDGET_H

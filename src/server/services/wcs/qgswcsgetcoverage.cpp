@@ -37,8 +37,7 @@ namespace QgsWcs
   /**
    * Output WCS DescribeCoverage response
    */
-  void writeGetCoverage( QgsServerInterface *serverIface, const QgsProject *project, const QString &version,
-                         const QgsServerRequest &request, QgsServerResponse &response )
+  void writeGetCoverage( QgsServerInterface *serverIface, const QgsProject *project, const QString &version, const QgsServerRequest &request, QgsServerResponse &response )
   {
     Q_UNUSED( version )
 
@@ -53,7 +52,7 @@ namespace QgsWcs
 #ifdef HAVE_SERVER_PYTHON_PLUGINS
     QgsAccessControl *accessControl = serverIface->accessControls();
 #else
-    ( void )serverIface;
+    ( void ) serverIface;
 #endif
     //defining coverage name
     QString coveName;
@@ -88,7 +87,7 @@ namespace QgsWcs
       {
         continue;
       }
-      if ( layer->type() != QgsMapLayerType::RasterLayer )
+      if ( layer->type() != Qgis::LayerType::Raster )
       {
         continue;
       }
@@ -99,8 +98,8 @@ namespace QgsWcs
       }
 #endif
       QString name = layer->name();
-      if ( !layer->shortName().isEmpty() )
-        name = layer->shortName();
+      if ( !layer->serverProperties()->shortName().isEmpty() )
+        name = layer->serverProperties()->shortName();
       name = name.replace( QLatin1String( " " ), QLatin1String( "_" ) );
 
       if ( name == coveName )
@@ -208,15 +207,12 @@ namespace QgsWcs
       }
     }
 
-    const QgsRasterFileWriter::WriterError err = fileWriter.writeRaster( &pipe, width, height, rect, responseCRS, rLayer->transformContext() );
-    if ( err != QgsRasterFileWriter::NoError )
+    const Qgis::RasterFileWriterResult err = fileWriter.writeRaster( &pipe, width, height, rect, responseCRS, rLayer->transformContext() );
+    if ( err != Qgis::RasterFileWriterResult::Success )
     {
-      throw QgsRequestNotWellFormedException( QStringLiteral( "Cannot write raster error code: %1" ).arg( err ) );
+      throw QgsRequestNotWellFormedException( QStringLiteral( "Cannot write raster error code: %1" ).arg( qgsEnumValueToKey( err ) ) );
     }
     return tempFile.readAll();
   }
 
 } // namespace QgsWcs
-
-
-

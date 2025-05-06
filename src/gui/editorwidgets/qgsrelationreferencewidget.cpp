@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsrelationreferencewidget.h"
+#include "moc_qgsrelationreferencewidget.cpp"
 
 #include <QPushButton>
 #include <QDialog>
@@ -22,27 +23,20 @@
 #include <QCompleter>
 
 #include "qgsattributeform.h"
-#include "qgsattributetablefiltermodel.h"
 #include "qgsattributedialog.h"
 #include "qgsapplication.h"
 #include "qgscollapsiblegroupbox.h"
-#include "qgseditorwidgetfactory.h"
 #include "qgsexpression.h"
-#include "qgsfeaturelistmodel.h"
 #include "qgsfields.h"
 #include "qgsgeometry.h"
 #include "qgshighlight.h"
 #include "qgsmapcanvas.h"
 #include "qgsmessagebar.h"
-#include "qgsrelationreferenceconfigdlg.h"
 #include "qgsvectorlayer.h"
-#include "qgsattributetablemodel.h"
 #include "qgsmaptoolidentifyfeature.h"
 #include "qgsmaptooldigitizefeature.h"
 #include "qgsfeatureiterator.h"
 #include "qgsfeaturelistcombobox.h"
-#include "qgsexpressioncontextutils.h"
-#include "qgsfeaturefiltermodel.h"
 #include "qgsvectorlayerutils.h"
 
 
@@ -194,6 +188,7 @@ void QgsRelationReferenceWidget::setRelation( const QgsRelation &relation, bool 
       mComboBox->setSourceLayer( mReferencedLayer );
       mComboBox->setIdentifierFields( mReferencedFields );
       mComboBox->setFilterExpression( mFilterExpression );
+      mComboBox->setFetchLimit( mFetchLimit );
     }
     mAttributeEditorFrame->setObjectName( QStringLiteral( "referencing/" ) + relation.name() );
 
@@ -298,6 +293,15 @@ void QgsRelationReferenceWidget::deleteForeignKeys()
   emitForeignKeysChanged( foreignKeys() );
 }
 
+bool QgsRelationReferenceWidget::saveReferencedAttributeForm()
+{
+  if ( !mEmbedForm )
+    // if there is no embedded form, everything is fine anyway
+    return true;
+
+  return mReferencedAttributeForm->save();
+}
+
 QgsFeature QgsRelationReferenceWidget::referencedFeature() const
 {
   QgsFeature f;
@@ -319,7 +323,7 @@ QVariant QgsRelationReferenceWidget::foreignKey() const
 {
   QVariantList fkeys;
   if ( fkeys.isEmpty() )
-    return QVariant( QVariant::Int );
+    return QgsVariantUtils::createNullVariant( QMetaType::Type::Int );
   else
     return fkeys.at( 0 );
 }
@@ -370,11 +374,6 @@ void QgsRelationReferenceWidget::setAllowMapIdentification( bool allowMapIdentif
   mHighlightFeatureButton->setVisible( allowMapIdentification );
   mMapIdentificationButton->setVisible( allowMapIdentification );
   mAllowMapIdentification = allowMapIdentification;
-}
-
-void QgsRelationReferenceWidget::setOrderByValue( bool orderByValue )
-{
-  mOrderByValue = orderByValue;
 }
 
 void QgsRelationReferenceWidget::setFilterFields( const QStringList &filterFields )
@@ -431,7 +430,7 @@ void QgsRelationReferenceWidget::init()
         QVariantList uniqueValues = qgis::setToList( mReferencedLayer->uniqueValues( idx ) );
         cb->addItem( mReferencedLayer->attributeDisplayName( idx ) );
         QVariant nullValue = QgsApplication::nullRepresentation();
-        cb->addItem( nullValue.toString(), QVariant( mReferencedLayer->fields().at( idx ).type() ) );
+        cb->addItem( nullValue.toString(), QgsVariantUtils::createNullVariant( mReferencedLayer->fields().at( idx ).type() ) );
 
         std::sort( uniqueValues.begin(), uniqueValues.end(), qgsVariantLessThan );
         const auto constUniqueValues = uniqueValues;
@@ -454,8 +453,8 @@ void QgsRelationReferenceWidget::init()
 
         QgsFeature ft;
         QgsFeatureIterator fit = mFilterExpression.isEmpty()
-                                 ? mReferencedLayer->getFeatures()
-                                 : mReferencedLayer->getFeatures( mFilterExpression );
+                                   ? mReferencedLayer->getFeatures()
+                                   : mReferencedLayer->getFeatures( mFilterExpression );
         while ( fit.nextFeature( ft ) )
         {
           const int count = std::min( mFilterComboBoxes.count(), mFilterFields.count() );
@@ -486,8 +485,9 @@ void QgsRelationReferenceWidget::init()
     mComboBox->setDisplayExpression( mReferencedLayer->displayExpression() );
     mComboBox->setAllowNull( mAllowNull );
     mComboBox->setIdentifierFields( mReferencedFields );
+    mComboBox->setFetchLimit( mFetchLimit );
 
-    if ( ! mFilterExpression.isEmpty() )
+    if ( !mFilterExpression.isEmpty() )
       mComboBox->setFilterExpression( mFilterExpression );
 
     QVariant nullValue = QgsApplication::nullRepresentation();
@@ -504,6 +504,8 @@ void QgsRelationReferenceWidget::init()
 
     // Only connect after iterating, to have only one iterator on the referenced table at once
     connect( mComboBox, &QgsFeatureListComboBox::currentFeatureChanged, this, &QgsRelationReferenceWidget::comboReferenceChanged );
+    // To avoid wrongly signaling a foreign key change, handle model feature found state following feature gathering separately
+    connect( mComboBox, &QgsFeatureListComboBox::currentFeatureFoundChanged, this, &QgsRelationReferenceWidget::comboReferenceFoundChanged );
 
     QApplication::restoreOverrideCursor();
 
@@ -634,6 +636,13 @@ void QgsRelationReferenceWidget::comboReferenceChanged()
   updateAttributeEditorFrame( mFeature );
 
   emitForeignKeysChanged( mComboBox->identifierValues() );
+}
+
+void QgsRelationReferenceWidget::comboReferenceFoundChanged( bool )
+{
+  mReferencedLayer->getFeatures( mComboBox->currentFeatureRequest() ).nextFeature( mFeature );
+  highlightFeature( mFeature );
+  updateAttributeEditorFrame( mFeature );
 }
 
 void QgsRelationReferenceWidget::updateAttributeEditorFrame( const QgsFeature &feature )
@@ -807,7 +816,7 @@ void QgsRelationReferenceWidget::filterChanged()
           QgsAttributeList subset = attrs;
 
           QString expression = filterExpression;
-          if ( ! filterExpression.isEmpty() && ! filtersAttrs.isEmpty() )
+          if ( !expression.isEmpty() && !filtersAttrs.isEmpty() )
             expression += QLatin1String( " AND " );
 
           expression += filtersAttrs.isEmpty() ? QString() : QStringLiteral( " ( " );
@@ -843,7 +852,7 @@ void QgsRelationReferenceWidget::filterChanged()
     }
   }
 
-  if ( ! filterExpression.isEmpty() && ! filters.isEmpty() )
+  if ( !filterExpression.isEmpty() && !filters.isEmpty() )
     filterExpression += QLatin1String( " AND " );
 
   filterExpression += filters.isEmpty() ? QString() : QStringLiteral( " ( " );
@@ -865,7 +874,7 @@ void QgsRelationReferenceWidget::addEntry()
     return;
 
   // no geometry, skip the digitizing
-  if ( mReferencedLayer->geometryType() == QgsWkbTypes::UnknownGeometry || mReferencedLayer->geometryType() == QgsWkbTypes::NullGeometry )
+  if ( mReferencedLayer->geometryType() == Qgis::GeometryType::Unknown || mReferencedLayer->geometryType() == Qgis::GeometryType::Null )
   {
     QgsFeature f( mReferencedLayer->fields() );
     entryAdded( f );
@@ -882,13 +891,12 @@ void QgsRelationReferenceWidget::addEntry()
   {
     QString title = tr( "Relation %1 for %2." ).arg( mRelation.name(), mReferencingLayer->name() );
 
-    QString displayString = QgsVectorLayerUtils::getFeatureDisplayString( mReferencingLayer, mFormFeature );
+    QString displayString = QgsVectorLayerUtils::getFeatureDisplayString( mReferencingLayer, mComboBox->formFeature() );
     QString msg = tr( "Link feature to %1 \"%2\" : Digitize the geometry for the new feature on layer %3. Press &lt;ESC&gt; to cancel." )
-                  .arg( mReferencingLayer->name(), displayString, mReferencedLayer->name() );
+                    .arg( mReferencingLayer->name(), displayString, mReferencedLayer->name() );
     mMessageBarItem = QgsMessageBar::createMessage( title, msg, this );
     mMessageBar->pushItem( mMessageBarItem );
   }
-
 }
 
 void QgsRelationReferenceWidget::entryAdded( const QgsFeature &feat )
@@ -1008,5 +1016,10 @@ void QgsRelationReferenceWidget::setReferencedLayerDataSource( const QString &re
 
 void QgsRelationReferenceWidget::setFormFeature( const QgsFeature &formFeature )
 {
-  mFormFeature = formFeature;
+  mComboBox->setFormFeature( formFeature );
+}
+
+void QgsRelationReferenceWidget::setParentFormFeature( const QgsFeature &parentFormFeature )
+{
+  mComboBox->setParentFormFeature( parentFormFeature );
 }

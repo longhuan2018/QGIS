@@ -223,7 +223,7 @@ class CORE_EXPORT QgsExpressionNodeBinaryOperator : public QgsExpressionNode
 };
 
 /**
- * \brief A indexing expression operator, which allows use of square brackets [] to reference map and array items.
+ * \brief An indexing expression operator, which allows use of square brackets [] to reference map and array items.
  * \ingroup core
  * \since QGIS 3.6
  */
@@ -506,7 +506,7 @@ class CORE_EXPORT QgsExpressionNodeLiteral : public QgsExpressionNode
 };
 
 /**
- * \brief An expression node which takes it value from a feature's field.
+ * \brief An expression node which takes its value from a feature's field.
  * \ingroup core
  */
 class CORE_EXPORT QgsExpressionNodeColumnRef : public QgsExpressionNode
@@ -575,9 +575,7 @@ class CORE_EXPORT QgsExpressionNodeCondition : public QgsExpressionNode
         WhenThen( QgsExpressionNode *whenExp, QgsExpressionNode *thenExp );
         ~WhenThen();
 
-        //! WhenThen nodes cannot be copied.
         WhenThen( const WhenThen &rh ) = delete;
-        //! WhenThen nodes cannot be copied.
         WhenThen &operator=( const WhenThen &rh ) = delete;
 
         /**

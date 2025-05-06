@@ -14,11 +14,13 @@
  ***************************************************************************/
 
 #include "qgslayertreegroup.h"
+#include "moc_qgslayertreegroup.cpp"
 
 #include "qgslayertree.h"
 #include "qgslayertreeutils.h"
 #include "qgsmaplayer.h"
 #include "qgsgrouplayer.h"
+#include "qgspainting.h"
 
 #include <QDomElement>
 #include <QStringList>
@@ -27,6 +29,7 @@
 QgsLayerTreeGroup::QgsLayerTreeGroup( const QString &name, bool checked )
   : QgsLayerTreeNode( NodeGroup, checked )
   , mName( name )
+  , mServerProperties( std::make_unique<QgsMapLayerServerProperties>() )
 {
   init();
 }
@@ -38,7 +41,10 @@ QgsLayerTreeGroup::QgsLayerTreeGroup( const QgsLayerTreeGroup &other )
   , mMutuallyExclusive( other.mMutuallyExclusive )
   , mMutuallyExclusiveChildIndex( other.mMutuallyExclusiveChildIndex )
   , mGroupLayer( other.mGroupLayer )
+  , mServerProperties( std::make_unique<QgsMapLayerServerProperties>() )
 {
+  other.serverProperties()->copyTo( mServerProperties.get() );
+
   init();
 }
 
@@ -344,7 +350,7 @@ QList<QgsLayerTreeGroup *> QgsLayerTreeGroup::findGroups( bool recursive ) const
   return list;
 }
 
-QgsLayerTreeGroup *QgsLayerTreeGroup::readXml( QDomElement &element, const QgsReadWriteContext &context )
+QgsLayerTreeGroup *QgsLayerTreeGroup::readXml( const QDomElement &element, const QgsReadWriteContext &context ) // cppcheck-suppress duplInheritedMember
 {
   if ( element.tagName() != QLatin1String( "layer-tree-group" ) )
     return nullptr;
@@ -366,14 +372,45 @@ QgsLayerTreeGroup *QgsLayerTreeGroup::readXml( QDomElement &element, const QgsRe
 
   groupNode->mGroupLayer = QgsMapLayerRef( element.attribute( QStringLiteral( "groupLayer" ) ) );
 
+  readLegacyServerProperties( groupNode );
+
+  groupNode->serverProperties()->readXml( element );
+
   return groupNode;
 }
 
-QgsLayerTreeGroup *QgsLayerTreeGroup::readXml( QDomElement &element, const QgsProject *project, const QgsReadWriteContext &context )
+void QgsLayerTreeGroup::readLegacyServerProperties( QgsLayerTreeGroup *groupNode )
+{
+  const QVariant wmsShortName  = groupNode->customProperty( QStringLiteral( "wmsShortName" ) );
+  if ( wmsShortName.isValid() )
+  {
+    groupNode->serverProperties()->setShortName( wmsShortName.toString() );
+    groupNode->removeCustomProperty( QStringLiteral( "wmsShortName" ) );
+  }
+
+  const QVariant wmsTitle = groupNode->customProperty( QStringLiteral( "wmsTitle" ) );
+  if ( wmsTitle.isValid() )
+  {
+    groupNode->serverProperties()->setTitle( wmsTitle.toString() );
+    groupNode->removeCustomProperty( QStringLiteral( "wmsTitle" ) );
+  }
+
+  const QVariant wmsAbstract = groupNode->customProperty( QStringLiteral( "wmsAbstract" ) );
+  if ( wmsAbstract.isValid() )
+  {
+    groupNode->serverProperties()->setAbstract( wmsAbstract.toString() );
+    groupNode->removeCustomProperty( QStringLiteral( "wmsAbstract" ) );
+  }
+}
+
+QgsLayerTreeGroup *QgsLayerTreeGroup::readXml( const QDomElement &element, const QgsProject *project, const QgsReadWriteContext &context )
 {
   QgsLayerTreeGroup *node = readXml( element, context );
-  if ( node )
-    node->resolveReferences( project );
+  if ( !node )
+    return nullptr;
+
+  node->resolveReferences( project );
+
   return node;
 }
 
@@ -393,13 +430,15 @@ void QgsLayerTreeGroup::writeXml( QDomElement &parentElement, const QgsReadWrite
 
   writeCommonXml( elem );
 
+  serverProperties()->writeXml( elem, doc );
+
   for ( QgsLayerTreeNode *node : std::as_const( mChildren ) )
     node->writeXml( elem, context );
 
   parentElement.appendChild( elem );
 }
 
-void QgsLayerTreeGroup::readChildrenFromXml( QDomElement &element, const QgsReadWriteContext &context )
+void QgsLayerTreeGroup::readChildrenFromXml( const QDomElement &element, const QgsReadWriteContext &context )
 {
   QList<QgsLayerTreeNode *> nodes;
   QDomElement childElem = element.firstChildElement();
@@ -485,6 +524,13 @@ QgsGroupLayer *QgsLayerTreeGroup::groupLayer()
 
 void QgsLayerTreeGroup::setGroupLayer( QgsGroupLayer *layer )
 {
+  if ( QgsGroupLayer *groupLayer = qobject_cast< QgsGroupLayer * >( mGroupLayer.get() ) )
+  {
+    if ( !layer )
+    {
+      groupLayer->prepareLayersForRemovalFromGroup();
+    }
+  }
   mGroupLayer.setLayer( layer );
   refreshParentGroupLayerMembers();
 }
@@ -494,7 +540,7 @@ QgsGroupLayer *QgsLayerTreeGroup::convertToGroupLayer( const QgsGroupLayer::Laye
   if ( !mGroupLayer.layerId.isEmpty() )
     return nullptr;
 
-  std::unique_ptr< QgsGroupLayer > res = std::make_unique< QgsGroupLayer >( name(), options );
+  auto res = std::make_unique< QgsGroupLayer >( name(), options );
 
   mGroupLayer.setLayer( res.get() );
   updateGroupLayers();
@@ -629,4 +675,14 @@ void QgsLayerTreeGroup::setItemVisibilityCheckedRecursive( bool checked )
   mChangingChildVisibility = false;
 
   updateGroupLayers();
+}
+
+QgsMapLayerServerProperties *QgsLayerTreeGroup::serverProperties()
+{
+  return mServerProperties.get();
+}
+
+const QgsMapLayerServerProperties *QgsLayerTreeGroup::serverProperties() const
+{
+  return mServerProperties.get();
 }

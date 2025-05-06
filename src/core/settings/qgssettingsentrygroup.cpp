@@ -22,7 +22,11 @@
 #include <QRegularExpression>
 #include <QDir>
 
+QgsSettingsEntryGroup::QgsSettingsEntryGroup( QList<const QgsSettingsEntryBase *> settings )
+  : QgsSettingsEntryGroup( settings, true )
+{
 
+}
 
 QgsSettingsEntryGroup::QgsSettingsEntryGroup( QList<const QgsSettingsEntryBase *> settings, bool fatalErrorIfInvalid )
   : mSettings( settings )
@@ -39,7 +43,7 @@ QgsSettingsEntryGroup::QgsSettingsEntryGroup( QList<const QgsSettingsEntryBase *
     {
       if ( mDefinitionBaseKey != otherBaseKey )
       {
-        QgsDebugMsg( "Settings do not share the same base definition key for this group. This will lead to unpredictable results." );
+        QgsDebugError( "Settings do not share the same base definition key for this group. This will lead to unpredictable results." );
         if ( fatalErrorIfInvalid )
           Q_ASSERT( false );
         mIsValid = false;
@@ -55,7 +59,7 @@ QString QgsSettingsEntryGroup::baseKey( const QStringList &dynamicKeyPartList ) 
   if ( dynamicKeyPartList.isEmpty() )
   {
     if ( hasDynamicKey() )
-      QgsDebugMsg( QStringLiteral( "Settings group '%1' have a dynamic key but the dynamic key part was not provided" ).arg( key ) );
+      QgsDebugError( QStringLiteral( "Settings group '%1' have a dynamic key but the dynamic key part was not provided" ).arg( key ) );
 
     return key;
   }
@@ -63,7 +67,7 @@ QString QgsSettingsEntryGroup::baseKey( const QStringList &dynamicKeyPartList ) 
   {
     if ( !hasDynamicKey() )
     {
-      QgsDebugMsg( QStringLiteral( "Settings group '%1' don't have a dynamic key, the provided dynamic key part will be ignored" ).arg( key ) );
+      QgsDebugError( QStringLiteral( "Settings group '%1' don't have a dynamic key, the provided dynamic key part will be ignored" ).arg( key ) );
       return key;
     }
 
@@ -83,7 +87,7 @@ void QgsSettingsEntryGroup::removeAllSettingsAtBaseKey( const QStringList &dynam
   const thread_local QRegularExpression regularExpression( QStringLiteral( "^(\\/?(qgis\\/?)?)?$" ) );
   if ( key.contains( regularExpression ) )
   {
-    QgsDebugMsg( QStringLiteral( "Preventing mass removal of settings at key %1" ).arg( key ) );
+    QgsDebugError( QStringLiteral( "Preventing mass removal of settings at key %1" ).arg( key ) );
     return;
   }
 

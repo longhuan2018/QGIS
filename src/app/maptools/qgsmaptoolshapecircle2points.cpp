@@ -15,8 +15,8 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshapecircle2points.h"
+#include "moc_qgsmaptoolshapecircle2points.cpp"
 #include "qgsgeometryrubberband.h"
-#include "qgsmapcanvas.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
 #include "qgsapplication.h"
@@ -56,7 +56,7 @@ bool QgsMapToolShapeCircle2Points::cadCanvasReleaseEvent( QgsMapMouseEvent *e, Q
 
     if ( !mTempRubberBand )
     {
-      QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+      Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
       mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
       mTempRubberBand->show();
     }
@@ -80,4 +80,3 @@ void QgsMapToolShapeCircle2Points::cadCanvasMoveEvent( QgsMapMouseEvent *e, QgsM
   mCircle = QgsCircle::from2Points( mPoints.at( 0 ), mParentTool->mapPoint( *e ) );
   mTempRubberBand->setGeometry( mCircle.toCircularString( true ) );
 }
-

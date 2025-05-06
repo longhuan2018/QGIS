@@ -17,13 +17,12 @@
 #include "qgsgeometrycollection.h"
 #include "qgscurvepolygon.h"
 #include "qgsgeometrycheck.h"
+#include "moc_qgsgeometrycheck.cpp"
 #include "qgsgeometrycheckerror.h"
 #include "qgsfeaturepool.h"
 #include "qgsvectorlayer.h"
 #include "qgsreadwritelocker.h"
 #include "qgsthreadingutils.h"
-
-
 
 
 QgsGeometryCheck::QgsGeometryCheck( const QgsGeometryCheckContext *context, const QVariantMap &configuration )
@@ -65,10 +64,10 @@ QList<QgsGeometryCheckResolutionMethod> QgsGeometryCheck::availableResolutionMet
   const QStringList methods = resolutionMethods();
   Q_NOWARN_DEPRECATED_POP
 
-  const int i = 0;
+  int i = 0;
   for ( const QString &method : methods )
   {
-    fixes.append( QgsGeometryCheckResolutionMethod( i, method, QString(), false ) );
+    fixes.append( QgsGeometryCheckResolutionMethod( i++, method, QString(), false ) );
   }
 
   return fixes;
@@ -89,14 +88,12 @@ QMap<QString, QgsFeatureIds> QgsGeometryCheck::allLayerFeatureIds( const QMap<QS
   return featureIds;
 }
 
-void QgsGeometryCheck::replaceFeatureGeometryPart( const QMap<QString, QgsFeaturePool *> &featurePools,
-    const QString &layerId, QgsFeature &feature,
-    int partIdx, QgsAbstractGeometry *newPartGeom, Changes &changes ) const
+void QgsGeometryCheck::replaceFeatureGeometryPart( const QMap<QString, QgsFeaturePool *> &featurePools, const QString &layerId, QgsFeature &feature, int partIdx, QgsAbstractGeometry *newPartGeom, Changes &changes ) const
 {
   QgsFeaturePool *featurePool = featurePools[layerId];
   QgsGeometry featureGeom = feature.geometry();
   QgsAbstractGeometry *geom = featureGeom.get();
-  if ( QgsGeometryCollection *geomCollection = dynamic_cast< QgsGeometryCollection *>( geom ) )
+  if ( QgsGeometryCollection *geomCollection = dynamic_cast<QgsGeometryCollection *>( geom ) )
   {
     geomCollection->removeGeometry( partIdx );
     geomCollection->addGeometry( newPartGeom );
@@ -139,9 +136,7 @@ void QgsGeometryCheck::deleteFeatureGeometryPart( const QMap<QString, QgsFeature
   }
 }
 
-void QgsGeometryCheck::deleteFeatureGeometryRing( const QMap<QString, QgsFeaturePool *> &featurePools,
-    const QString &layerId, QgsFeature &feature,
-    int partIdx, int ringIdx, Changes &changes ) const
+void QgsGeometryCheck::deleteFeatureGeometryRing( const QMap<QString, QgsFeaturePool *> &featurePools, const QString &layerId, QgsFeature &feature, int partIdx, int ringIdx, Changes &changes ) const
 {
   QgsFeaturePool *featurePool = featurePools[layerId];
   QgsGeometry featureGeom = feature.geometry();
@@ -180,5 +175,3 @@ double QgsGeometryCheck::scaleFactor( const QPointer<QgsVectorLayer> &layer ) co
   }
   return scaleFactor;
 }
-
-

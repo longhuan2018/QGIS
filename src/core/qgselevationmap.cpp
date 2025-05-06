@@ -22,14 +22,15 @@
 #include <cmath>
 
 
-static const int ELEVATION_OFFSET = 8000;
+static const int ELEVATION_OFFSET = 7900;
 static const int ELEVATION_SCALE = 1000;
 
 
-QgsElevationMap::QgsElevationMap( const QSize &size )
+QgsElevationMap::QgsElevationMap( const QSize &size, float devicePixelRatio )
   : mElevationImage( size, QImage::Format_ARGB32 )
 {
   mElevationImage.fill( 0 );
+  mElevationImage.setDevicePixelRatio( devicePixelRatio );
 }
 
 QgsElevationMap::QgsElevationMap( const QImage &image )
@@ -46,7 +47,7 @@ QRgb QgsElevationMap::encodeElevation( float z )
 {
   double zScaled = ( z + ELEVATION_OFFSET ) * ELEVATION_SCALE;
   unsigned int zInt = static_cast<unsigned int>( std::clamp( zScaled, 0., 16777215. ) );   // make sure to fit into 3 bytes
-  return QRgb( zInt | ( 0xff << 24 ) );
+  return QRgb( zInt | ( static_cast< unsigned int >( 0xff ) << 24 ) );
 }
 
 float QgsElevationMap::decodeElevation( QRgb colorRaw )
@@ -57,7 +58,7 @@ float QgsElevationMap::decodeElevation( QRgb colorRaw )
 
 std::unique_ptr<QgsElevationMap> QgsElevationMap::fromRasterBlock( QgsRasterBlock *block )
 {
-  std::unique_ptr<QgsElevationMap> elevMap( new QgsElevationMap( QSize( block->width(), block->height() ) ) );
+  auto elevMap = std::make_unique<QgsElevationMap>( QSize( block->width(), block->height() ) );
   QRgb *dataPtr = reinterpret_cast<QRgb *>( elevMap->mElevationImage.bits() );
   for ( int row = 0; row < block->height(); ++row )
   {

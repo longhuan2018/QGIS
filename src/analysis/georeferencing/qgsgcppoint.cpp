@@ -24,7 +24,6 @@ QgsGcpPoint::QgsGcpPoint( const QgsPointXY &sourcePoint, const QgsPointXY &desti
   , mDestinationCrs( destinationPointCrs )
   , mEnabled( enabled )
 {
-
 }
 
 QgsCoordinateReferenceSystem QgsGcpPoint::destinationPointCrs() const
@@ -46,7 +45,7 @@ QgsPointXY QgsGcpPoint::transformedDestinationPoint( const QgsCoordinateReferenc
   }
   catch ( QgsCsException & )
   {
-    QgsDebugMsg( QStringLiteral( "Error transforming destination point" ) );
+    QgsDebugError( QStringLiteral( "Error transforming destination point" ) );
     return mDestinationPoint;
   }
 }

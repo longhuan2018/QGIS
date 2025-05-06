@@ -17,6 +17,7 @@
 
 #include "qgis.h"
 #include "qgsdataitem.h"
+#include "moc_qgsdataitem.cpp"
 #include "qgsapplication.h"
 #include "qgsdataitemprovider.h"
 #include "qgsdataitemproviderregistry.h"
@@ -79,12 +80,12 @@ QgsDataItem::~QgsDataItem()
   if ( mFutureWatcher && !mFutureWatcher->isFinished() )
   {
     // this should not usually happen (until the item was deleted directly when createChildren was running)
-    QgsDebugMsg( QStringLiteral( "mFutureWatcher not finished (should not happen) -> waitForFinished()" ) );
+    QgsDebugError( QStringLiteral( "mFutureWatcher not finished (should not happen) -> waitForFinished()" ) );
     mDeferredDelete = true;
     mFutureWatcher->waitForFinished();
   }
 
-  delete mFutureWatcher;
+
 }
 
 QString QgsDataItem::pathComponent( const QString &string )
@@ -118,7 +119,7 @@ void QgsDataItem::deleteLater()
 
   if ( mFutureWatcher && !mFutureWatcher->isFinished() )
   {
-    QgsDebugMsg( QStringLiteral( "mFutureWatcher not finished -> schedule to delete later" ) );
+    QgsDebugMsgLevel( QStringLiteral( "mFutureWatcher not finished -> schedule to delete later" ), 2 );
     mDeferredDelete = true;
   }
   else
@@ -203,10 +204,10 @@ void QgsDataItem::populate( bool foreground )
     // The watcher must not be created with item (in constructor) because the item may be created in thread and the watcher created in thread does not work correctly.
     if ( !mFutureWatcher )
     {
-      mFutureWatcher = new QFutureWatcher< QVector <QgsDataItem *> >( this );
+      mFutureWatcher = std::make_unique<QFutureWatcher<QVector<QgsDataItem *> >>( this );
     }
 
-    connect( mFutureWatcher, &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
+    connect( mFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
     mFutureWatcher->setFuture( QtConcurrent::run( runCreateChildren, this ) );
   }
 }
@@ -238,7 +239,7 @@ void QgsDataItem::childrenCreated()
 
   if ( deferredDelete() )
   {
-    QgsDebugMsg( QStringLiteral( "Item was scheduled to be deleted later" ) );
+    QgsDebugMsgLevel( QStringLiteral( "Item was scheduled to be deleted later" ), 2 );
     QObject::deleteLater();
     return;
   }
@@ -251,7 +252,7 @@ void QgsDataItem::childrenCreated()
   {
     refresh( mFutureWatcher->result() );
   }
-  disconnect( mFutureWatcher, &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
+  disconnect( mFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
   emit dataChanged( this ); // to replace loading icon by normal icon
 }
 
@@ -304,9 +305,9 @@ void QgsDataItem::refresh()
     setState( Qgis::BrowserItemState::Populating );
     if ( !mFutureWatcher )
     {
-      mFutureWatcher = new QFutureWatcher< QVector <QgsDataItem *> >( this );
+      mFutureWatcher = std::make_unique<QFutureWatcher<QVector<QgsDataItem *> >>( this );
     }
-    connect( mFutureWatcher, &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
+    connect( mFutureWatcher.get(), &QFutureWatcherBase::finished, this, &QgsDataItem::childrenCreated );
     mFutureWatcher->setFuture( QtConcurrent::run( runCreateChildren, this ) );
   }
 }

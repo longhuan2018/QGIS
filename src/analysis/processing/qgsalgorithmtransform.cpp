@@ -24,9 +24,14 @@ void QgsTransformAlgorithm::initParameters( const QVariantMap & )
 {
   addParameter( new QgsProcessingParameterCrs( QStringLiteral( "TARGET_CRS" ), QObject::tr( "Target CRS" ), QStringLiteral( "EPSG:4326" ) ) );
 
-  std::unique_ptr< QgsProcessingParameterCoordinateOperation > crsOpParam = std::make_unique< QgsProcessingParameterCoordinateOperation >( QStringLiteral( "OPERATION" ), QObject::tr( "Coordinate operation" ),
-      QVariant(), QStringLiteral( "INPUT" ), QStringLiteral( "TARGET_CRS" ), QVariant(), QVariant(), true );
-  crsOpParam->setFlags( crsOpParam->flags() | QgsProcessingParameterDefinition::FlagAdvanced );
+  // Convert curves to straight segments
+  auto convertCurvesParam = std::make_unique<QgsProcessingParameterBoolean>( QStringLiteral( "CONVERT_CURVED_GEOMETRIES" ), QObject::tr( "Convert curved geometries to straight segments" ), false );
+  convertCurvesParam->setHelp( QObject::tr( "If checked, curved geometries will be converted to straight segments. Otherwise, they will be kept as curves. This can fix distortion issues." ) );
+  addParameter( convertCurvesParam.release() );
+
+  // Optional coordinate operation
+  auto crsOpParam = std::make_unique<QgsProcessingParameterCoordinateOperation>( QStringLiteral( "OPERATION" ), QObject::tr( "Coordinate operation" ), QVariant(), QStringLiteral( "INPUT" ), QStringLiteral( "TARGET_CRS" ), QVariant(), QVariant(), true );
+  crsOpParam->setFlags( crsOpParam->flags() | Qgis::ProcessingParameterFlag::Advanced );
   addParameter( crsOpParam.release() );
 }
 
@@ -40,9 +45,9 @@ QString QgsTransformAlgorithm::outputName() const
   return QObject::tr( "Reprojected" );
 }
 
-QgsProcessingFeatureSource::Flag QgsTransformAlgorithm::sourceFlags() const
+Qgis::ProcessingFeatureSourceFlags QgsTransformAlgorithm::sourceFlags() const
 {
-  return QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks;
+  return Qgis::ProcessingFeatureSourceFlag::SkipGeometryValidityChecks;
 }
 
 QString QgsTransformAlgorithm::name() const
@@ -87,6 +92,7 @@ bool QgsTransformAlgorithm::prepareAlgorithm( const QVariantMap &parameters, Qgs
   prepareSource( parameters, context );
   mDestCrs = parameterAsCrs( parameters, QStringLiteral( "TARGET_CRS" ), context );
   mTransformContext = context.transformContext();
+  mConvertCurveToSegments = parameterAsBoolean( parameters, QStringLiteral( "CONVERT_CURVED_GEOMETRIES" ), context );
   mCoordOp = parameterAsString( parameters, QStringLiteral( "OPERATION" ), context );
   return true;
 }
@@ -107,6 +113,12 @@ QgsFeatureList QgsTransformAlgorithm::processFeature( const QgsFeature &f, QgsPr
   if ( feature.hasGeometry() )
   {
     QgsGeometry g = feature.geometry();
+
+    if ( !mTransform.isShortCircuited() && mConvertCurveToSegments )
+    {
+      // convert to straight segments to avoid issues with distorted curves
+      g.convertToStraightSegment();
+    }
     try
     {
       if ( g.transform( mTransform ) == Qgis::GeometryOperationResult::Success )
@@ -137,6 +149,3 @@ QgsFeatureList QgsTransformAlgorithm::processFeature( const QgsFeature &f, QgsPr
 }
 
 ///@endcond
-
-
-

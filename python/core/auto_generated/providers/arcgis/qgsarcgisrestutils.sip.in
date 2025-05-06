@@ -3,7 +3,7 @@
  *                                                                      *
  * src/core/providers/arcgis/qgsarcgisrestutils.h                       *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/
 
 
@@ -74,19 +74,20 @@ Utility functions for working with ArcGIS REST services.
 
   public:
 
-    static QVariant::Type convertFieldType( const QString &type );
+    static QMetaType::Type convertFieldType( const QString &type );
 %Docstring
 Converts an ESRI REST field ``type`` to a QVariant type.
 %End
 
-    static QgsWkbTypes::Type convertGeometryType( const QString &type );
+    static Qgis::WkbType convertGeometryType( const QString &type );
 %Docstring
 Converts an ESRI REST geometry ``type`` to a WKB type.
 %End
 
     static QgsAbstractGeometry *convertGeometry( const QVariantMap &geometry, const QString &esriGeometryType, bool hasM, bool hasZ, QgsCoordinateReferenceSystem *crs /Out/ = 0 ) /Factory/;
 %Docstring
-Converts an ESRI REST ``geometry`` JSON definition to a :py:class:`QgsAbstractGeometry`.
+Converts an ESRI REST ``geometry`` JSON definition to a
+:py:class:`QgsAbstractGeometry`.
 
 Caller takes ownership of the returned object.
 
@@ -96,12 +97,13 @@ Caller takes ownership of the returned object.
 :param hasZ: set to ``True`` to if geometry includes Z values
 
 :return: - converted geometry
-         - crs: will be set to the parsed geometry CRS
+         - crs: the parsed geometry CRS
 %End
 
     static QgsCoordinateReferenceSystem convertSpatialReference( const QVariantMap &spatialReferenceMap );
 %Docstring
-Converts a spatial reference JSON definition to a :py:class:`QgsCoordinateReferenceSystem` value.
+Converts a spatial reference JSON definition to a
+:py:class:`QgsCoordinateReferenceSystem` value.
 %End
 
     static QgsSymbol *convertSymbol( const QVariantMap &definition ) /Factory/;
@@ -113,7 +115,8 @@ Caller takes ownership of the returned symbol.
 
     static QgsFeatureRenderer *convertRenderer( const QVariantMap &rendererData ) /Factory/;
 %Docstring
-Converts renderer JSON ``data`` to an equivalent :py:class:`QgsFeatureRenderer`.
+Converts renderer JSON ``data`` to an equivalent
+:py:class:`QgsFeatureRenderer`.
 
 Caller takes ownership of the returned renderer.
 %End
@@ -168,6 +171,15 @@ Returns an empty map if the ``crs`` is not valid.
 .. versionadded:: 3.28
 %End
 
+    static QgsRectangle convertRectangle( const QVariant &value );
+%Docstring
+Converts a rectangle ``value`` to a :py:class:`QgsRectangle`.
+
+Returns a null rectangle if the value cannot be converted.
+
+.. versionadded:: 3.34
+%End
+
     enum class FeatureToJsonFlag
     {
       IncludeGeometry,
@@ -187,7 +199,7 @@ Converts a ``feature`` to an ArcGIS REST JSON representation.
 .. versionadded:: 3.28
 %End
 
-    static QVariant variantToAttributeValue( const QVariant &variant, QVariant::Type expectedType, const QgsArcGisRestContext &context );
+    static QVariant variantToAttributeValue( const QVariant &variant, QMetaType::Type expectedType, const QgsArcGisRestContext &context );
 %Docstring
 Converts a variant to a REST attribute value.
 
@@ -218,5 +230,5 @@ QFlags<QgsArcGisRestUtils::FeatureToJsonFlag> operator|(QgsArcGisRestUtils::Feat
  *                                                                      *
  * src/core/providers/arcgis/qgsarcgisrestutils.h                       *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/

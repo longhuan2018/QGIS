@@ -21,7 +21,7 @@
 class QgsAnnotationWidget;
 class QgsMapCanvasAnnotationItem;
 
-class APP_EXPORT QgsFormAnnotationDialog: public QDialog, private Ui::QgsFormAnnotationDialogBase
+class APP_EXPORT QgsFormAnnotationDialog : public QDialog, private Ui::QgsFormAnnotationDialogBase
 {
     Q_OBJECT
   public:
@@ -37,6 +37,8 @@ class APP_EXPORT QgsFormAnnotationDialog: public QDialog, private Ui::QgsFormAnn
     void deleteItem();
     void mButtonBox_clicked( QAbstractButton *button );
     void showHelp();
+    void onSettingsChanged();
+    void onLiveUpdateToggled( bool checked );
 };
 
 #endif // QGSFORMANNOTATIONDIALOG_H

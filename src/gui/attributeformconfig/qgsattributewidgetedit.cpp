@@ -14,9 +14,10 @@
  ***************************************************************************/
 
 #include "qgsattributewidgetedit.h"
+#include "moc_qgsattributewidgetedit.cpp"
 #include "qgsattributesformproperties.h"
+#include "qgsgui.h"
 #include "qgsrelationwidgetregistry.h"
-
 
 QgsAttributeWidgetEdit::QgsAttributeWidgetEdit( QTreeWidgetItem *item, QWidget *parent )
   : QgsCollapsibleGroupBox( parent )
@@ -24,6 +25,8 @@ QgsAttributeWidgetEdit::QgsAttributeWidgetEdit( QTreeWidgetItem *item, QWidget *
 
 {
   setupUi( this );
+  mHozStretchSpin->setClearValue( 0, tr( "Default" ) );
+  mVertStretchSpin->setClearValue( 0, tr( "Default" ) );
 
   const QgsAttributesFormProperties::DnDTreeItemData itemData = mTreeItem->data( 0, QgsAttributesFormProperties::DnDTreeRole ).value<QgsAttributesFormProperties::DnDTreeItemData>();
 
@@ -31,6 +34,8 @@ QgsAttributeWidgetEdit::QgsAttributeWidgetEdit( QTreeWidgetItem *item, QWidget *
   mShowLabelCheckBox->setChecked( itemData.showLabel() );
 
   mFormLabelFormatWidget->setLabelStyle( itemData.labelStyle() );
+  mHozStretchSpin->setValue( itemData.horizontalStretch() );
+  mVertStretchSpin->setValue( itemData.verticalStretch() );
 
   switch ( itemData.type() )
   {
@@ -43,7 +48,6 @@ QgsAttributeWidgetEdit::QgsAttributeWidgetEdit( QTreeWidgetItem *item, QWidget *
       layout->addWidget( mSpecificEditWidget );
       mWidgetSpecificConfigGroupBox->setLayout( layout );
       mWidgetSpecificConfigGroupBox->setTitle( QgsAttributeWidgetRelationEditWidget::title() );
-
     }
     break;
 
@@ -58,7 +62,6 @@ QgsAttributeWidgetEdit::QgsAttributeWidgetEdit( QTreeWidgetItem *item, QWidget *
       mWidgetSpecificConfigGroupBox->hide();
       break;
   }
-
 }
 
 void QgsAttributeWidgetEdit::updateItemData()
@@ -68,6 +71,8 @@ void QgsAttributeWidgetEdit::updateItemData()
   // common configs
   itemData.setShowLabel( mShowLabelCheckBox->isChecked() );
   itemData.setLabelStyle( mFormLabelFormatWidget->labelStyle() );
+  itemData.setHorizontalStretch( mHozStretchSpin->value() );
+  itemData.setVerticalStretch( mVertStretchSpin->value() );
 
   // specific configs
   switch ( itemData.type() )
@@ -94,6 +99,27 @@ void QgsAttributeWidgetEdit::updateItemData()
   }
 
   mTreeItem->setData( 0, QgsAttributesFormProperties::DnDTreeRole, itemData );
+}
+
+
+void QgsAttributeWidgetEdit::setLabelStyle( const QgsAttributeEditorElement::LabelStyle &labelStyle )
+{
+  mFormLabelFormatWidget->setLabelStyle( labelStyle );
+}
+
+void QgsAttributeWidgetEdit::setShowLabel( bool showLabel )
+{
+  mShowLabelCheckBox->setChecked( showLabel );
+}
+
+void QgsAttributeWidgetEdit::setHorizontalStretch( const int horizontalStretch )
+{
+  mHozStretchSpin->setValue( horizontalStretch );
+}
+
+void QgsAttributeWidgetEdit::setVerticalStretch( const int verticalStretch )
+{
+  mVertStretchSpin->setValue( verticalStretch );
 }
 
 // Relation Widget Specific Edit
@@ -127,8 +153,7 @@ void QgsAttributeWidgetRelationEditWidget::setRelationEditorConfiguration( const
     const QgsRelation::FieldPair relationFirstFieldPair = relation.fieldPairs().at( 0 );
     for ( const QgsRelation &nmrel : relations )
     {
-      if ( !nmrel.fieldPairs().isEmpty() &&
-           nmrel.fieldPairs().at( 0 ).referencingField() != relationFirstFieldPair.referencingField() )
+      if ( !nmrel.fieldPairs().isEmpty() && nmrel.fieldPairs().at( 0 ).referencingField() != relationFirstFieldPair.referencingField() )
       {
         setCardinalityCombo( QStringLiteral( "%1 (%2)" ).arg( nmrel.referencedLayer()->name(), nmrel.fieldPairs().at( 0 ).referencedField() ), nmrel.id() );
       }
@@ -136,9 +161,7 @@ void QgsAttributeWidgetRelationEditWidget::setRelationEditorConfiguration( const
   }
 
   const int widgetTypeIdx = mWidgetTypeComboBox->findData( config.mRelationWidgetType );
-  mWidgetTypeComboBox->setCurrentIndex( widgetTypeIdx >= 0
-                                        ? widgetTypeIdx
-                                        : mWidgetTypeComboBox->findData( QgsGui::relationWidgetRegistry()->defaultWidgetType() ) );
+  mWidgetTypeComboBox->setCurrentIndex( widgetTypeIdx >= 0 ? widgetTypeIdx : mWidgetTypeComboBox->findData( QgsGui::relationWidgetRegistry()->defaultWidgetType() ) );
 
   const QString widgetType = mWidgetTypeComboBox->currentData().toString();
   mConfigWidget = QgsGui::relationWidgetRegistry()->createConfigWidget( widgetType, relation, this );
@@ -147,8 +170,7 @@ void QgsAttributeWidgetRelationEditWidget::setRelationEditorConfiguration( const
 
   disconnect( mWidgetTypeComboBoxConnection );
 
-  mWidgetTypeComboBoxConnection = connect( mWidgetTypeComboBox, &QComboBox::currentTextChanged, this, [ = ]()
-  {
+  mWidgetTypeComboBoxConnection = connect( mWidgetTypeComboBox, &QComboBox::currentTextChanged, this, [=]() {
     const QString widgetId = mWidgetTypeComboBox->currentData().toString();
 
     mWidgetTypePlaceholderLayout->removeWidget( mConfigWidget );

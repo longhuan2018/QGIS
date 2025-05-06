@@ -18,12 +18,11 @@ email                : david dot marteau at 3liz dot com
 #include "qgsdxfwriter.h"
 #include "qgsdxfexport.h"
 #include "qgswmsrenderer.h"
+#include "qgswmsrestorer.h"
 
 namespace QgsWms
 {
-  void writeAsDxf( QgsServerInterface *serverIface, const QgsProject *project,
-                   const QgsWmsRequest &request,
-                   QgsServerResponse &response )
+  void writeAsDxf( QgsServerInterface *serverIface, const QgsProject *project, const QgsWmsRequest &request, QgsServerResponse &response )
   {
     // prepare render context
     QgsWmsRenderContext context( project, serverIface );
@@ -32,9 +31,15 @@ namespace QgsWms
     context.setFlag( QgsWmsRenderContext::UseFilter );
     context.setFlag( QgsWmsRenderContext::SetAccessControl );
     context.setParameters( request.wmsParameters() );
+    context.setSocketFeedback( response.feedback() );
 
     // Write output
     QgsRenderer renderer( context );
+
+    //Layer settings need to be kept until QgsDxfExport::writeToFile has finished
+    auto restorer = std::make_unique<QgsWmsRestorer>( context );
+    restorer.reset( new QgsWmsRestorer( context ) );
+
     std::unique_ptr<QgsDxfExport> dxf = renderer.getDxf();
     response.setHeader( "Content-Type", "application/dxf" );
     dxf->writeToFile( response.io(), request.wmsParameters().dxfCodec() );

@@ -16,12 +16,14 @@
  ***************************************************************************/
 
 #include "qgsfieldsitem.h"
+#include "moc_qgsfieldsitem.cpp"
 #include "qgsiconutils.h"
 #include "qgsproviderregistry.h"
 #include "qgsprovidermetadata.h"
 #include "qgslogger.h"
 #include "qgsapplication.h"
 #include "qgsvectorlayer.h"
+#include "qgsfieldmodel.h"
 
 QgsFieldsItem::QgsFieldsItem( QgsDataItem *parent,
                               const QString &path,
@@ -49,7 +51,7 @@ QgsFieldsItem::QgsFieldsItem( QgsDataItem *parent,
     }
     catch ( QgsProviderConnectionException &ex )
     {
-      QgsDebugMsg( QStringLiteral( "Error creating fields item: %1" ).arg( ex.what() ) );
+      QgsDebugError( QStringLiteral( "Error creating fields item: %1" ).arg( ex.what() ) );
     }
   }
 }
@@ -119,13 +121,13 @@ QgsVectorLayer *QgsFieldsItem::layer()
     catch ( const QgsProviderConnectionException & )
     {
       // This should never happen!
-      QgsDebugMsg( QStringLiteral( "Error getting connection from %1" ).arg( mConnectionUri ) );
+      QgsDebugError( QStringLiteral( "Error getting connection from %1" ).arg( mConnectionUri ) );
     }
   }
   else
   {
     // This should never happen!
-    QgsDebugMsg( QStringLiteral( "Error getting metadata for provider %1" ).arg( providerKey() ) );
+    QgsDebugError( QStringLiteral( "Error getting metadata for provider %1" ).arg( providerKey() ) );
   }
   return nullptr;
 }
@@ -157,20 +159,8 @@ QgsFieldItem::QgsFieldItem( QgsDataItem *parent, const QgsField &field )
     mCapabilities |= Qgis::BrowserItemCapability::Rename;
 
   setState( Qgis::BrowserItemState::Populated );
-  const auto constraints { field.constraints().constraints() };
-  QStringList constraintsText;
-  if ( constraints.testFlag( QgsFieldConstraints::Constraint::ConstraintNotNull ) )
-  {
-    constraintsText.push_back( tr( "NOT NULL" ) );
-  }
-  if ( constraints.testFlag( QgsFieldConstraints::Constraint::ConstraintUnique ) )
-  {
-    constraintsText.push_back( tr( "UNIQUE" ) );
-  }
-  if ( ! constraintsText.isEmpty() )
-  {
-    setToolTip( QStringLiteral( "<ul><li>%1</li></ul>" ).arg( constraintsText.join( QLatin1String( "</li><li>" ) ) ) );
-  }
+
+  setToolTip( QgsFieldModel::fieldToolTip( field ) );
 }
 
 QgsFieldItem::~QgsFieldItem()
@@ -189,22 +179,22 @@ QIcon QgsFieldItem::icon()
     {
       return QgsIconUtils::iconRaster();
     }
-    const QgsWkbTypes::GeometryType geomType { QgsWkbTypes::geometryType( parentFields->tableProperty()->geometryColumnTypes().first().wkbType ) };
+    const Qgis::GeometryType geomType { QgsWkbTypes::geometryType( parentFields->tableProperty()->geometryColumnTypes().first().wkbType ) };
     switch ( geomType )
     {
-      case QgsWkbTypes::GeometryType::LineGeometry:
+      case Qgis::GeometryType::Line:
         return QgsIconUtils::iconLine();
-      case QgsWkbTypes::GeometryType::PointGeometry:
+      case Qgis::GeometryType::Point:
         return QgsIconUtils::iconPoint();
-      case QgsWkbTypes::GeometryType::PolygonGeometry:
+      case Qgis::GeometryType::Polygon:
         return QgsIconUtils::iconPolygon();
-      case QgsWkbTypes::GeometryType::UnknownGeometry:
+      case Qgis::GeometryType::Unknown:
         return QgsIconUtils::iconGeometryCollection();
-      case QgsWkbTypes::GeometryType::NullGeometry:
+      case Qgis::GeometryType::Null:
         return QgsIconUtils::iconDefaultLayer();
     }
   }
-  const QIcon icon { QgsFields::iconForFieldType( mField.type(), mField.subType() ) };
+  const QIcon icon { QgsFields::iconForFieldType( mField.type(), mField.subType(), mField.typeName() ) };
   // Try subtype if icon is null
   if ( icon.isNull() )
   {
@@ -224,6 +214,6 @@ bool QgsFieldItem::equal( const QgsDataItem *other )
   if ( !o )
     return false;
 
-  return ( mPath == o->mPath && mName == o->mName && mField == o->mField );
+  return ( mPath == o->mPath && mName == o->mName && mField == o->mField && mField.comment() == o->mField.comment() );
 }
 

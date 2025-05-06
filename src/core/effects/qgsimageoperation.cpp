@@ -260,7 +260,7 @@ void QgsImageOperation::adjustBrightnessContrast( QImage &image, const int brigh
   runPixelOperation( image, operation, feedback );
 }
 
-void QgsImageOperation::BrightnessContrastPixelOperation::operator()( QRgb &rgb, const int x, const int y )
+void QgsImageOperation::BrightnessContrastPixelOperation::operator()( QRgb &rgb, const int x, const int y ) const
 {
   Q_UNUSED( x )
   Q_UNUSED( y )
@@ -344,7 +344,11 @@ void QgsImageOperation::multiplyOpacity( QImage &image, const double factor, Qgs
     //decreasing opacity - we can use the faster DestinationIn composition mode
     //to reduce the alpha channel
     QColor transparentFillColor = QColor( 0, 0, 0, 255 * factor );
-    image.detach();
+    if ( image.format() == QImage::Format_Indexed8 )
+      image = image.convertToFormat( QImage::Format_ARGB32 );
+    else
+      image.detach();
+
     QPainter painter( &image );
     painter.setCompositionMode( QPainter::CompositionMode_DestinationIn );
     painter.fillRect( 0, 0, image.width(), image.height(), transparentFillColor );
@@ -388,7 +392,7 @@ void QgsImageOperation::distanceTransform( QImage &image, const DistanceTransfor
 {
   if ( ! properties.ramp )
   {
-    QgsDebugMsg( QStringLiteral( "no color ramp specified for distance transform" ) );
+    QgsDebugError( QStringLiteral( "no color ramp specified for distance transform" ) );
     return;
   }
 
@@ -689,7 +693,7 @@ QImage *QgsImageOperation::gaussianBlur( QImage &image, const int radius, QgsFee
     return new QImage();
 
   //blur along columns
-  std::unique_ptr< QImage > yBlurImage = std::make_unique< QImage >( width, height, QImage::Format_ARGB32_Premultiplied );
+  auto yBlurImage = std::make_unique< QImage >( width, height, QImage::Format_ARGB32_Premultiplied );
   GaussianBlurOperation colBlur( radius, QgsImageOperation::ByColumn, yBlurImage.get(), kernel.get(), feedback );
   runRectOperation( xBlurImage, colBlur );
 
@@ -771,7 +775,7 @@ inline QRgb QgsImageOperation::GaussianBlurOperation::gaussianBlurVertical( cons
   for ( int i = 0; i <= mRadius * 2; ++i )
   {
     y = std::clamp( posy + ( i - mRadius ), 0, height - 1 );
-    ref = sourceFirstLine + sourceBpl * y;
+    ref = sourceFirstLine + static_cast< std::size_t >( sourceBpl ) * y;
 
     QRgb *refRgb = reinterpret_cast< QRgb * >( ref );
     r += mKernel[i] * qRed( *refRgb );

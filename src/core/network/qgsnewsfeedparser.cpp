@@ -13,46 +13,56 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgsnewsfeedparser.h"
+#include "moc_qgsnewsfeedparser.cpp"
 #include "qgis.h"
 #include "qgsnetworkcontentfetchertask.h"
 #include "qgsnetworkcontentfetcher.h"
 #include "qgsnetworkaccessmanager.h"
-#include "qgslogger.h"
-#include "qgssettings.h"
+#include "qgssetrequestinitiator_p.h"
 #include "qgsjsonutils.h"
 #include "qgsmessagelog.h"
 #include "qgsapplication.h"
+#include "qgssettingsentryimpl.h"
+
 #include <QDateTime>
 #include <QUrlQuery>
 #include <QFile>
 #include <QDir>
 #include <QRegularExpression>
 
-const QgsSettingsEntryInteger64 *QgsNewsFeedParser::settingsFeedLastFetchTime = new QgsSettingsEntryInteger64( QStringLiteral( "%1/lastFetchTime" ), QgsSettings::sTreeCore, 0, QObject::tr( "Feed last fetch time" ), Qgis::SettingsOptions(), 0 );
 
-const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedLanguage = new QgsSettingsEntryString( QStringLiteral( "%1/lang" ), QgsSettings::sTreeCore, QString(), QObject::tr( "Feed language" ) );
+const QgsSettingsEntryInteger64 *QgsNewsFeedParser::settingsFeedLastFetchTime = new QgsSettingsEntryInteger64( QStringLiteral( "last-fetch-time" ), sTreeNewsFeed, 0, QStringLiteral( "Feed last fetch time" ), Qgis::SettingsOptions(), 0 );
+const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedLanguage = new QgsSettingsEntryString( QStringLiteral( "lang" ), sTreeNewsFeed, QString(), QStringLiteral( "Feed language" ) );
+const QgsSettingsEntryDouble *QgsNewsFeedParser::settingsFeedLatitude = new QgsSettingsEntryDouble( QStringLiteral( "latitude" ), sTreeNewsFeed, 0.0, QStringLiteral( "Feed latitude" ) );
+const QgsSettingsEntryDouble *QgsNewsFeedParser::settingsFeedLongitude = new QgsSettingsEntryDouble( QStringLiteral( "longitude" ), sTreeNewsFeed, 0.0, QStringLiteral( "Feed longitude" ) );
 
-const QgsSettingsEntryDouble *QgsNewsFeedParser::settingsFeedLatitude = new QgsSettingsEntryDouble( QStringLiteral( "%1/latitude" ), QgsSettings::sTreeCore, 0.0, QObject::tr( "Feed latitude" ) );
 
-const QgsSettingsEntryDouble *QgsNewsFeedParser::settingsFeedLongitude = new QgsSettingsEntryDouble( QStringLiteral( "%1/longitude" ), QgsSettings::sTreeCore, 0.0, QObject::tr( "Feed longitude" ) );
+const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedEntryTitle = new QgsSettingsEntryString( QStringLiteral( "title" ), sTreeNewsFeedEntries, QString(), QStringLiteral( "Entry title" ) );
+const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedEntryImageUrl = new QgsSettingsEntryString( QStringLiteral( "image-url" ), sTreeNewsFeedEntries, QString(), QStringLiteral( "Entry image URL" ) );
+const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedEntryContent = new QgsSettingsEntryString( QStringLiteral( "content" ), sTreeNewsFeedEntries, QString(), QStringLiteral( "Entry content" ) );
+const QgsSettingsEntryString *QgsNewsFeedParser::settingsFeedEntryLink = new QgsSettingsEntryString( QStringLiteral( "link" ), sTreeNewsFeedEntries, QString(), QStringLiteral( "Entry link" ) );
+const QgsSettingsEntryBool *QgsNewsFeedParser::settingsFeedEntrySticky = new QgsSettingsEntryBool( QStringLiteral( "sticky" ), sTreeNewsFeedEntries, false );
+const QgsSettingsEntryVariant *QgsNewsFeedParser::settingsFeedEntryExpiry = new QgsSettingsEntryVariant( QStringLiteral( "expiry" ), sTreeNewsFeedEntries, QVariant(), QStringLiteral( "Expiry date" ) );
+
+
 
 QgsNewsFeedParser::QgsNewsFeedParser( const QUrl &feedUrl, const QString &authcfg, QObject *parent )
   : QObject( parent )
   , mBaseUrl( feedUrl.toString() )
   , mFeedUrl( feedUrl )
   , mAuthCfg( authcfg )
-  , mSettingsKey( keyForFeed( mBaseUrl ) )
+  , mFeedKey( keyForFeed( mBaseUrl ) )
 {
   // first thing we do is populate with existing entries
   readStoredEntries();
 
   QUrlQuery query( feedUrl );
 
-  const qint64 after = settingsFeedLastFetchTime->value( mSettingsKey );
+  const qint64 after = settingsFeedLastFetchTime->value( mFeedKey );
   if ( after > 0 )
     query.addQueryItem( QStringLiteral( "after" ), qgsDoubleToString( after, 0 ) );
 
-  QString feedLanguage = settingsFeedLanguage->value( mSettingsKey );
+  QString feedLanguage = settingsFeedLanguage->value( mFeedKey );
   if ( feedLanguage.isEmpty() )
   {
     feedLanguage = QgsApplication::settingsLocaleUserLocale->valueWithDefaultOverride( QStringLiteral( "en" ) );
@@ -60,10 +70,10 @@ QgsNewsFeedParser::QgsNewsFeedParser( const QUrl &feedUrl, const QString &authcf
   if ( !feedLanguage.isEmpty() && feedLanguage != QLatin1String( "C" ) )
     query.addQueryItem( QStringLiteral( "lang" ), feedLanguage.mid( 0, 2 ) );
 
-  if ( settingsFeedLatitude->exists( mSettingsKey ) && settingsFeedLongitude->exists( mSettingsKey ) )
+  if ( settingsFeedLatitude->exists( mFeedKey ) && settingsFeedLongitude->exists( mFeedKey ) )
   {
-    const double feedLat = settingsFeedLatitude->value( mSettingsKey );
-    const double feedLong = settingsFeedLongitude->value( mSettingsKey );
+    const double feedLat = settingsFeedLatitude->value( mFeedKey );
+    const double feedLong = settingsFeedLongitude->value( mFeedKey );
 
     // hack to allow testing using local files
     if ( feedUrl.isLocalFile() )
@@ -112,7 +122,7 @@ void QgsNewsFeedParser::dismissEntry( int key )
   if ( beforeSize == mEntries.size() )
     return; // didn't find matching entry
 
-  QgsSettings().remove( QStringLiteral( "%1/%2" ).arg( mSettingsKey ).arg( key ), QgsSettings::Core );
+  sTreeNewsFeedEntries->deleteItem( QString::number( key ), {mFeedKey} );
 
   // also remove preview image, if it exists
   if ( !dismissed.imageUrl.isEmpty() )
@@ -177,46 +187,83 @@ void QgsNewsFeedParser::fetch()
 
 void QgsNewsFeedParser::onFetch( const QString &content )
 {
-  settingsFeedLastFetchTime->setValue( mFetchStartTime, mSettingsKey );
+  settingsFeedLastFetchTime->setValue( mFetchStartTime, {mFeedKey} );
 
   const QVariant json = QgsJsonUtils::parseJson( content );
 
   const QVariantList entries = json.toList();
-  QList< QgsNewsFeedParser::Entry > newEntries;
-  newEntries.reserve( entries.size() );
+  QList< QgsNewsFeedParser::Entry > fetchedEntries;
+  fetchedEntries.reserve( entries.size() );
   for ( const QVariant &e : entries )
   {
-    Entry newEntry;
+    Entry incomingEntry;
     const QVariantMap entryMap = e.toMap();
-    newEntry.key = entryMap.value( QStringLiteral( "pk" ) ).toInt();
-    newEntry.title = entryMap.value( QStringLiteral( "title" ) ).toString();
-    newEntry.imageUrl = entryMap.value( QStringLiteral( "image" ) ).toString();
-    newEntry.content = entryMap.value( QStringLiteral( "content" ) ).toString();
-    newEntry.link = entryMap.value( QStringLiteral( "url" ) ).toString();
-    newEntry.sticky = entryMap.value( QStringLiteral( "sticky" ) ).toBool();
-    bool ok = false;
-    const uint expiry = entryMap.value( QStringLiteral( "publish_to" ) ).toUInt( &ok );
-    if ( ok )
-      newEntry.expiry.setSecsSinceEpoch( expiry );
-    newEntries.append( newEntry );
+    incomingEntry.key = entryMap.value( QStringLiteral( "pk" ) ).toInt();
+    incomingEntry.title = entryMap.value( QStringLiteral( "title" ) ).toString();
+    incomingEntry.imageUrl = entryMap.value( QStringLiteral( "image" ) ).toString();
+    incomingEntry.content = entryMap.value( QStringLiteral( "content" ) ).toString();
+    incomingEntry.link = entryMap.value( QStringLiteral( "url" ) ).toString();
+    incomingEntry.sticky = entryMap.value( QStringLiteral( "sticky" ) ).toBool();
+    bool hasExpiry = false;
+    const qlonglong expiry = entryMap.value( QStringLiteral( "publish_to" ) ).toLongLong( &hasExpiry );
+    if ( hasExpiry )
+      incomingEntry.expiry.setSecsSinceEpoch( expiry );
 
-    if ( !newEntry.imageUrl.isEmpty() )
-      fetchImageForEntry( newEntry );
+    fetchedEntries.append( incomingEntry );
 
-    mEntries.append( newEntry );
-    storeEntryInSettings( newEntry );
-    emit entryAdded( newEntry );
+    // We also need to handle the case of modified/expired entries
+    const auto entryIter { std::find_if( mEntries.begin(), mEntries.end(), [incomingEntry]( const QgsNewsFeedParser::Entry & candidate )
+    {
+      return candidate.key == incomingEntry.key;
+    } )};
+    const bool entryExists { entryIter != mEntries.end() };
+
+    // case 1: existing entry is now expired, dismiss
+    if ( hasExpiry && expiry < mFetchStartTime )
+    {
+      dismissEntry( incomingEntry.key );
+    }
+    // case 2: existing entry edited
+    else if ( entryExists )
+    {
+      const bool imageNeedsUpdate = ( entryIter->imageUrl != incomingEntry.imageUrl );
+      // also remove preview image, if it exists
+      if ( imageNeedsUpdate && ! entryIter->imageUrl.isEmpty() )
+      {
+        const QString previewDir = QStringLiteral( "%1/previewImages" ).arg( QgsApplication::qgisSettingsDirPath() );
+        const QString imagePath = QStringLiteral( "%1/%2.png" ).arg( previewDir ).arg( entryIter->key );
+        if ( QFile::exists( imagePath ) )
+        {
+          QFile::remove( imagePath );
+        }
+      }
+      *entryIter = incomingEntry;
+      if ( imageNeedsUpdate && ! incomingEntry.imageUrl.isEmpty() )
+        fetchImageForEntry( incomingEntry );
+
+      sTreeNewsFeedEntries->deleteItem( QString::number( incomingEntry.key ), {mFeedKey} );
+      storeEntryInSettings( incomingEntry );
+      emit entryUpdated( incomingEntry );
+    }
+    // else: new entry, not expired
+    else if ( !hasExpiry || expiry >= mFetchStartTime )
+    {
+      if ( !incomingEntry.imageUrl.isEmpty() )
+        fetchImageForEntry( incomingEntry );
+
+      mEntries.append( incomingEntry );
+      storeEntryInSettings( incomingEntry );
+      emit entryAdded( incomingEntry );
+    }
+
   }
 
-  emit fetched( newEntries );
+  emit fetched( fetchedEntries );
 }
 
 void QgsNewsFeedParser::readStoredEntries()
 {
-  QgsSettings settings;
-
-  settings.beginGroup( mSettingsKey, QgsSettings::Core );
-  QStringList existing = settings.childGroups();
+  QStringList existing = sTreeNewsFeedEntries->items( {mFeedKey} );
   std::sort( existing.begin(), existing.end(), []( const QString & a, const QString & b )
   {
     return a.toInt() < b.toInt();
@@ -239,17 +286,14 @@ void QgsNewsFeedParser::readStoredEntries()
 
 QgsNewsFeedParser::Entry QgsNewsFeedParser::readEntryFromSettings( const int key )
 {
-  const QString baseSettingsKey = QStringLiteral( "%1/%2" ).arg( mSettingsKey ).arg( key );
-  QgsSettings settings;
-  settings.beginGroup( baseSettingsKey, QgsSettings::Core );
   Entry entry;
   entry.key = key;
-  entry.title = settings.value( QStringLiteral( "title" ) ).toString();
-  entry.imageUrl = settings.value( QStringLiteral( "imageUrl" ) ).toString();
-  entry.content = settings.value( QStringLiteral( "content" ) ).toString();
-  entry.link = settings.value( QStringLiteral( "link" ) ).toString();
-  entry.sticky = settings.value( QStringLiteral( "sticky" ) ).toBool();
-  entry.expiry = settings.value( QStringLiteral( "expiry" ) ).toDateTime();
+  entry.title = settingsFeedEntryTitle->value( {mFeedKey, QString::number( key )} );
+  entry.imageUrl = settingsFeedEntryImageUrl->value( {mFeedKey, QString::number( key )} );
+  entry.content = settingsFeedEntryContent->value( {mFeedKey, QString::number( key )} );
+  entry.link = settingsFeedEntryLink->value( {mFeedKey, QString::number( key )} );
+  entry.sticky = settingsFeedEntrySticky->value( {mFeedKey, QString::number( key )} );
+  entry.expiry = settingsFeedEntryExpiry->value( {mFeedKey, QString::number( key )} ).toDateTime();
   if ( !entry.imageUrl.isEmpty() )
   {
     const QString previewDir = QStringLiteral( "%1/previewImages" ).arg( QgsApplication::qgisSettingsDirPath() );
@@ -269,22 +313,20 @@ QgsNewsFeedParser::Entry QgsNewsFeedParser::readEntryFromSettings( const int key
 
 void QgsNewsFeedParser::storeEntryInSettings( const QgsNewsFeedParser::Entry &entry )
 {
-  const QString baseSettingsKey = QStringLiteral( "%1/%2" ).arg( mSettingsKey ).arg( entry.key );
-  QgsSettings settings;
-  settings.setValue( QStringLiteral( "%1/title" ).arg( baseSettingsKey ), entry.title, QgsSettings::Core );
-  settings.setValue( QStringLiteral( "%1/imageUrl" ).arg( baseSettingsKey ), entry.imageUrl, QgsSettings::Core );
-  settings.setValue( QStringLiteral( "%1/content" ).arg( baseSettingsKey ), entry.content, QgsSettings::Core );
-  settings.setValue( QStringLiteral( "%1/link" ).arg( baseSettingsKey ), entry.link, QgsSettings::Core );
-  settings.setValue( QStringLiteral( "%1/sticky" ).arg( baseSettingsKey ), entry.sticky, QgsSettings::Core );
+  settingsFeedEntryTitle->setValue( entry.title, {mFeedKey, QString::number( entry.key )} );
+  settingsFeedEntryImageUrl->setValue( entry.imageUrl, {mFeedKey, QString::number( entry.key )} );
+  settingsFeedEntryContent->setValue( entry.content, {mFeedKey, QString::number( entry.key )} );
+  settingsFeedEntryLink->setValue( entry.link.toString(), {mFeedKey, QString::number( entry.key )} );
+  settingsFeedEntrySticky->setValue( entry.sticky, {mFeedKey, QString::number( entry.key )} );
   if ( entry.expiry.isValid() )
-    settings.setValue( QStringLiteral( "%1/expiry" ).arg( baseSettingsKey ), entry.expiry, QgsSettings::Core );
+    settingsFeedEntryExpiry->setValue( entry.expiry, {mFeedKey, QString::number( entry.key )} );
 }
 
 void QgsNewsFeedParser::fetchImageForEntry( const QgsNewsFeedParser::Entry &entry )
 {
   // start fetching image
   QgsNetworkContentFetcher *fetcher = new QgsNetworkContentFetcher();
-  connect( fetcher, &QgsNetworkContentFetcher::finished, this, [ = ]
+  connect( fetcher, &QgsNetworkContentFetcher::finished, this, [this, fetcher, entry]
   {
     const auto findIter = std::find_if( mEntries.begin(), mEntries.end(), [entry]( const QgsNewsFeedParser::Entry & candidate )
     {
@@ -345,5 +387,5 @@ QString QgsNewsFeedParser::keyForFeed( const QString &baseUrl )
   static const QRegularExpression sRegexp( QStringLiteral( "[^a-zA-Z0-9]" ) );
   QString res = baseUrl;
   res = res.replace( sRegexp, QString() );
-  return QStringLiteral( "NewsFeed/%1" ).arg( res );
+  return res;
 }

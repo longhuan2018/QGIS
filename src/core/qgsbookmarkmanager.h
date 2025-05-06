@@ -96,6 +96,23 @@ class CORE_EXPORT QgsBookmark
      */
     void setExtent( const QgsReferencedRectangle &extent );
 
+
+    /**
+     * Returns the bookmark's map rotation.
+     * \see setRotation()
+     *
+     * \since QGIS 3.32
+     */
+    double rotation() const;
+
+    /**
+     * Sets the bookmark's spatial map \a rotation.
+     * \see rotation()
+     *
+     * \since QGIS 3.32
+     */
+    void setRotation( double rotation );
+
     /**
      * Creates a bookmark using the properties from a DOM \a element.
      * \see writeXml()
@@ -111,7 +128,14 @@ class CORE_EXPORT QgsBookmark
 #ifdef SIP_RUN
     SIP_PYOBJECT __repr__();
     % MethodCode
-    QString str = QStringLiteral( "<QgsBookmark: '%1' (%2 - %3)>" ).arg( sipCpp->name(), sipCpp->extent().asWktCoordinates(), sipCpp->extent().crs().authid() );
+    QString str = QStringLiteral( "<QgsBookmark: '%1' (%2)>" )
+                  .arg( sipCpp->name() )
+                  .arg(
+                    sipCpp->extent().isNull() ?
+                    QStringLiteral( "EMPTY" ) :
+                    QStringLiteral( "%1 - %2" )
+                    .arg( sipCpp->extent().asWktCoordinates(), sipCpp->extent().crs().authid() )
+                  );
     sipRes = PyUnicode_FromString( str.toUtf8().constData() );
     % End
 #endif
@@ -126,6 +150,7 @@ class CORE_EXPORT QgsBookmark
     QString mName;
     QString mGroup;
     QgsReferencedRectangle mExtent;
+    double mRotation = 0;
 
 };
 

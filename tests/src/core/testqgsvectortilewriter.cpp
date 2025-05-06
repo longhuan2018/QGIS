@@ -23,6 +23,7 @@
 #include "qgsproject.h"
 #include "qgstiles.h"
 #include "qgsvectorlayer.h"
+#include "qgsvectortileloader.h"
 #include "qgsvectortilemvtdecoder.h"
 #include "qgsvectortilelayer.h"
 #include "qgsvectortilewriter.h"
@@ -45,10 +46,10 @@ class TestQgsVectorTileWriter : public QObject
     QString mDataDir;
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init() {} // will be called before each testfunction is executed.
-    void cleanup() {} // will be called after every testfunction.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void init() {}          // will be called before each testfunction is executed.
+    void cleanup() {}       // will be called after every testfunction.
 
     void test_basic();
     void test_mbtiles();
@@ -77,7 +78,7 @@ void TestQgsVectorTileWriter::cleanupTestCase()
 void TestQgsVectorTileWriter::test_basic()
 {
   QTemporaryDir dir;
-  dir.setAutoRemove( false );  // so that we can inspect the results later
+  dir.setAutoRemove( false ); // so that we can inspect the results later
   const QString tmpDir = dir.path();
 
   QgsDataSourceUri ds;
@@ -109,14 +110,14 @@ void TestQgsVectorTileWriter::test_basic()
   // check on the file level
   const QDir dirInfo( tmpDir );
   const QStringList dirFiles = dirInfo.entryList( QStringList( "*.pbf" ) );
-  QCOMPARE( dirFiles.count(), 8 );   // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
+  QCOMPARE( dirFiles.count(), 8 ); // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
   QVERIFY( dirFiles.contains( "0-0-0.pbf" ) );
 
   QgsVectorTileLayer *vtLayer = new QgsVectorTileLayer( ds.encodedUri(), "output" );
 
-  const QByteArray tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
+  const QgsVectorTileRawData tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
   QgsVectorTileMVTDecoder decoder( QgsVectorTileMatrixSet::fromWebMercator() );
-  const bool resDecode0 = decoder.decode( QgsTileXYZ( 0, 0, 0 ), tile0 );
+  const bool resDecode0 = decoder.decode( tile0 );
   QVERIFY( resDecode0 );
   const QStringList layerNames = decoder.layers();
   QCOMPARE( layerNames, QStringList() << "points" << "lines" << "polys" );
@@ -124,7 +125,7 @@ void TestQgsVectorTileWriter::test_basic()
   QCOMPARE( fieldNamesLines, QStringList() << "Name" << "Value" );
 
   QgsFields fieldsPolys;
-  fieldsPolys.append( QgsField( "Name", QVariant::String ) );
+  fieldsPolys.append( QgsField( "Name", QMetaType::Type::QString ) );
   QMap<QString, QgsFields> perLayerFields;
   perLayerFields["polys"] = fieldsPolys;
   perLayerFields["lines"] = QgsFields();
@@ -134,9 +135,9 @@ void TestQgsVectorTileWriter::test_basic()
   QCOMPARE( features0["lines"].count(), 6 );
   QCOMPARE( features0["polys"].count(), 10 );
 
-  QCOMPARE( features0["points"][0].geometry().wkbType(), QgsWkbTypes::Point );
-  QCOMPARE( features0["lines"][0].geometry().wkbType(), QgsWkbTypes::LineString );
-  QCOMPARE( features0["polys"][0].geometry().wkbType(), QgsWkbTypes::MultiPolygon );   // source geoms in shp are multipolygons
+  QCOMPARE( features0["points"][0].geometry().wkbType(), Qgis::WkbType::Point );
+  QCOMPARE( features0["lines"][0].geometry().wkbType(), Qgis::WkbType::LineString );
+  QCOMPARE( features0["polys"][0].geometry().wkbType(), Qgis::WkbType::MultiPolygon ); // source geoms in shp are multipolygons
 
   QgsAttributes attrsPolys0_0 = features0["polys"][0].attributes();
   QCOMPARE( attrsPolys0_0.count(), 1 );
@@ -183,9 +184,9 @@ void TestQgsVectorTileWriter::test_mbtiles()
 
   QgsVectorTileLayer *vtLayer = new QgsVectorTileLayer( ds.encodedUri(), "output" );
 
-  const QByteArray tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
+  const QgsVectorTileRawData tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
   QgsVectorTileMVTDecoder decoder( QgsVectorTileMatrixSet::fromWebMercator() );
-  const bool resDecode0 = decoder.decode( QgsTileXYZ( 0, 0, 0 ), tile0 );
+  const bool resDecode0 = decoder.decode( tile0 );
   QVERIFY( resDecode0 );
   const QStringList layerNames = decoder.layers();
   QCOMPARE( layerNames, QStringList() << "points" << "lines" << "polys" );
@@ -193,7 +194,7 @@ void TestQgsVectorTileWriter::test_mbtiles()
   QCOMPARE( fieldNamesLines, QStringList() << "Name" << "Value" );
 
   QgsFields fieldsPolys;
-  fieldsPolys.append( QgsField( "Name", QVariant::String ) );
+  fieldsPolys.append( QgsField( "Name", QMetaType::Type::QString ) );
   QMap<QString, QgsFields> perLayerFields;
   perLayerFields["polys"] = fieldsPolys;
   perLayerFields["lines"] = QgsFields();
@@ -203,9 +204,9 @@ void TestQgsVectorTileWriter::test_mbtiles()
   QCOMPARE( features0["lines"].count(), 6 );
   QCOMPARE( features0["polys"].count(), 10 );
 
-  QCOMPARE( features0["points"][0].geometry().wkbType(), QgsWkbTypes::Point );
-  QCOMPARE( features0["lines"][0].geometry().wkbType(), QgsWkbTypes::LineString );
-  QCOMPARE( features0["polys"][0].geometry().wkbType(), QgsWkbTypes::MultiPolygon );   // source geoms in shp are multipolygons
+  QCOMPARE( features0["points"][0].geometry().wkbType(), Qgis::WkbType::Point );
+  QCOMPARE( features0["lines"][0].geometry().wkbType(), Qgis::WkbType::LineString );
+  QCOMPARE( features0["polys"][0].geometry().wkbType(), Qgis::WkbType::MultiPolygon ); // source geoms in shp are multipolygons
 
   QgsAttributes attrsPolys0_0 = features0["polys"][0].attributes();
   QCOMPARE( attrsPolys0_0.count(), 1 );
@@ -251,7 +252,7 @@ void TestQgsVectorTileWriter::test_mbtiles_metadata()
   QVERIFY( reader.open() );
   QCOMPARE( reader.metadataValue( "name" ), QStringLiteral( "QGIS rocks!" ) );
   QCOMPARE( reader.metadataValue( "attribution" ), QStringLiteral( "QGIS sample data" ) );
-  QCOMPARE( reader.metadataValue( "description" ), QString() );  // was not specified
+  QCOMPARE( reader.metadataValue( "description" ), QString() ); // was not specified
   QCOMPARE( reader.metadataValue( "minzoom" ).toInt(), 0 );
   QCOMPARE( reader.metadataValue( "maxzoom" ).toInt(), 1 );
 }
@@ -299,9 +300,9 @@ void TestQgsVectorTileWriter::test_filtering()
 
   QgsVectorTileLayer *vtLayer = new QgsVectorTileLayer( ds.encodedUri(), "output" );
 
-  const QByteArray tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
+  const QgsVectorTileRawData tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
   QgsVectorTileMVTDecoder decoder( QgsVectorTileMatrixSet::fromWebMercator() );
-  const bool resDecode0 = decoder.decode( QgsTileXYZ( 0, 0, 0 ), tile0 );
+  const bool resDecode0 = decoder.decode( tile0 );
   QVERIFY( resDecode0 );
   const QStringList layerNames = decoder.layers();
   QCOMPARE( layerNames, QStringList() << "b52" << "lines" );
@@ -321,7 +322,7 @@ void TestQgsVectorTileWriter::test_filtering()
 void TestQgsVectorTileWriter::test_z0TileMatrix3857()
 {
   QTemporaryDir dir;
-  dir.setAutoRemove( false );  // so that we can inspect the results later
+  dir.setAutoRemove( false ); // so that we can inspect the results later
   const QString tmpDir = dir.path();
 
   QgsDataSourceUri ds;
@@ -357,14 +358,14 @@ void TestQgsVectorTileWriter::test_z0TileMatrix3857()
   // check on the file level
   const QDir dirInfo( tmpDir );
   const QStringList dirFiles = dirInfo.entryList( QStringList( "*.pbf" ) );
-  QCOMPARE( dirFiles.count(), 8 );   // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
+  QCOMPARE( dirFiles.count(), 8 ); // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
   QVERIFY( dirFiles.contains( "custom3857-0-0-0.pbf" ) );
 
   QgsVectorTileLayer *vtLayer = new QgsVectorTileLayer( ds.encodedUri(), "output" );
 
-  const QByteArray tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
+  const QgsVectorTileRawData tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
   QgsVectorTileMVTDecoder decoder( QgsVectorTileMatrixSet::fromWebMercator() );
-  const bool resDecode0 = decoder.decode( QgsTileXYZ( 0, 0, 0 ), tile0 );
+  const bool resDecode0 = decoder.decode( tile0 );
   QVERIFY( resDecode0 );
   const QStringList layerNames = decoder.layers();
   QCOMPARE( layerNames, QStringList() << "points" << "lines" << "polys" );
@@ -372,7 +373,7 @@ void TestQgsVectorTileWriter::test_z0TileMatrix3857()
   QCOMPARE( fieldNamesLines, QStringList() << "Name" << "Value" );
 
   QgsFields fieldsPolys;
-  fieldsPolys.append( QgsField( "Name", QVariant::String ) );
+  fieldsPolys.append( QgsField( "Name", QMetaType::Type::QString ) );
   QMap<QString, QgsFields> perLayerFields;
   perLayerFields["polys"] = fieldsPolys;
   perLayerFields["lines"] = QgsFields();
@@ -382,9 +383,9 @@ void TestQgsVectorTileWriter::test_z0TileMatrix3857()
   QCOMPARE( features0["lines"].count(), 6 );
   QCOMPARE( features0["polys"].count(), 10 );
 
-  QCOMPARE( features0["points"][0].geometry().wkbType(), QgsWkbTypes::Point );
-  QCOMPARE( features0["lines"][0].geometry().wkbType(), QgsWkbTypes::LineString );
-  QCOMPARE( features0["polys"][0].geometry().wkbType(), QgsWkbTypes::MultiPolygon );   // source geoms in shp are multipolygons
+  QCOMPARE( features0["points"][0].geometry().wkbType(), Qgis::WkbType::Point );
+  QCOMPARE( features0["lines"][0].geometry().wkbType(), Qgis::WkbType::LineString );
+  QCOMPARE( features0["polys"][0].geometry().wkbType(), Qgis::WkbType::MultiPolygon ); // source geoms in shp are multipolygons
 
   QgsAttributes attrsPolys0_0 = features0["polys"][0].attributes();
   QCOMPARE( attrsPolys0_0.count(), 1 );
@@ -398,7 +399,7 @@ void TestQgsVectorTileWriter::test_z0TileMatrix3857()
 void TestQgsVectorTileWriter::test_z0TileMatrix2154()
 {
   QTemporaryDir dir;
-  dir.setAutoRemove( false );  // so that we can inspect the results later
+  dir.setAutoRemove( false ); // so that we can inspect the results later
   const QString tmpDir = dir.path();
 
   QgsDataSourceUri ds;
@@ -443,14 +444,14 @@ void TestQgsVectorTileWriter::test_z0TileMatrix2154()
   // check on the file level
   const QDir dirInfo( tmpDir );
   const QStringList dirFiles = dirInfo.entryList( QStringList( "*.pbf" ) );
-  QCOMPARE( dirFiles.count(), 8 );   // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
+  QCOMPARE( dirFiles.count(), 8 ); // 1 tile at z0, 1 tile at z1, 2 tiles at z2, 4 tiles at z3
   QVERIFY( dirFiles.contains( "custom2154-0-0-0.pbf" ) );
 
   QgsVectorTileLayer *vtLayer = new QgsVectorTileLayer( ds.encodedUri(), "output" );
 
-  const QByteArray tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
+  const QgsVectorTileRawData tile0 = vtLayer->getRawTile( QgsTileXYZ( 0, 0, 0 ) );
   QgsVectorTileMVTDecoder decoder( QgsVectorTileMatrixSet::fromWebMercator() );
-  const bool resDecode0 = decoder.decode( QgsTileXYZ( 0, 0, 0 ), tile0 );
+  const bool resDecode0 = decoder.decode( tile0 );
   QVERIFY( resDecode0 );
   const QStringList layerNames = decoder.layers();
   QCOMPARE( layerNames, QStringList() << "points" << "lines" << "polys" );
@@ -458,7 +459,7 @@ void TestQgsVectorTileWriter::test_z0TileMatrix2154()
   QCOMPARE( fieldNamesLines, QStringList() << "Name" << "Value" );
 
   QgsFields fieldsPolys;
-  fieldsPolys.append( QgsField( "Name", QVariant::String ) );
+  fieldsPolys.append( QgsField( "Name", QMetaType::Type::QString ) );
   QMap<QString, QgsFields> perLayerFields;
   perLayerFields["polys"] = fieldsPolys;
   perLayerFields["lines"] = QgsFields();
@@ -468,9 +469,9 @@ void TestQgsVectorTileWriter::test_z0TileMatrix2154()
   QCOMPARE( features0["lines"].count(), 6 );
   QCOMPARE( features0["polys"].count(), 10 );
 
-  QCOMPARE( features0["points"][0].geometry().wkbType(), QgsWkbTypes::Point );
-  QCOMPARE( features0["lines"][0].geometry().wkbType(), QgsWkbTypes::LineString );
-  QCOMPARE( features0["polys"][0].geometry().wkbType(), QgsWkbTypes::MultiPolygon );   // source geoms in shp are multipolygons
+  QCOMPARE( features0["points"][0].geometry().wkbType(), Qgis::WkbType::Point );
+  QCOMPARE( features0["lines"][0].geometry().wkbType(), Qgis::WkbType::LineString );
+  QCOMPARE( features0["polys"][0].geometry().wkbType(), Qgis::WkbType::MultiPolygon ); // source geoms in shp are multipolygons
 
   QgsAttributes attrsPolys0_0 = features0["polys"][0].attributes();
   QCOMPARE( attrsPolys0_0.count(), 1 );

@@ -29,21 +29,23 @@
 #include <nlohmann/json.hpp>
 #include "qgsjsonutils.h"
 
-class TestQgsTextEditWrapper : public QObject
+class TestQgsTextEditWrapper : public QgsTest
 {
     Q_OBJECT
   public:
-    TestQgsTextEditWrapper() = default;
+    TestQgsTextEditWrapper()
+      : QgsTest( QStringLiteral( "Text Edit Wrapper" ) ) {};
 
   private:
     QTemporaryDir tempDir;
 
   private slots:
-    void initTestCase(); // will be called before the first testfunction is executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
     void cleanupTestCase(); // will be called after the last testfunction was executed.
-    void init(); // will be called before each testfunction is executed.
-    void cleanup(); // will be called after every testfunction.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
 
+    void defaultValueClause();
     void testWithJsonInPostgres();
     void testWithJsonBInPostgres();
 };
@@ -69,6 +71,51 @@ void TestQgsTextEditWrapper::cleanup()
 {
 }
 
+void TestQgsTextEditWrapper::defaultValueClause()
+{
+  QgsVectorLayer vl( copyTestData( QStringLiteral( "points_gpkg.gpkg" ) ) + QStringLiteral( "|layername=points_gpkg" ) );
+  QVERIFY( vl.isValid() );
+
+  QgsTextEditWrapper wrapper( &vl, vl.fields().indexOf( QLatin1String( "fid" ) ), nullptr, nullptr );
+  QLineEdit *widget = qobject_cast<QLineEdit *>( wrapper.widget() );
+  wrapper.setEnabled( true );
+  QCOMPARE( wrapper.defaultValue().toString(), QStringLiteral( "Autogenerate" ) );
+  QCOMPARE( widget->placeholderText(), QStringLiteral( "Autogenerate" ) );
+
+  wrapper.setValues( QgsUnsetAttributeValue( QStringLiteral( "Autogenerate" ) ), {} );
+  QCOMPARE( widget->text(), QStringLiteral( "Autogenerate" ) );
+  QCOMPARE( wrapper.value().userType(), qMetaTypeId< QgsUnsetAttributeValue >() );
+
+  // set explicit text
+  widget->setText( QStringLiteral( "11" ) );
+  QCOMPARE( wrapper.value().userType(), qMetaTypeId< long long >() );
+  QCOMPARE( wrapper.value().toInt(), 11 );
+
+  // reset to unset value (this time without the default value clause, should still work)
+  wrapper.setValues( QgsUnsetAttributeValue(), {} );
+  QCOMPARE( widget->text(), QStringLiteral( "Autogenerate" ) );
+  QCOMPARE( wrapper.value().userType(), qMetaTypeId< QgsUnsetAttributeValue >() );
+
+  // set to null
+  widget->clear();
+  QVERIFY( QgsVariantUtils::isNull( wrapper.value() ) );
+
+  // reset to unset value (this time without the default value clause, should still work)
+  wrapper.setValues( QgsUnsetAttributeValue(), {} );
+  QCOMPARE( widget->text(), QStringLiteral( "Autogenerate" ) );
+  QCOMPARE( wrapper.value().userType(), qMetaTypeId< QgsUnsetAttributeValue >() );
+
+  // null -> valid value
+  widget->clear();
+  QVERIFY( QgsVariantUtils::isNull( wrapper.value() ) );
+  widget->setText( QStringLiteral( "11" ) );
+  QCOMPARE( wrapper.value().userType(), qMetaTypeId< long long >() );
+  QCOMPARE( wrapper.value().toInt(), 11 );
+  // back to null
+  widget->clear();
+  QVERIFY( QgsVariantUtils::isNull( wrapper.value() ) );
+}
+
 void TestQgsTextEditWrapper::testWithJsonInPostgres()
 {
 #ifdef ENABLE_PGTEST
@@ -85,7 +132,7 @@ void TestQgsTextEditWrapper::testWithJsonInPostgres()
   QCOMPARE( vl_json->fields().at( 1 ).type(), QVariant::Map );
 
   QgsTextEditWrapper w_json( vl_json, vl_json->fields().indexOf( QLatin1String( "jvalue" ) ), nullptr, nullptr );
-  QLineEdit *widget = qobject_cast< QLineEdit * >( w_json.widget() );
+  QLineEdit *widget = qobject_cast<QLineEdit *>( w_json.widget() );
   w_json.setEnabled( true );
 
   // check text output from DB
@@ -115,7 +162,7 @@ void TestQgsTextEditWrapper::testWithJsonInPostgres()
   widget->setText( QString( "{\"foo\":\"bar\",\"baz\":[1,2,3]}" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( w_json.value().userType() == QMetaType::QVariantMap );
-  json complexJson =  QgsJsonUtils::jsonFromVariant( w_json.value() );
+  json complexJson = QgsJsonUtils::jsonFromVariant( w_json.value() );
   QVERIFY( complexJson.is_object() );
   const json jsonArr = complexJson.at( "baz" );
   QCOMPARE( QString::fromStdString( jsonArr.dump() ), QStringLiteral( "[1,2,3]" ) );
@@ -124,13 +171,13 @@ void TestQgsTextEditWrapper::testWithJsonInPostgres()
   widget->setText( QString( "" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "\"\"" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "\"\"" ) );
 
   //test quoted empty
   widget->setText( QString( "\"\"" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "\"\"" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "\"\"" ) );
 
   // test invalid JSON
   widget->setText( QString( "{\"body\";\"text\"}" ) );
@@ -166,10 +213,10 @@ void TestQgsTextEditWrapper::testWithJsonInPostgres()
 
   // test with quoted string (valid JSON)
   widget->setText( QString( "\"abc\"" ) );
-  QVERIFY( w_json.value().isValid() ) ;
+  QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
   // avoid dumping as strings are quoted, so would be double quoted
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "abc" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "abc" ) );
 #endif
 }
 
@@ -189,7 +236,7 @@ void TestQgsTextEditWrapper::testWithJsonBInPostgres()
   QCOMPARE( vl_json->fields().at( 1 ).type(), QVariant::Map );
 
   QgsTextEditWrapper w_json( vl_json, vl_json->fields().indexOf( QLatin1String( "jbvalue" ) ), nullptr, nullptr );
-  QLineEdit *widget = qobject_cast< QLineEdit * >( w_json.widget() );
+  QLineEdit *widget = qobject_cast<QLineEdit *>( w_json.widget() );
   w_json.setEnabled( true );
 
   // check text output from DB
@@ -218,7 +265,7 @@ void TestQgsTextEditWrapper::testWithJsonBInPostgres()
   widget->setText( QString( "{\"foo\":\"bar\",\"baz\":[1,2,3]}" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( w_json.value().userType() == QMetaType::QVariantMap );
-  json complexJson =  QgsJsonUtils::jsonFromVariant( w_json.value() );
+  json complexJson = QgsJsonUtils::jsonFromVariant( w_json.value() );
   QVERIFY( complexJson.is_object() );
   const json jsonArr = complexJson.at( "baz" );
   QCOMPARE( QString::fromStdString( jsonArr.dump() ), QStringLiteral( "[1,2,3]" ) );
@@ -228,14 +275,14 @@ void TestQgsTextEditWrapper::testWithJsonBInPostgres()
   widget->setText( QString( "" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "\"\"" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "\"\"" ) );
 
 
   //test quoted empty
   widget->setText( QString( "\"\"" ) );
   QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "\"\"" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "\"\"" ) );
 
   // test invalid JSON
   widget->setText( QString( "{\"body\";\"text\"}" ) );
@@ -272,10 +319,10 @@ void TestQgsTextEditWrapper::testWithJsonBInPostgres()
 
   // test with quoted string (valid JSON)
   widget->setText( QString( "\"abc\"" ) );
-  QVERIFY( w_json.value().isValid() ) ;
+  QVERIFY( w_json.value().isValid() );
   QVERIFY( QgsJsonUtils::jsonFromVariant( w_json.value() ).is_string() );
   // avoid dumping as strings are quoted, so would be double quoted
-  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front( ) ), QStringLiteral( "abc" ) );
+  QCOMPARE( QString::fromStdString( QgsJsonUtils::jsonFromVariant( w_json.value() ).front() ), QStringLiteral( "abc" ) );
 #endif
 }
 

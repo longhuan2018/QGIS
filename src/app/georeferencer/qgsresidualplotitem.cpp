@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsresidualplotitem.h"
+#include "moc_qgsresidualplotitem.cpp"
 #include "qgsgeorefdatapoint.h"
 #include "qgslayoututils.h"
 #include <QPainter>
@@ -112,28 +113,31 @@ void QgsResidualPlotItem::paint( QPainter *painter, const QStyleOptionGraphicsIt
   }
 
   //draw scale bar
-  double initialScaleBarWidth = rect().width() / 5;
+  double initialScaleBarWidth = 0;
   double scaleBarWidthUnits = rect().width() / 5 / minMMPixelRatio;
 
   //a simple method to round to next nice number
   int nDecPlaces;
-  if ( scaleBarWidthUnits < 1 )
+  if ( scaleBarWidthUnits <= 0 )
+  {
+    initialScaleBarWidth = rect().width() / 5;
+  }
+  else if ( scaleBarWidthUnits < 1 )
   {
     nDecPlaces = -std::floor( std::log10( scaleBarWidthUnits ) );
     scaleBarWidthUnits *= std::pow( 10.0, nDecPlaces );
-    scaleBarWidthUnits = ( int )( scaleBarWidthUnits + 0.5 );
+    scaleBarWidthUnits = ( int ) ( scaleBarWidthUnits + 0.5 );
     scaleBarWidthUnits /= std::pow( 10.0, nDecPlaces );
+    initialScaleBarWidth = scaleBarWidthUnits * minMMPixelRatio;
   }
-  else
+  else if ( scaleBarWidthUnits > 0 )
   {
     nDecPlaces = static_cast<int>( std::log10( scaleBarWidthUnits ) );
     scaleBarWidthUnits /= std::pow( 10.0, nDecPlaces );
-    scaleBarWidthUnits = ( int )( scaleBarWidthUnits + 0.5 );
+    scaleBarWidthUnits = ( int ) ( scaleBarWidthUnits + 0.5 );
     scaleBarWidthUnits *= std::pow( 10.0, nDecPlaces );
+    initialScaleBarWidth = scaleBarWidthUnits * minMMPixelRatio;
   }
-  initialScaleBarWidth = scaleBarWidthUnits * minMMPixelRatio;
-
-
 
   painter->setPen( QColor( 0, 0, 0 ) );
   painter->drawLine( QPointF( 5, rect().height() - 5 ), QPointF( 5 + initialScaleBarWidth, rect().height() - 5 ) );
@@ -173,7 +177,6 @@ void QgsResidualPlotItem::setGCPList( const QgsGCPList &list )
 
 void QgsResidualPlotItem::draw( QgsLayoutItemRenderContext & )
 {
-
 }
 
 double QgsResidualPlotItem::maxMMToPixelRatioForGCP( const QgsGeorefDataPoint *p, double pixelXMM, double pixelYMM )
@@ -184,7 +187,7 @@ double QgsResidualPlotItem::maxMMToPixelRatioForGCP( const QgsGeorefDataPoint *p
   }
 
   //calculate intersections with upper / lower frame edge depending on the residual y sign
-  double upDownDist = std::numeric_limits<double>::max(); //distance to frame intersection with lower or upper frame
+  double upDownDist = std::numeric_limits<double>::max();    //distance to frame intersection with lower or upper frame
   double leftRightDist = std::numeric_limits<double>::max(); //distance to frame intersection with left or right frame
 
   const QPointF residual = p->residual();

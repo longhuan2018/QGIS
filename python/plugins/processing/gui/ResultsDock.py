@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     ResultsDock.py
@@ -17,18 +15,16 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 import time
 import warnings
 
 from qgis.PyQt import uic
-from qgis.PyQt.QtCore import (QUrl,
-                              QFileInfo,
-                              QDir)
+from qgis.PyQt.QtCore import QUrl, QFileInfo, QDir
 from qgis.gui import QgsDockWidget
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import QTreeWidgetItem
@@ -39,14 +35,13 @@ pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'resultsdockbase.ui'))
+    WIDGET, BASE = uic.loadUiType(os.path.join(pluginPath, "ui", "resultsdockbase.ui"))
 
 
 class ResultsDock(QgsDockWidget, WIDGET):
 
     def __init__(self):
-        super(ResultsDock, self).__init__(None)
+        super().__init__(None)
         self.setupUi(self)
 
         resultsList.resultAdded.connect(self.addResult)
@@ -77,7 +72,7 @@ class ResultsDock(QgsDockWidget, WIDGET):
 
     def updateDescription(self, current, previous):
         if isinstance(current, TreeResultItem):
-            html = '<b>Algorithm</b>: {}<br><b>File path</b>: <a href="{}">{}</a>'.format(current.algorithm, QUrl.fromLocalFile(current.filename).toString(), QDir.toNativeSeparators(current.filename))
+            html = f'<b>Algorithm</b>: {current.algorithm}<br><b>File path</b>: <a href="{QUrl.fromLocalFile(current.filename).toString()}">{QDir.toNativeSeparators(current.filename)}</a>'
             self.txtDescription.setHtml(html)
 
     def openLink(self, url):
@@ -92,6 +87,11 @@ class TreeResultItem(QTreeWidgetItem):
     def __init__(self, result):
         QTreeWidgetItem.__init__(self)
         self.setIcon(0, result.icon)
-        self.setText(0, '{0} [{1}]'.format(result.name, time.strftime('%I:%M:%S%p', result.timestamp)))
+        self.setText(
+            0,
+            "{} [{}]".format(
+                result.name, time.strftime("%I:%M:%S%p", result.timestamp)
+            ),
+        )
         self.algorithm = result.name
         self.filename = result.filename

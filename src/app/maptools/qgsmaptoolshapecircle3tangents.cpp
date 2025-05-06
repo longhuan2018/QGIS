@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshapecircle3tangents.h"
+#include "moc_qgsmaptoolshapecircle3tangents.cpp"
 #include "qgsgeometryrubberband.h"
 #include "qgsadvanceddigitizingdockwidget.h"
 #include "qgslinestring.h"
@@ -124,7 +125,7 @@ void QgsMapToolShapeCircle3Tangents::cadCanvasMoveEvent( QgsMapMouseEvent *e, Qg
 
   if ( !mTempRubberBand )
   {
-    QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+    Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
     mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
     mTempRubberBand->show();
   }
@@ -144,7 +145,7 @@ void QgsMapToolShapeCircle3Tangents::cadCanvasMoveEvent( QgsMapMouseEvent *e, Qg
     }
     else
     {
-      std::unique_ptr<QgsLineString> line( new QgsLineString() );
+      auto line = std::make_unique<QgsLineString>();
 
       line->addVertex( mParentTool->mapPoint( p1 ) );
       line->addVertex( mParentTool->mapPoint( p2 ) );
@@ -153,10 +154,9 @@ void QgsMapToolShapeCircle3Tangents::cadCanvasMoveEvent( QgsMapMouseEvent *e, Qg
       mTempRubberBand->show();
     }
   }
-
 }
 
-void QgsMapToolShapeCircle3Tangents::clean( )
+void QgsMapToolShapeCircle3Tangents::clean()
 {
   mPosPoints.clear();
   QgsMapToolShapeCircleAbstract::clean();

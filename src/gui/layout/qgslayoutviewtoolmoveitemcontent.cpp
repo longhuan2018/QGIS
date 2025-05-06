@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgslayoutviewtoolmoveitemcontent.h"
+#include "moc_qgslayoutviewtoolmoveitemcontent.cpp"
 #include "qgslayoutviewmouseevent.h"
 #include "qgslayoutview.h"
 #include "qgslayout.h"
@@ -64,8 +65,7 @@ void QgsLayoutViewToolMoveItemContent::layoutMoveEvent( QgsLayoutViewMouseEvent 
   }
 
   //update item preview
-  mMoveContentItem->setMoveContentPreviewOffset( event->layoutPoint().x() - mMoveContentStartPos.x(),
-      event->layoutPoint().y() - mMoveContentStartPos.y() );
+  mMoveContentItem->setMoveContentPreviewOffset( event->layoutPoint().x() - mMoveContentStartPos.x(), event->layoutPoint().y() - mMoveContentStartPos.y() );
   mMoveContentItem->update();
 }
 
@@ -94,11 +94,7 @@ void QgsLayoutViewToolMoveItemContent::wheelEvent( QWheelEvent *event )
 {
   event->accept();
 
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 2)
-  QPointF scenePoint = view()->mapToScene( event->pos().x(), event->pos().y() );
-#else
   const QPointF scenePoint = view()->mapToScene( event->position().x(), event->position().y() );
-#endif
 
   //select topmost item at position of event
   QgsLayoutItem *item = layout()->layoutItemAt( scenePoint, true );
@@ -107,6 +103,8 @@ void QgsLayoutViewToolMoveItemContent::wheelEvent( QWheelEvent *event )
 
   const QgsSettings settings;
   double zoomFactor = settings.value( QStringLiteral( "qgis/zoom_factor" ), 2.0 ).toDouble();
+  bool reverseZoom = settings.value( QStringLiteral( "qgis/reverse_wheel_zoom" ), false ).toBool();
+  bool zoomIn = reverseZoom ? event->angleDelta().y() < 0 : event->angleDelta().y() > 0;
 
   // "Normal" mouse have an angle delta of 120, precision mouses provide data faster, in smaller steps
   zoomFactor = 1.0 + ( zoomFactor - 1.0 ) / 120.0 * std::fabs( event->angleDelta().y() );
@@ -118,7 +116,6 @@ void QgsLayoutViewToolMoveItemContent::wheelEvent( QWheelEvent *event )
   }
 
   //calculate zoom scale factor
-  const bool zoomIn = event->angleDelta().y() > 0;
   const double scaleFactor = ( zoomIn ? zoomFactor : 1 / zoomFactor );
 
   const QPointF itemPoint = item->mapFromScene( scenePoint );

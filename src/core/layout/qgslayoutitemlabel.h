@@ -19,7 +19,6 @@
 
 #include "qgis_core.h"
 #include "qgslayoutitem.h"
-#include "qgswebpage.h"
 #include "qgstextformat.h"
 #include <QFont>
 #include <QUrl>
@@ -31,7 +30,6 @@ class QgsDistanceArea;
 /**
  * \ingroup core
  * \brief A layout item subclass for text labels.
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
 {
@@ -68,6 +66,16 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
      * \see sizeForText()
      */
     void adjustSizeToText();
+
+    /**
+     * Resizes the item so that the label's text fits to the item.
+     *
+     * Keeps the specified reference point stationary.
+     *
+     * \see sizeForText()
+     * \since QGIS 3.42
+     */
+    void adjustSizeToText( QgsLayoutItem::ReferencePoint referencePoint );
 
     /**
      * Returns the required item size (in layout units) for the label's text to fill the item.
@@ -111,14 +119,14 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
     /**
      * Returns the label's current font.
      * \see setFont()
-     * \deprecated use textFormat() instead (since QGIS 3.24)
+     * \deprecated QGIS 3.40. Use textFormat() instead (since QGIS 3.24).
      */
     Q_DECL_DEPRECATED QFont font() const SIP_DEPRECATED;
 
     /**
      * Sets the label's current \a font.
      * \see font()
-     * \deprecated use setTextFormat() instead (since QGIS 3.24)
+     * \deprecated QGIS 3.40. Use setTextFormat() instead (since QGIS 3.24).
      */
     Q_DECL_DEPRECATED void setFont( const QFont &font ) SIP_DEPRECATED;
 
@@ -141,14 +149,14 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
      * \see hAlign()
      * \see setVAlign()
      */
-    void setHAlign( Qt::AlignmentFlag alignment ) { mHAlignment = alignment; }
+    void setHAlign( Qt::AlignmentFlag alignment ) { mHAlignment = alignment; invalidateCache(); }
 
     /**
      * Sets for the vertical \a alignment of the label.
      * \see vAlign()
      * \see setHAlign()
      */
-    void setVAlign( Qt::AlignmentFlag alignment ) { mVAlignment = alignment; }
+    void setVAlign( Qt::AlignmentFlag alignment ) { mVAlignment = alignment; invalidateCache(); }
 
     /**
      * Returns the horizontal margin between the edge of the frame and the label
@@ -198,27 +206,22 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
     /**
      * Sets the label font \a color.
      * \see fontColor()
-     * \deprecated Use setTextFormat() instead (since QGIS 3.24)
+     * \deprecated QGIS 3.40. Use setTextFormat() instead (since QGIS 3.24).
      */
     Q_DECL_DEPRECATED void setFontColor( const QColor &color ) SIP_DEPRECATED { mFormat.setColor( color ); }
 
     /**
      * Returns the label font color.
      * \see setFontColor()
-     * \deprecated use textFormat() instead (since QGIS 3.24)
+     * \deprecated QGIS 3.40. Use textFormat() instead (since QGIS 3.24).
      */
     Q_DECL_DEPRECATED QColor fontColor() const SIP_DEPRECATED { return mFormat.color(); }
 
     // In case of negative margins, the bounding rect may be larger than the
     // label's frame
     QRectF boundingRect() const override;
-
-    // Reimplemented to call prepareGeometryChange after toggling frame
     void setFrameEnabled( bool drawFrame ) override;
-
-    // Reimplemented to call prepareGeometryChange after changing stroke width
     void setFrameStrokeWidth( QgsLayoutMeasurement strokeWidth ) override;
-
 
     /**
      * Returns the text format used for drawing text in the label.
@@ -253,21 +256,17 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
 
   private slots:
 
-    //! Track when QWebPage has finished loading its html contents
-    void loadingHtmlFinished( bool );
-
     void refreshExpressionContext();
+    //! Updates the bounding rect of this item
+    void updateBoundingRect();
 
   private:
-    bool mFirstRender = true;
-
     // Text
     QString mText;
 
     Mode mMode = ModeFont;
     double mHtmlUnitsToLayoutUnits = 1.0;
     double htmlUnitsToLayoutUnits(); //calculate scale factor
-    bool mHtmlLoaded = false;
 
     //! Helper function to calculate x/y shift for adjustSizeToText() depending on rotation, current size and alignment
     void itemShiftAdjustSize( double newWidth, double newHeight, double &xShift, double &yShift ) const;
@@ -291,12 +290,20 @@ class CORE_EXPORT QgsLayoutItemLabel: public QgsLayoutItem
     //! Replaces replace '$CURRENT_DATE<(FORMAT)>' with the current date (e.g. $CURRENT_DATE(d 'June' yyyy)
     void replaceDateText( QString &text ) const;
 
+    //! Creates the default font used when rendering labels in HTML mode
+    QFont createDefaultFont() const;
+
     //! Creates an encoded stylesheet url using the current font and label appearance settings
     QUrl createStylesheetUrl() const;
 
+    //! Creates a stylesheet string using the current font and label appearance settings
+    QString createStylesheet() const;
+
     std::unique_ptr< QgsDistanceArea > mDistanceArea;
 
-    std::unique_ptr< QgsWebPage > mWebPage;
+    QRectF mCurrentRectangle;
+
+    friend class QgsLayoutItemHtml;
 };
 
 #endif //QGSLAYOUTITEMLABEL_H

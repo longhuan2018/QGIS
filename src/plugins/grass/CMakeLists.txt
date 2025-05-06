@@ -1,3 +1,5 @@
+include(CopyResources)
+
 add_subdirectory(modules)
 add_subdirectory(scripts)
 
@@ -45,7 +47,7 @@ set (GRASS_PLUGIN_UIS
    ${CMAKE_CURRENT_SOURCE_DIR}/../../ui/qgsprojectionselectorbase.ui
 )
 
-set (GRASS_PLUGIN_MOC_HDRS
+set (GRASS_PLUGIN_HDRS
    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrassaddfeature.h
    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrasseditrenderer.h
    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrassplugin.h
@@ -61,85 +63,6 @@ set (GRASS_PLUGIN_MOC_HDRS
    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrassutils.h
 )
 
-if(NOT WIN32)
-  set (GRASS_PLUGIN_SRCS ${GRASS_PLUGIN_SRCS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrassshell.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/BlockArray.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/ColorScheme.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Emulation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Filter.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/History.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/HistorySearch.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/KeyboardTranslator.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Pty.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/SearchBar.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Screen.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/ScreenWindow.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Session.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/ShellCommand.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/TerminalCharacterDecoder.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/TerminalDisplay.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Vt102Emulation.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kprocess.cpp
-#    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/k3processcontroller.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/konsole_wcwidth.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kpty.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kptydevice.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kptyprocess.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/qtermwidget.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/tools.cpp
-  )
-
-  set (GRASS_PLUGIN_UIS ${GRASS_PLUGIN_UIS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/SearchBar.ui
-  )
-
-  set (GRASS_PLUGIN_MOC_HDRS ${GRASS_PLUGIN_MOC_HDRS}
-    ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrassshell.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Emulation.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Filter.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/HistorySearch.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Pty.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/ScreenWindow.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/SearchBar.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Session.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/TerminalDisplay.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Vt102Emulation.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kprocess.h
-#    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/k3processcontroller.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kptydevice.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kptyprocess.h
-    ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/qtermwidget.h
-  )
-
-  if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-    set_source_files_properties(
-      ${CMAKE_CURRENT_BINARY_DIR}/qtermwidget/moc_Pty.cxx
-      ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Pty.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/Session.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/kpty.cpp
-      ${CMAKE_CURRENT_SOURCE_DIR}/qtermwidget/k3process.cpp
-      PROPERTIES COMPILE_FLAGS "-Wno-overloaded-virtual -Wno-mismatched-tags"
-    )
-  endif()
-
-  if (APPLE)
-    add_definitions(-DHAVE_UTMPX -D_UTMPX_COMPAT)
-  endif()
-  CHECK_FUNCTION_EXISTS(updwtmpx HAVE_UPDWTMPX)
-  if(HAVE_UPDWTMPX)
-    add_definitions(-DHAVE_UPDWTMPX)
-  endif()
-
-
-  set(KB_LAYOUT_DIR "${QGIS_DATA_DIR}/grass/qtermwidget/kb-layouts")
-  add_definitions(-DKB_LAYOUT_DIR="${CMAKE_INSTALL_PREFIX}/${KB_LAYOUT_DIR}")
-
-  set(COLORSCHEMES_DIR "${QGIS_DATA_DIR}/grass/qtermwidget/color-schemes")
-  add_definitions(-DCOLORSCHEMES_DIR="${CMAKE_INSTALL_PREFIX}/${COLORSCHEMES_DIR}")
-
-endif()
-
 set (GRASS_PLUGIN_RCCS ${CMAKE_CURRENT_SOURCE_DIR}/qgsgrass_plugin.qrc)
 set (GRASS_BROWSER_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/qgis.g.browser.cpp)
 
@@ -149,6 +72,7 @@ set (GRASS_BROWSER_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/qgis.g.browser.cpp)
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/src/plugins
+  ${CMAKE_SOURCE_DIR}/src/plugins/grass
   ${CMAKE_SOURCE_DIR}/src/app
   ${CMAKE_SOURCE_DIR}/src/providers/grass
 
@@ -156,27 +80,13 @@ include_directories(
   ${CMAKE_BINARY_DIR}/src/app
   ${CMAKE_CURRENT_BINARY_DIR}
 )
-include_directories(SYSTEM
-  ${GDAL_INCLUDE_DIR}
-  ${PROJ_INCLUDE_DIR}
-  ${GEOS_INCLUDE_DIR}
-  ${POSTGRES_INCLUDE_DIR}
-  qtermwidget
-)
-
 
 macro(ADD_GRASSPLUGIN GRASS_BUILD_VERSION)
     set(GRASS_PREFIX ${GRASS_PREFIX${GRASS_BUILD_VERSION}})
     set(GRASS_MAJOR_VERSION ${GRASS_MAJOR_VERSION${GRASS_BUILD_VERSION}})
     set(GRASS_MINOR_VERSION ${GRASS_MINOR_VERSION${GRASS_BUILD_VERSION}})
 
-    if (BUILD_WITH_QT6)
-      QT6_WRAP_UI (GRASS_PLUGIN_UIS_H ${GRASS_PLUGIN_UIS})
-      QT6_WRAP_CPP (GRASS_PLUGIN_MOC_SRCS ${GRASS_PLUGIN_MOC_HDRS})
-    else()
-      QT5_WRAP_UI (GRASS_PLUGIN_UIS_H ${GRASS_PLUGIN_UIS})
-      QT5_WRAP_CPP (GRASS_PLUGIN_MOC_SRCS ${GRASS_PLUGIN_MOC_HDRS})
-    endif()
+    qt_wrap_ui(GRASS_PLUGIN_UIS_H ${GRASS_PLUGIN_UIS})
 
     include_directories(
       ${CMAKE_BINARY_DIR}/src/providers/grass/${GRASS_BUILD_VERSION}
@@ -184,6 +94,7 @@ macro(ADD_GRASSPLUGIN GRASS_BUILD_VERSION)
 
     add_library (plugin_grass${GRASS_BUILD_VERSION} MODULE
       ${GRASS_PLUGIN_SRCS}
+      ${GRASS_PLUGIN_HDRS}
       ${GRASS_PLUGIN_MOC_SRCS}
       ${GRASS_PLUGIN_UIS_H}
       ${GRASS_PLUGIN_RCCS}
@@ -240,18 +151,21 @@ macro(ADD_GRASSPLUGIN GRASS_BUILD_VERSION)
     )
 endmacro(ADD_GRASSPLUGIN)
 
-file (GLOB GMLS *.gml)
-install (FILES ${GMLS}
-         DESTINATION ${QGIS_DATA_DIR}/grass)
+file (GLOB GMLS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" *.gml)
+ADD_QGIS_RESOURCES("${CMAKE_CURRENT_SOURCE_DIR}" grass DEST_GRASS_GML_RESOURCES "${GMLS}")
 
-install (FILES themes/default/grass_arrow.svg themes/default/grass_plus.svg themes/default/grass_arrow.png themes/default/grass_plus.png
-         DESTINATION ${QGIS_DATA_DIR}/grass/modules)
+set (GRASS_ICONS
+    grass_arrow.svg
+    grass_plus.svg
+    grass_arrow.png
+    grass_plus.png )
+ADD_QGIS_RESOURCES("${CMAKE_CURRENT_SOURCE_DIR}/themes/default" grass/modules DEST_GRASS_MODULE_ICONS "${GRASS_ICONS}")
 
-if(NOT WIN32)
-  install(DIRECTORY qtermwidget/kb-layouts/ DESTINATION "${KB_LAYOUT_DIR}" FILES_MATCHING PATTERN "*.keytab" )
-  install(DIRECTORY qtermwidget/kb-layouts/ DESTINATION "${KB_LAYOUT_DIR}" )
-  install(DIRECTORY qtermwidget/color-schemes/ DESTINATION "${COLORSCHEMES_DIR}" FILES_MATCHING PATTERN "*.*schem*")
-endif()
+set (DEST_GRASS_RESOURCES
+    "${DEST_GRASS_GML_RESOURCES}"
+    "${DEST_GRASS_MODULE_ICONS}")
+
+add_custom_target(grass_resources ALL DEPENDS ${DEST_GRASS_RESOURCES})
 
 foreach(GRASS_BUILD_VERSION 6 7 8)
   if(GRASS_FOUND${GRASS_BUILD_VERSION})

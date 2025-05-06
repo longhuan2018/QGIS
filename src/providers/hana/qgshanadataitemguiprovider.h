@@ -18,19 +18,19 @@
 #define QGSHANADATAITEMGUIPROVIDER_H
 
 #include "qgsdataitemguiprovider.h"
+#include "qgsmimedatautils.h"
 
 class QgsHanaSchemaItem;
 class QgsHanaLayerItem;
+class QgsHanaConnectionItem;
 
 class QgsHanaDataItemGuiProvider : public QObject, public QgsDataItemGuiProvider
 {
     Q_OBJECT
   public:
-
     QString name() override { return QStringLiteral( "SAP HANA" ); }
 
-    void populateContextMenu( QgsDataItem *item, QMenu *menu,
-                              const QList<QgsDataItem *> &selectedItems, QgsDataItemGuiContext context ) override;
+    void populateContextMenu( QgsDataItem *item, QMenu *menu, const QList<QgsDataItem *> &selectedItems, QgsDataItemGuiContext context ) override;
 
     bool deleteLayer( QgsLayerItem *item, QgsDataItemGuiContext context ) override;
 
@@ -42,12 +42,16 @@ class QgsHanaDataItemGuiProvider : public QObject, public QgsDataItemGuiProvider
   private:
     static void newConnection( QgsDataItem *item );
     static void editConnection( QgsDataItem *item );
-    static void deleteConnection( QgsDataItem *item );
+    static void duplicateConnection( QgsDataItem *item );
     static void refreshConnection( QgsDataItem *item );
     static void createSchema( QgsDataItem *item, QgsDataItemGuiContext context );
     static void deleteSchema( QgsHanaSchemaItem *schemaItem, QgsDataItemGuiContext context );
     static void renameSchema( QgsHanaSchemaItem *schemaItem, QgsDataItemGuiContext context );
     static void renameLayer( QgsHanaLayerItem *layerItem, QgsDataItemGuiContext context );
+
+    bool handleDrop( QgsHanaConnectionItem *connectionItem, const QMimeData *data, const QString &toSchema, QgsDataItemGuiContext context );
+    bool handleDropUri( QgsHanaConnectionItem *connectionItem, const QgsMimeDataUtils::Uri &sourceUri, const QString &toSchema, QgsDataItemGuiContext context );
+    void handleImportVector( QgsHanaConnectionItem *connectionItem, const QString &toSchema, QgsDataItemGuiContext context );
 };
 
 #endif // QGSHANADATAITEMGUIPROVIDER_H

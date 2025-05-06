@@ -1,4 +1,9 @@
 name: 🍏 Mac OS build
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -10,7 +15,11 @@ on:
     branches:
       - master
       - release-**
+      - queued_ltr_backports
     paths:
+
+permissions:
+  contents: read
 
 env:
   QT_VERSION: 5.15.2
@@ -25,40 +34,21 @@ env:
 jobs:
   mac_os_build:
     if: github.repository == 'qgis/QGIS'
-    runs-on: macos-latest
+    runs-on: macos-13
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Prepare build cache for pull request
-        uses: pat-s/always-upload-cache@v3.0.11
-        if: github.event_name == 'pull_request'
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: build-mac-ccache-${{ github.actor }}-${{ github.head_ref }}-${{ github.sha }}
-          # The head_ref or source branch of the pull request in a workflow run.
-          # The base_ref or target branch of the pull request in a workflow run.
+          key: build-ccache-mac-${{ github.event.pull_request.base.ref || github.ref_name }}
           restore-keys: |
-            build-mac-ccache-${{ github.actor }}-${{ github.head_ref }}-
-            build-mac-ccache-refs/heads/${{ github.base_ref }}-
-            build-mac-ccache-refs/heads/master-
+            build-ccache-mac-master
 
-      - name: Prepare build cache for branch/tag
-        # use a fork of actions/cache@v2 to upload cache even when the build or test failed
-        uses: pat-s/always-upload-cache@v3.0.11
-        if: github.event_name != 'pull_request'
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          # The branch or tag ref that triggered the workflow run. For branches this in the format refs/heads/<branch_name>, and for tags it is refs/tags/<tag_name>
-          key: build-mac-ccache-${{ github.ref }}-${{ github.sha }}
-          restore-keys: |
-            build-mac-ccache-${{ github.ref }}-
-            build-mac-ccache-refs/heads/master-
-
-
-      # Qt caching
       - name: Cache Qt
         id: cache-qt
-        uses: actions/cache@v3.2.4
+        uses: actions/cache@v4
         with:
           path: ${{ env.DEPS_CACHE_DIR }}/Qt/${{ env.QT_VERSION }}
           key: mac-qt-${{ env.QT_VERSION }}
@@ -81,7 +71,7 @@ jobs:
       # QGIS-deps caching
       - name: Cache qgis-deps
         id: cache-deps
-        uses: actions/cache@v3.2.4
+        uses: actions/cache@v4
         with:
           path: ${{ env.DEPS_CACHE_DIR }}/QGIS/qgis-deps-${{ env.QGIS_DEPS_VERSION }}.${{ env.QGIS_DEPS_PATCH_VERSION }}
           key: mac-qgis-deps-${{ env.QGIS_DEPS_VERSION }}.${{ env.QGIS_DEPS_PATCH_VERSION }}
@@ -99,8 +89,6 @@ jobs:
           wget https://qgis.org/downloads/macos/deps/qgis-deps-${QGIS_DEPS_VERSION}.${QGIS_DEPS_PATCH_VERSION}.tar.gz
           mkdir -p ${DEPS_CACHE_DIR}
           mkdir -p ${DEPS_CACHE_DIR}/QGIS
-
-
 
       - name: Install Qt and deps
         env:
@@ -120,6 +108,8 @@ jobs:
           mkdir -p ${CCACHE_DIR}
           brew install ccache
           ccache --set-config=max_size=2.0G
+          # To make ccache work properly with precompiled headers
+          ccache --set-config sloppiness=pch_defines,time_macros,include_file_mtime,include_file_ctime
           ccache -s
 
       - name: Run cmake
@@ -132,6 +122,7 @@ jobs:
                -DCMAKE_PREFIX_PATH=/opt/Qt/${QT_VERSION}/clang_64 \
                -DWITH_BINDINGS=TRUE \
                -DWITH_3D=TRUE \
+               -DWITH_DRACO=FALSE \
                -DWITH_PDAL=TRUE \
                -DWITH_EPT=TRUE \
                ../QGIS
@@ -140,3 +131,10 @@ jobs:
         run: |
           cd ${BUILD_DIR}
           make -j $(sysctl -n hw.ncpu)
+
+      - name: Save build cache for push only
+        uses: actions/cache/save@v4
+        if: ${{ github.event_name == 'push' }}
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: build-ccache-mac-${{ github.ref_name }}-${{ github.run_id }}

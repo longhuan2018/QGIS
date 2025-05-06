@@ -27,16 +27,19 @@
 
 #include "qgis_sip.h"
 #include "qgis_core.h"
-#include "qgsunittypes.h"
 #include "qgis.h"
 
+#ifdef SIP_RUN
+% ModuleHeaderCode
+#include "qgsunittypes.h"
+% End
+#endif
 class QString;
 
 /**
  * \ingroup core
  * \class QgsInterval
  * \brief A representation of the interval between two datetime values.
- * \since QGIS 2.16
  */
 
 class CORE_EXPORT QgsInterval
@@ -78,7 +81,7 @@ class CORE_EXPORT QgsInterval
     /**
      * Constructor for QgsInterval, using the specified \a duration and \a units.
      */
-    QgsInterval( double duration, QgsUnitTypes::TemporalUnit unit );
+    QgsInterval( double duration, Qgis::TemporalUnit unit );
 
     /**
      * Constructor for QgsInterval, using the specified \a years, \a months,
@@ -90,6 +93,20 @@ class CORE_EXPORT QgsInterval
      * \since QGIS 3.14
      */
     QgsInterval( double years, double months, double weeks, double days, double hours, double minutes, double seconds );
+
+#ifdef SIP_RUN
+    SIP_PYOBJECT __repr__();
+    % MethodCode
+    QString str;
+    if ( ! sipCpp->isValid() )
+      str = QStringLiteral( "<QgsInterval: invalid>" );
+    else if ( sipCpp->originalUnit() != Qgis::TemporalUnit::Unknown )
+      str = QStringLiteral( "<QgsInterval: %1 %2>" ).arg( sipCpp->originalDuration() ).arg( QgsUnitTypes::toString( sipCpp->originalUnit() ) );
+    else
+      str = QStringLiteral( "<QgsInterval: %1 seconds>" ).arg( sipCpp->seconds() );
+    sipRes = PyUnicode_FromString( str.toUtf8().constData() );
+    % End
+#endif
 
     /**
      * Returns the interval duration in years (based on an average year length)
@@ -282,7 +299,7 @@ class CORE_EXPORT QgsInterval
      *
      * Returns 0.0 if the original duration was not set.
      *
-     * \since 3.18
+     * \since QGIS 3.18
      */
     double originalDuration() const { return mOriginalDuration; }
 
@@ -297,15 +314,15 @@ class CORE_EXPORT QgsInterval
      *
      * \see originalDuration()
      *
-     * \since 3.18
+     * \since QGIS 3.18
      */
-    QgsUnitTypes::TemporalUnit originalUnit() const { return mOriginalUnit; }
+    Qgis::TemporalUnit originalUnit() const { return mOriginalUnit; }
 
     bool operator==( QgsInterval other ) const
     {
       if ( !mValid && !other.mValid )
         return true;
-      else if ( mValid && other.mValid && ( mOriginalUnit != QgsUnitTypes::TemporalUnknownUnit || other.mOriginalUnit != QgsUnitTypes::TemporalUnknownUnit ) )
+      else if ( mValid && other.mValid && ( mOriginalUnit != Qgis::TemporalUnit::Unknown || other.mOriginalUnit != Qgis::TemporalUnit::Unknown ) )
         return mOriginalUnit == other.mOriginalUnit && mOriginalDuration == other.mOriginalDuration;
       else if ( mValid && other.mValid )
         return qgsDoubleNear( mSeconds, other.mSeconds );
@@ -343,7 +360,7 @@ class CORE_EXPORT QgsInterval
     double mOriginalDuration = 0.0;
 
     //! Interval unit
-    QgsUnitTypes::TemporalUnit mOriginalUnit = QgsUnitTypes::TemporalUnknownUnit;
+    Qgis::TemporalUnit mOriginalUnit = Qgis::TemporalUnit::Unknown;
 };
 
 Q_DECLARE_METATYPE( QgsInterval )
@@ -357,7 +374,6 @@ Q_DECLARE_METATYPE( QgsInterval )
  * \param datetime1 start datetime
  * \param datetime2 datetime to subtract, ie subtract datetime2 from datetime1
  * \note not available in Python bindings
- * \since QGIS 2.16
  */
 QgsInterval CORE_EXPORT operator-( const QDateTime &datetime1, const QDateTime &datetime2 );
 
@@ -368,7 +384,6 @@ QgsInterval CORE_EXPORT operator-( const QDateTime &datetime1, const QDateTime &
  * \param date1 start date
  * \param date2 date to subtract, ie subtract date2 from date1
  * \note not available in Python bindings
- * \since QGIS 2.16
  */
 QgsInterval CORE_EXPORT operator-( QDate date1, QDate date2 );
 
@@ -377,7 +392,6 @@ QgsInterval CORE_EXPORT operator-( QDate date1, QDate date2 );
  * \param time1 start time
  * \param time2 time to subtract, ie subtract time2 from time1
  * \note not available in Python bindings
- * \since QGIS 2.16
  */
 QgsInterval CORE_EXPORT operator-( QTime time1, QTime time2 );
 
@@ -386,7 +400,6 @@ QgsInterval CORE_EXPORT operator-( QTime time1, QTime time2 );
  * \param start initial datetime
  * \param interval interval to add
  * \note not available in Python bindings
- * \since QGIS 2.16
  */
 QDateTime CORE_EXPORT operator+( const QDateTime &start, const QgsInterval &interval );
 

@@ -15,13 +15,15 @@
 
 #include "qgsgcplist.h"
 #include "qgsgcplistmodel.h"
+#include "moc_qgsgcplistmodel.cpp"
 #include "qgis.h"
 #include "qgsgeorefdatapoint.h"
 #include "qgsgeoreftransform.h"
 #include "qgssettings.h"
-#include "qgsproject.h"
+#include "qgsdoublevalidator.h"
 
 #include <cmath>
+#include <QLocale>
 
 QgsGCPListModel::QgsGCPListModel( QObject *parent )
   : QAbstractTableModel( parent )
@@ -48,8 +50,7 @@ void QgsGCPListModel::setTargetCrs( const QgsCoordinateReferenceSystem &targetCr
   mTargetCrs = targetCrs;
   mTransformContext = context;
   updateResiduals();
-  emit dataChanged( index( 0, static_cast< int >( Column::DestinationX ) ),
-                    index( rowCount() - 1, static_cast< int >( Column::DestinationY ) ) );
+  emit dataChanged( index( 0, static_cast<int>( Column::DestinationX ) ), index( rowCount() - 1, static_cast<int>( Column::DestinationY ) ) );
 }
 
 int QgsGCPListModel::rowCount( const QModelIndex & ) const
@@ -59,7 +60,7 @@ int QgsGCPListModel::rowCount( const QModelIndex & ) const
 
 int QgsGCPListModel::columnCount( const QModelIndex & ) const
 {
-  return static_cast< int >( Column::LastColumn );
+  return static_cast<int>( Column::LastColumn );
 }
 
 QVariant QgsGCPListModel::data( const QModelIndex &index, int role ) const
@@ -71,7 +72,7 @@ QVariant QgsGCPListModel::data( const QModelIndex &index, int role ) const
        || index.column() >= columnCount() )
     return QVariant();
 
-  const Column column = static_cast< Column >( index.column() );
+  const Column column = static_cast<Column>( index.column() );
 
   const QgsGeorefDataPoint *point = mGCPList->at( index.row() );
   switch ( role )
@@ -217,9 +218,8 @@ QVariant QgsGCPListModel::data( const QModelIndex &index, int role ) const
       break;
     }
 
-    case static_cast< int >( Role::SourcePointRole ):
+    case static_cast<int>( Role::SourcePointRole ):
       return point->sourcePoint();
-
   }
   return QVariant();
 }
@@ -234,13 +234,13 @@ bool QgsGCPListModel::setData( const QModelIndex &index, const QVariant &value, 
     return false;
 
   QgsGeorefDataPoint *point = mGCPList->at( index.row() );
-  const Column column = static_cast< Column >( index.column() );
+  const Column column = static_cast<Column>( index.column() );
   switch ( column )
   {
     case QgsGCPListModel::Column::Enabled:
       if ( role == Qt::CheckStateRole )
       {
-        const bool checked = static_cast< Qt::CheckState >( value.toInt() ) == Qt::Checked;
+        const bool checked = static_cast<Qt::CheckState>( value.toInt() ) == Qt::Checked;
         point->setEnabled( checked );
         emit dataChanged( index, index );
         updateResiduals();
@@ -254,9 +254,9 @@ bool QgsGCPListModel::setData( const QModelIndex &index, const QVariant &value, 
     {
       QgsPointXY sourcePoint = point->sourcePoint();
       if ( column == QgsGCPListModel::Column::SourceX )
-        sourcePoint.setX( value.toDouble() );
+        sourcePoint.setX( QgsDoubleValidator::toDouble( value.toString() ) );
       else
-        sourcePoint.setY( value.toDouble() );
+        sourcePoint.setY( QgsDoubleValidator::toDouble( value.toString() ) );
       point->setSourcePoint( sourcePoint );
       emit dataChanged( index, index );
       updateResiduals();
@@ -270,9 +270,9 @@ bool QgsGCPListModel::setData( const QModelIndex &index, const QVariant &value, 
       // as this is what we were showing to users
       QgsPointXY destinationPoint = point->transformedDestinationPoint( mTargetCrs, mTransformContext );
       if ( column == QgsGCPListModel::Column::DestinationX )
-        destinationPoint.setX( value.toDouble() );
+        destinationPoint.setX( QgsDoubleValidator::toDouble( value.toString() ) );
       else
-        destinationPoint.setY( value.toDouble() );
+        destinationPoint.setY( QgsDoubleValidator::toDouble( value.toString() ) );
       point->setDestinationPoint( destinationPoint );
       // we also have to update the destination point crs to the target crs, as the point is now in a different CRS
       point->setDestinationPointCrs( mTargetCrs );
@@ -301,7 +301,7 @@ Qt::ItemFlags QgsGCPListModel::flags( const QModelIndex &index ) const
        || index.column() >= columnCount() )
     return QAbstractTableModel::flags( index );
 
-  const Column column = static_cast< Column >( index.column() );
+  const Column column = static_cast<Column>( index.column() );
   switch ( column )
   {
     case QgsGCPListModel::Column::Enabled:
@@ -336,23 +336,23 @@ QVariant QgsGCPListModel::headerData( int section, Qt::Orientation orientation, 
           QString residualUnitType;
           switch ( residualUnit() )
           {
-            case QgsUnitTypes::RenderMapUnits:
+            case Qgis::RenderUnit::MapUnits:
               residualUnitType = tr( "map units" );
               break;
-            case QgsUnitTypes::RenderPixels:
+            case Qgis::RenderUnit::Pixels:
               residualUnitType = tr( "pixels" );
               break;
 
-            case QgsUnitTypes::RenderMillimeters:
-            case QgsUnitTypes::RenderPercentage:
-            case QgsUnitTypes::RenderPoints:
-            case QgsUnitTypes::RenderInches:
-            case QgsUnitTypes::RenderUnknownUnit:
-            case QgsUnitTypes::RenderMetersInMapUnits:
+            case Qgis::RenderUnit::Millimeters:
+            case Qgis::RenderUnit::Percentage:
+            case Qgis::RenderUnit::Points:
+            case Qgis::RenderUnit::Inches:
+            case Qgis::RenderUnit::Unknown:
+            case Qgis::RenderUnit::MetersInMapUnits:
               break;
           }
 
-          switch ( static_cast< Column >( section ) )
+          switch ( static_cast<Column>( section ) )
           {
             case QgsGCPListModel::Column::Enabled:
               return tr( "Enabled" );
@@ -365,7 +365,7 @@ QVariant QgsGCPListModel::headerData( int section, Qt::Orientation orientation, 
             case QgsGCPListModel::Column::DestinationX:
             case QgsGCPListModel::Column::DestinationY:
             {
-              const QString heading = static_cast< Column >( section ) == QgsGCPListModel::Column::DestinationX ? tr( "Dest. X" ) : tr( "Dest. Y" );
+              const QString heading = static_cast<Column>( section ) == QgsGCPListModel::Column::DestinationX ? tr( "Dest. X" ) : tr( "Dest. Y" );
               switch ( role )
               {
                 case Qt::DisplayRole:
@@ -404,7 +404,7 @@ QVariant QgsGCPListModel::headerData( int section, Qt::Orientation orientation, 
   return QVariant();
 }
 
-QgsUnitTypes::RenderUnit QgsGCPListModel::residualUnit() const
+Qgis::RenderUnit QgsGCPListModel::residualUnit() const
 {
   bool mapUnitsPossible = false;
   if ( mGeorefTransform )
@@ -414,11 +414,11 @@ QgsUnitTypes::RenderUnit QgsGCPListModel::residualUnit() const
 
   if ( mapUnitsPossible && QgsSettings().value( QStringLiteral( "/Plugin-GeoReferencer/Config/ResidualUnits" ) ) == "mapUnits" )
   {
-    return QgsUnitTypes::RenderUnit::RenderMapUnits;
+    return Qgis::RenderUnit::MapUnits;
   }
   else
   {
-    return QgsUnitTypes::RenderUnit::RenderPixels;
+    return Qgis::RenderUnit::Pixels;
   }
 }
 
@@ -428,8 +428,7 @@ void QgsGCPListModel::updateResiduals()
     return;
 
   mGCPList->updateResiduals( mGeorefTransform, mTargetCrs, mTransformContext, residualUnit() );
-  emit dataChanged( index( 0, static_cast< int >( Column::ResidualDx ) ),
-                    index( rowCount() - 1, static_cast< int >( Column::TotalResidual ) ) );
+  emit dataChanged( index( 0, static_cast<int>( Column::ResidualDx ) ), index( rowCount() - 1, static_cast<int>( Column::TotalResidual ) ) );
 }
 
 QString QgsGCPListModel::formatNumber( double number )
@@ -440,7 +439,5 @@ QString QgsGCPListModel::formatNumber( double number )
   else if ( std::fabs( number ) < 1000 )
     decimalPlaces = 6;
 
-  return QString::number( number, 'f', decimalPlaces );
+  return QLocale().toString( number, 'f', decimalPlaces );
 }
-
-

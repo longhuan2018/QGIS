@@ -9,22 +9,21 @@ external/*
 ms-windows/osgeo4w/
 python/ext-libs/
 python/qsci_apis/
-src/app/gps/qwtpolar-1.0/
-src/app/gps/qwtpolar-1.1.1/
 src/core/pal
-src/plugins/grass/qtermwidget/
 tests/testdata/provider/postgresraster/
+tests/testdata/newsfeed/
 
 #Extensions
-*.*.orig
-*.*.sortinc
-*.*.png
-*.*.prepare
-*.sld
-*.lintian-overrides
+.*\..*.orig
+.*\..*.sortinc
+.*\..*.png
+.*\..*.prepare
+.*\.sld
+.*\.lintian-overrides
 .agignore
 
 #Specific files
+.clang-format
 ChangeLog
 doc/NEWS.html
 debian/qgis.desktop

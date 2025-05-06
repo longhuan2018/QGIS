@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgssvgannotationdialog.h"
+#include "moc_qgssvgannotationdialog.cpp"
 #include "qgsannotationwidget.h"
 #include "qgssvgannotation.h"
 #include "qgsmapcanvasannotationitem.h"
@@ -23,6 +24,8 @@
 #include "qgsannotationmanager.h"
 #include "qgsgui.h"
 #include "qgshelp.h"
+#include "qgssettingsentryimpl.h"
+
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QGraphicsScene>
@@ -41,9 +44,16 @@ QgsSvgAnnotationDialog::QgsSvgAnnotationDialog( QgsMapCanvasAnnotationItem *item
   mStackedWidget->addWidget( mEmbeddedWidget );
   mStackedWidget->setCurrentWidget( mEmbeddedWidget );
 
+  // SVG annotation can only be created from an svg file
+  // Mask the source radio button and the source text edit
+  mFileRadioButton->setChecked( true );
+  mFileRadioButton->hide();
+  mSourceRadioButton->hide();
+  mHtmlSourceTextEdit->hide();
+
   if ( mItem && mItem->annotation() )
   {
-    QgsSvgAnnotation *annotation = static_cast< QgsSvgAnnotation * >( mItem->annotation() );
+    QgsSvgAnnotation *annotation = static_cast<QgsSvgAnnotation *>( mItem->annotation() );
     mFileLineEdit->setText( annotation->filePath() );
   }
 
@@ -52,6 +62,12 @@ QgsSvgAnnotationDialog::QgsSvgAnnotationDialog( QgsMapCanvasAnnotationItem *item
   QPushButton *deleteButton = new QPushButton( tr( "Delete" ) );
   QObject::connect( deleteButton, &QPushButton::clicked, this, &QgsSvgAnnotationDialog::deleteItem );
   mButtonBox->addButton( deleteButton, QDialogButtonBox::RejectRole );
+
+  connect( mLiveCheckBox, &QCheckBox::toggled, this, &QgsSvgAnnotationDialog::onLiveUpdateToggled );
+  mLiveCheckBox->setChecked( QgsAnnotationWidget::settingLiveUpdate->value() );
+  connect( mEmbeddedWidget, &QgsAnnotationWidget::changed, this, &QgsSvgAnnotationDialog::onSettingsChanged );
+  connect( mFileLineEdit, &QLineEdit::textChanged, this, &QgsSvgAnnotationDialog::onSettingsChanged );
+  connect( mLiveCheckBox, &QCheckBox::toggled, this, &QgsSvgAnnotationDialog::onSettingsChanged );
 
   QgsGui::enableAutoGeometryRestore( this );
 }
@@ -65,6 +81,10 @@ void QgsSvgAnnotationDialog::mBrowseToolButton_clicked()
     directory = fi.absolutePath();
   }
   const QString filename = QFileDialog::getOpenFileName( nullptr, tr( "Select SVG file" ), directory, tr( "SVG files" ) + " (*.svg)" );
+  if ( filename.isEmpty() )
+  {
+    return;
+  }
   mFileLineEdit->setText( filename );
 }
 
@@ -77,11 +97,13 @@ void QgsSvgAnnotationDialog::applySettingsToItem()
 
   if ( mItem && mItem->annotation() )
   {
-    QgsSvgAnnotation *annotation = static_cast< QgsSvgAnnotation * >( mItem->annotation() );
-    annotation->setFilePath( mFileLineEdit->text() );
-    mItem->update();
+    if ( !mFileLineEdit->text().isEmpty() )
+    {
+      QgsSvgAnnotation *annotation = static_cast<QgsSvgAnnotation *>( mItem->annotation() );
+      annotation->setFilePath( mFileLineEdit->text() );
+      mItem->update();
+    }
   }
-
 }
 
 void QgsSvgAnnotationDialog::deleteItem()
@@ -101,5 +123,21 @@ void QgsSvgAnnotationDialog::mButtonBox_clicked( QAbstractButton *button )
 
 void QgsSvgAnnotationDialog::showHelp()
 {
-  QgsHelp::openHelp( QStringLiteral( "introduction/general_tools.html#annotation-tools" ) );
+  QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#sec-annotations" ) );
+}
+
+void QgsSvgAnnotationDialog::onSettingsChanged()
+{
+  if ( mLiveCheckBox->isChecked() )
+  {
+    applySettingsToItem();
+  }
+}
+
+void QgsSvgAnnotationDialog::onLiveUpdateToggled( bool checked )
+{
+  // Apply and Cancel buttons make no sense when live update is on
+  mButtonBox->button( QDialogButtonBox::Apply )->setHidden( checked );
+  mButtonBox->button( QDialogButtonBox::Cancel )->setHidden( checked );
+  QgsAnnotationWidget::settingLiveUpdate->setValue( checked );
 }

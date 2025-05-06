@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsstyle.h"
+#include "moc_qgsstyle.cpp"
 
 #include "qgssymbol.h"
 #include "qgscolorramp.h"
@@ -79,16 +80,16 @@ QgsStyle *QgsStyle::sDefaultStyle = nullptr;
 QgsStyle::QgsStyle( QObject *parent )
   : QObject( parent )
 {
-  std::unique_ptr< QgsSimpleMarkerSymbolLayer > simpleMarker = std::make_unique< QgsSimpleMarkerSymbolLayer >( Qgis::MarkerShape::Circle,
-      1.6, 0, Qgis::ScaleMethod::ScaleArea, QColor( 84, 176, 74 ), QColor( 61, 128, 53 ) );
+  auto simpleMarker = std::make_unique< QgsSimpleMarkerSymbolLayer >( Qgis::MarkerShape::Circle,
+                      1.6, 0, Qgis::ScaleMethod::ScaleArea, QColor( 84, 176, 74 ), QColor( 61, 128, 53 ) );
   simpleMarker->setStrokeWidth( 0.4 );
   mPatchMarkerSymbol = std::make_unique< QgsMarkerSymbol >( QgsSymbolLayerList() << simpleMarker.release() );
 
-  std::unique_ptr< QgsSimpleLineSymbolLayer > simpleLine = std::make_unique< QgsSimpleLineSymbolLayer >( QColor( 84, 176, 74 ), 0.6 );
+  auto simpleLine = std::make_unique< QgsSimpleLineSymbolLayer >( QColor( 84, 176, 74 ), 0.6 );
   mPatchLineSymbol = std::make_unique< QgsLineSymbol >( QgsSymbolLayerList() << simpleLine.release() );
 
-  std::unique_ptr< QgsGradientFillSymbolLayer > gradientFill = std::make_unique< QgsGradientFillSymbolLayer >( QColor( 66, 150, 63 ), QColor( 84, 176, 74 ) );
-  std::unique_ptr< QgsSimpleLineSymbolLayer > simpleOutline = std::make_unique< QgsSimpleLineSymbolLayer >( QColor( 56, 128, 54 ), 0.26 );
+  auto gradientFill = std::make_unique< QgsGradientFillSymbolLayer >( QColor( 66, 150, 63 ), QColor( 84, 176, 74 ) );
+  auto simpleOutline = std::make_unique< QgsSimpleLineSymbolLayer >( QColor( 56, 128, 54 ), 0.26 );
   mPatchFillSymbol = std::make_unique< QgsFillSymbol >( QgsSymbolLayerList() << gradientFill.release() << simpleOutline.release() );
 }
 
@@ -142,18 +143,19 @@ bool QgsStyle::addEntity( const QString &name, const QgsStyleEntityInterface *en
   return false;
 }
 
-QgsStyle *QgsStyle::defaultStyle() // static
+QgsStyle *QgsStyle::defaultStyle( bool initialize ) // static
 {
+  static QString sStyleFilename;
   if ( !sDefaultStyle )
   {
     QgsScopedRuntimeProfile profile( tr( "Load default style database" ) );
-    QString styleFilename = QgsApplication::userStylePath();
+    sStyleFilename = QgsApplication::userStylePath();
 
     // copy default style if user style doesn't exist
-    if ( !QFile::exists( styleFilename ) )
+    if ( !QFile::exists( sStyleFilename ) )
     {
       sDefaultStyle = new QgsStyle;
-      sDefaultStyle->createDatabase( styleFilename );
+      sDefaultStyle->createDatabase( sStyleFilename );
       if ( QFile::exists( QgsApplication::defaultStylePath() ) )
       {
         if ( sDefaultStyle->importXml( QgsApplication::defaultStylePath() ) )
@@ -165,12 +167,37 @@ QgsStyle *QgsStyle::defaultStyle() // static
     else
     {
       sDefaultStyle = new QgsStyle;
-      sDefaultStyle->load( styleFilename );
-      sDefaultStyle->upgradeIfRequired();
+      sDefaultStyle->mInitialized = false;
+      if ( initialize )
+      {
+        sDefaultStyle->initializeDefaultStyle( sStyleFilename );
+      }
     }
     sDefaultStyle->setName( QObject::tr( "Default" ) );
   }
+  else if ( initialize && !sDefaultStyle->mInitialized )
+  {
+    // lazy initialize
+    sDefaultStyle->initializeDefaultStyle( sStyleFilename );
+  }
   return sDefaultStyle;
+}
+
+void QgsStyle::initializeDefaultStyle( const QString &filename )
+{
+  Q_ASSERT( this == sDefaultStyle );
+  if ( this != sDefaultStyle )
+    return;
+
+  if ( mInitialized )
+    return;
+
+  QgsScopedRuntimeProfile profile( tr( "Initialize default style database" ) );
+
+  mInitialized = true;
+  load( filename );
+  upgradeIfRequired();
+  emit initialized();
 }
 
 void QgsStyle::cleanDefaultStyle() // static
@@ -218,14 +245,14 @@ bool QgsStyle::addSymbol( const QString &name, QgsSymbol *symbol, bool update )
   return true;
 }
 
-bool QgsStyle::saveSymbol( const QString &name, QgsSymbol *symbol, bool favorite, const QStringList &tags )
+bool QgsStyle::saveSymbol( const QString &name, const QgsSymbol *symbol, bool favorite, const QStringList &tags )
 {
   // TODO add support for groups
   QDomDocument doc( QStringLiteral( "dummy" ) );
   QDomElement symEl = QgsSymbolLayerUtils::saveSymbol( name, symbol, doc, QgsReadWriteContext() );
   if ( symEl.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
     return false;
   }
 
@@ -240,7 +267,7 @@ bool QgsStyle::saveSymbol( const QString &name, QgsSymbol *symbol, bool favorite
 
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert symbol into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert symbol into the database!" ) );
     return false;
   }
 
@@ -291,7 +318,13 @@ bool QgsStyle::renameEntity( QgsStyle::StyleEntity type, const QString &oldName,
 QgsSymbol *QgsStyle::symbol( const QString &name )
 {
   const QgsSymbol *symbol = symbolRef( name );
-  return symbol ? symbol->clone() : nullptr;
+  if ( !symbol )
+    return nullptr;
+
+  QgsSymbol *newSymbol = symbol->clone();
+  QgsSymbolLayerUtils::resetSymbolLayerIds( newSymbol );
+
+  return newSymbol;
 }
 
 const QgsSymbol *QgsStyle::symbolRef( const QString &name ) const
@@ -418,7 +451,7 @@ bool QgsStyle::addSymbol3D( const QString &name, QgsAbstract3DSymbol *symbol, bo
   return true;
 }
 
-bool QgsStyle::saveColorRamp( const QString &name, QgsColorRamp *ramp, bool favorite, const QStringList &tags )
+bool QgsStyle::saveColorRamp( const QString &name, const QgsColorRamp *ramp, bool favorite, const QStringList &tags )
 {
   // insert it into the database
   QDomDocument doc( QStringLiteral( "dummy" ) );
@@ -426,7 +459,7 @@ bool QgsStyle::saveColorRamp( const QString &name, QgsColorRamp *ramp, bool favo
 
   if ( rampEl.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't convert color ramp to valid XML!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't convert color ramp to valid XML!" ) );
     return false;
   }
 
@@ -440,7 +473,7 @@ bool QgsStyle::saveColorRamp( const QString &name, QgsColorRamp *ramp, bool favo
                                        name.toUtf8().constData(), xmlArray.constData(), ( favorite ? 1 : 0 ) );
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert colorramp into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert colorramp into the database!" ) );
     return false;
   }
 
@@ -494,7 +527,7 @@ void QgsStyle::handleDeferred3DSymbolCreation()
     }
     else
     {
-      QgsDebugMsg( "Cannot open 3d symbol " + it.key() );
+      QgsDebugError( "Cannot open 3d symbol " + it.key() );
       continue;
     }
   }
@@ -519,7 +552,7 @@ bool QgsStyle::createDatabase( const QString &filename )
   if ( !openDatabase( filename ) )
   {
     mErrorString = QStringLiteral( "Unable to create database" );
-    QgsDebugMsg( mErrorString );
+    QgsDebugError( mErrorString );
     return false;
   }
 
@@ -534,7 +567,7 @@ bool QgsStyle::createMemoryDatabase()
   if ( !openDatabase( QStringLiteral( ":memory:" ) ) )
   {
     mErrorString = QStringLiteral( "Unable to create temporary memory database" );
-    QgsDebugMsg( mErrorString );
+    QgsDebugError( mErrorString );
     return false;
   }
 
@@ -611,7 +644,7 @@ bool QgsStyle::load( const QString &filename )
   if ( !openDatabase( filename ) )
   {
     mErrorString = QStringLiteral( "Unable to open database file specified" );
-    QgsDebugMsg( mErrorString );
+    QgsDebugError( mErrorString );
     return false;
   }
 
@@ -697,19 +730,19 @@ bool QgsStyle::load( const QString &filename )
     while ( rc == SQLITE_OK && sqlite3_step( statement.get() ) == SQLITE_ROW )
     {
       QDomDocument doc;
-      QString symbolName = statement.columnAsText( SymbolName );
+      QString symbolName = statement.columnAsText( static_cast< int >( SymbolTableColumn::Name ) );
       QgsScopedRuntimeProfile profile( symbolName );
-      QString xmlstring = statement.columnAsText( SymbolXML );
+      QString xmlstring = statement.columnAsText( static_cast< int >( SymbolTableColumn::XML ) );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open symbol " + symbolName );
+        QgsDebugError( "Cannot open symbol " + symbolName );
         continue;
       }
 
       QDomElement symElement = doc.documentElement();
-      QgsSymbol *symbol = QgsSymbolLayerUtils::loadSymbol( symElement, QgsReadWriteContext() );
+      std::unique_ptr< QgsSymbol  >symbol = QgsSymbolLayerUtils::loadSymbol( symElement, QgsReadWriteContext() );
       if ( symbol )
-        mSymbols.insert( symbolName, symbol );
+        mSymbols.insert( symbolName, symbol.release() );
     }
   }
 
@@ -720,18 +753,18 @@ bool QgsStyle::load( const QString &filename )
     while ( rc == SQLITE_OK && sqlite3_step( statement.get() ) == SQLITE_ROW )
     {
       QDomDocument doc;
-      const QString rampName = statement.columnAsText( ColorrampName );
+      const QString rampName = statement.columnAsText( static_cast< int >( ColorRampTableColumn::Name ) );
       QgsScopedRuntimeProfile profile( rampName );
-      QString xmlstring = statement.columnAsText( ColorrampXML );
+      QString xmlstring = statement.columnAsText( static_cast< int >( ColorRampTableColumn::XML ) );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open symbol " + rampName );
+        QgsDebugError( "Cannot open symbol " + rampName );
         continue;
       }
       QDomElement rampElement = doc.documentElement();
-      QgsColorRamp *ramp = QgsSymbolLayerUtils::loadColorRamp( rampElement );
+      std::unique_ptr< QgsColorRamp > ramp = QgsSymbolLayerUtils::loadColorRamp( rampElement );
       if ( ramp )
-        mColorRamps.insert( rampName, ramp );
+        mColorRamps.insert( rampName, ramp.release() );
     }
   }
 
@@ -742,12 +775,12 @@ bool QgsStyle::load( const QString &filename )
     while ( rc == SQLITE_OK && sqlite3_step( statement.get() ) == SQLITE_ROW )
     {
       QDomDocument doc;
-      const QString formatName = statement.columnAsText( TextFormatName );
+      const QString formatName = statement.columnAsText( static_cast< int >( TextFormatTableColumn::Name ) );
       QgsScopedRuntimeProfile profile( formatName );
-      const QString xmlstring = statement.columnAsText( TextFormatXML );
+      const QString xmlstring = statement.columnAsText( static_cast< int >( TextFormatTableColumn::XML ) );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open text format " + formatName );
+        QgsDebugError( "Cannot open text format " + formatName );
         continue;
       }
       QDomElement formatElement = doc.documentElement();
@@ -764,12 +797,12 @@ bool QgsStyle::load( const QString &filename )
     while ( rc == SQLITE_OK && sqlite3_step( statement.get() ) == SQLITE_ROW )
     {
       QDomDocument doc;
-      const QString settingsName = statement.columnAsText( LabelSettingsName );
+      const QString settingsName = statement.columnAsText( static_cast< int >( LabelSettingsTableColumn::Name ) );
       QgsScopedRuntimeProfile profile( settingsName );
-      const QString xmlstring = statement.columnAsText( LabelSettingsXML );
+      const QString xmlstring = statement.columnAsText( static_cast< int >( LabelSettingsTableColumn::XML ) );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open label settings " + settingsName );
+        QgsDebugError( "Cannot open label settings " + settingsName );
         continue;
       }
       QDomElement settingsElement = doc.documentElement();
@@ -791,7 +824,7 @@ bool QgsStyle::load( const QString &filename )
       const QString xmlstring = statement.columnAsText( LegendPatchTableXML );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open legend patch shape " + settingsName );
+        QgsDebugError( "Cannot open legend patch shape " + settingsName );
         continue;
       }
       QDomElement settingsElement = doc.documentElement();
@@ -816,7 +849,7 @@ bool QgsStyle::load( const QString &filename )
       const QString xmlstring = statement.columnAsText( Symbol3DTableXML );
       if ( !doc.setContent( xmlstring ) )
       {
-        QgsDebugMsg( "Cannot open 3d symbol " + settingsName );
+        QgsDebugError( "Cannot open 3d symbol " + settingsName );
         continue;
       }
       QDomElement settingsElement = doc.documentElement();
@@ -836,7 +869,7 @@ bool QgsStyle::load( const QString &filename )
         }
         else
         {
-          QgsDebugMsg( "Cannot open 3d symbol " + settingsName );
+          QgsDebugError( "Cannot open 3d symbol " + settingsName );
           continue;
         }
       }
@@ -867,7 +900,7 @@ bool QgsStyle::renameSymbol( const QString &oldName, const QString &newName )
 {
   if ( mSymbols.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "Symbol of new name already exists" ) );
+    QgsDebugError( QStringLiteral( "Symbol of new name already exists" ) );
     return false;
   }
 
@@ -879,14 +912,14 @@ bool QgsStyle::renameSymbol( const QString &oldName, const QString &newName )
 
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database to tag." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database to tag." ) );
     return false;
   }
 
   int symbolid = symbolId( oldName );
   if ( !symbolid )
   {
-    QgsDebugMsg( QStringLiteral( "No such symbol for tagging in database: " ) + oldName );
+    QgsDebugError( QStringLiteral( "No such symbol for tagging in database: " ) + oldName );
     return false;
   }
 
@@ -907,7 +940,7 @@ bool QgsStyle::renameColorRamp( const QString &oldName, const QString &newName )
 {
   if ( mColorRamps.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "Color ramp of new name already exists." ) );
+    QgsDebugError( QStringLiteral( "Color ramp of new name already exists." ) );
     return false;
   }
 
@@ -946,7 +979,7 @@ bool QgsStyle::saveTextFormat( const QString &name, const QgsTextFormat &format,
 
   if ( formatElem.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't convert text format to valid XML!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't convert text format to valid XML!" ) );
     return false;
   }
 
@@ -960,7 +993,7 @@ bool QgsStyle::saveTextFormat( const QString &name, const QgsTextFormat &format,
                                        name.toUtf8().constData(), xmlArray.constData(), ( favorite ? 1 : 0 ) );
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert text format into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert text format into the database!" ) );
     return false;
   }
 
@@ -983,7 +1016,7 @@ bool QgsStyle::renameTextFormat( const QString &oldName, const QString &newName 
 {
   if ( mTextFormats.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "Text format of new name already exists." ) );
+    QgsDebugError( QStringLiteral( "Text format of new name already exists." ) );
     return false;
   }
 
@@ -1022,7 +1055,7 @@ bool QgsStyle::saveLabelSettings( const QString &name, const QgsPalLayerSettings
 
   if ( settingsElem.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't convert label settings to valid XML!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't convert label settings to valid XML!" ) );
     return false;
   }
 
@@ -1036,7 +1069,7 @@ bool QgsStyle::saveLabelSettings( const QString &name, const QgsPalLayerSettings
                                        name.toUtf8().constData(), xmlArray.constData(), ( favorite ? 1 : 0 ) );
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert label settings into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert label settings into the database!" ) );
     return false;
   }
 
@@ -1059,7 +1092,7 @@ bool QgsStyle::renameLabelSettings( const QString &oldName, const QString &newNa
 {
   if ( mLabelSettings.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "Label settings of new name already exists." ) );
+    QgsDebugError( QStringLiteral( "Label settings of new name already exists." ) );
     return false;
   }
 
@@ -1107,7 +1140,7 @@ bool QgsStyle::saveLegendPatchShape( const QString &name, const QgsLegendPatchSh
                                        name.toUtf8().constData(), xmlArray.constData(), ( favorite ? 1 : 0 ) );
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert legend patch shape into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert legend patch shape into the database!" ) );
     return false;
   }
 
@@ -1124,7 +1157,7 @@ bool QgsStyle::renameLegendPatchShape( const QString &oldName, const QString &ne
 {
   if ( mLegendPatchShapes.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "Legend patch shape of new name already exists." ) );
+    QgsDebugError( QStringLiteral( "Legend patch shape of new name already exists." ) );
     return false;
   }
 
@@ -1246,7 +1279,7 @@ bool QgsStyle::saveSymbol3D( const QString &name, QgsAbstract3DSymbol *symbol, b
                                        name.toUtf8().constData(), xmlArray.constData(), ( favorite ? 1 : 0 ) );
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't insert 3d symbol into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't insert 3d symbol into the database!" ) );
     return false;
   }
 
@@ -1263,7 +1296,7 @@ bool QgsStyle::renameSymbol3D( const QString &oldName, const QString &newName )
 {
   if ( m3dSymbols.contains( newName ) )
   {
-    QgsDebugMsg( QStringLiteral( "3d symbol of new name already exists." ) );
+    QgsDebugError( QStringLiteral( "3d symbol of new name already exists." ) );
     return false;
   }
 
@@ -1302,7 +1335,7 @@ QStringList QgsStyle::symbolsOfFavorite( StyleEntity type ) const
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot Open database for getting favorite symbols" ) );
+    QgsDebugError( QStringLiteral( "Cannot Open database for getting favorite symbols" ) );
     return QStringList();
   }
 
@@ -1311,7 +1344,7 @@ QStringList QgsStyle::symbolsOfFavorite( StyleEntity type ) const
   {
     case TagEntity:
     case SmartgroupEntity:
-      QgsDebugMsg( QStringLiteral( "No such style entity" ) );
+      QgsDebugError( QStringLiteral( "No such style entity" ) );
       return QStringList();
 
     default:
@@ -1336,7 +1369,7 @@ QStringList QgsStyle::symbolsWithTag( StyleEntity type, int tagid ) const
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot open database to get symbols of tagid %1" ).arg( tagid ) );
+    QgsDebugError( QStringLiteral( "Cannot open database to get symbols of tagid %1" ).arg( tagid ) );
     return QStringList();
   }
 
@@ -1345,7 +1378,7 @@ QStringList QgsStyle::symbolsWithTag( StyleEntity type, int tagid ) const
   {
     case TagEntity:
     case SmartgroupEntity:
-      QgsDebugMsg( QStringLiteral( "Unknown Entity" ) );
+      QgsDebugError( QStringLiteral( "Unknown Entity" ) );
       return QStringList();
 
     default:
@@ -1480,7 +1513,7 @@ bool QgsStyle::remove( StyleEntity type, int id )
   bool result = false;
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Could not delete entity!" ) );
+    QgsDebugError( QStringLiteral( "Could not delete entity!" ) );
   }
   else
   {
@@ -1563,14 +1596,14 @@ bool QgsStyle::removeEntityByName( QgsStyle::StyleEntity type, const QString &na
 
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database to modify." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database to modify." ) );
     return false;
   }
 
   const int id = entityId( type, name );
   if ( !id )
   {
-    QgsDebugMsg( "No matching entity for deleting in database: " + name );
+    QgsDebugError( "No matching entity for deleting in database: " + name );
   }
 
   const bool result = remove( type, id );
@@ -1616,7 +1649,7 @@ bool QgsStyle::runEmptyQuery( const QString &query )
 
   if ( nErr != SQLITE_OK )
   {
-    QgsDebugMsg( zErr );
+    QgsDebugError( zErr );
     sqlite3_free( zErr );
   }
 
@@ -1631,7 +1664,7 @@ bool QgsStyle::addFavorite( StyleEntity type, const QString &name )
   {
     case TagEntity:
     case SmartgroupEntity:
-      QgsDebugMsg( QStringLiteral( "Wrong entity value. cannot apply group" ) );
+      QgsDebugError( QStringLiteral( "Wrong entity value. cannot apply group" ) );
       return false;
 
     default:
@@ -1667,7 +1700,7 @@ bool QgsStyle::removeFavorite( StyleEntity type, const QString &name )
   {
     case TagEntity:
     case SmartgroupEntity:
-      QgsDebugMsg( QStringLiteral( "Wrong entity value. cannot apply group" ) );
+      QgsDebugError( QStringLiteral( "Wrong entity value. cannot apply group" ) );
       return false;
 
     default:
@@ -1689,7 +1722,7 @@ QStringList QgsStyle::findSymbols( StyleEntity type, const QString &qword )
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database to search" ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database to search" ) );
     return QStringList();
   }
 
@@ -1756,7 +1789,7 @@ bool QgsStyle::tagSymbol( StyleEntity type, const QString &symbol, const QString
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database to tag." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database to tag." ) );
     return false;
   }
 
@@ -1774,7 +1807,7 @@ bool QgsStyle::tagSymbol( StyleEntity type, const QString &symbol, const QString
 
   if ( !symbolid )
   {
-    QgsDebugMsg( QStringLiteral( "No such symbol for tagging in database: " ) + symbol );
+    QgsDebugError( QStringLiteral( "No such symbol for tagging in database: " ) + symbol );
     return false;
   }
 
@@ -1802,7 +1835,7 @@ bool QgsStyle::tagSymbol( StyleEntity type, const QString &symbol, const QString
         nErr = sqlite3_exec( mCurrentDB.get(), query.toUtf8().constData(), nullptr, nullptr, &zErr );
         if ( nErr )
         {
-          QgsDebugMsg( zErr );
+          QgsDebugError( zErr );
           sqlite3_free( zErr );
         }
       }
@@ -1819,7 +1852,7 @@ bool QgsStyle::detagSymbol( StyleEntity type, const QString &symbol, const QStri
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database for detagging." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database for detagging." ) );
     return false;
   }
 
@@ -1874,7 +1907,7 @@ bool QgsStyle::detagSymbol( StyleEntity type, const QString &symbol )
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database for detagging." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database for detagging." ) );
     return false;
   }
 
@@ -1924,7 +1957,7 @@ QStringList QgsStyle::tagsOfSymbol( StyleEntity type, const QString &symbol )
 
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
     return QStringList();
   }
 
@@ -1963,7 +1996,7 @@ bool QgsStyle::isFavorite( QgsStyle::StyleEntity type, const QString &name )
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
     return false;
   }
 
@@ -2001,7 +2034,7 @@ bool QgsStyle::symbolHasTag( StyleEntity type, const QString &symbol, const QStr
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
+    QgsDebugError( QStringLiteral( "Sorry! Cannot open database for getting the tags." ) );
     return false;
   }
 
@@ -2170,18 +2203,18 @@ int QgsStyle::symbol3DCount() const
   return m3dSymbols.count();
 }
 
-QList<QgsWkbTypes::GeometryType> QgsStyle::symbol3DCompatibleGeometryTypes( const QString &name ) const
+QList<Qgis::GeometryType> QgsStyle::symbol3DCompatibleGeometryTypes( const QString &name ) const
 {
   if ( !m3dSymbols.contains( name ) )
-    return QList<QgsWkbTypes::GeometryType>();
+    return QList<Qgis::GeometryType>();
 
   return m3dSymbols.value( name )->compatibleGeometryTypes();
 }
 
-QgsWkbTypes::GeometryType QgsStyle::labelSettingsLayerType( const QString &name ) const
+Qgis::GeometryType QgsStyle::labelSettingsLayerType( const QString &name ) const
 {
   if ( !mLabelSettings.contains( name ) )
-    return QgsWkbTypes::UnknownGeometry;
+    return Qgis::GeometryType::Unknown;
 
   return mLabelSettings.value( name ).layerType;
 }
@@ -2315,7 +2348,7 @@ int QgsStyle::addSmartgroup( const QString &name, const QString &op, const QStri
   }
   else
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't add the smart group into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't add the smart group into the database!" ) );
     return 0;
   }
 }
@@ -2324,7 +2357,7 @@ QgsSymbolGroupMap QgsStyle::smartgroupsListMap()
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot open database for listing groups" ) );
+    QgsDebugError( QStringLiteral( "Cannot open database for listing groups" ) );
     return QgsSymbolGroupMap();
   }
 
@@ -2338,8 +2371,8 @@ QgsSymbolGroupMap QgsStyle::smartgroupsListMap()
   QgsSymbolGroupMap groupNames;
   while ( nError == SQLITE_OK && sqlite3_step( statement.get() ) == SQLITE_ROW )
   {
-    QString group = statement.columnAsText( SmartgroupName );
-    groupNames.insert( sqlite3_column_int( statement.get(), SmartgroupId ), group );
+    QString group = statement.columnAsText( static_cast< int >( SmartGroupTableColumn::Name ) );
+    groupNames.insert( sqlite3_column_int( statement.get(), static_cast< int >( SmartGroupTableColumn::Id ) ), group );
   }
 
   return groupNames;
@@ -2349,7 +2382,7 @@ QStringList QgsStyle::smartgroupNames() const
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot open database for listing groups" ) );
+    QgsDebugError( QStringLiteral( "Cannot open database for listing groups" ) );
     return QStringList();
   }
 
@@ -2387,7 +2420,7 @@ QStringList QgsStyle::symbolsOfSmartgroup( StyleEntity type, int id )
     QString xmlstr = statement.columnAsText( 0 );
     if ( !doc.setContent( xmlstr ) )
     {
-      QgsDebugMsg( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
+      QgsDebugError( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
     }
     QDomElement smartEl = doc.documentElement();
     QString op = smartEl.attribute( QStringLiteral( "operator" ) );
@@ -2466,7 +2499,7 @@ QgsSmartConditionMap QgsStyle::smartgroup( int id )
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot open database for listing groups" ) );
+    QgsDebugError( QStringLiteral( "Cannot open database for listing groups" ) );
     return QgsSmartConditionMap();
   }
 
@@ -2483,7 +2516,7 @@ QgsSmartConditionMap QgsStyle::smartgroup( int id )
     QString xmlstr = statement.columnAsText( 0 );
     if ( !doc.setContent( xmlstr ) )
     {
-      QgsDebugMsg( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
+      QgsDebugError( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
     }
 
     QDomElement smartEl = doc.documentElement();
@@ -2506,7 +2539,7 @@ QString QgsStyle::smartgroupOperator( int id )
 {
   if ( !mCurrentDB )
   {
-    QgsDebugMsg( QStringLiteral( "Cannot open database for listing groups" ) );
+    QgsDebugError( QStringLiteral( "Cannot open database for listing groups" ) );
     return QString();
   }
 
@@ -2523,7 +2556,7 @@ QString QgsStyle::smartgroupOperator( int id )
     QString xmlstr = statement.columnAsText( 0 );
     if ( !doc.setContent( xmlstr ) )
     {
-      QgsDebugMsg( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
+      QgsDebugError( QStringLiteral( "Cannot open smartgroup id: %1" ).arg( id ) );
     }
     QDomElement smartEl = doc.documentElement();
     op = smartEl.attribute( QStringLiteral( "operator" ) );
@@ -2536,7 +2569,7 @@ bool QgsStyle::exportXml( const QString &filename )
 {
   if ( filename.isEmpty() )
   {
-    QgsDebugMsg( QStringLiteral( "Invalid filename for style export." ) );
+    QgsDebugError( QStringLiteral( "Invalid filename for style export." ) );
     return false;
   }
 
@@ -2708,14 +2741,14 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
   if ( !f.open( QFile::ReadOnly ) )
   {
     mErrorString = QStringLiteral( "Unable to open the specified file" );
-    QgsDebugMsg( QStringLiteral( "Error opening the style XML file." ) );
+    QgsDebugError( QStringLiteral( "Error opening the style XML file." ) );
     return false;
   }
 
   if ( !doc.setContent( &f ) )
   {
     mErrorString = QStringLiteral( "Unable to understand the style file: %1" ).arg( filename );
-    QgsDebugMsg( QStringLiteral( "XML Parsing error" ) );
+    QgsDebugError( QStringLiteral( "XML Parsing error" ) );
     f.close();
     return false;
   }
@@ -2770,19 +2803,20 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
           favorite = true;
         }
 
-        QgsSymbol *symbol = QgsSymbolLayerUtils::loadSymbol( e, QgsReadWriteContext() );
+        std::unique_ptr< QgsSymbol > symbol = QgsSymbolLayerUtils::loadSymbol( e, QgsReadWriteContext() );
         if ( symbol )
         {
-          addSymbol( name, symbol );
+          QgsSymbol *symbolPtr = symbol.get();
+          addSymbol( name, symbol.release() );
           if ( mCurrentDB )
           {
-            saveSymbol( name, symbol, favorite, tags );
+            saveSymbol( name, symbolPtr, favorite, tags );
           }
         }
       }
       else
       {
-        QgsDebugMsg( "unknown tag: " + e.tagName() );
+        QgsDebugError( "unknown tag: " + e.tagName() );
       }
     }
   }
@@ -2824,19 +2858,20 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
         favorite = true;
       }
 
-      QgsColorRamp *ramp = QgsSymbolLayerUtils::loadColorRamp( e );
+      std::unique_ptr< QgsColorRamp > ramp = QgsSymbolLayerUtils::loadColorRamp( e );
       if ( ramp )
       {
-        addColorRamp( name, ramp );
+        QgsColorRamp *rampPtr = ramp.get();
+        addColorRamp( name, ramp.release() );
         if ( mCurrentDB )
         {
-          saveColorRamp( name, ramp, favorite, tags );
+          saveColorRamp( name, rampPtr, favorite, tags );
         }
       }
     }
     else
     {
-      QgsDebugMsg( "unknown tag: " + e.tagName() );
+      QgsDebugError( "unknown tag: " + e.tagName() );
     }
   }
 
@@ -2883,7 +2918,7 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
         }
         else
         {
-          QgsDebugMsg( "unknown tag: " + e.tagName() );
+          QgsDebugError( "unknown tag: " + e.tagName() );
         }
       }
     }
@@ -2927,7 +2962,7 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
         }
         else
         {
-          QgsDebugMsg( "unknown tag: " + e.tagName() );
+          QgsDebugError( "unknown tag: " + e.tagName() );
         }
       }
     }
@@ -2972,7 +3007,7 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
       }
       else
       {
-        QgsDebugMsg( "unknown tag: " + e.tagName() );
+        QgsDebugError( "unknown tag: " + e.tagName() );
       }
     }
   }
@@ -3021,7 +3056,7 @@ bool QgsStyle::importXml( const QString &filename, int sinceVersion )
       }
       else
       {
-        QgsDebugMsg( "unknown tag: " + e.tagName() );
+        QgsDebugError( "unknown tag: " + e.tagName() );
       }
     }
   }
@@ -3084,16 +3119,17 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
     case SymbolEntity:
     {
       // check if it is an existing symbol
-      if ( !symbolNames().contains( name ) )
+      auto it = mSymbols.constFind( name );
+      if ( it == mSymbols.constEnd() || !it.value() )
       {
-        QgsDebugMsg( QStringLiteral( "Update request received for unavailable symbol" ) );
+        QgsDebugError( QStringLiteral( "Update request received for unavailable symbol" ) );
         return false;
       }
 
-      symEl = QgsSymbolLayerUtils::saveSymbol( name, symbol( name ), doc, QgsReadWriteContext() );
+      symEl = QgsSymbolLayerUtils::saveSymbol( name, it.value(), doc, QgsReadWriteContext() );
       if ( symEl.isNull() )
       {
-        QgsDebugMsg( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
+        QgsDebugError( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
         return false;
       }
       symEl.save( stream, 4 );
@@ -3105,18 +3141,19 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
     case Symbol3DEntity:
     {
       // check if it is an existing symbol
-      if ( !symbol3DNames().contains( name ) )
+      auto it = m3dSymbols.constFind( name );
+      if ( it == m3dSymbols.constEnd() || !it.value() )
       {
-        QgsDebugMsg( QStringLiteral( "Update request received for unavailable symbol" ) );
+        QgsDebugError( QStringLiteral( "Update request received for unavailable symbol" ) );
         return false;
       }
 
       symEl = doc.createElement( QStringLiteral( "symbol" ) );
-      symEl.setAttribute( QStringLiteral( "type" ), m3dSymbols.value( name )->type() );
-      m3dSymbols.value( name )->writeXml( symEl, QgsReadWriteContext() );
+      symEl.setAttribute( QStringLiteral( "type" ), it.value()->type() );
+      it.value()->writeXml( symEl, QgsReadWriteContext() );
       if ( symEl.isNull() )
       {
-        QgsDebugMsg( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
+        QgsDebugError( QStringLiteral( "Couldn't convert symbol to valid XML!" ) );
         return false;
       }
       symEl.save( stream, 4 );
@@ -3127,17 +3164,17 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
 
     case ColorrampEntity:
     {
-      if ( !colorRampNames().contains( name ) )
+      auto it = mColorRamps.constFind( name );
+      if ( it == mColorRamps.constEnd() || !it.value() )
       {
-        QgsDebugMsg( QStringLiteral( "Update requested for unavailable color ramp." ) );
+        QgsDebugError( QStringLiteral( "Update requested for unavailable color ramp." ) );
         return false;
       }
 
-      std::unique_ptr< QgsColorRamp > ramp( colorRamp( name ) );
-      symEl = QgsSymbolLayerUtils::saveColorRamp( name, ramp.get(), doc );
+      symEl = QgsSymbolLayerUtils::saveColorRamp( name, it.value(), doc );
       if ( symEl.isNull() )
       {
-        QgsDebugMsg( QStringLiteral( "Couldn't convert color ramp to valid XML!" ) );
+        QgsDebugError( QStringLiteral( "Couldn't convert color ramp to valid XML!" ) );
         return false;
       }
       symEl.save( stream, 4 );
@@ -3148,17 +3185,17 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
 
     case TextFormatEntity:
     {
-      if ( !textFormatNames().contains( name ) )
+      auto it = mTextFormats.constFind( name );
+      if ( it == mTextFormats.constEnd() )
       {
-        QgsDebugMsg( QStringLiteral( "Update requested for unavailable text format." ) );
+        QgsDebugError( QStringLiteral( "Update requested for unavailable text format." ) );
         return false;
       }
 
-      QgsTextFormat format( textFormat( name ) );
-      symEl = format.writeXml( doc, QgsReadWriteContext() );
+      symEl = it.value().writeXml( doc, QgsReadWriteContext() );
       if ( symEl.isNull() )
       {
-        QgsDebugMsg( QStringLiteral( "Couldn't convert text format to valid XML!" ) );
+        QgsDebugError( QStringLiteral( "Couldn't convert text format to valid XML!" ) );
         return false;
       }
       symEl.save( stream, 4 );
@@ -3169,17 +3206,17 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
 
     case LabelSettingsEntity:
     {
-      if ( !labelSettingsNames().contains( name ) )
+      auto it = mLabelSettings.constFind( name );
+      if ( it == mLabelSettings.constEnd() )
       {
-        QgsDebugMsg( QStringLiteral( "Update requested for unavailable label settings." ) );
+        QgsDebugError( QStringLiteral( "Update requested for unavailable label settings." ) );
         return false;
       }
 
-      QgsPalLayerSettings settings( labelSettings( name ) );
-      symEl = settings.writeXml( doc, QgsReadWriteContext() );
+      symEl = it.value().writeXml( doc, QgsReadWriteContext() );
       if ( symEl.isNull() )
       {
-        QgsDebugMsg( QStringLiteral( "Couldn't convert label settings to valid XML!" ) );
+        QgsDebugError( QStringLiteral( "Couldn't convert label settings to valid XML!" ) );
         return false;
       }
       symEl.save( stream, 4 );
@@ -3190,15 +3227,15 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
 
     case LegendPatchShapeEntity:
     {
-      if ( !legendPatchShapeNames().contains( name ) )
+      auto it = mLegendPatchShapes.constFind( name );
+      if ( it == mLegendPatchShapes.constEnd() )
       {
-        QgsDebugMsg( QStringLiteral( "Update requested for unavailable legend patch shape." ) );
+        QgsDebugError( QStringLiteral( "Update requested for unavailable legend patch shape." ) );
         return false;
       }
 
-      QgsLegendPatchShape shape( legendPatchShape( name ) );
       symEl = doc.createElement( QStringLiteral( "shape" ) );
-      shape.writeXml( symEl, doc, QgsReadWriteContext() );
+      it.value().writeXml( symEl, doc, QgsReadWriteContext() );
       symEl.save( stream, 4 );
       query = qgs_sqlite3_mprintf( "UPDATE legendpatchshapes SET xml='%q' WHERE name='%q';",
                                    xmlArray.constData(), name.toUtf8().constData() );
@@ -3208,7 +3245,7 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
     case TagEntity:
     case SmartgroupEntity:
     {
-      QgsDebugMsg( QStringLiteral( "Updating the unsupported StyleEntity" ) );
+      QgsDebugError( QStringLiteral( "Updating the unsupported StyleEntity" ) );
       return false;
     }
   }
@@ -3216,7 +3253,7 @@ bool QgsStyle::updateSymbol( StyleEntity type, const QString &name )
 
   if ( !runEmptyQuery( query ) )
   {
-    QgsDebugMsg( QStringLiteral( "Couldn't update symbol into the database!" ) );
+    QgsDebugError( QStringLiteral( "Couldn't update symbol into the database!" ) );
     return false;
   }
   else

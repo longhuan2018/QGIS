@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgstemplateprojectsmodel.h"
+#include "moc_qgstemplateprojectsmodel.cpp"
 #include "qgsziputils.h"
 #include "qgssettings.h"
 #include "qgsapplication.h"
@@ -21,6 +22,7 @@
 #include "qgsprojectlistitemdelegate.h"
 #include "qgsproject.h"
 
+#include <QApplication>
 #include <QStandardPaths>
 #include <QDir>
 #include <QCryptographicHash>
@@ -33,8 +35,7 @@ QgsTemplateProjectsModel::QgsTemplateProjectsModel( QObject *parent )
   : QStandardItemModel( parent )
 {
   const QStringList paths = QStandardPaths::standardLocations( QStandardPaths::AppDataLocation );
-  const QString templateDirName = QgsSettings().value( QStringLiteral( "qgis/projectTemplateDir" ),
-                                  QString( QgsApplication::qgisSettingsDirPath() + QStringLiteral( "project_templates" ) ) ).toString();
+  const QString templateDirName = QgsSettings().value( QStringLiteral( "qgis/projectTemplateDir" ), QString( QgsApplication::qgisSettingsDirPath() + QStringLiteral( "project_templates" ) ) ).toString();
 
   for ( const QString &templatePath : paths )
   {
@@ -53,9 +54,9 @@ QgsTemplateProjectsModel::QgsTemplateProjectsModel( QObject *parent )
   emptyProjectItem->setData( tr( "New Empty Project" ), QgsProjectListItemDelegate::TitleRole );
   connect( QgsProject::instance(), &QgsProject::crsChanged, this, [emptyProjectItem]() { emptyProjectItem->setData( QgsProject::instance()->crs().userFriendlyIdentifier(), QgsProjectListItemDelegate::CrsRole ); } );
   emptyProjectItem->setData( QgsProject::instance()->crs().userFriendlyIdentifier(), QgsProjectListItemDelegate::CrsRole );
-  emptyProjectItem->setFlags( Qt::ItemFlag::ItemIsSelectable | Qt::ItemFlag::ItemIsEnabled ) ;
-  const QSize previewSize( 250, 177 );
-  QImage image( previewSize, QImage::Format_ARGB32 );
+  emptyProjectItem->setFlags( Qt::ItemFlag::ItemIsSelectable | Qt::ItemFlag::ItemIsEnabled );
+  const double devicePixelRatio = qobject_cast<QGuiApplication *>( QCoreApplication::instance() )->devicePixelRatio();
+  QImage image( QSize( 250 * devicePixelRatio, 177 * devicePixelRatio ), QImage::Format_ARGB32 );
   const QgsSettings settings;
   const int myRed = settings.value( QStringLiteral( "qgis/default_canvas_color_red" ), 255 ).toInt();
   const int myGreen = settings.value( QStringLiteral( "qgis/default_canvas_color_green" ), 255 ).toInt();
@@ -63,7 +64,7 @@ QgsTemplateProjectsModel::QgsTemplateProjectsModel( QObject *parent )
   image.fill( QColor( myRed, myGreen, myBlue ) );
   QPainter painter( &image );
   painter.setOpacity( 0.5 );
-  const QRect rect( 20, 20, 210, 137 );
+  const QRect rect( 20, 20, image.width() - 40, image.height() - 40 );
   QPen pen;
   pen.setStyle( Qt::DashLine );
   pen.setColor( Qt::gray );
@@ -101,7 +102,7 @@ void QgsTemplateProjectsModel::scanDirectory( const QString &path )
   // Refill with templates from this directory
   for ( const QFileInfo &file : files )
   {
-    std::unique_ptr<QStandardItem> item = std::make_unique<QStandardItem>( file.fileName() ) ;
+    auto item = std::make_unique<QStandardItem>( file.fileName() );
 
     const QString fileId = QCryptographicHash::hash( file.filePath().toUtf8(), QCryptographicHash::Sha224 ).toHex();
 
@@ -121,7 +122,7 @@ void QgsTemplateProjectsModel::scanDirectory( const QString &path )
     item->setData( file.baseName(), QgsProjectListItemDelegate::TitleRole );
     item->setData( file.filePath(), QgsProjectListItemDelegate::NativePathRole );
 
-    item->setFlags( Qt::ItemFlag::ItemIsSelectable | Qt::ItemFlag::ItemIsEnabled ) ;
+    item->setFlags( Qt::ItemFlag::ItemIsSelectable | Qt::ItemFlag::ItemIsEnabled );
     appendRow( item.release() );
   }
 }

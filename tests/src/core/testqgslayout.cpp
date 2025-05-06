@@ -34,18 +34,21 @@
 #include "qgslayoutitemattributetable.h"
 #include "qgsrasterlayer.h"
 #include "qgsexpressioncontextutils.h"
+#include "qgslayoutrendercontext.h"
+#include "qgslayoutexporter.h"
 #include <QSignalSpy>
 
-class TestQgsLayout: public QgsTest
+class TestQgsLayout : public QgsTest
 {
     Q_OBJECT
   public:
-    TestQgsLayout() : QgsTest( QStringLiteral( "Layout Tests" ) ) {}
+    TestQgsLayout()
+      : QgsTest( QStringLiteral( "Layout Tests" ) ) {}
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void creation(); //test creation of QgsLayout
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void creation();        //test creation of QgsLayout
     void units();
     void name();
     void customProperties();
@@ -74,7 +77,6 @@ class TestQgsLayout: public QgsTest
     void mapLayersStyleOverrideRestoredFromTemplate();
     void atlasLayerRestoredFromTemplate();
     void overviewStackingLayerRestoredFromTemplate();
-
 };
 
 void TestQgsLayout::initTestCase()
@@ -101,47 +103,47 @@ void TestQgsLayout::units()
 {
   QgsProject p;
   QgsLayout layout( &p );
-  layout.setUnits( QgsUnitTypes::LayoutCentimeters );
-  QCOMPARE( layout.units(), QgsUnitTypes::LayoutCentimeters );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 10.0, QgsUnitTypes::LayoutMillimeters ) ), 1.0 );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 10.0, 20.0, QgsUnitTypes::LayoutMillimeters ) ), QSizeF( 1.0, 2.0 ) );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 10.0, 20.0, QgsUnitTypes::LayoutMillimeters ) ), QPointF( 1.0, 2.0 ) );
-  QCOMPARE( layout.convertFromLayoutUnits( 1.0, QgsUnitTypes::LayoutMillimeters ), QgsLayoutMeasurement( 10.0, QgsUnitTypes::LayoutMillimeters ) );
-  QCOMPARE( layout.convertFromLayoutUnits( QSizeF( 1.0, 2.0 ), QgsUnitTypes::LayoutMillimeters ), QgsLayoutSize( 10.0, 20.0, QgsUnitTypes::LayoutMillimeters ) );
-  QCOMPARE( layout.convertFromLayoutUnits( QPointF( 1.0, 2.0 ), QgsUnitTypes::LayoutMillimeters ), QgsLayoutPoint( 10.0, 20.0, QgsUnitTypes::LayoutMillimeters ) );
+  layout.setUnits( Qgis::LayoutUnit::Centimeters );
+  QCOMPARE( layout.units(), Qgis::LayoutUnit::Centimeters );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 10.0, Qgis::LayoutUnit::Millimeters ) ), 1.0 );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 10.0, 20.0, Qgis::LayoutUnit::Millimeters ) ), QSizeF( 1.0, 2.0 ) );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 10.0, 20.0, Qgis::LayoutUnit::Millimeters ) ), QPointF( 1.0, 2.0 ) );
+  QCOMPARE( layout.convertFromLayoutUnits( 1.0, Qgis::LayoutUnit::Millimeters ), QgsLayoutMeasurement( 10.0, Qgis::LayoutUnit::Millimeters ) );
+  QCOMPARE( layout.convertFromLayoutUnits( QSizeF( 1.0, 2.0 ), Qgis::LayoutUnit::Millimeters ), QgsLayoutSize( 10.0, 20.0, Qgis::LayoutUnit::Millimeters ) );
+  QCOMPARE( layout.convertFromLayoutUnits( QPointF( 1.0, 2.0 ), Qgis::LayoutUnit::Millimeters ), QgsLayoutPoint( 10.0, 20.0, Qgis::LayoutUnit::Millimeters ) );
 
   //check with dpi conversion
-  layout.setUnits( QgsUnitTypes::LayoutInches );
+  layout.setUnits( Qgis::LayoutUnit::Inches );
   layout.renderContext().setDpi( 96.0 );
   QCOMPARE( layout.renderContext().dpi(), 96.0 );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 96, QgsUnitTypes::LayoutPixels ) ), 1.0 );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 96, 96, QgsUnitTypes::LayoutPixels ) ), QSizeF( 1.0, 1.0 ) );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 96, 96, QgsUnitTypes::LayoutPixels ) ), QPointF( 1.0, 1.0 ) );
-  QgsLayoutMeasurement result = layout.convertFromLayoutUnits( 1.0, QgsUnitTypes::LayoutPixels );
-  QCOMPARE( result.units(), QgsUnitTypes::LayoutPixels );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 96, Qgis::LayoutUnit::Pixels ) ), 1.0 );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 96, 96, Qgis::LayoutUnit::Pixels ) ), QSizeF( 1.0, 1.0 ) );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 96, 96, Qgis::LayoutUnit::Pixels ) ), QPointF( 1.0, 1.0 ) );
+  QgsLayoutMeasurement result = layout.convertFromLayoutUnits( 1.0, Qgis::LayoutUnit::Pixels );
+  QCOMPARE( result.units(), Qgis::LayoutUnit::Pixels );
   QCOMPARE( result.length(), 96.0 );
-  QgsLayoutSize sizeResult = layout.convertFromLayoutUnits( QSizeF( 1.0, 1.0 ), QgsUnitTypes::LayoutPixels );
-  QCOMPARE( sizeResult.units(), QgsUnitTypes::LayoutPixels );
+  QgsLayoutSize sizeResult = layout.convertFromLayoutUnits( QSizeF( 1.0, 1.0 ), Qgis::LayoutUnit::Pixels );
+  QCOMPARE( sizeResult.units(), Qgis::LayoutUnit::Pixels );
   QCOMPARE( sizeResult.width(), 96.0 );
   QCOMPARE( sizeResult.height(), 96.0 );
-  QgsLayoutPoint pointResult = layout.convertFromLayoutUnits( QPointF( 1.0, 1.0 ), QgsUnitTypes::LayoutPixels );
-  QCOMPARE( pointResult.units(), QgsUnitTypes::LayoutPixels );
+  QgsLayoutPoint pointResult = layout.convertFromLayoutUnits( QPointF( 1.0, 1.0 ), Qgis::LayoutUnit::Pixels );
+  QCOMPARE( pointResult.units(), Qgis::LayoutUnit::Pixels );
   QCOMPARE( pointResult.x(), 96.0 );
   QCOMPARE( pointResult.y(), 96.0 );
 
-  layout.setUnits( QgsUnitTypes::LayoutPixels );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 1, QgsUnitTypes::LayoutInches ) ), 96.0 );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 1, 2, QgsUnitTypes::LayoutInches ) ), QSizeF( 96.0, 192.0 ) );
-  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 1, 2, QgsUnitTypes::LayoutInches ) ), QPointF( 96.0, 192.0 ) );
-  result = layout.convertFromLayoutUnits( 96.0, QgsUnitTypes::LayoutInches );
-  QCOMPARE( result.units(), QgsUnitTypes::LayoutInches );
+  layout.setUnits( Qgis::LayoutUnit::Pixels );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutMeasurement( 1, Qgis::LayoutUnit::Inches ) ), 96.0 );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutSize( 1, 2, Qgis::LayoutUnit::Inches ) ), QSizeF( 96.0, 192.0 ) );
+  QCOMPARE( layout.convertToLayoutUnits( QgsLayoutPoint( 1, 2, Qgis::LayoutUnit::Inches ) ), QPointF( 96.0, 192.0 ) );
+  result = layout.convertFromLayoutUnits( 96.0, Qgis::LayoutUnit::Inches );
+  QCOMPARE( result.units(), Qgis::LayoutUnit::Inches );
   QCOMPARE( result.length(), 1.0 );
-  sizeResult = layout.convertFromLayoutUnits( QSizeF( 96.0, 192.0 ), QgsUnitTypes::LayoutInches );
-  QCOMPARE( sizeResult.units(), QgsUnitTypes::LayoutInches );
+  sizeResult = layout.convertFromLayoutUnits( QSizeF( 96.0, 192.0 ), Qgis::LayoutUnit::Inches );
+  QCOMPARE( sizeResult.units(), Qgis::LayoutUnit::Inches );
   QCOMPARE( sizeResult.width(), 1.0 );
   QCOMPARE( sizeResult.height(), 2.0 );
-  pointResult = layout.convertFromLayoutUnits( QPointF( 96.0, 192.0 ), QgsUnitTypes::LayoutInches );
-  QCOMPARE( pointResult.units(), QgsUnitTypes::LayoutInches );
+  pointResult = layout.convertFromLayoutUnits( QPointF( 96.0, 192.0 ), Qgis::LayoutUnit::Inches );
+  QCOMPARE( pointResult.units(), Qgis::LayoutUnit::Inches );
   QCOMPARE( pointResult.x(), 1.0 );
   QCOMPARE( pointResult.y(), 2.0 );
 }
@@ -159,30 +161,33 @@ void TestQgsLayout::name()
 void TestQgsLayout::customProperties()
 {
   QgsProject p;
-  QgsLayout *layout = new QgsLayout( &p );
+  QgsLayout layout( &p );
 
-  QCOMPARE( layout->customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
-  QVERIFY( layout->customProperties().isEmpty() );
-  layout->setCustomProperty( QStringLiteral( "testprop" ), "testval" );
-  QCOMPARE( layout->customProperty( "testprop", "defaultval" ).toString(), QString( "testval" ) );
-  QCOMPARE( layout->customProperties().length(), 1 );
-  QCOMPARE( layout->customProperties().at( 0 ), QString( "testprop" ) );
+  QCOMPARE( layout.customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
+  QVERIFY( layout.customProperties().isEmpty() );
+  layout.setCustomProperty( QStringLiteral( "testprop" ), "testval" );
+  QCOMPARE( layout.customProperty( "testprop", "defaultval" ).toString(), QString( "testval" ) );
+  QCOMPARE( layout.customProperties().length(), 1 );
+  QCOMPARE( layout.customProperties().at( 0 ), QString( "testprop" ) );
 
   //test no crash
-  layout->removeCustomProperty( QStringLiteral( "badprop" ) );
+  layout.removeCustomProperty( QStringLiteral( "badprop" ) );
 
-  layout->removeCustomProperty( QStringLiteral( "testprop" ) );
-  QVERIFY( layout->customProperties().isEmpty() );
-  QCOMPARE( layout->customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
+  layout.removeCustomProperty( QStringLiteral( "testprop" ) );
+  QVERIFY( layout.customProperties().isEmpty() );
+  QCOMPARE( layout.customProperty( "noprop", "defaultval" ).toString(), QString( "defaultval" ) );
 
-  layout->setCustomProperty( QStringLiteral( "testprop1" ), "testval1" );
-  layout->setCustomProperty( QStringLiteral( "testprop2" ), "testval2" );
-  const QStringList keys = layout->customProperties();
+  layout.setCustomProperty( QStringLiteral( "testprop1" ), "testval1" );
+  layout.setCustomProperty( QStringLiteral( "testprop2" ), "testval2" );
+  const QStringList keys = layout.customProperties();
   QCOMPARE( keys.length(), 2 );
   QVERIFY( keys.contains( "testprop1" ) );
   QVERIFY( keys.contains( "testprop2" ) );
 
-  delete layout;
+  // list value
+  layout.setCustomProperty( QStringLiteral( "a_list" ), QStringList { QStringLiteral( "value 1" ), QStringLiteral( "value 2" ), QStringLiteral( "value 3" ) } );
+  const QStringList res = layout.customProperty( QStringLiteral( "a_list" ) ).toStringList();
+  QCOMPARE( res, QStringList() << "value 1" << "value 2" << "value 3" );
 }
 
 void TestQgsLayout::writeRetrieveCustomProperties()
@@ -190,12 +195,14 @@ void TestQgsLayout::writeRetrieveCustomProperties()
   QgsLayout layout( QgsProject::instance() );
   layout.setCustomProperty( QStringLiteral( "testprop" ), "testval" );
   layout.setCustomProperty( QStringLiteral( "testprop2" ), 5 );
+  // list value
+  layout.setCustomProperty( QStringLiteral( "a_list" ), QStringList { QStringLiteral( "value 1" ), QStringLiteral( "value 2" ), QStringLiteral( "value 3" ) } );
 
   //test writing composition with custom properties
   QDomImplementation DomImplementation;
-  const QDomDocumentType documentType =
-    DomImplementation.createDocumentType(
-      QStringLiteral( "qgis" ), QStringLiteral( "http://mrcc.com/qgis.dtd" ), QStringLiteral( "SYSTEM" ) );
+  const QDomDocumentType documentType = DomImplementation.createDocumentType(
+    QStringLiteral( "qgis" ), QStringLiteral( "http://mrcc.com/qgis.dtd" ), QStringLiteral( "SYSTEM" )
+  );
   QDomDocument doc( documentType );
   const QDomElement layoutNode = layout.writeXml( doc, QgsReadWriteContext() );
   QVERIFY( !layoutNode.isNull() );
@@ -205,11 +212,13 @@ void TestQgsLayout::writeRetrieveCustomProperties()
   QVERIFY( readLayout.readXml( layoutNode, doc, QgsReadWriteContext() ) );
 
   //test retrieved custom properties
-  QCOMPARE( readLayout.customProperties().length(), 2 );
+  QCOMPARE( readLayout.customProperties().length(), 3 );
   QVERIFY( readLayout.customProperties().contains( QString( "testprop" ) ) );
   QVERIFY( readLayout.customProperties().contains( QString( "testprop2" ) ) );
   QCOMPARE( readLayout.customProperty( "testprop" ).toString(), QString( "testval" ) );
   QCOMPARE( readLayout.customProperty( "testprop2" ).toInt(), 5 );
+  const QStringList res = readLayout.customProperty( QStringLiteral( "a_list" ) ).toStringList();
+  QCOMPARE( res, QStringList() << "value 1" << "value 2" << "value 3" );
 }
 
 void TestQgsLayout::variablesEdited()
@@ -232,7 +241,7 @@ void TestQgsLayout::scope()
   QgsPrintLayout l( &p );
 
   // no crash
-  std::unique_ptr< QgsExpressionContextScope > scope( QgsExpressionContextUtils::layoutScope( nullptr ) );
+  std::unique_ptr<QgsExpressionContextScope> scope( QgsExpressionContextUtils::layoutScope( nullptr ) );
   l.setName( QStringLiteral( "test" ) );
   scope.reset( QgsExpressionContextUtils::layoutScope( &l ) );
   QCOMPARE( scope->variable( "layout_name" ).toString(), QStringLiteral( "test" ) );
@@ -259,7 +268,6 @@ void TestQgsLayout::scope()
   QCOMPARE( c.variable( "project_title" ).toString(), QStringLiteral( "my title" ) );
   // and layout variables
   QCOMPARE( c.variable( "new_var3" ).toInt(), 17 );
-
 }
 
 void TestQgsLayout::referenceMap()
@@ -366,7 +374,7 @@ void TestQgsLayout::addItem()
   const QSignalSpy itemAddedSpy( &l, &QgsLayout::itemAdded );
   l.addLayoutItem( shape1 );
   QCOMPARE( itemAddedSpy.count(), 1 );
-  QCOMPARE( itemAddedSpy.at( 0 ).at( 0 ).value< QgsLayoutItem * >(), shape1 );
+  QCOMPARE( itemAddedSpy.at( 0 ).at( 0 ).value<QgsLayoutItem *>(), shape1 );
   QVERIFY( l.items().contains( shape1 ) );
   // bounds should be updated to include item
   QGSCOMPARENEAR( l.sceneRect().left(), 89.850, 0.001 );
@@ -409,20 +417,20 @@ void TestQgsLayout::layoutItems()
   QgsLayoutItemMap *map1 = new QgsLayoutItemMap( &l );
   l.addLayoutItem( map1 );
 
-  QList< QgsLayoutItem * > items;
+  QList<QgsLayoutItem *> items;
   l.layoutItems( items );
   QCOMPARE( items.count(), 3 );
   QVERIFY( items.contains( shape1 ) );
   QVERIFY( items.contains( shape2 ) );
   QVERIFY( items.contains( map1 ) );
 
-  QList< QgsLayoutItemShape * > shapes;
+  QList<QgsLayoutItemShape *> shapes;
   l.layoutItems( shapes );
   QCOMPARE( shapes.count(), 2 );
   QVERIFY( shapes.contains( shape1 ) );
   QVERIFY( shapes.contains( shape2 ) );
 
-  QList< QgsLayoutItemMap * > maps;
+  QList<QgsLayoutItemMap *> maps;
   l.layoutItems( maps );
   QCOMPARE( maps.count(), 1 );
   QVERIFY( maps.contains( map1 ) );
@@ -493,13 +501,13 @@ void TestQgsLayout::undoRedoOccurred()
 
   l.undoStack()->stack()->undo();
   QCOMPARE( spyOccurred.count(), 1 );
-  QSet< QString > items = qvariant_cast< QSet< QString > >( spyOccurred.at( 0 ).at( 0 ) );
-  QCOMPARE( items, QSet< QString >() << item2->uuid() );
+  QSet<QString> items = qvariant_cast<QSet<QString>>( spyOccurred.at( 0 ).at( 0 ) );
+  QCOMPARE( items, QSet<QString>() << item2->uuid() );
 
   l.undoStack()->stack()->redo();
   QCOMPARE( spyOccurred.count(), 2 );
-  items = qvariant_cast< QSet< QString> >( spyOccurred.at( 1 ).at( 0 ) );
-  QCOMPARE( items, QSet< QString >() << item2->uuid() );
+  items = qvariant_cast<QSet<QString>>( spyOccurred.at( 1 ).at( 0 ) );
+  QCOMPARE( items, QSet<QString>() << item2->uuid() );
 
   // macro undo
   l.undoStack()->beginMacro( QString() );
@@ -510,12 +518,12 @@ void TestQgsLayout::undoRedoOccurred()
 
   l.undoStack()->stack()->undo();
   QCOMPARE( spyOccurred.count(), 3 );
-  items = qvariant_cast< QSet< QString > >( spyOccurred.at( 2 ).at( 0 ) );
-  QCOMPARE( items, QSet< QString >() << item->uuid() << item2->uuid() );
+  items = qvariant_cast<QSet<QString>>( spyOccurred.at( 2 ).at( 0 ) );
+  QCOMPARE( items, QSet<QString>() << item->uuid() << item2->uuid() );
   l.undoStack()->stack()->redo();
   QCOMPARE( spyOccurred.count(), 4 );
-  items = qvariant_cast< QSet< QString > >( spyOccurred.at( 3 ).at( 0 ) );
-  QCOMPARE( items, QSet< QString >() << item->uuid() << item2->uuid() );
+  items = qvariant_cast<QSet<QString>>( spyOccurred.at( 3 ).at( 0 ) );
+  QCOMPARE( items, QSet<QString>() << item->uuid() << item2->uuid() );
 
   // blocking undo
   const int before = l.undoStack()->stack()->count();
@@ -525,23 +533,23 @@ void TestQgsLayout::undoRedoOccurred()
   QVERIFY( l.undoStack()->isBlocked() );
   item->setId( "yyy" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 1 ); // no new command
-  l.undoStack()->blockCommands( true ); // second stacked command
+  l.undoStack()->blockCommands( true );                    // second stacked command
   QVERIFY( l.undoStack()->isBlocked() );
   item->setId( "ZZZ" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 1 ); // no new command
-  l.undoStack()->blockCommands( false ); // one stacked command left
+  l.undoStack()->blockCommands( false );                   // one stacked command left
   QVERIFY( l.undoStack()->isBlocked() );
   item->setId( "sss" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 1 ); // no new command
-  l.undoStack()->blockCommands( false ); // unblocked
+  l.undoStack()->blockCommands( false );                   // unblocked
   QVERIFY( !l.undoStack()->isBlocked() );
   item->setId( "ttt" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 2 ); // new command
-  l.undoStack()->blockCommands( false ); // don't allow negative stack size
+  l.undoStack()->blockCommands( false );                   // don't allow negative stack size
   QVERIFY( !l.undoStack()->isBlocked() );
   item->setId( "uuu" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 3 ); // new command
-  l.undoStack()->blockCommands( true ); // should be blocked again
+  l.undoStack()->blockCommands( true );                    // should be blocked again
   QVERIFY( l.undoStack()->isBlocked() );
   item->setId( "vvv" );
   QCOMPARE( l.undoStack()->stack()->count(), before + 3 ); // no new command
@@ -723,8 +731,8 @@ void TestQgsLayout::shouldExportPage()
   QVERIFY( !l.pageCollection()->shouldExportPage( 1 ) );
 
   l.pageCollection()->page( 1 )->setExcludeFromExports( false );
-  l.pageCollection()->page( 0 )->dataDefinedProperties().setProperty( QgsLayoutObject::ExcludeFromExports, QgsProperty::fromExpression( "1" ) );
-  l.pageCollection()->page( 1 )->dataDefinedProperties().setProperty( QgsLayoutObject::ExcludeFromExports, QgsProperty::fromValue( true ) );
+  l.pageCollection()->page( 0 )->dataDefinedProperties().setProperty( QgsLayoutObject::DataDefinedProperty::ExcludeFromExports, QgsProperty::fromExpression( "1" ) );
+  l.pageCollection()->page( 1 )->dataDefinedProperties().setProperty( QgsLayoutObject::DataDefinedProperty::ExcludeFromExports, QgsProperty::fromValue( true ) );
   l.refresh();
   QVERIFY( !l.pageCollection()->shouldExportPage( 0 ) );
   QVERIFY( !l.pageCollection()->shouldExportPage( 1 ) );
@@ -789,13 +797,13 @@ void TestQgsLayout::clear()
   //add some items to the composition
   QgsLayoutItemShape *label1 = new QgsLayoutItemShape( &l );
   l.addLayoutItem( label1 );
-  const QPointer< QgsLayoutItem > item1P = label1;
+  const QPointer<QgsLayoutItem> item1P = label1;
   QgsLayoutItemShape *label2 = new QgsLayoutItemShape( &l );
   l.addLayoutItem( label2 );
-  const QPointer< QgsLayoutItem > item2P = label2;
+  const QPointer<QgsLayoutItem> item2P = label2;
   QgsLayoutItemShape *label3 = new QgsLayoutItemShape( &l );
   l.addLayoutItem( label3 );
-  const QPointer< QgsLayoutItem > item3P = label3;
+  const QPointer<QgsLayoutItem> item3P = label3;
 
   l.clear();
   QgsApplication::sendPostedEvents( nullptr, QEvent::DeferredDelete );
@@ -803,7 +811,7 @@ void TestQgsLayout::clear()
   QVERIFY( !item1P );
   QVERIFY( !item2P );
   QVERIFY( !item3P );
-  QList< QgsLayoutItem * > items;
+  QList<QgsLayoutItem *> items;
   l.layoutItems( items );
   QVERIFY( items.empty() );
   QCOMPARE( l.undoStack()->stack()->count(), 0 );
@@ -818,7 +826,7 @@ void TestQgsLayout::georeference()
   const QgsLayoutExporter exporter( &l );
 
   // no map
-  std::unique_ptr< double [] > t = exporter.computeGeoTransform( nullptr );
+  std::unique_ptr<double[]> t = exporter.computeGeoTransform( nullptr );
   QVERIFY( !t );
 
   QgsLayoutItemMap *map = new QgsLayoutItemMap( &l );
@@ -901,17 +909,17 @@ void TestQgsLayout::clone()
   l.addLayoutItem( label3 );
 
   // clone and check a few properties
-  std::unique_ptr< QgsLayout > cloned( l.clone() );
+  std::unique_ptr<QgsLayout> cloned( l.clone() );
   QVERIFY( cloned.get() );
   QCOMPARE( cloned->pageCollection()->pageCount(), 3 );
-  QList< QgsLayoutItem * > items;
+  QList<QgsLayoutItem *> items;
   cloned->layoutItems( items );
   QCOMPARE( items.count(), 6 ); // 3 pages + 3 items
 
   // clone a print layout
   QgsPrintLayout pl( &proj );
   pl.atlas()->setPageNameExpression( QStringLiteral( "not a real expression" ) );
-  std::unique_ptr< QgsPrintLayout > plClone( pl.clone() );
+  std::unique_ptr<QgsPrintLayout> plClone( pl.clone() );
   QVERIFY( plClone.get() );
   QCOMPARE( plClone->atlas()->pageNameExpression(), QStringLiteral( "not a real expression" ) );
 }
@@ -922,9 +930,7 @@ void TestQgsLayout::legendRestoredFromTemplate()
   // load a layer
 
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QVERIFY( layer->isValid() );
   QgsProject p;
   p.addMapLayer( layer );
@@ -939,7 +945,7 @@ void TestQgsLayout::legendRestoredFromTemplate()
   QgsLegendModel *model = legend->model();
   QgsLayerTreeNode *node = model->rootGroup()->children().at( 0 );
   // make sure we've got right node
-  QgsLayerTreeLayer *layerNode = dynamic_cast< QgsLayerTreeLayer * >( node );
+  QgsLayerTreeLayer *layerNode = dynamic_cast<QgsLayerTreeLayer *>( node );
   QVERIFY( layerNode );
   QCOMPARE( layerNode->layer(), layer );
 
@@ -956,14 +962,14 @@ void TestQgsLayout::legendRestoredFromTemplate()
   QgsLayout c2( &p );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get legend from new composition
-  QList< QgsLayoutItemLegend * > legends2;
+  QList<QgsLayoutItemLegend *> legends2;
   c2.layoutItems( legends2 );
   QgsLayoutItemLegend *legend2 = legends2.at( 0 );
   QVERIFY( legend2 );
 
   QgsLegendModel *model2 = legend2->model();
   QgsLayerTreeNode *node2 = model2->rootGroup()->children().at( 0 );
-  QgsLayerTreeLayer *layerNode2 = dynamic_cast< QgsLayerTreeLayer * >( node2 );
+  QgsLayerTreeLayer *layerNode2 = dynamic_cast<QgsLayerTreeLayer *>( node2 );
   QVERIFY( layerNode2 );
   QCOMPARE( layerNode2->layer(), layer );
   QCOMPARE( model2->data( model->node2index( layerNode2 ), Qt::DisplayRole ).toString(), QString( "new title!" ) );
@@ -974,9 +980,7 @@ void TestQgsLayout::legendRestoredFromTemplate()
   p.removeMapLayer( layer );
 
   // reload it, with a new id
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   p.addMapLayer( layer2 );
   QVERIFY( oldId != layer2->id() );
 
@@ -984,7 +988,7 @@ void TestQgsLayout::legendRestoredFromTemplate()
   QgsLayout c3( &p );
   c3.loadFromTemplate( doc, QgsReadWriteContext() );
   // get legend from new composition
-  QList< QgsLayoutItemLegend * > legends3;
+  QList<QgsLayoutItemLegend *> legends3;
   c3.layoutItems( legends3 );
   QgsLayoutItemLegend *legend3 = legends3.at( 0 );
   QVERIFY( legend3 );
@@ -992,7 +996,7 @@ void TestQgsLayout::legendRestoredFromTemplate()
   //make sure customization remains intact
   QgsLegendModel *model3 = legend3->model();
   QgsLayerTreeNode *node3 = model3->rootGroup()->children().at( 0 );
-  QgsLayerTreeLayer *layerNode3 = dynamic_cast< QgsLayerTreeLayer * >( node3 );
+  QgsLayerTreeLayer *layerNode3 = dynamic_cast<QgsLayerTreeLayer *>( node3 );
   QVERIFY( layerNode3 );
   QCOMPARE( layerNode3->layer(), layer2 );
   QCOMPARE( model3->data( model->node2index( layerNode3 ), Qt::DisplayRole ).toString(), QString( "new title!" ) );
@@ -1003,9 +1007,7 @@ void TestQgsLayout::legendRestoredFromTemplateAutoUpdate()
   // load a layer
 
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsProject p;
   p.addMapLayer( layer );
 
@@ -1019,7 +1021,7 @@ void TestQgsLayout::legendRestoredFromTemplateAutoUpdate()
   QgsLegendModel *model = legend->model();
   QgsLayerTreeNode *node = model->rootGroup()->children().at( 0 );
   // make sure we've got right node
-  QgsLayerTreeLayer *layerNode = dynamic_cast< QgsLayerTreeLayer * >( node );
+  QgsLayerTreeLayer *layerNode = dynamic_cast<QgsLayerTreeLayer *>( node );
   QVERIFY( layerNode );
   QCOMPARE( layerNode->layer(), layer );
   QCOMPARE( model->data( model->node2index( layerNode ), Qt::DisplayRole ).toString(), QString( "points" ) );
@@ -1029,9 +1031,7 @@ void TestQgsLayout::legendRestoredFromTemplateAutoUpdate()
   doc.appendChild( c.writeXml( doc, QgsReadWriteContext() ) );
 
   //new project
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsProject p2;
   p2.addMapLayer( layer2 );
 
@@ -1039,14 +1039,14 @@ void TestQgsLayout::legendRestoredFromTemplateAutoUpdate()
   QgsLayout c2( &p2 );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get legend from new composition
-  QList< QgsLayoutItemLegend * > legends2;
+  QList<QgsLayoutItemLegend *> legends2;
   c2.layoutItems( legends2 );
   QgsLayoutItemLegend *legend2 = legends2.at( 0 );
   QVERIFY( legend2 );
 
   QgsLegendModel *model2 = legend2->model();
   QgsLayerTreeNode *node2 = model2->rootGroup()->children().at( 0 );
-  QgsLayerTreeLayer *layerNode2 = dynamic_cast< QgsLayerTreeLayer * >( node2 );
+  QgsLayerTreeLayer *layerNode2 = dynamic_cast<QgsLayerTreeLayer *>( node2 );
   QVERIFY( layerNode2 );
   QCOMPARE( layerNode2->layer(), layer2 );
   QCOMPARE( model2->data( model->node2index( layerNode2 ), Qt::DisplayRole ).toString(), QString( "points" ) );
@@ -1056,9 +1056,7 @@ void TestQgsLayout::attributeTableRestoredFromTemplate()
 {
   // load some layers
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsVectorLayer *layer2 = new QgsVectorLayer( QStringLiteral( "Point" ), QStringLiteral( "memory" ), QStringLiteral( "memory" ) );
   QgsProject p;
   p.addMapLayer( layer2 );
@@ -1081,9 +1079,7 @@ void TestQgsLayout::attributeTableRestoredFromTemplate()
 
   // new project
   QgsProject p2;
-  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsVectorLayer *layer4 = new QgsVectorLayer( QStringLiteral( "Point" ), QStringLiteral( "memory" ), QStringLiteral( "memory" ) );
   p2.addMapLayer( layer4 );
   p2.addMapLayer( layer3 );
@@ -1092,9 +1088,9 @@ void TestQgsLayout::attributeTableRestoredFromTemplate()
   QgsLayout c2( &p2 );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get table from new composition
-  QList< QgsLayoutFrame * > frames2;
+  QList<QgsLayoutFrame *> frames2;
   c2.layoutItems( frames2 );
-  QgsLayoutItemAttributeTable *table2 = static_cast< QgsLayoutItemAttributeTable *>( frames2.at( 0 )->multiFrame() );
+  QgsLayoutItemAttributeTable *table2 = static_cast<QgsLayoutItemAttributeTable *>( frames2.at( 0 )->multiFrame() );
   QVERIFY( table2 );
 
   QCOMPARE( table2->vectorLayer(), layer3 );
@@ -1104,16 +1100,11 @@ void TestQgsLayout::mapLayersRestoredFromTemplate()
 {
   // load some layers
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   const QFileInfo vectorFileInfo2( QStringLiteral( TEST_DATA_DIR ) + "/polys.shp" );
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo2.filePath(),
-      vectorFileInfo2.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo2.filePath(), vectorFileInfo2.completeBaseName(), QStringLiteral( "ogr" ) );
   const QFileInfo rasterFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/landsat.tif" );
-  QgsRasterLayer *rl = new QgsRasterLayer( rasterFileInfo.filePath(),
-      rasterFileInfo.completeBaseName() );
+  QgsRasterLayer *rl = new QgsRasterLayer( rasterFileInfo.filePath(), rasterFileInfo.completeBaseName() );
 
   QgsProject p;
   p.addMapLayer( layer2 );
@@ -1134,14 +1125,9 @@ void TestQgsLayout::mapLayersRestoredFromTemplate()
 
   // new project
   QgsProject p2;
-  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
-  QgsVectorLayer *layer4 = new QgsVectorLayer( vectorFileInfo2.filePath(),
-      vectorFileInfo2.completeBaseName(),
-      QStringLiteral( "ogr" ) );
-  QgsRasterLayer *rl5 = new QgsRasterLayer( rasterFileInfo.filePath(),
-      rasterFileInfo.completeBaseName() );
+  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer4 = new QgsVectorLayer( vectorFileInfo2.filePath(), vectorFileInfo2.completeBaseName(), QStringLiteral( "ogr" ) );
+  QgsRasterLayer *rl5 = new QgsRasterLayer( rasterFileInfo.filePath(), rasterFileInfo.completeBaseName() );
   p2.addMapLayer( layer4 );
   p2.addMapLayer( layer3 );
   p2.addMapLayer( rl5 );
@@ -1150,9 +1136,9 @@ void TestQgsLayout::mapLayersRestoredFromTemplate()
   QgsLayout c2( &p2 );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get map from new composition
-  QList< QgsLayoutItemMap * > maps;
+  QList<QgsLayoutItemMap *> maps;
   c2.layoutItems( maps );
-  QgsLayoutItemMap *map2 = static_cast< QgsLayoutItemMap *>( maps.at( 0 ) );
+  QgsLayoutItemMap *map2 = static_cast<QgsLayoutItemMap *>( maps.at( 0 ) );
   QVERIFY( map2 );
 
   QCOMPARE( map2->layers(), QList<QgsMapLayer *>() << layer3 << layer4 << rl5 );
@@ -1162,13 +1148,9 @@ void TestQgsLayout::mapLayersStyleOverrideRestoredFromTemplate()
 {
   // load some layers
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   const QFileInfo vectorFileInfo2( QStringLiteral( TEST_DATA_DIR ) + "/polys.shp" );
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo2.filePath(),
-      vectorFileInfo2.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo2.filePath(), vectorFileInfo2.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsProject p;
   p.addMapLayer( layer2 );
   p.addMapLayer( layer );
@@ -1192,12 +1174,8 @@ void TestQgsLayout::mapLayersStyleOverrideRestoredFromTemplate()
 
   // new project
   QgsProject p2;
-  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
-  QgsVectorLayer *layer4 = new QgsVectorLayer( vectorFileInfo2.filePath(),
-      vectorFileInfo2.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer3 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer4 = new QgsVectorLayer( vectorFileInfo2.filePath(), vectorFileInfo2.completeBaseName(), QStringLiteral( "ogr" ) );
   p2.addMapLayer( layer4 );
   p2.addMapLayer( layer3 );
 
@@ -1205,9 +1183,9 @@ void TestQgsLayout::mapLayersStyleOverrideRestoredFromTemplate()
   QgsLayout c2( &p2 );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get map from new composition
-  QList< QgsLayoutItemMap * > maps;
+  QList<QgsLayoutItemMap *> maps;
   c2.layoutItems( maps );
-  QgsLayoutItemMap *map2 = static_cast< QgsLayoutItemMap *>( maps.at( 0 ) );
+  QgsLayoutItemMap *map2 = static_cast<QgsLayoutItemMap *>( maps.at( 0 ) );
   QVERIFY( map2 );
   QVERIFY( map2->keepLayerStyles() );
 
@@ -1222,9 +1200,7 @@ void TestQgsLayout::atlasLayerRestoredFromTemplate()
 {
   // load some layers
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsProject p;
   p.addMapLayer( layer );
 
@@ -1240,9 +1216,7 @@ void TestQgsLayout::atlasLayerRestoredFromTemplate()
 
   // new project
   QgsProject p2;
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   p2.addMapLayer( layer2 );
 
   // make a new composition from template
@@ -1256,9 +1230,7 @@ void TestQgsLayout::overviewStackingLayerRestoredFromTemplate()
 {
   // load some layers
   const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + "/points.shp" );
-  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   QgsProject p;
   p.addMapLayer( layer );
 
@@ -1274,16 +1246,14 @@ void TestQgsLayout::overviewStackingLayerRestoredFromTemplate()
 
   // new project
   QgsProject p2;
-  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(),
-      vectorFileInfo.completeBaseName(),
-      QStringLiteral( "ogr" ) );
+  QgsVectorLayer *layer2 = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
   p2.addMapLayer( layer2 );
 
   // make a new layout from template
   QgsPrintLayout c2( &p2 );
   c2.loadFromTemplate( doc, QgsReadWriteContext() );
   // get legend from new composition
-  QList< QgsLayoutItemMap * > maps2;
+  QList<QgsLayoutItemMap *> maps2;
   c2.layoutItems( maps2 );
   QgsLayoutItemMap *map2 = maps2.at( 0 );
   QVERIFY( map2 );

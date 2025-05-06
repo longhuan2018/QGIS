@@ -25,6 +25,7 @@ class QgsLayoutItemElevationProfilePlot;
 class Qgs2DPlot;
 class QgsProfileRequest;
 class QgsProfilePlotRenderer;
+class QgsLineSymbol;
 
 /**
  * \ingroup core
@@ -53,8 +54,10 @@ class CORE_EXPORT QgsLayoutItemElevationProfile: public QgsLayoutItem
 
     int type() const override;
     QIcon icon() const override;
-    void refreshDataDefinedProperty( QgsLayoutObject::DataDefinedProperty property = QgsLayoutObject::AllProperties ) override;
+    void refreshDataDefinedProperty( QgsLayoutObject::DataDefinedProperty property = QgsLayoutObject::DataDefinedProperty::AllProperties ) override;
     QgsLayoutItem::Flags itemFlags() const override;
+    bool requiresRasterization() const override;
+    bool containsAdvancedEffects() const override;
 
     /**
      * Returns a reference to the elevation plot object, which can be used to
@@ -167,10 +170,55 @@ class CORE_EXPORT QgsLayoutItemElevationProfile: public QgsLayoutItem
 
     void paint( QPainter *painter, const QStyleOptionGraphicsItem *itemStyle, QWidget *pWidget ) override;
 
+    /**
+     * Returns the units for the distance axis.
+     *
+     * \see setDistanceUnit()
+     * \since QGIS 3.32
+     */
+    Qgis::DistanceUnit distanceUnit() const;
+
+    /**
+     * Sets the \a unit for the distance axis.
+     *
+     * \see distanceUnit()
+     * \since QGIS 3.32
+     */
+    void setDistanceUnit( Qgis::DistanceUnit unit );
+
+    /**
+     * Returns the symbol used to draw the subsections.
+     *
+     * \see setSubsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    QgsLineSymbol *subsectionsSymbol()
+    {
+      return mSubsectionsSymbol.get();
+    }
+
+    /**
+     * Sets the \a symbol used to draw the subsections. If \a symbol is NULLPTR, the subsections are not drawn.
+     * Ownership of \a symbol is transferred.
+     *
+     * \see subsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    void setSubsectionsSymbol( QgsLineSymbol *symbol SIP_TRANSFER );
+
   public slots:
 
     void refresh() override;
     void invalidateCache() override;
+
+  signals:
+
+    /**
+     * Emitted whenever the item's preview has been refreshed.
+     *
+     * \since QGIS 3.34
+     */
+    void previewRefreshed();
 
   protected:
     void draw( QgsLayoutItemRenderContext &context ) override;
@@ -188,10 +236,13 @@ class CORE_EXPORT QgsLayoutItemElevationProfile: public QgsLayoutItem
     QList< QgsMapLayerRef > mLayers;
 
     QgsCoordinateReferenceSystem mCrs;
+    Qgis::DistanceUnit mDistanceUnit = Qgis::DistanceUnit::Unknown;
     std::unique_ptr< QgsCurve> mCurve;
     bool mAtlasDriven = false;
 
     double mTolerance = 0;
+
+    std::unique_ptr<QgsLineSymbol> mSubsectionsSymbol;
 
     // render job handling
 
@@ -206,7 +257,6 @@ class CORE_EXPORT QgsLayoutItemElevationProfile: public QgsLayoutItem
     double mPreviewScaleFactor = 0;
     std::unique_ptr< QPainter > mPainter;
     std::unique_ptr< QgsProfilePlotRenderer > mRenderJob;
-    bool mPainterCancelWait = false;
 
 
 };

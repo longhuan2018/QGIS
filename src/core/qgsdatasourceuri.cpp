@@ -17,6 +17,7 @@
  ***************************************************************************/
 
 #include "qgsdatasourceuri.h"
+#include "moc_qgsdatasourceuri.cpp"
 #include "qgsauthmanager.h"
 #include "qgslogger.h"
 #include "qgswkbtypes.h"
@@ -26,6 +27,8 @@
 #include <QRegularExpression>
 #include <QUrl>
 #include <QUrlQuery>
+
+#define HIDING_TOKEN QStringLiteral( "XXXXXXXX" )
 
 QgsDataSourceUri::QgsDataSourceUri()
 {
@@ -42,7 +45,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
 
     if ( uri[i] == '=' )
     {
-      QgsDebugMsg( QStringLiteral( "parameter name expected before =" ) );
+      QgsDebugError( QStringLiteral( "parameter name expected before =" ) );
       i++;
       continue;
     }
@@ -69,6 +72,12 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
       // rest of line is a sql where clause
       skipBlanks( uri, i );
       mSql = uri.mid( i );
+
+      // handle empty sql specified by a empty '' or "" encapsulated value
+      // possibly we should be calling getValue here, but there's a very high risk of regressions
+      // if we change that now...
+      if ( mSql == QLatin1String( "''" ) || mSql == QLatin1String( "\"\"" ) )
+        mSql.clear();
       break;
     }
     else
@@ -103,7 +112,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
 
           if ( i == uri.length() )
           {
-            QgsDebugMsg( QStringLiteral( "closing parenthesis missing" ) );
+            QgsDebugError( QStringLiteral( "closing parenthesis missing" ) );
           }
 
           mGeometryColumn = uri.mid( start, i - start );
@@ -172,7 +181,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
       }
       else if ( pname == QLatin1String( "hostaddr" ) )
       {
-        QgsDebugMsg( QStringLiteral( "database host ip address ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "database host ip address ignored" ), 2 );
       }
       else if ( pname == QLatin1String( "port" ) )
       {
@@ -184,11 +193,11 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
       }
       else if ( pname == QLatin1String( "tty" ) )
       {
-        QgsDebugMsg( QStringLiteral( "backend debug tty ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "backend debug tty ignored" ), 2 );
       }
       else if ( pname == QLatin1String( "options" ) )
       {
-        QgsDebugMsg( QStringLiteral( "backend debug options ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "backend debug options ignored" ), 2 );
       }
       else if ( pname == QLatin1String( "sslmode" ) )
       {
@@ -203,11 +212,11 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
       }
       else if ( pname == QLatin1String( "krbsrvname" ) )
       {
-        QgsDebugMsg( QStringLiteral( "kerberos server name ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "kerberos server name ignored" ), 2 );
       }
       else if ( pname == QLatin1String( "gsslib" ) )
       {
-        QgsDebugMsg( QStringLiteral( "gsslib ignored" ) );
+        QgsDebugMsgLevel( QStringLiteral( "gsslib ignored" ), 2 );
       }
       else if ( pname.startsWith( QgsHttpHeaders::PARAM_PREFIX ) )
       {
@@ -222,7 +231,7 @@ QgsDataSourceUri::QgsDataSourceUri( const QString &u )
   }
 }
 
-QString QgsDataSourceUri::removePassword( const QString &aUri )
+QString QgsDataSourceUri::removePassword( const QString &aUri, bool hide )
 {
   QRegularExpression regexp;
   regexp.setPatternOptions( QRegularExpression::InvertedGreedinessOption );
@@ -230,23 +239,75 @@ QString QgsDataSourceUri::removePassword( const QString &aUri )
   if ( aUri.contains( QLatin1String( " password=" ) ) )
   {
     regexp.setPattern( QStringLiteral( " password=.* " ) );
-    safeName.replace( regexp, QStringLiteral( " " ) );
+
+    if ( hide )
+    {
+      safeName.replace( regexp, QStringLiteral( " password=%1 " ).arg( HIDING_TOKEN ) );
+    }
+    else
+    {
+      safeName.replace( regexp, QStringLiteral( " " ) );
+    }
   }
   else if ( aUri.contains( QLatin1String( ",password=" ) ) )
   {
     regexp.setPattern( QStringLiteral( ",password=.*," ) );
-    safeName.replace( regexp, QStringLiteral( "," ) );
+
+    if ( hide )
+    {
+      safeName.replace( regexp, QStringLiteral( ",password=%1," ).arg( HIDING_TOKEN ) );
+    }
+    else
+    {
+      safeName.replace( regexp, QStringLiteral( "," ) );
+    }
   }
   else if ( aUri.contains( QLatin1String( "IDB:" ) ) )
   {
     regexp.setPattern( QStringLiteral( " pass=.* " ) );
-    safeName.replace( regexp, QStringLiteral( " " ) );
+
+    if ( hide )
+    {
+      safeName.replace( regexp, QStringLiteral( " pass=%1 " ).arg( HIDING_TOKEN ) );
+    }
+    else
+    {
+      safeName.replace( regexp, QStringLiteral( " " ) );
+    }
   }
   else if ( ( aUri.contains( QLatin1String( "OCI:" ) ) )
             || ( aUri.contains( QLatin1String( "ODBC:" ) ) ) )
   {
     regexp.setPattern( QStringLiteral( "/.*@" ) );
-    safeName.replace( regexp, QStringLiteral( "/@" ) );
+
+    if ( hide )
+    {
+      safeName.replace( regexp, QStringLiteral( "/%1@" ).arg( HIDING_TOKEN ) );
+    }
+    else
+    {
+      safeName.replace( regexp, QStringLiteral( "/@" ) );
+    }
+  }
+  else if ( aUri.contains( QLatin1String( "postgresql:" ) ) )
+  {
+    // postgresql://user:pwd@...
+    regexp.setPattern( QStringLiteral( "/.*@" ) );
+    const QString matched = regexp.match( aUri ).captured();
+
+    QString anonymised = matched;
+    const QStringList items = matched.split( QStringLiteral( ":" ) );
+    if ( items.size() > 1 )
+    {
+      anonymised = matched.split( QStringLiteral( ":" ) )[0];
+      if ( hide )
+      {
+        anonymised.append( QStringLiteral( ":%1" ).arg( HIDING_TOKEN ) );
+      }
+      anonymised.append( QStringLiteral( "@" ) );
+    }
+
+    safeName.replace( regexp, anonymised );
   }
   else if ( aUri.contains( QLatin1String( "SDE:" ) ) )
   {
@@ -286,9 +347,24 @@ QString QgsDataSourceUri::database() const
   return mDatabase;
 }
 
+void QgsDataSourceUri::setPort( const QString &port )
+{
+  mPort = port;
+}
+
 QString QgsDataSourceUri::password() const
 {
   return mPassword;
+}
+
+void QgsDataSourceUri::setSslMode( SslMode mode )
+{
+  mSSLmode = mode;
+}
+
+void QgsDataSourceUri::setService( const QString &service )
+{
+  mService = service;
 }
 
 void QgsDataSourceUri::setPassword( const QString &password )
@@ -375,6 +451,11 @@ void QgsDataSourceUri::setSql( const QString &sql )
   mSql = sql;
 }
 
+void QgsDataSourceUri::setHost( const QString &host )
+{
+  mHost = host;
+}
+
 void QgsDataSourceUri::clearSchema()
 {
   mSchema.clear();
@@ -429,7 +510,7 @@ QString QgsDataSourceUri::getValue( const QString &uri, int &i )
     {
       if ( i == uri.length() )
       {
-        QgsDebugMsg( QStringLiteral( "unterminated quoted string in connection info string" ) );
+        QgsDebugError( QStringLiteral( "unterminated quoted string in connection info string" ) );
         return pval;
       }
 
@@ -529,7 +610,7 @@ QString QgsDataSourceUri::connectionInfo( bool expandAuthConfig ) const
     {
       if ( !QgsApplication::authManager()->updateDataSourceUriItems( connectionItems, mAuthConfigId ) )
       {
-        QgsDebugMsg( QStringLiteral( "Data source URI FAILED to update via loading configuration ID '%1'" ).arg( mAuthConfigId ) );
+        QgsDebugError( QStringLiteral( "Data source URI FAILED to update via loading configuration ID '%1'" ).arg( mAuthConfigId ) );
       }
     }
     else
@@ -560,7 +641,7 @@ QString QgsDataSourceUri::uri( bool expandAuthConfig ) const
     uri += QStringLiteral( " srid=%1" ).arg( mSrid );
   }
 
-  if ( mWkbType != QgsWkbTypes::Unknown && mWkbType != QgsWkbTypes::NoGeometry )
+  if ( mWkbType != Qgis::WkbType::Unknown && mWkbType != Qgis::WkbType::NoGeometry )
   {
     uri += QLatin1String( " type=" );
     uri += QgsWkbTypes::displayString( mWkbType );
@@ -575,7 +656,7 @@ QString QgsDataSourceUri::uri( bool expandAuthConfig ) const
   {
     if ( it.key().contains( '=' ) || it.key().contains( ' ' ) )
     {
-      QgsDebugMsg( QStringLiteral( "invalid uri parameter %1 skipped" ).arg( it.key() ) );
+      QgsDebugError( QStringLiteral( "invalid uri parameter %1 skipped" ).arg( it.key() ) );
       continue;
     }
 
@@ -650,17 +731,17 @@ void QgsDataSourceUri::setEncodedUri( const QByteArray &uri )
 
   mHttpHeaders.setFromUrlQuery( query );
 
-  const auto constQueryItems = query.queryItems( QUrl::ComponentFormattingOption::FullyDecoded );
+  const auto constQueryItems = query.queryItems();
   for ( const QPair<QString, QString> &item : constQueryItems )
   {
-    if ( !item.first.startsWith( QgsHttpHeaders::PARAM_PREFIX ) )
+    if ( !item.first.startsWith( QgsHttpHeaders::PARAM_PREFIX ) && item.first != QgsHttpHeaders::KEY_REFERER )
     {
       if ( item.first == QLatin1String( "username" ) )
-        mUsername = item.second;
+        mUsername = query.queryItemValue( QStringLiteral( "username" ), QUrl::ComponentFormattingOption::FullyDecoded );
       else if ( item.first == QLatin1String( "password" ) )
-        mPassword = item.second;
+        mPassword = query.queryItemValue( QStringLiteral( "password" ), QUrl::ComponentFormattingOption::FullyDecoded );
       else if ( item.first == QLatin1String( "authcfg" ) )
-        mAuthConfigId = item.second;
+        mAuthConfigId = query.queryItemValue( QStringLiteral( "authcfg" ), QUrl::ComponentFormattingOption::FullyDecoded );
       else
         mParams.insert( item.first, item.second );
     }
@@ -669,7 +750,9 @@ void QgsDataSourceUri::setEncodedUri( const QByteArray &uri )
 
 void QgsDataSourceUri::setEncodedUri( const QString &uri )
 {
-  setEncodedUri( uri.toLatin1() );
+  QUrl url;
+  url.setQuery( uri );
+  setEncodedUri( url.query( QUrl::EncodeUnicode ).toLatin1() );
 }
 
 QString QgsDataSourceUri::quotedTablename() const
@@ -738,12 +821,12 @@ void QgsDataSourceUri::setDatabase( const QString &database )
   mDatabase = database;
 }
 
-QgsWkbTypes::Type QgsDataSourceUri::wkbType() const
+Qgis::WkbType QgsDataSourceUri::wkbType() const
 {
   return mWkbType;
 }
 
-void QgsDataSourceUri::setWkbType( QgsWkbTypes::Type wkbType )
+void QgsDataSourceUri::setWkbType( Qgis::WkbType wkbType )
 {
   mWkbType = wkbType;
 }
@@ -911,9 +994,49 @@ QSet<QString> QgsDataSourceUri::parameterKeys() const
     paramKeys.insert( QLatin1String( "estimatedmetadata" ) );
   if ( mSelectAtIdDisabledSet )
     paramKeys.insert( QLatin1String( "selectatid" ) );
-  if ( mWkbType != QgsWkbTypes::Unknown )
+  if ( mWkbType != Qgis::WkbType::Unknown )
     paramKeys.insert( QLatin1String( "type" ) );
   if ( !mSrid.isEmpty() )
     paramKeys.insert( QLatin1String( "srid" ) );
   return paramKeys;
+}
+
+bool QgsDataSourceUri::operator==( const QgsDataSourceUri &other ) const
+{
+  // cheap comparisons first:
+  if ( mUseEstimatedMetadata != other.mUseEstimatedMetadata ||
+       mSelectAtIdDisabled != other.mSelectAtIdDisabled ||
+       mSelectAtIdDisabledSet != other.mSelectAtIdDisabledSet ||
+       mSSLmode != other.mSSLmode ||
+       mWkbType != other.mWkbType )
+  {
+    return false;
+  }
+
+  if ( mHost != other.mHost ||
+       mPort != other.mPort ||
+       mDriver != other.mDriver ||
+       mService != other.mService ||
+       mDatabase != other.mDatabase ||
+       mSchema != other.mSchema ||
+       mTable != other.mTable ||
+       mGeometryColumn != other.mGeometryColumn ||
+       mSql != other.mSql ||
+       mAuthConfigId != other.mAuthConfigId ||
+       mUsername != other.mUsername ||
+       mPassword != other.mPassword ||
+       mKeyColumn != other.mKeyColumn ||
+       mSrid != other.mSrid ||
+       mParams != other.mParams ||
+       mHttpHeaders != other.mHttpHeaders )
+  {
+    return false;
+  }
+
+  return true;
+}
+
+bool QgsDataSourceUri::operator!=( const QgsDataSourceUri &other ) const
+{
+  return !( *this == other );
 }

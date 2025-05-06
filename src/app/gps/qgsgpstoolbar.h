@@ -21,7 +21,6 @@
 #include <QElapsedTimer>
 
 #include "qgscoordinatereferencesystem.h"
-#include "qgssettingsentryenumflag.h"
 
 class QgsAppGpsConnection;
 class QgsMapCanvas;
@@ -31,13 +30,14 @@ class QgsMapLayerProxyModel;
 class QToolButton;
 class QgsAppGpsDigitizing;
 
+template<class T> class QgsSettingsEntryEnumFlag;
+
 
 class QgsGpsToolBar : public QToolBar
 {
     Q_OBJECT
 
   public:
-
     static const QgsSettingsEntryEnumFlag<Qgis::GpsInformationComponents> *settingShowInToolbar;
 
     QgsGpsToolBar( QgsAppGpsConnection *connection, QgsMapCanvas *canvas, QWidget *parent = nullptr );
@@ -64,13 +64,12 @@ class QgsGpsToolBar : public QToolBar
     void destinationMenuAboutToShow();
 
   private:
-
     void createLocationWidget();
     void adjustSize();
 
     QgsAppGpsConnection *mConnection = nullptr;
     QgsMapCanvas *mCanvas = nullptr;
-    QPointer< QgsAppGpsDigitizing > mDigitizing;
+    QPointer<QgsAppGpsDigitizing> mDigitizing;
 
     QAction *mConnectAction = nullptr;
     QAction *mRecenterAction = nullptr;
@@ -84,7 +83,7 @@ class QgsGpsToolBar : public QToolBar
 
     QMenu *mDestinationLayerMenu = nullptr;
 
-    QPointer< QToolButton > mInformationButton;
+    QPointer<QToolButton> mInformationButton;
 
     QgsCoordinateReferenceSystem mWgs84CRS;
     bool mEnableAddVertexButton = true;

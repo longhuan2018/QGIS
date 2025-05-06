@@ -4,7 +4,6 @@
 set(QGIS_PROCESS_SRCS
   main.cpp
   qgsprocess.cpp
-  ${CMAKE_SOURCE_DIR}/external/nlohmann/json_fwd.hpp
 )
 
 if (UNIX AND NOT ANDROID)
@@ -42,9 +41,7 @@ target_link_libraries(qgis_process
   qgis_core
   qgis_analysis
   ${QT_VERSION_BASE}::Core
-  ${PROJ_LIBRARY}
   ${GEOS_LIBRARY}
-  ${GDAL_LIBRARY}
 )
 
 if (WITH_3D)
@@ -56,6 +53,10 @@ endif()
 if (WITH_BINDINGS)
   target_link_libraries(qgis_process qgispython)
   add_definitions(-DWITH_BINDINGS)
+endif()
+
+if(HAVE_OPENCL)
+  include_directories(SYSTEM ${OpenCL_INCLUDE_DIRS})
 endif()
 
 # install

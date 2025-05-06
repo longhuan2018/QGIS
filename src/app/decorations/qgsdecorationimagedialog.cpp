@@ -14,14 +14,11 @@
  ***************************************************************************/
 
 #include "qgsdecorationimagedialog.h"
+#include "moc_qgsdecorationimagedialog.cpp"
 #include "qgsdecorationimage.h"
 #include "qgsimagecache.h"
-#include "qgslogger.h"
 #include "qgshelp.h"
-#include "qgsproject.h"
-#include "qgssymbollayerutils.h"
 #include "qgssvgcache.h"
-#include "qgssvgselectorwidget.h"
 #include "qgsgui.h"
 
 #include <QPainter>
@@ -54,8 +51,7 @@ QgsDecorationImageDialog::QgsDecorationImageDialog( QgsDecorationImage &deco, QW
   cboPlacement->addItem( tr( "Bottom Left" ), QgsDecorationItem::BottomLeft );
   cboPlacement->addItem( tr( "Bottom Center" ), QgsDecorationItem::BottomCenter );
   cboPlacement->addItem( tr( "Bottom Right" ), QgsDecorationItem::BottomRight );
-  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [ = ]( int )
-  {
+  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=]( int ) {
     spinHorizontal->setMinimum( cboPlacement->currentData() == QgsDecorationItem::TopCenter || cboPlacement->currentData() == QgsDecorationItem::BottomCenter ? -100 : 0 );
   } );
   cboPlacement->setCurrentIndex( cboPlacement->findData( mDeco.placement() ) );
@@ -63,12 +59,17 @@ QgsDecorationImageDialog::QgsDecorationImageDialog( QgsDecorationImage &deco, QW
   spinHorizontal->setClearValue( 0 );
   spinHorizontal->setValue( mDeco.mMarginHorizontal );
   spinVertical->setValue( mDeco.mMarginVertical );
-  wgtUnitSelection->setUnits( QgsUnitTypes::RenderUnitList() << QgsUnitTypes::RenderMillimeters << QgsUnitTypes::RenderPercentage << QgsUnitTypes::RenderPixels );
+  wgtUnitSelection->setUnits(
+    { Qgis::RenderUnit::Millimeters,
+      Qgis::RenderUnit::Percentage,
+      Qgis::RenderUnit::Pixels
+    }
+  );
   wgtUnitSelection->setUnit( mDeco.mMarginUnit );
 
   // enabled
   grpEnable->setChecked( mDeco.enabled() );
-  connect( grpEnable, &QGroupBox::toggled, this, [ = ] { updateEnabledColorButtons(); } );
+  connect( grpEnable, &QGroupBox::toggled, this, [=] { updateEnabledColorButtons(); } );
 
   wgtImagePath->setFilePath( mDeco.imagePath() );
   connect( wgtImagePath, &QgsFileWidget::fileChanged, this, &QgsDecorationImageDialog::updateImagePath );
@@ -82,15 +83,15 @@ QgsDecorationImageDialog::QgsDecorationImageDialog( QgsDecorationImage &deco, QW
   pbnChangeOutlineColor->setColor( mDeco.mOutlineColor );
   pbnChangeOutlineColor->setContext( QStringLiteral( "gui" ) );
   pbnChangeOutlineColor->setColorDialogTitle( tr( "Select SVG Image Outline Color" ) );
-  connect( pbnChangeColor, &QgsColorButton::colorChanged, this, [ = ]( QColor ) { drawImage(); } );
-  connect( pbnChangeOutlineColor, &QgsColorButton::colorChanged, this, [ = ]( QColor ) { drawImage(); } );
+  connect( pbnChangeColor, &QgsColorButton::colorChanged, this, [=]( QColor ) { drawImage(); } );
+  connect( pbnChangeOutlineColor, &QgsColorButton::colorChanged, this, [=]( QColor ) { drawImage(); } );
 
   drawImage();
 }
 
 void QgsDecorationImageDialog::showHelp()
 {
-  QgsHelp::openHelp( QStringLiteral( "introduction/general_tools.html#image" ) );
+  QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#image-decoration" ) );
 }
 
 void QgsDecorationImageDialog::buttonBox_accepted()
@@ -109,7 +110,7 @@ void QgsDecorationImageDialog::apply()
   mDeco.mColor = pbnChangeColor->color();
   mDeco.mOutlineColor = pbnChangeOutlineColor->color();
   mDeco.mSize = spinSize->value();
-  mDeco.setPlacement( static_cast< QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
+  mDeco.setPlacement( static_cast<QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
   mDeco.mMarginUnit = wgtUnitSelection->unit();
   mDeco.setEnabled( grpEnable->isChecked() );
   mDeco.mMarginHorizontal = spinHorizontal->value();
@@ -119,18 +120,13 @@ void QgsDecorationImageDialog::apply()
 
 void QgsDecorationImageDialog::updateEnabledColorButtons()
 {
-
   if ( mDeco.mImageFormat == QgsDecorationImage::FormatSVG )
   {
     QColor defaultFill, defaultStroke;
     double defaultStrokeWidth, defaultFillOpacity, defaultStrokeOpacity;
     bool hasDefaultFillColor, hasDefaultFillOpacity, hasDefaultStrokeColor, hasDefaultStrokeWidth, hasDefaultStrokeOpacity;
     bool hasFillParam, hasFillOpacityParam, hasStrokeParam, hasStrokeWidthParam, hasStrokeOpacityParam;
-    QgsApplication::svgCache()->containsParams( mDeco.imagePath(), hasFillParam, hasDefaultFillColor, defaultFill,
-        hasFillOpacityParam, hasDefaultFillOpacity, defaultFillOpacity,
-        hasStrokeParam, hasDefaultStrokeColor, defaultStroke,
-        hasStrokeWidthParam, hasDefaultStrokeWidth, defaultStrokeWidth,
-        hasStrokeOpacityParam, hasDefaultStrokeOpacity, defaultStrokeOpacity );
+    QgsApplication::svgCache()->containsParams( mDeco.imagePath(), hasFillParam, hasDefaultFillColor, defaultFill, hasFillOpacityParam, hasDefaultFillOpacity, defaultFillOpacity, hasStrokeParam, hasDefaultStrokeColor, defaultStroke, hasStrokeWidthParam, hasDefaultStrokeWidth, defaultStrokeWidth, hasStrokeOpacityParam, hasDefaultStrokeOpacity, defaultStrokeOpacity );
 
     pbnChangeColor->setEnabled( grpEnable->isChecked() && hasFillParam );
     pbnChangeColor->setAllowOpacity( hasFillOpacityParam );
@@ -232,7 +228,7 @@ void QgsDecorationImageDialog::drawImage()
 
   if ( !missing )
   {
-    QPixmap  px( maxLength, maxLength );
+    QPixmap px( maxLength, maxLength );
     px.fill( Qt::transparent );
 
     QPainter painter;
@@ -256,7 +252,7 @@ void QgsDecorationImageDialog::drawImage()
   }
   else
   {
-    QPixmap  px( 200, 200 );
+    QPixmap px( 200, 200 );
     px.fill( Qt::transparent );
     QPainter painter;
     painter.begin( &px );

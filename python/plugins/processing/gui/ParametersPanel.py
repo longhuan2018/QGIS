@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     ParametersPanel.py
@@ -21,22 +19,28 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
-from qgis.core import (QgsProcessingParameterDefinition,
-                       QgsProcessingParameterExtent,
-                       QgsProject,
-                       QgsProcessingModelAlgorithm,
-                       QgsProcessingOutputLayerDefinition)
-from qgis.gui import (QgsProcessingContextGenerator,
-                      QgsProcessingParameterWidgetContext,
-                      QgsProcessingParametersWidget,
-                      QgsGui,
-                      QgsProcessingGui,
-                      QgsProcessingParametersGenerator,
-                      QgsProcessingHiddenWidgetWrapper)
+from qgis.core import (
+    Qgis,
+    QgsProcessingParameterDefinition,
+    QgsProcessingParameterExtent,
+    QgsProject,
+    QgsProcessingModelAlgorithm,
+    QgsProcessingOutputLayerDefinition,
+)
+from qgis.gui import (
+    QgsProcessingContextGenerator,
+    QgsProcessingParameterWidgetContext,
+    QgsProcessingParametersWidget,
+    QgsGui,
+    QgsProcessingGui,
+    QgsProcessingParametersGenerator,
+    QgsProcessingHiddenWidgetWrapper,
+    QgsAbstractProcessingParameterWidgetWrapper,
+)
 from qgis.utils import iface
 
 from processing.gui.wrappers import WidgetWrapperFactory, WidgetWrapper
@@ -94,24 +98,29 @@ class ParametersPanel(QgsProcessingParametersWidget):
         if isinstance(self.algorithm(), QgsProcessingModelAlgorithm):
             widget_context.setModel(self.algorithm())
 
-        in_place_input_parameter_name = 'INPUT'
-        if hasattr(self.algorithm(), 'inputParameterName'):
+        in_place_input_parameter_name = "INPUT"
+        if hasattr(self.algorithm(), "inputParameterName"):
             in_place_input_parameter_name = self.algorithm().inputParameterName()
 
         # Create widgets and put them in layouts
         for param in self.algorithm().parameterDefinitions():
-            if param.flags() & QgsProcessingParameterDefinition.FlagHidden:
+            if param.flags() & QgsProcessingParameterDefinition.Flag.FlagHidden:
                 continue
 
             if param.isDestination():
                 continue
             else:
-                if self.in_place and param.name() in (in_place_input_parameter_name, 'OUTPUT'):
+                if self.in_place and param.name() in (
+                    in_place_input_parameter_name,
+                    "OUTPUT",
+                ):
                     # don't show the input/output parameter widgets in in-place mode
                     # we still need to CREATE them, because other wrappers may need to interact
                     # with them (e.g. those parameters which need the input layer for field
                     # selections/crs properties/etc)
-                    self.wrappers[param.name()] = QgsProcessingHiddenWidgetWrapper(param, QgsProcessingGui.Standard, self)
+                    self.wrappers[param.name()] = QgsProcessingHiddenWidgetWrapper(
+                        param, QgsProcessingGui.WidgetType.Standard, self
+                    )
                     self.wrappers[param.name()].setLinkedVectorLayer(self.active_layer)
                     continue
 
@@ -129,6 +138,7 @@ class ParametersPanel(QgsProcessingParametersWidget):
                 stretch = 0
                 if not is_python_wrapper:
                     widget = wrapper.createWrappedWidget(self.processing_context)
+                    wrapper.widgetValueHasChanged.connect(self.parameterChanged)
                     stretch = wrapper.stretch()
                 else:
                     widget = wrapper.widget
@@ -148,21 +158,29 @@ class ParametersPanel(QgsProcessingParametersWidget):
                     elif is_python_wrapper:
                         desc = param.description()
                         if isinstance(param, QgsProcessingParameterExtent):
-                            desc += self.tr(' (xmin, xmax, ymin, ymax)')
-                        if param.flags() & QgsProcessingParameterDefinition.FlagOptional:
-                            desc += self.tr(' [optional]')
+                            desc += self.tr(" (xmin, xmax, ymin, ymax)")
+                        if (
+                            param.flags()
+                            & QgsProcessingParameterDefinition.Flag.FlagOptional
+                        ):
+                            desc += self.tr(" [optional]")
                         widget.setText(desc)
 
                     self.addParameterWidget(param, widget, stretch)
 
         for output in self.algorithm().destinationParameterDefinitions():
-            if output.flags() & QgsProcessingParameterDefinition.FlagHidden:
+            if output.flags() & QgsProcessingParameterDefinition.Flag.FlagHidden:
                 continue
 
-            if self.in_place and output.name() in (in_place_input_parameter_name, 'OUTPUT'):
+            if self.in_place and output.name() in (
+                in_place_input_parameter_name,
+                "OUTPUT",
+            ):
                 continue
 
-            wrapper = QgsGui.processingGuiRegistry().createParameterWidgetWrapper(output, QgsProcessingGui.Standard)
+            wrapper = QgsGui.processingGuiRegistry().createParameterWidgetWrapper(
+                output, QgsProcessingGui.WidgetType.Standard
+            )
             wrapper.setWidgetContext(widget_context)
             wrapper.registerProcessingContextGenerator(self.context_generator)
             wrapper.registerProcessingParametersGenerator(self)
@@ -198,14 +216,19 @@ class ParametersPanel(QgsProcessingParametersWidget):
         for wrapper in list(self.wrappers.values()):
             wrapper.postInitialize(list(self.wrappers.values()))
 
-    def createProcessingParameters(self, flags=QgsProcessingParametersGenerator.Flags()):
-        include_default = not (flags & QgsProcessingParametersGenerator.Flag.SkipDefaultValueParameters)
+    def createProcessingParameters(
+        self, flags=QgsProcessingParametersGenerator.Flags()
+    ):
+        include_default = not (
+            flags & QgsProcessingParametersGenerator.Flag.SkipDefaultValueParameters
+        )
+        validate = not (flags & QgsProcessingParametersGenerator.Flag.SkipValidation)
         parameters = {}
         for p, v in self.extra_parameters.items():
             parameters[p] = v
 
         for param in self.algorithm().parameterDefinitions():
-            if param.flags() & QgsProcessingParameterDefinition.FlagHidden:
+            if param.flags() & QgsProcessingParameterDefinition.Flag.FlagHidden:
                 continue
             if not param.isDestination():
                 try:
@@ -222,18 +245,21 @@ class ParametersPanel(QgsProcessingParametersWidget):
                 else:
                     widget = wrapper.wrappedWidget()
 
-                if not isinstance(wrapper, QgsProcessingHiddenWidgetWrapper) and widget is None:
+                if (
+                    not isinstance(wrapper, QgsProcessingHiddenWidgetWrapper)
+                    and widget is None
+                ):
                     continue
 
                 value = wrapper.parameterValue()
                 if param.defaultValue() != value or include_default:
                     parameters[param.name()] = value
 
-                if not param.checkValueIsAcceptable(value):
+                if validate and not param.checkValueIsAcceptable(value):
                     raise AlgorithmDialogBase.InvalidParameterValue(param, widget)
             else:
-                if self.in_place and param.name() == 'OUTPUT':
-                    parameters[param.name()] = 'memory:'
+                if self.in_place and param.name() == "OUTPUT":
+                    parameters[param.name()] = "memory:"
                     continue
 
                 try:
@@ -245,7 +271,7 @@ class ParametersPanel(QgsProcessingParametersWidget):
                 value = wrapper.parameterValue()
 
                 dest_project = None
-                if wrapper.customProperties().get('OPEN_AFTER_RUNNING'):
+                if wrapper.customProperties().get("OPEN_AFTER_RUNNING"):
                     dest_project = QgsProject.instance()
 
                 if value and isinstance(value, QgsProcessingOutputLayerDefinition):
@@ -254,16 +280,19 @@ class ParametersPanel(QgsProcessingParametersWidget):
                     parameters[param.name()] = value
 
                     context = createContext()
-                    ok, error = param.isSupportedOutputValue(value, context)
-                    if not ok:
-                        raise AlgorithmDialogBase.InvalidOutputExtension(widget, error)
+                    if validate:
+                        ok, error = param.isSupportedOutputValue(value, context)
+                        if not ok:
+                            raise AlgorithmDialogBase.InvalidOutputExtension(
+                                widget, error
+                            )
 
         return self.algorithm().preprocessParameters(parameters)
 
     def setParameters(self, parameters):
         self.extra_parameters = {}
         for param in self.algorithm().parameterDefinitions():
-            if param.flags() & QgsProcessingParameterDefinition.FlagHidden:
+            if param.flags() & QgsProcessingParameterDefinition.Flag.FlagHidden:
                 if param.name() in parameters:
                     self.extra_parameters[param.name()] = parameters[param.name()]
                 continue
@@ -275,3 +304,18 @@ class ParametersPanel(QgsProcessingParametersWidget):
 
             wrapper = self.wrappers[param.name()]
             wrapper.setParameterValue(value, self.processing_context)
+
+    def parameterChanged(self):
+        """
+        Called when a parameter value is changed in the panel
+        """
+        wrapper: QgsAbstractProcessingParameterWidgetWrapper = self.sender()
+        default_values = self.algorithm().autogenerateParameterValues(
+            self.createProcessingParameters(
+                QgsProcessingParametersGenerator.Flag.SkipValidation
+            ),
+            wrapper.parameterDefinition().name(),
+            Qgis.ProcessingMode.Standard,
+        )
+        if default_values:
+            self.setParameters(default_values)

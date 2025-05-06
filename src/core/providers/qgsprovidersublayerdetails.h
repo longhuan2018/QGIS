@@ -36,7 +36,7 @@
  *
  * \note It is possible that multiple data providers may be able to utilize the same underlying
  * sub layer in a single dataset, yet will interpret this layer differently. For instance, a layer
- * in a GeoPDF document can be interpreted as either a vector layer by the OGR data provider or a raster
+ * in a Geospatial PDF document can be interpreted as either a vector layer by the OGR data provider or a raster
  * layer by the GDAL provider. The providerKey() property can be used to determine the data provider
  * associated with a QgsProviderSubLayerDetails instance.
  *
@@ -65,14 +65,14 @@ class CORE_EXPORT QgsProviderSublayerDetails
      *
      * \see setType()
      */
-    QgsMapLayerType type() const { return mType; }
+    Qgis::LayerType type() const { return mType; }
 
     /**
      * Sets the layer \a type.
      *
      * \see type()
      */
-    void setType( QgsMapLayerType type ) { mType = type; }
+    void setType( Qgis::LayerType type ) { mType = type; }
 
     /**
      * Returns the layer's URI.
@@ -230,7 +230,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
      *
      * \see setWkbType()
      */
-    QgsWkbTypes::Type wkbType() const { return mWkbType; }
+    Qgis::WkbType wkbType() const { return mWkbType; }
 
     /**
      * Set the layer's WKB \a type.
@@ -239,7 +239,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
      *
      * \see wkbType()
      */
-    void setWkbType( QgsWkbTypes::Type type ) { mWkbType = type; }
+    void setWkbType( Qgis::WkbType type ) { mWkbType = type; }
 
     /**
      * Returns the layer's geometry column name, or an empty string if not applicable.
@@ -283,7 +283,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
      * Set to TRUE if the layer is a potential dataset container and an in-depth scan
      * of its contents was skipped.
      *
-     * \see skippedContainerScan();
+     * \see skippedContainerScan()
      */
     void setSkippedContainerScan( bool skipped ) { mSkippedContainerScan = skipped; }
 
@@ -291,7 +291,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
      * Returns TRUE if the layer is a potential dataset container and an in-depth scan
      * of its contents was skipped.
      *
-     * \see setSkippedContainerScan();
+     * \see setSkippedContainerScan()
      */
     bool skippedContainerScan() const { return mSkippedContainerScan; }
 
@@ -309,7 +309,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
   private:
 
     QString mProviderKey;
-    QgsMapLayerType mType = QgsMapLayerType::VectorLayer;
+    Qgis::LayerType mType = Qgis::LayerType::Vector;
     QString mUri;
     int mLayerNumber = 0;
     QString mName;
@@ -317,7 +317,7 @@ class CORE_EXPORT QgsProviderSublayerDetails
     long long mFeatureCount = static_cast< long >( Qgis::FeatureCountState::UnknownCount );
     QString mGeometryColumnName;
     QStringList mPath;
-    QgsWkbTypes::Type mWkbType = QgsWkbTypes::Unknown;
+    Qgis::WkbType mWkbType = Qgis::WkbType::Unknown;
     QString mDriverName;
     bool mSkippedContainerScan = false;
     Qgis::SublayerFlags mFlags = Qgis::SublayerFlags();

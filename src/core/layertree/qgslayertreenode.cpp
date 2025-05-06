@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgslayertreenode.h"
+#include "moc_qgslayertreenode.cpp"
 
 #include "qgslayertree.h"
 #include "qgslayertreeutils.h"
@@ -233,7 +234,7 @@ QStringList QgsLayerTreeNode::customProperties() const
   return mProperties.keys();
 }
 
-void QgsLayerTreeNode::readCommonXml( QDomElement &element )
+void QgsLayerTreeNode::readCommonXml( const QDomElement &element )
 {
   mProperties.readXml( element );
 }
@@ -284,6 +285,8 @@ void QgsLayerTreeNode::insertChildrenPrivate( int index, const QList<QgsLayerTre
       node->insertChildrenPrivate( -1, orphans );
     }
 
+    // ensure initial expanded state for node is respected
+    emit expandedChanged( node, node->isExpanded() );
   }
 }
 

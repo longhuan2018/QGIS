@@ -16,6 +16,7 @@
 #include <QMouseEvent>
 
 #include "qgsidentifymenu.h"
+#include "moc_qgsidentifymenu.cpp"
 #include "qgsapplication.h"
 #include "qgshighlight.h"
 #include "qgsmapcanvas.h"
@@ -48,12 +49,12 @@ QgsIdentifyMenu::~QgsIdentifyMenu()
   deleteRubberBands();
 }
 
-QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::findFeaturesOnCanvas( QgsMapMouseEvent *event, QgsMapCanvas *canvas, const QList<QgsWkbTypes::GeometryType> &geometryTypes )
+QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::findFeaturesOnCanvas( QgsMapMouseEvent *event, QgsMapCanvas *canvas, const QList<Qgis::GeometryType> &geometryTypes )
 {
   QList<QgsMapToolIdentify::IdentifyResult> results;
-  const QMap< QString, QString > derivedAttributes;
+  const QMap<QString, QString> derivedAttributes;
 
-  const QgsPointXY mapPoint = canvas->getCoordinateTransform()->toMapCoordinates( event->pos() ) ;
+  const QgsPointXY mapPoint = canvas->getCoordinateTransform()->toMapCoordinates( event->pos() );
   const double x = mapPoint.x();
   const double y = mapPoint.y();
   const double sr = QgsMapTool::searchRadiusMU( canvas );
@@ -61,12 +62,12 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::findFeaturesOnCanvas(
   const QList<QgsMapLayer *> layers = canvas->layers( true );
   for ( QgsMapLayer *layer : layers )
   {
-    if ( layer->type() == QgsMapLayerType::VectorLayer )
+    if ( layer->type() == Qgis::LayerType::Vector )
     {
       QgsVectorLayer *vectorLayer = qobject_cast<QgsVectorLayer *>( layer );
 
       bool typeIsSelectable = false;
-      for ( QgsWkbTypes::GeometryType type : geometryTypes )
+      for ( Qgis::GeometryType type : geometryTypes )
       {
         if ( vectorLayer->geometryType() == type )
         {
@@ -86,12 +87,12 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::findFeaturesOnCanvas(
         }
         catch ( QgsCsException & )
         {
-          QgsDebugMsg( QStringLiteral( "Could not transform geometry to layer CRS" ) );
+          QgsDebugError( QStringLiteral( "Could not transform geometry to layer CRS" ) );
         }
 
         QgsFeatureIterator fit = vectorLayer->getFeatures( QgsFeatureRequest()
-                                 .setFilterRect( rect )
-                                 .setFlags( QgsFeatureRequest::ExactIntersect ) );
+                                                             .setFilterRect( rect )
+                                                             .setFlags( Qgis::FeatureRequestFlag::ExactIntersect ) );
         QgsFeature f;
         while ( fit.nextFeature( f ) )
         {
@@ -108,7 +109,7 @@ void QgsIdentifyMenu::setMaxLayerDisplay( int maxLayerDisplay )
 {
   if ( maxLayerDisplay < 0 )
   {
-    QgsDebugMsg( QStringLiteral( "invalid value for number of layers displayed." ) );
+    QgsDebugError( QStringLiteral( "invalid value for number of layers displayed." ) );
   }
   mMaxLayerDisplay = maxLayerDisplay;
 }
@@ -118,7 +119,7 @@ void QgsIdentifyMenu::setMaxFeatureDisplay( int maxFeatureDisplay )
 {
   if ( maxFeatureDisplay < 0 )
   {
-    QgsDebugMsg( QStringLiteral( "invalid value for number of layers displayed." ) );
+    QgsDebugError( QStringLiteral( "invalid value for number of layers displayed." ) );
   }
   mMaxFeatureDisplay = maxFeatureDisplay;
 }
@@ -159,7 +160,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::exec( const QList<Qgs
   // add results to the menu
   const bool singleLayer = mLayerIdResults.count() == 1;
   int count = 0;
-  QMapIterator< QgsMapLayer *, QList<QgsMapToolIdentify::IdentifyResult> > it( mLayerIdResults );
+  QMapIterator<QgsMapLayer *, QList<QgsMapToolIdentify::IdentifyResult>> it( mLayerIdResults );
   while ( it.hasNext() )
   {
     if ( mMaxLayerDisplay != 0 && count > mMaxLayerDisplay )
@@ -169,12 +170,12 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::exec( const QList<Qgs
     QgsMapLayer *layer = it.key();
     switch ( layer->type() )
     {
-      case QgsMapLayerType::RasterLayer:
+      case Qgis::LayerType::Raster:
       {
         addRasterLayer( layer );
         break;
       }
-      case QgsMapLayerType::VectorLayer:
+      case Qgis::LayerType::Vector:
       {
         QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
         if ( !vl )
@@ -183,15 +184,16 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::exec( const QList<Qgs
         break;
       }
 
-      case QgsMapLayerType::VectorTileLayer:
+      case Qgis::LayerType::VectorTile:
         // TODO: add support
         break;
 
-      case QgsMapLayerType::PluginLayer:
-      case QgsMapLayerType::AnnotationLayer:
-      case QgsMapLayerType::MeshLayer:
-      case QgsMapLayerType::PointCloudLayer:
-      case QgsMapLayerType::GroupLayer:
+      case Qgis::LayerType::Plugin:
+      case Qgis::LayerType::Annotation:
+      case Qgis::LayerType::Mesh:
+      case Qgis::LayerType::PointCloud:
+      case Qgis::LayerType::Group:
+      case Qgis::LayerType::TiledScene:
         break;
     }
   }
@@ -340,7 +342,7 @@ void QgsIdentifyMenu::addVectorLayer( QgsVectorLayer *layer, const QList<QgsMapT
     {
       QgsActionMenu *featureActionMenu = new QgsActionMenu( layer, results[0].mFeature, QStringLiteral( "Feature" ), this );
       featureActionMenu->setMode( QgsAttributeEditorContext::IdentifyMode );
-      createMenu  = !featureActionMenu->actions().isEmpty();
+      createMenu = !featureActionMenu->actions().isEmpty();
       delete featureActionMenu;
     }
   }
@@ -571,7 +573,7 @@ void QgsIdentifyMenu::triggerMapLayerAction()
           return;
         }
       }
-      QgsDebugMsg( QStringLiteral( "Identify menu: could not retrieve feature for action %1" ).arg( action->text() ) );
+      QgsDebugError( QStringLiteral( "Identify menu: could not retrieve feature for action %1" ).arg( action->text() ) );
     }
   }
 }
@@ -592,7 +594,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
   const QVariant varData = action->data();
   if ( !varData.isValid() )
   {
-    QgsDebugMsg( QStringLiteral( "Identify menu: could not retrieve results from menu entry (invalid data)" ) );
+    QgsDebugError( QStringLiteral( "Identify menu: could not retrieve results from menu entry (invalid data)" ) );
     return idResults;
   }
 
@@ -619,7 +621,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
 
   if ( !hasData )
   {
-    QgsDebugMsg( QStringLiteral( "Identify menu: could not retrieve results from menu entry (no data found)" ) );
+    QgsDebugError( QStringLiteral( "Identify menu: could not retrieve results from menu entry (no data found)" ) );
     return idResults;
   }
 
@@ -627,7 +629,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
   if ( actData.mAllResults )
   {
     // this means "All" action was triggered
-    QMapIterator< QgsMapLayer *, QList<QgsMapToolIdentify::IdentifyResult> > it( mLayerIdResults );
+    QMapIterator<QgsMapLayer *, QList<QgsMapToolIdentify::IdentifyResult>> it( mLayerIdResults );
     while ( it.hasNext() )
     {
       it.next();
@@ -638,7 +640,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
 
   if ( !mLayerIdResults.contains( actData.mLayer ) )
   {
-    QgsDebugMsg( QStringLiteral( "Identify menu: could not retrieve results from menu entry (layer not found)" ) );
+    QgsDebugError( QStringLiteral( "Identify menu: could not retrieve results from menu entry (layer not found)" ) );
     return idResults;
   }
 
@@ -649,7 +651,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
 
   if ( actData.mLevel == FeatureLevel )
   {
-    const auto results {mLayerIdResults[actData.mLayer]};
+    const auto results { mLayerIdResults[actData.mLayer] };
     for ( const QgsMapToolIdentify::IdentifyResult &res : results )
     {
       if ( res.mFeature.id() == actData.mFeatureId )
@@ -660,7 +662,7 @@ QList<QgsMapToolIdentify::IdentifyResult> QgsIdentifyMenu::results( QAction *act
     }
   }
 
-  QgsDebugMsg( QStringLiteral( "Identify menu: could not retrieve results from menu entry (don't know what happened')" ) );
+  QgsDebugError( QStringLiteral( "Identify menu: could not retrieve results from menu entry (don't know what happened')" ) );
   return idResults;
 }
 
@@ -725,7 +727,6 @@ void QgsIdentifyMenu::layerDestroyed()
 void QgsIdentifyMenu::removeCustomActions()
 {
   mCustomActionRegistry.clear();
-
 }
 
 void QgsIdentifyMenu::setExpressionContextScope( const QgsExpressionContextScope &scope )

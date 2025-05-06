@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "qgsmediawidget.h"
+#include "moc_qgsmediawidget.cpp"
 #include "qgsapplication.h"
 
 #include <QLabel>
@@ -32,9 +33,9 @@ QgsMediaWidget::QgsMediaWidget( QWidget *parent )
   mLayout->setContentsMargins( 0, 0, 0, 0 );
 
   mVideoWidget = new QVideoWidget( this );
-  mVideoWidget->setSizePolicy( QSizePolicy::Expanding, QSizePolicy::Expanding );
-  mVideoWidget->setMinimumHeight( 0 );
-  mVideoWidget->setMaximumHeight( 9999 );
+  const int vHeight = QFontMetrics( font() ).height() * 12;
+  mVideoWidget->setMinimumHeight( vHeight );
+  mVideoWidget->setMaximumHeight( vHeight );
   mLayout->addWidget( mVideoWidget );
 
   QHBoxLayout *controlsLayout = new QHBoxLayout();
@@ -71,13 +72,11 @@ QgsMediaWidget::QgsMediaWidget( QWidget *parent )
   mMediaPlayer.setVideoOutput( mVideoWidget );
 
   connect( &mMediaPlayer, &QMediaPlayer::mediaStatusChanged, this, &QgsMediaWidget::mediaStatusChanged );
-  connect( &mMediaPlayer, &QMediaPlayer::positionChanged, this, [ = ]()
-  {
+  connect( &mMediaPlayer, &QMediaPlayer::positionChanged, this, [=]() {
     mPositionSlider->setValue( static_cast<int>( mMediaPlayer.position() / 1000 ) );
   } );
 
-  connect( mPlayButton, &QAbstractButton::clicked, this, [ = ]()
-  {
+  connect( mPlayButton, &QAbstractButton::clicked, this, [=]() {
 #if QT_VERSION >= QT_VERSION_CHECK( 6, 0, 0 )
     if ( mMediaPlayer.playbackState() == QMediaPlayer::PlayingState )
 #else
@@ -91,8 +90,7 @@ QgsMediaWidget::QgsMediaWidget( QWidget *parent )
       mMediaPlayer.play();
     }
   } );
-  connect( mPositionSlider, &QAbstractSlider::sliderReleased, this, [ = ]()
-  {
+  connect( mPositionSlider, &QAbstractSlider::sliderReleased, this, [=]() {
     mMediaPlayer.setPosition( static_cast<qint64>( mPositionSlider->value() ) * 1000 );
   } );
 }
@@ -126,8 +124,9 @@ int QgsMediaWidget::videoHeight() const
 
 void QgsMediaWidget::setVideoHeight( int height )
 {
-  mVideoWidget->setMinimumHeight( height );
-  mVideoWidget->setMaximumHeight( height > 0 ? height : 9999 );
+  const int vHeight = height > 0 ? height : QFontMetrics( font() ).height() * 12;
+  mVideoWidget->setMinimumHeight( vHeight );
+  mVideoWidget->setMaximumHeight( vHeight );
 }
 
 void QgsMediaWidget::adjustControls()
@@ -168,9 +167,7 @@ void QgsMediaWidget::mediaStatusChanged( QMediaPlayer::MediaStatus status )
       seconds -= hours * 3600;
       const int minutes = std::floor( seconds / 60 );
       seconds -= minutes * 60;
-      mDurationLabel->setText( QStringLiteral( "%1:%2:%3" ).arg( QString::number( hours ), 2, '0' )
-                               .arg( QString::number( minutes ), 2, '0' )
-                               .arg( QString::number( seconds ), 2, '0' ) );
+      mDurationLabel->setText( QStringLiteral( "%1:%2:%3" ).arg( QString::number( hours ), 2, '0' ).arg( QString::number( minutes ), 2, '0' ).arg( QString::number( seconds ), 2, '0' ) );
       break;
     }
 
@@ -199,10 +196,10 @@ void QgsMediaWidget::mediaStatusChanged( QMediaPlayer::MediaStatus status )
 #if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
     case QMediaPlayer::UnknownMediaStatus:
 #endif
-      {
-        setControlsEnabled( false );
-        mDurationLabel->setText( QStringLiteral( "-" ) );
-        break;
-      }
+    {
+      setControlsEnabled( false );
+      mDurationLabel->setText( QStringLiteral( "-" ) );
+      break;
+    }
   }
 }

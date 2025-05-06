@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>QgsMapCanvasDockWidgetBase</class>
- <widget class="QgsDockWidget" name="QgsMapCanvasDockWidgetBase">
+ <class>QgsMapCanvasWidgetBase</class>
+ <widget class="QWidget" name="QgsMapCanvasWidgetBase">
   <property name="geometry">
    <rect>
     <x>0</x>
@@ -13,44 +13,42 @@
   <property name="windowTitle">
    <string>Map Canvas</string>
   </property>
-  <widget class="QWidget" name="mContents">
-   <layout class="QVBoxLayout" name="verticalLayout">
-    <property name="spacing">
-     <number>0</number>
-    </property>
-    <property name="leftMargin">
-     <number>0</number>
-    </property>
-    <property name="topMargin">
-     <number>0</number>
-    </property>
-    <property name="rightMargin">
-     <number>0</number>
-    </property>
-    <property name="bottomMargin">
-     <number>0</number>
-    </property>
-    <item>
-     <widget class="QToolBar" name="mToolbar">
-      <property name="iconSize">
-       <size>
-        <width>16</width>
-        <height>16</height>
-       </size>
-      </property>
-      <property name="floatable">
-       <bool>false</bool>
-      </property>
-      <addaction name="mActionZoomFullExtent"/>
-      <addaction name="mActionZoomToSelected"/>
-      <addaction name="mActionZoomToLayers"/>
-     </widget>
-    </item>
-    <item>
-     <widget class="QWidget" name="mMainWidget" native="true"/>
-    </item>
-   </layout>
-  </widget>
+  <layout class="QVBoxLayout" name="verticalLayout">
+   <property name="spacing">
+    <number>0</number>
+   </property>
+   <property name="leftMargin">
+    <number>0</number>
+   </property>
+   <property name="topMargin">
+    <number>0</number>
+   </property>
+   <property name="rightMargin">
+    <number>0</number>
+   </property>
+   <property name="bottomMargin">
+    <number>0</number>
+   </property>
+   <item>
+    <widget class="QToolBar" name="mToolbar">
+     <property name="iconSize">
+      <size>
+       <width>16</width>
+       <height>16</height>
+      </size>
+     </property>
+     <property name="floatable">
+      <bool>false</bool>
+     </property>
+     <addaction name="mActionZoomFullExtent"/>
+     <addaction name="mActionZoomToSelected"/>
+     <addaction name="mActionZoomToLayers"/>
+    </widget>
+   </item>
+   <item>
+    <widget class="QWidget" name="mMainWidget" native="true"/>
+   </item>
+  </layout>
   <action name="mActionSetCrs">
    <property name="icon">
     <iconset resource="../../images/images.qrc">
@@ -142,15 +140,20 @@
     <string>Show Labels</string>
    </property>
   </action>
+  <action name="mActionElevationController">
+   <property name="icon">
+    <iconset resource="../../images/images.qrc">
+     <normaloff>:/images/themes/default/mesh/Elevation.svg</normaloff>
+     <normalon>:/images/themes/default/mesh/Elevation.svg</normalon>:/images/themes/default/mesh/Elevation.svg</iconset>
+   </property>
+   <property name="text">
+    <string>Show Elevation Controller</string>
+   </property>
+   <property name="toolTip">
+    <string>Show elevation filtering control</string>
+   </property>
+  </action>
  </widget>
- <customwidgets>
-  <customwidget>
-   <class>QgsDockWidget</class>
-   <extends>QDockWidget</extends>
-   <header>qgsdockwidget.h</header>
-   <container>1</container>
-  </customwidget>
- </customwidgets>
  <resources>
   <include location="../../images/images.qrc"/>
  </resources>

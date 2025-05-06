@@ -26,7 +26,7 @@
 EXCLUDE_SCRIPT_LIST='(\.(xml|sip|pl|sh|badquote|cmake(\.in)?)|^(debian/copyright|cmake_templates/.*|tests/testdata/labeling/README.rst|tests/testdata/font/QGIS-Vera/COPYRIGHT.TXT|doc/debian/build/))$'
 
 # always exclude these files
-EXCLUDE_EXTERNAL_LIST='((\.(svg|qgs|laz|las|png|lock|sip\.in))|resources/cpt-city-qgis-min/.*|resources/server/src/.*|resources/server/api/ogc/static/landingpage/js/.*|tests/testdata/.*|doc/api_break.dox|NEWS.md)$'
+EXCLUDE_EXTERNAL_LIST='((\.(svg|qgs|laz|las|png|lock|sip\.in))|resources/cpt-city-qgis-min/.*|resources/server/src/.*|resources/server/api/ogc/static/landingpage/js/.*|tests/testdata/.*|doc/api_break.dox|NEWS.md|python/.*/class_map.yaml|python/.*/auto_(additions|generated)/.*)$'
 
 DIR=$(git rev-parse --show-toplevel)/scripts/spell_check
 
@@ -61,15 +61,36 @@ while getopts ":rdl:" opt; do
 done
 shift $((OPTIND - 1))
 
-if [ $# -ne 0 ]; then
+# check if file list is provided
+# * from a pipe or from a file
+# * from ALL_CHANGED_FILES env var
+# * from command line parameters
+if [ -p /dev/stdin ] || [ ! -t 0 ]; then
+  # read from pipe input or file
+  read SCRIPT_INPUT
+  if [ -z "$SCRIPT_INPUT" ]; then
+    exit 0
+  fi
+else
+  if [ -z "$ALL_CHANGED_FILES" ]; then
+    # read from command line parameters
+    SCRIPT_INPUT="$@"
+  else
+    # read from env var
+    SCRIPT_INPUT="$ALL_CHANGED_FILES"
+  fi
+fi
+
+if [ -n "$SCRIPT_INPUT" ]; then
   EXCLUDE=$(${GP}sed -e 's/\s*#.*$//' -e '/^\s*$/d' $AGIGNORE | tr '\n' '|' | ${GP}sed -e 's/|$//')
-  INPUTFILES=$(echo "$@" | tr -s '[[:blank:]]' '\n' | ${GP}grep -Eiv "$EXCLUDE" | tr '\n' ' ' )
+  INPUTFILES=$(echo "$SCRIPT_INPUT" | tr -s '[[:blank:]]' '\n' | ${GP}grep -Eiv "$EXCLUDE" | tr '\n' ' ' )
   if [[ -z $INPUTFILES  ]]; then
     exit 0
   fi
   echo "Running spell check on files: $INPUTFILES"
 else
   INPUTFILES="."
+  echo "Running spell check on all files!"
 fi
 
 # regex to find escape string

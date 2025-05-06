@@ -28,13 +28,11 @@ class QgsProject;
 
 /**
  * \ingroup server
- * \brief QgsService
- * Class defining interfaces for QGIS server services
+ * \brief Defines interfaces for QGIS server services.
  *
  * This class provides methods for executing server requests
  * They are registered at runtime for a given service name.
  *
- * \since QGIS 3.0
  */
 class SERVER_EXPORT QgsService
 {
@@ -44,30 +42,23 @@ class SERVER_EXPORT QgsService
 #endif
 
   public:
-
-    //! Constructor
     QgsService();
-
-    //! Destructor
     virtual ~QgsService() = default;
 
     /**
-     * \returns the name of the service
+     * Returns the name of the service.
      */
     virtual QString name() const = 0;
 
     /**
-     * \returns the version of the service
+     * Returns the version of the service.
      */
     virtual QString version() const = 0;
 
     /**
-     * Execute the requests and set result in QgsServerRequest
+     * Executes the requests and sets result in QgsServerRequest.
      */
-    virtual void executeRequest( const QgsServerRequest &request,
-                                 QgsServerResponse &response,
-                                 const QgsProject *project ) = 0;
+    virtual void executeRequest( const QgsServerRequest &request, QgsServerResponse &response, const QgsProject *project ) = 0;
 };
 
 #endif
-

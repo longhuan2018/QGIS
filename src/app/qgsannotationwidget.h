@@ -25,16 +25,18 @@
 class QgsMapCanvasAnnotationItem;
 class QgsMarkerSymbol;
 class QgsFillSymbol;
+class QgsSettingsEntryBool;
 
 /**
  * A configuration widget to configure the annotation item properties.
  *
  * Usually embedded by QgsAnnotation subclass configuration dialogs.
 */
-class APP_EXPORT QgsAnnotationWidget: public QWidget, private Ui::QgsAnnotationWidgetBase
+class APP_EXPORT QgsAnnotationWidget : public QWidget, private Ui::QgsAnnotationWidgetBase
 {
     Q_OBJECT
   public:
+    static const QgsSettingsEntryBool *settingLiveUpdate;
 
     QgsAnnotationWidget( QgsMapCanvasAnnotationItem *item, QWidget *parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
 
@@ -44,7 +46,6 @@ class APP_EXPORT QgsAnnotationWidget: public QWidget, private Ui::QgsAnnotationW
     void apply();
 
   private:
-
     void frameStyleChanged();
 
   signals:
@@ -52,8 +53,10 @@ class APP_EXPORT QgsAnnotationWidget: public QWidget, private Ui::QgsAnnotationW
     //! Emitted when the background color of the annotation is changed
     void backgroundColorChanged( const QColor &color );
 
-  private:
+    //! \since QGIS 3.32 Emitted when any property of the annotation is changed
+    void changed();
 
+  private:
     QgsMapCanvasAnnotationItem *mItem = nullptr;
 
     void blockAllSignals( bool block );

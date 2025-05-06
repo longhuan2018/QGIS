@@ -67,12 +67,10 @@ qint64 QgsServerResponse::write( const char *data )
 
 void QgsServerResponse::finish()
 {
-
 }
 
 void QgsServerResponse::flush()
 {
-
 }
 
 qint64 QgsServerResponse::write( const std::string data )
@@ -95,4 +93,9 @@ void QgsServerResponse::write( const QgsServerException &ex )
   setStatusCode( ex.responseCode() );
   setHeader( "Content-Type", responseFormat );
   write( ba );
+}
+
+QgsFeedback *QgsServerResponse::feedback() const
+{
+  return nullptr;
 }

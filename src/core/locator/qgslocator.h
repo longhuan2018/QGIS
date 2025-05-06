@@ -29,7 +29,10 @@
 #include "qgslocatorfilter.h"
 #include "qgsfeedback.h"
 #include "qgslocatorcontext.h"
-#include "qgssettingsentryimpl.h"
+#include "qgssettingstree.h"
+
+class QgsSettingsEntryBool;
+class QgsSettingsEntryString;
 
 
 /**
@@ -53,7 +56,6 @@
  * encounters an individual result, it will usually be triggered many times for a single
  * call to fetchResults().
  *
- * \since QGIS 3.0
 */
 class CORE_EXPORT QgsLocator : public QObject
 {
@@ -105,7 +107,7 @@ class CORE_EXPORT QgsLocator : public QObject
      * Returns a map of prefix to filter, for all registered filters
      * with valid prefixes.
      * \see filters()
-     * \deprecated since QGIS 3.2 use filters() instead
+     * \deprecated QGIS 3.2. Use filters() instead.
      */
     Q_DECL_DEPRECATED QMap<QString, QgsLocatorFilter *> prefixedFilters() const;
 
@@ -154,7 +156,7 @@ class CORE_EXPORT QgsLocator : public QObject
     QStringList completionList() const {return mAutocompletionList;}
 
 #ifndef SIP_RUN
-    static inline QgsSettingsTreeNamedListNode *sTreeLocatorFilters = QgsSettings::treeRoot()->createNamedListNode( QStringLiteral( "locator-filters" ) );
+    static inline QgsSettingsTreeNamedListNode *sTreeLocatorFilters = QgsSettingsTree::treeRoot()->createNamedListNode( QStringLiteral( "locator-filters" ) );
 
     //! Settings entry locator filter enabled
     static const QgsSettingsEntryBool *settingsLocatorFilterEnabled;

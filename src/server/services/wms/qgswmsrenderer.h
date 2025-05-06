@@ -20,6 +20,7 @@
 #ifndef QGSWMSRENDERER_H
 #define QGSWMSRENDERER_H
 
+#include "qgslayoutatlas.h"
 #include "qgsserversettings.h"
 #include "qgswmsparameters.h"
 #include "qgswmsrendercontext.h"
@@ -35,6 +36,7 @@ class QgsPrintLayout;
 class QgsFeature;
 class QgsLayout;
 class QgsMapLayer;
+class QgsMapRendererTask;
 class QgsMapSettings;
 class QgsPointXY;
 class QgsRasterLayer;
@@ -61,12 +63,10 @@ namespace QgsWms
    * \ingroup server
    * \class QgsWms::QgsRenderer
    * \brief Map renderer for WMS requests
-   * \since QGIS 3.0
    */
   class QgsRenderer
   {
     public:
-
       /**
        * Constructor for QgsRenderer.
        * \param context The rendering context.
@@ -74,9 +74,6 @@ namespace QgsWms
        */
       QgsRenderer( const QgsWmsRenderContext &context );
 
-      /**
-       * Destructor for QgsRenderer.
-       */
       ~QgsRenderer();
 
       /**
@@ -101,10 +98,22 @@ namespace QgsWms
        * Returns the map legend as a JSON object. The caller takes the ownership
        * of the JSON object.
        * \param model The layer tree model to use for building the legend
+       * \param jsonRenderFlags The JSON export flags
        * \returns the legend as a JSON object
-       * \since QGIS 3.12
+       * \since QGIS 3.36
        */
-      QJsonObject getLegendGraphicsAsJson( QgsLayerTreeModel &model );
+      QJsonObject getLegendGraphicsAsJson( QgsLayerTreeModel &model, const Qgis::LegendJsonRenderFlags &jsonRenderFlags = Qgis::LegendJsonRenderFlags() );
+
+      /**
+       * Returns the map legend as a JSON object (or NULLPTR in case of error). The
+       * caller takes ownership of the image object.
+       * \param legendNode The legend node to use for building the legend
+       * \param jsonRenderFlags The JSON export flags
+       * \returns the legend as a JSON object
+       * \since QGIS 3.36
+       */
+      QJsonObject getLegendGraphicsAsJson( QgsLayerTreeModelLegendNode &legendNode, const Qgis::LegendJsonRenderFlags &jsonRenderFlags = Qgis::LegendJsonRenderFlags() );
+
 
       typedef QSet<QString> SymbolSet;
       typedef QHash<QgsVectorLayer *, SymbolSet> HitTest;
@@ -120,14 +129,21 @@ namespace QgsWms
        * takes ownership of the image object).
        * \since QGIS 3.8
        */
-      QImage *getMap();
+      std::unique_ptr<QImage> getMap();
 
       /**
        * Returns the map as DXF data
        * \returns the map as DXF data
-       * \since QGIS 3.0
       */
       std::unique_ptr<QgsDxfExport> getDxf();
+
+      /**
+       * Returns a configured pdf export task
+       * \param tmpFileName the name of the temporary file to store the pdf
+       * \returns pdf export object
+       * \since QGIS 3.36
+       */
+      std::unique_ptr<QgsMapRendererTask> getPdf( const QString &tmpFileName );
 
       /**
        * Returns printed page as binary
@@ -153,7 +169,7 @@ namespace QgsWms
       QList<QgsMapLayer *> highlightLayers( QList<QgsWmsParametersHighlightLayer> params );
 
       // Rendering step for layers
-      QPainter *layersRendering( const QgsMapSettings &mapSettings, QImage &image ) const;
+      QPainter *layersRendering( const QgsMapSettings &mapSettings, QImage *image ) const;
 
       // Rendering step for annotations
       void annotationsRendering( QPainter *painter, const QgsMapSettings &mapSettings ) const;
@@ -195,8 +211,15 @@ namespace QgsWms
        */
       void configureMapSettings( const QPaintDevice *paintDevice, QgsMapSettings &mapSettings, bool mandatoryCrsParam = true );
 
-      QDomDocument featureInfoDocument( QList<QgsMapLayer *> &layers, const QgsMapSettings &mapSettings,
-                                        const QImage *outputImage, const QString &version ) const;
+      /**
+       * Configures QgsRenderContext according to the WMS parameters and default settings as well as the passed painter.
+       * Used, for example, when no mapSettings are available.
+       * \param painter to create the context from
+       * \returns the renderer context with default parameters and settings of the passed painter
+       */
+      QgsRenderContext configureDefaultRenderContext( QPainter *painter = nullptr );
+
+      QDomDocument featureInfoDocument( QList<QgsMapLayer *> &layers, const QgsMapSettings &mapSettings, const QImage *outputImage, const QString &version ) const;
 
       /**
        * Appends feature info xml for the layer to the layer element of the
@@ -213,16 +236,7 @@ namespace QgsWms
        * \param filterGeom Geometry for filtering selected features
        * \returns TRUE in case of success
        */
-      bool featureInfoFromVectorLayer( QgsVectorLayer *layer,
-                                       const QgsPointXY *infoPoint,
-                                       int nFeatures,
-                                       QDomDocument &infoDocument,
-                                       QDomElement &layerElement,
-                                       const QgsMapSettings &mapSettings,
-                                       QgsRenderContext &renderContext,
-                                       const QString &version,
-                                       QgsRectangle *featureBBox = nullptr,
-                                       QgsGeometry *filterGeom = nullptr ) const;
+      bool featureInfoFromVectorLayer( QgsVectorLayer *layer, const QgsPointXY *infoPoint, int nFeatures, QDomDocument &infoDocument, QDomElement &layerElement, const QgsMapSettings &mapSettings, QgsRenderContext &renderContext, const QString &version, QgsRectangle *featureBBox = nullptr, QgsGeometry *filterGeom = nullptr ) const;
 
       /**
        * Recursively called to write tab layout groups to XML
@@ -264,12 +278,7 @@ namespace QgsWms
       void writeVectorLayerAttribute( int attributeIndex, QgsVectorLayer *layer, const QgsFields &fields, QgsAttributes &featureAttributes, QDomDocument &doc, QDomElement &featureElem, QgsRenderContext &renderContext, QStringList *attributes = nullptr ) const;
 
       //! Appends feature info xml for the layer to the layer element of the dom document
-      bool featureInfoFromRasterLayer( QgsRasterLayer *layer,
-                                       const QgsMapSettings &mapSettings,
-                                       const QgsPointXY *infoPoint,
-                                       QDomDocument &infoDocument,
-                                       QDomElement &layerElement,
-                                       const QString &version ) const;
+      bool featureInfoFromRasterLayer( QgsRasterLayer *layer, const QgsMapSettings &mapSettings, const QgsPointXY *infoPoint, const QgsRenderContext &renderContext, QDomDocument &infoDocument, QDomElement &layerElement, const QString &version ) const;
 
       //! Record which symbols would be used if the map was in the current configuration of renderer. This is useful for content-based legend
       void runHitTest( const QgsMapSettings &mapSettings, HitTest &hitTest ) const;
@@ -294,7 +303,7 @@ namespace QgsWms
       QByteArray convertFeatureInfoToText( const QDomDocument &doc ) const;
 
       //! Converts a feature info xml document to json
-      QByteArray convertFeatureInfoToJson( const QList<QgsMapLayer *> &layers, const QDomDocument &doc ) const;
+      QByteArray convertFeatureInfoToJson( const QList<QgsMapLayer *> &layers, const QDomDocument &doc, const QgsCoordinateReferenceSystem &destCRS ) const;
 
       QDomElement createFeatureGML(
         const QgsFeature *feat,
@@ -305,7 +314,8 @@ namespace QgsWms
         const QString &typeName,
         bool withGeom,
         int version,
-        QStringList *attributes = nullptr ) const;
+        QStringList *attributes = nullptr
+      ) const;
 
       //! Replaces attribute value with ValueRelation or ValueRelation if defined. Otherwise returns the original value
       static QString replaceValueMapAndRelation( QgsVectorLayer *vl, int idx, const QVariant &attributeVal );
@@ -316,10 +326,10 @@ namespace QgsWms
        * Configures the print layout for the GetPrint request
        *\param c the print layout
        *\param mapSettings the map settings
-       *\param atlasPrint true if atlas is used for printing
+       *\param atlas atlas used for printing, maybe NULL
        *\returns true in case of success
        */
-      bool configurePrintLayout( QgsPrintLayout *c, const QgsMapSettings &mapSettings, bool atlasPrint = false );
+      bool configurePrintLayout( QgsPrintLayout *c, const QgsMapSettings &mapSettings, QgsLayoutAtlas *atlas );
 
       void removeTemporaryLayers();
 

@@ -22,6 +22,7 @@
 
 #include <QSortFilterProxyModel>
 #include <QStandardItem>
+#include <QRegularExpression>
 
 class QDomElement;
 class QSortFilterProxyModel;
@@ -39,14 +40,13 @@ class QgsGrassToolsTreeFilterProxyModel;
  *  \brief Interface to GRASS modules.
  *
  */
-class QgsGrassTools: public QgsDockWidget, public Ui::QgsGrassToolsBase
+class QgsGrassTools : public QgsDockWidget, public Ui::QgsGrassToolsBase
 {
     Q_OBJECT
 
   public:
     //! Constructor
-    QgsGrassTools( QgisInterface *iface,
-                   QWidget *parent = nullptr, const char *name = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
+    QgsGrassTools( QgisInterface *iface, QWidget *parent = nullptr, const char *name = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
 
 
     //! Append item to model or parent
@@ -105,7 +105,7 @@ class QgsGrassTools: public QgsDockWidget, public Ui::QgsGrassToolsBase
     enum DataOffset
     {
       Label, // original label
-      Name, // module name
+      Name,  // module name
       Search // search text
     };
 
@@ -150,10 +150,9 @@ class QgsGrassToolsTreeFilterProxyModel : public QSortFilterProxyModel
     void setFilter( const QString &filter );
 
   protected:
-
     QAbstractItemModel *mModel = nullptr;
-    QString mFilter; // filter string provided
-    QRegExp mRegExp; // regular expression constructed from filter string
+    QString mFilter;            // filter string provided
+    QRegularExpression mRegExp; // regular expression constructed from filter string
 
     bool filterAcceptsString( const QString &value ) const;
 

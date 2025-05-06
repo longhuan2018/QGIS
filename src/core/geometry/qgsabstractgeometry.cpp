@@ -13,14 +13,13 @@ email                : marco.hugentobler at sourcepole dot com
  *                                                                         *
  ***************************************************************************/
 
-#include "qgsapplication.h"
 #include "qgsabstractgeometry.h"
-#include "qgswkbptr.h"
-#include "qgsgeos.h"
-#include "qgsmaptopixel.h"
+#include "moc_qgsabstractgeometry.cpp"
 #include "qgspoint.h"
 #include "qgsgeometrycollection.h"
 #include "qgsvertexid.h"
+#include "qgscurve.h"
+#include "qgsbox3d.h"
 
 #include <nlohmann/json.hpp>
 #include <limits>
@@ -74,7 +73,7 @@ int QgsAbstractGeometry::compareTo( const QgsAbstractGeometry *other ) const
   return compareToSameClass( other );
 }
 
-void QgsAbstractGeometry::setZMTypeFromSubGeometry( const QgsAbstractGeometry *subgeom, QgsWkbTypes::Type baseGeomType )
+void QgsAbstractGeometry::setZMTypeFromSubGeometry( const QgsAbstractGeometry *subgeom, Qgis::WkbType baseGeomType )
 {
   if ( !subgeom )
   {
@@ -82,16 +81,16 @@ void QgsAbstractGeometry::setZMTypeFromSubGeometry( const QgsAbstractGeometry *s
   }
 
   //special handling for 25d types:
-  if ( baseGeomType == QgsWkbTypes::LineString &&
-       ( subgeom->wkbType() == QgsWkbTypes::Point25D || subgeom->wkbType() == QgsWkbTypes::LineString25D ) )
+  if ( baseGeomType == Qgis::WkbType::LineString &&
+       ( subgeom->wkbType() == Qgis::WkbType::Point25D || subgeom->wkbType() == Qgis::WkbType::LineString25D ) )
   {
-    mWkbType = QgsWkbTypes::LineString25D;
+    mWkbType = Qgis::WkbType::LineString25D;
     return;
   }
-  else if ( baseGeomType == QgsWkbTypes::Polygon &&
-            ( subgeom->wkbType() == QgsWkbTypes::Point25D || subgeom->wkbType() == QgsWkbTypes::LineString25D ) )
+  else if ( baseGeomType == Qgis::WkbType::Polygon &&
+            ( subgeom->wkbType() == Qgis::WkbType::Point25D || subgeom->wkbType() == Qgis::WkbType::LineString25D ) )
   {
-    mWkbType = QgsWkbTypes::Polygon25D;
+    mWkbType = Qgis::WkbType::Polygon25D;
     return;
   }
 
@@ -116,31 +115,63 @@ void QgsAbstractGeometry::setZMTypeFromSubGeometry( const QgsAbstractGeometry *s
   }
 }
 
+QgsRectangle QgsAbstractGeometry::boundingBox() const
+{
+  return boundingBox3D().toRectangle();
+}
+
 QgsRectangle QgsAbstractGeometry::calculateBoundingBox() const
+{
+  return calculateBoundingBox3D().toRectangle();
+}
+
+QgsBox3D QgsAbstractGeometry::calculateBoundingBox3D() const
 {
   double xmin = std::numeric_limits<double>::max();
   double ymin = std::numeric_limits<double>::max();
+  double zmin = std::numeric_limits<double>::max();
   double xmax = -std::numeric_limits<double>::max();
   double ymax = -std::numeric_limits<double>::max();
+  double zmax = -std::numeric_limits<double>::max();
 
   QgsVertexId id;
   QgsPoint vertex;
-  double x, y;
-  while ( nextVertex( id, vertex ) )
+  double x, y, z;
+  if ( is3D() )
   {
-    x = vertex.x();
-    y = vertex.y();
-    if ( x < xmin )
-      xmin = x;
-    if ( x > xmax )
-      xmax = x;
-    if ( y < ymin )
-      ymin = y;
-    if ( y > ymax )
-      ymax = y;
+    while ( nextVertex( id, vertex ) )
+    {
+      x = vertex.x();
+      y = vertex.y();
+      z = vertex.z();
+
+      xmin = std::min( xmin, x );
+      xmax = std::max( xmax, x );
+
+      ymin = std::min( ymin, y );
+      ymax = std::max( ymax, y );
+
+      zmin = std::min( zmin, z );
+      zmax = std::max( zmax, z );
+    }
+  }
+  else
+  {
+    while ( nextVertex( id, vertex ) )
+    {
+      x = vertex.x();
+      y = vertex.y();
+      xmin = std::min( xmin, x );
+      xmax = std::max( xmax, x );
+
+      ymin = std::min( ymin, y );
+      ymax = std::max( ymax, y );
+    }
+    zmin = std::numeric_limits<double>::quiet_NaN();
+    zmax = std::numeric_limits<double>::quiet_NaN();
   }
 
-  return QgsRectangle( xmin, ymin, xmax, ymax );
+  return QgsBox3D( xmin, ymin, zmin, xmax, ymax, zmax );
 }
 
 void QgsAbstractGeometry::clearCache() const
@@ -181,10 +212,15 @@ double QgsAbstractGeometry::area() const
 QString QgsAbstractGeometry::wktTypeStr() const
 {
   QString wkt = geometryType();
+  QString suffix;
   if ( is3D() )
-    wkt += 'Z';
+    suffix += 'Z';
   if ( isMeasure() )
-    wkt += 'M';
+    suffix += 'M';
+  if ( !suffix.isEmpty() )
+  {
+    wkt += ' ' + suffix;
+  }
   return wkt;
 }
 
@@ -253,7 +289,7 @@ QgsPoint QgsAbstractGeometry::centroid() const
   }
 }
 
-bool QgsAbstractGeometry::convertTo( QgsWkbTypes::Type type )
+bool QgsAbstractGeometry::convertTo( Qgis::WkbType type )
 {
   if ( type == mWkbType )
     return true;
@@ -330,34 +366,34 @@ int QgsAbstractGeometry::sortIndex() const
 {
   switch ( QgsWkbTypes::flatType( mWkbType ) )
   {
-    case QgsWkbTypes::Point:
+    case Qgis::WkbType::Point:
       return 0;
-    case QgsWkbTypes::MultiPoint:
+    case Qgis::WkbType::MultiPoint:
       return 1;
-    case QgsWkbTypes::LineString:
+    case Qgis::WkbType::LineString:
       return 2;
-    case QgsWkbTypes::CircularString:
+    case Qgis::WkbType::CircularString:
       return 3;
-    case QgsWkbTypes::CompoundCurve:
+    case Qgis::WkbType::CompoundCurve:
       return 4;
-    case QgsWkbTypes::MultiLineString:
+    case Qgis::WkbType::MultiLineString:
       return 5;
-    case QgsWkbTypes::MultiCurve:
+    case Qgis::WkbType::MultiCurve:
       return 6;
-    case QgsWkbTypes::Polygon:
-    case QgsWkbTypes::Triangle:
+    case Qgis::WkbType::Polygon:
+    case Qgis::WkbType::Triangle:
       return 7;
-    case QgsWkbTypes::CurvePolygon:
+    case Qgis::WkbType::CurvePolygon:
       return 8;
-    case QgsWkbTypes::MultiPolygon:
+    case Qgis::WkbType::MultiPolygon:
       return 9;
-    case QgsWkbTypes::MultiSurface:
+    case Qgis::WkbType::MultiSurface:
       return 10;
-    case QgsWkbTypes::GeometryCollection:
+    case Qgis::WkbType::GeometryCollection:
       return 11;
-    case QgsWkbTypes::Unknown:
+    case Qgis::WkbType::Unknown:
       return 12;
-    case QgsWkbTypes::NoGeometry:
+    case Qgis::WkbType::NoGeometry:
     default:
       break;
   }
@@ -390,6 +426,11 @@ bool QgsAbstractGeometry::hasCurvedSegments() const
 bool QgsAbstractGeometry::boundingBoxIntersects( const QgsRectangle &rectangle ) const
 {
   return boundingBox().intersects( rectangle );
+}
+
+bool QgsAbstractGeometry::boundingBoxIntersects( const QgsBox3D &box3d ) const
+{
+  return boundingBox3D().intersects( box3d );
 }
 
 QgsAbstractGeometry *QgsAbstractGeometry::segmentize( double tolerance, SegmentationToleranceType toleranceType ) const

@@ -20,13 +20,14 @@
 #include <QMenu>
 #include <QAction>
 #include "qgssnappinglayertreemodel.h"
+#include "moc_qgssnappinglayertreemodel.cpp"
 
 #include "qgslayertree.h"
 #include "qgsmapcanvas.h"
 #include "qgsproject.h"
 #include "qgssnappingconfig.h"
 #include "qgsvectorlayer.h"
-#include "qgsapplication.h"
+#include "qgsunittypes.h"
 #include "qgsscalewidget.h"
 
 QgsSnappingLayerDelegate::QgsSnappingLayerDelegate( QgsMapCanvas *canvas, QObject *parent )
@@ -70,15 +71,15 @@ QWidget *QgsSnappingLayerDelegate::createEditor( QWidget *parent, const QStyleOp
     const QVariant val = index.model()->data( index.model()->sibling( index.row(), QgsSnappingLayerTreeModel::UnitsColumn, index ), Qt::UserRole );
     if ( val.isValid() )
     {
-      const QgsTolerance::UnitType units = static_cast<QgsTolerance::UnitType>( val.toInt() );
-      if ( units == QgsTolerance::Pixels )
+      const Qgis::MapToolUnit units = static_cast<Qgis::MapToolUnit>( val.toInt() );
+      if ( units == Qgis::MapToolUnit::Pixels )
       {
         w->setDecimals( 0 );
       }
       else
       {
-        const QgsUnitTypes::DistanceUnitType type = QgsUnitTypes::unitType( mCanvas->mapUnits() );
-        w->setDecimals( type == QgsUnitTypes::Standard ? 2 : 5 );
+        const Qgis::DistanceUnitType type = QgsUnitTypes::unitType( mCanvas->mapUnits() );
+        w->setDecimals( type == Qgis::DistanceUnitType::Standard ? 2 : 5 );
       }
     }
     else
@@ -91,8 +92,8 @@ QWidget *QgsSnappingLayerDelegate::createEditor( QWidget *parent, const QStyleOp
   if ( index.column() == QgsSnappingLayerTreeModel::UnitsColumn )
   {
     QComboBox *w = new QComboBox( parent );
-    w->addItem( tr( "px" ), QgsTolerance::Pixels );
-    w->addItem( QgsUnitTypes::toString( mCanvas->mapSettings().mapUnits() ), QgsTolerance::ProjectUnits );
+    w->addItem( tr( "px" ), QVariant::fromValue( Qgis::MapToolUnit::Pixels ) );
+    w->addItem( QgsUnitTypes::toString( mCanvas->mapSettings().mapUnits() ), QVariant::fromValue( Qgis::MapToolUnit::Project ) );
     return w;
   }
 
@@ -135,7 +136,7 @@ void QgsSnappingLayerDelegate::setEditorData( QWidget *editor, const QModelIndex
       const QList<QAction *> actions = tb->menu()->actions();
       for ( QAction *action : actions )
       {
-        action->setChecked( type & static_cast< Qgis::SnappingTypes >( action->data().toInt() ) );
+        action->setChecked( type & static_cast<Qgis::SnappingTypes>( action->data().toInt() ) );
       }
     }
   }
@@ -149,11 +150,11 @@ void QgsSnappingLayerDelegate::setEditorData( QWidget *editor, const QModelIndex
   }
   else if ( index.column() == QgsSnappingLayerTreeModel::UnitsColumn )
   {
-    const QgsTolerance::UnitType units = static_cast<QgsTolerance::UnitType>( val.toInt() );
+    const Qgis::MapToolUnit units = static_cast<Qgis::MapToolUnit>( val.toInt() );
     QComboBox *w = qobject_cast<QComboBox *>( editor );
     if ( w )
     {
-      w->setCurrentIndex( w->findData( units ) );
+      w->setCurrentIndex( w->findData( QVariant::fromValue( units ) ) );
     }
   }
   else if ( index.column() == QgsSnappingLayerTreeModel::MinScaleColumn )
@@ -194,10 +195,10 @@ void QgsSnappingLayerDelegate::setModelData( QWidget *editor, QAbstractItemModel
       }
       model->setData( index, static_cast<int>( type ), Qt::EditRole );
     }
-
   }
   else if (
-    index.column() == QgsSnappingLayerTreeModel::UnitsColumn )
+    index.column() == QgsSnappingLayerTreeModel::UnitsColumn
+  )
   {
     QComboBox *w = qobject_cast<QComboBox *>( editor );
     if ( w )
@@ -241,7 +242,7 @@ QgsSnappingLayerTreeModel::QgsSnappingLayerTreeModel( QgsProject *project, QgsMa
 {
   connect( project, &QgsProject::snappingConfigChanged, this, &QgsSnappingLayerTreeModel::onSnappingSettingsChanged );
   connect( project, &QgsProject::avoidIntersectionsLayersChanged, this, &QgsSnappingLayerTreeModel::onSnappingSettingsChanged );
-  connect( project, &QgsProject::readProject, this, [ = ] {resetLayerTreeModel();} );
+  connect( project, &QgsProject::readProject, this, [=] { resetLayerTreeModel(); } );
 }
 
 int QgsSnappingLayerTreeModel::columnCount( const QModelIndex &parent ) const
@@ -269,7 +270,7 @@ Qt::ItemFlags QgsSnappingLayerTreeModel::flags( const QModelIndex &idx ) const
     {
       if ( idx.column() == AvoidIntersectionColumn )
       {
-        if ( vl->geometryType() == QgsWkbTypes::PolygonGeometry )
+        if ( vl->geometryType() == Qgis::GeometryType::Polygon )
         {
           return Qt::ItemIsEnabled | Qt::ItemIsEditable | Qt::ItemIsUserCheckable;
         }
@@ -408,8 +409,33 @@ QgsLayerTreeModel *QgsSnappingLayerTreeModel::layerTreeModel() const
 
 void QgsSnappingLayerTreeModel::setLayerTreeModel( QgsLayerTreeModel *layerTreeModel )
 {
+  if ( mLayerTreeModel )
+  {
+    disconnect( mLayerTreeModel, &QAbstractItemModel::rowsInserted, this, &QgsSnappingLayerTreeModel::onNodesInserted );
+    disconnect( mLayerTreeModel, &QAbstractItemModel::rowsRemoved, this, &QgsSnappingLayerTreeModel::onNodesRemoved );
+  }
+
   mLayerTreeModel = layerTreeModel;
   QSortFilterProxyModel::setSourceModel( layerTreeModel );
+
+  connect( mLayerTreeModel, &QAbstractItemModel::rowsInserted, this, &QgsSnappingLayerTreeModel::onNodesInserted );
+  connect( mLayerTreeModel, &QAbstractItemModel::rowsRemoved, this, &QgsSnappingLayerTreeModel::onNodesRemoved );
+}
+
+void QgsSnappingLayerTreeModel::onNodesInserted( const QModelIndex &parent, int first, int last )
+{
+  if ( mLayerTreeModel->rowCount( parent ) - ( last - first + 1 ) <= 0 )
+  {
+    invalidateFilter();
+  }
+}
+
+void QgsSnappingLayerTreeModel::onNodesRemoved( const QModelIndex &parent, int, int )
+{
+  if ( mLayerTreeModel->rowCount( parent ) == 0 )
+  {
+    invalidateFilter();
+  }
 }
 
 bool QgsSnappingLayerTreeModel::filterAcceptsRow( int sourceRow, const QModelIndex &sourceParent ) const
@@ -478,7 +504,7 @@ QVariant QgsSnappingLayerTreeModel::data( const QModelIndex &idx, int role ) con
     if ( role == Qt::CheckStateRole )
     {
       QgsVectorLayer *vl = vectorLayer( idx );
-      if ( vl  && mIndividualLayerSettings.contains( vl ) )
+      if ( vl && mIndividualLayerSettings.contains( vl ) )
       {
         const QgsSnappingConfig::IndividualLayerSettings ls = mIndividualLayerSettings.value( vl );
         if ( !ls.valid() )
@@ -526,7 +552,7 @@ QVariant QgsSnappingLayerTreeModel::data( const QModelIndex &idx, int role ) con
           return Qt::Unchecked;
 
         // both
-        if ( hasChecked &&  hasUnchecked )
+        if ( hasChecked && hasUnchecked )
           return Qt::PartiallyChecked;
 
         if ( hasChecked )
@@ -611,9 +637,9 @@ QVariant QgsSnappingLayerTreeModel::data( const QModelIndex &idx, int role ) con
       {
         switch ( ls.units() )
         {
-          case QgsTolerance::Pixels:
+          case Qgis::MapToolUnit::Pixels:
             return tr( "pixels" );
-          case QgsTolerance::ProjectUnits:
+          case Qgis::MapToolUnit::Project:
             return QgsUnitTypes::toString( mCanvas->mapSettings().mapUnits() );
           default:
             return QVariant();
@@ -622,14 +648,14 @@ QVariant QgsSnappingLayerTreeModel::data( const QModelIndex &idx, int role ) con
 
       if ( role == Qt::UserRole )
       {
-        return ls.units();
+        return QVariant::fromValue( ls.units() );
       }
     }
 
     // avoid intersection(Overlap)
     if ( idx.column() == AvoidIntersectionColumn )
     {
-      if ( role == Qt::CheckStateRole && vl->geometryType() == QgsWkbTypes::PolygonGeometry )
+      if ( role == Qt::CheckStateRole && vl->geometryType() == Qgis::GeometryType::Polygon )
       {
         if ( mProject->avoidIntersectionsLayers().contains( vl ) )
         {
@@ -693,7 +719,7 @@ bool QgsSnappingLayerTreeModel::setData( const QModelIndex &index, const QVarian
     if ( role == Qt::CheckStateRole )
     {
       int i = 0;
-      for ( i = 0; ; i++ )
+      for ( i = 0;; i++ )
       {
         const QModelIndex child = QgsSnappingLayerTreeModel::index( i, LayerColumn, index );
         if ( !child.isValid() )
@@ -784,7 +810,7 @@ bool QgsSnappingLayerTreeModel::setData( const QModelIndex &index, const QVarian
       if ( !ls.valid() )
         return false;
 
-      ls.setUnits( static_cast<QgsTolerance::UnitType>( value.toInt() ) );
+      ls.setUnits( static_cast<Qgis::MapToolUnit>( value.toInt() ) );
       QgsSnappingConfig config = mProject->snappingConfig();
       config.setIndividualLayerSettings( vl, ls );
       mProject->setSnappingConfig( config );

@@ -27,11 +27,10 @@ class QgsTransformSettingsDialog : public QDialog, private Ui::QgsTransformSetti
     Q_OBJECT
 
   public:
-
     static const QgsSettingsEntryString *settingLastDestinationFolder;
     static const QgsSettingsEntryString *settingLastPdfFolder;
 
-    QgsTransformSettingsDialog( QgsMapLayerType type, const QString &source, const QString &output, QWidget *parent = nullptr );
+    QgsTransformSettingsDialog( Qgis::LayerType type, const QString &source, const QString &output, QWidget *parent = nullptr );
 
     /**
      * Sets the selected target \a crs.
@@ -74,14 +73,14 @@ class QgsTransformSettingsDialog : public QDialog, private Ui::QgsTransformSetti
     void setResamplingMethod( QgsImageWarper::ResamplingMethod method );
 
     /**
-     * Returns the selected compression method.
+     * Returns raster creation options.
      */
-    QString compressionMethod() const;
+    QStringList creationOptions() const;
 
     /**
-     * Sets the selected compression \a method.
+     * Sets raster creation options.
      */
-    void setCompressionMethod( const QString &method );
+    void setCreationOptions( const QString &options );
 
     /**
      * Returns the destination filename.
@@ -159,7 +158,7 @@ class QgsTransformSettingsDialog : public QDialog, private Ui::QgsTransformSetti
   private:
     QString generateModifiedFileName( const QString &filename );
 
-    QgsMapLayerType mType = QgsMapLayerType::RasterLayer;
+    Qgis::LayerType mType = Qgis::LayerType::Raster;
     QString mSourceFile;
 };
 

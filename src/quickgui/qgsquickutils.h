@@ -26,8 +26,7 @@
 /**
  * \ingroup quick
  *
- * \brief The QgsQuickUtils class serves as a utility class for common operations
- * needed either from QML or cpp.
+ * \brief Utility class for common operations needed either from QML or cpp.
  *
  * \note use in qml as a singleton, registered as "Utils", e.g. QgsQuick.Utils.toQgsPoint
  *
@@ -38,7 +37,6 @@ class QUICK_EXPORT QgsQuickUtils : public QObject
     Q_OBJECT
 
   public:
-
     //! Creates new QgsQuickUtils - this class is meant to serve as a QML singleton
     explicit QgsQuickUtils( QObject *parent = nullptr );
     ~QgsQuickUtils() = default;

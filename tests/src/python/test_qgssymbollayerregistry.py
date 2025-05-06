@@ -5,28 +5,34 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
 """
-__author__ = 'Denis Rouzaud'
-__date__ = '26/11/2021'
-__copyright__ = 'Copyright 2015, The QGIS Project'
 
-import qgis  # NOQA
-from qgis.core import Qgis, QgsApplication, QgsSymbolLayerAbstractMetadata, QgsSymbolLayer, QgsSimpleMarkerSymbolLayer
-from qgis.testing import start_app, unittest
+__author__ = "Denis Rouzaud"
+__date__ = "26/11/2021"
+__copyright__ = "Copyright 2015, The QGIS Project"
+
 from qgis.PyQt import sip
-
+from qgis.core import (
+    Qgis,
+    QgsApplication,
+    QgsSimpleMarkerSymbolLayer,
+    QgsSymbolLayer,
+    QgsSymbolLayerAbstractMetadata,
+)
+import unittest
+from qgis.testing import start_app, QgisTestCase
 
 start_app()
 
 
 class MySuperMarkerMetadata(QgsSymbolLayerAbstractMetadata):
     def __init__(self):
-        super().__init__('MySuperMarker', 'My Super Marker', Qgis.SymbolType.Marker)
+        super().__init__("MySuperMarker", "My Super Marker", Qgis.SymbolType.Marker)
 
     def createSymbolLayer(self, map: dict) -> QgsSymbolLayer:
         return QgsSimpleMarkerSymbolLayer()
 
 
-class TestQgsSymbolLayerRegistry(unittest.TestCase):
+class TestQgsSymbolLayerRegistry(QgisTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -34,6 +40,7 @@ class TestQgsSymbolLayerRegistry(unittest.TestCase):
         Setup the involved layers and relations for a n:m relation
         :return:
         """
+        super().setUpClass()
         cls.registry = QgsApplication.instance().symbolLayerRegistry()
 
     def testCreateInstance(self):
@@ -49,7 +56,9 @@ class TestQgsSymbolLayerRegistry(unittest.TestCase):
         # layer already added
         self.assertFalse(self.registry.addSymbolLayerType(metadata))
         # check there is one more layer
-        self.assertEqual(len(self.registry.symbolLayersForType(Qgis.SymbolType.Marker)), n + 1)
+        self.assertEqual(
+            len(self.registry.symbolLayersForType(Qgis.SymbolType.Marker)), n + 1
+        )
         # remove layer
         self.assertTrue(self.registry.removeSymbolLayerType(metadata))
         # check layer has been deleted
@@ -66,9 +75,12 @@ class TestQgsSymbolLayerRegistry(unittest.TestCase):
         metadata = MySuperMarkerMetadata()
         self.assertTrue(self.registry.addSymbolLayerType(metadata))
         del metadata
-        self.assertIn(MySuperMarkerMetadata().name(), self.registry.symbolLayersForType(Qgis.SymbolType.Marker))
+        self.assertIn(
+            MySuperMarkerMetadata().name(),
+            self.registry.symbolLayersForType(Qgis.SymbolType.Marker),
+        )
         self.assertTrue(self.registry.removeSymbolLayerType(MySuperMarkerMetadata()))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

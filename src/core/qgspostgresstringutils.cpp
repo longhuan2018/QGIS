@@ -34,7 +34,7 @@ QString QgsPostgresStringUtils::getNextString( const QString &txt, int &i, const
   QString cur = txt.mid( i );
   if ( cur.startsWith( '"' ) )
   {
-    const QRegularExpression stringRe( QRegularExpression::anchoredPattern( "^\"((?:\\\\.|[^\"\\\\])*)\".*" ) );
+    const thread_local QRegularExpression stringRe( QRegularExpression::anchoredPattern( "^\"((?:\\\\.|[^\"\\\\])*)\".*" ) );
     const QRegularExpressionMatch match = stringRe.match( cur );
     if ( !match.hasMatch() )
     {
@@ -74,18 +74,22 @@ QVariantList QgsPostgresStringUtils::parseArray( const QString &string )
   if ( newVal.trimmed().startsWith( '{' ) )
   {
     //it's a multidimensional array
-    QString subarray = newVal;
+    QString subarray = newVal.trimmed();
     while ( !subarray.isEmpty() )
     {
       bool escaped = false;
       int openedBrackets = 1;
       int i = 0;
-      while ( i < subarray.length()  && openedBrackets > 0 )
+      while ( openedBrackets > 0 )
       {
         ++i;
+        if ( i >= subarray.length() )
+          break;
 
-        if ( subarray.at( i ) == '}' && !escaped ) openedBrackets--;
-        else if ( subarray.at( i ) == '{' && !escaped ) openedBrackets++;
+        if ( subarray.at( i ) == '}' && !escaped )
+          openedBrackets--;
+        else if ( subarray.at( i ) == '{' && !escaped )
+          openedBrackets++;
 
         escaped = !escaped ? subarray.at( i ) == '\\' : false;
       }
@@ -124,10 +128,10 @@ QString QgsPostgresStringUtils::buildArray( const QVariantList &list )
   for ( const QVariant &v : std::as_const( list ) )
   {
     // Convert to proper type
-    switch ( v.type() )
+    switch ( v.userType() )
     {
-      case QVariant::Type::Int:
-      case QVariant::Type::LongLong:
+      case QMetaType::Type::Int:
+      case QMetaType::Type::LongLong:
         sl.push_back( v.toString() );
         break;
       default:

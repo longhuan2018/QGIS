@@ -18,9 +18,8 @@
 #include "qgsogrexpressioncompiler.h"
 #include "qgssqliteexpressioncompiler.h"
 
-#include "qgscplhttpfetchoverrider.h"
 #include "qgsogrutils.h"
-#include "qgsapplication.h"
+#include "qgscplhttpfetchoverrider.h"
 #include "qgsgeometry.h"
 #include "qgsexception.h"
 #include "qgswkbtypes.h"
@@ -28,6 +27,10 @@
 #include "qgssymbol.h"
 #include "qgsgeometryengine.h"
 #include "qgsdbquerylog.h"
+#include "qgsdbquerylog_p.h"
+#include "qgssetrequestinitiator_p.h"
+
+#include <sqlite3.h>
 
 #include <QTextCodec>
 #include <QFile>
@@ -57,11 +60,11 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
    */
   mAllowResetReading = ! transaction ||
                        ( source->mDriverName != QLatin1String( "GPKG" ) && source->mDriverName != QLatin1String( "SQLite" ) ) ||
-                       ( mRequest.filterType() != QgsFeatureRequest::FilterType::FilterFid
-                         && mRequest.filterType() != QgsFeatureRequest::FilterType::FilterFids );
+                       ( mRequest.filterType() != Qgis::FeatureRequestFilterType::Fid
+                         && mRequest.filterType() != Qgis::FeatureRequestFilterType::Fids );
 
-  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg );
-  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrFeatureIterator" ) )
+  mCplHttpFetchOverrider = std::make_unique< QgsCPLHTTPFetchOverrider >( mAuthCfg );
+  QgsSetCPLHTTPFetchOverriderInitiatorClass( *mCplHttpFetchOverrider, QStringLiteral( "QgsOgrFeatureIterator" ) )
 
   for ( const auto &id :  mRequest.filterFids() )
   {
@@ -81,7 +84,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
   }
   else
   {
-    //QgsDebugMsg( "Feature iterator of " + mSource->mLayerName + ": acquiring connection");
+    //QgsDebugMsgLevel( "Feature iterator of " + mSource->mLayerName + ": acquiring connection", 2);
     mConn = QgsOgrConnPool::instance()->acquireConnection( QgsOgrProviderUtils::connectionPoolId( mSource->mDataSource, mSource->mShareSameDatasetAmongLayers ),
             mRequest.timeout(),
             mRequest.requestMayBeNested(),
@@ -111,10 +114,6 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
       mOgrLayer = QgsOgrProviderUtils::setSubsetString( mOgrLayer, mConn->ds, mSource->mEncoding, mSource->mSubsetString );
       // If the mSubsetString was a full SELECT ...., then mOgrLayer will be a OGR SQL layer != mOgrLayerOri
 
-      mFieldsWithoutFid.clear();
-      for ( int i = ( mFirstFieldIsFid ) ? 1 : 0; i < mSource->mFields.size(); i++ )
-        mFieldsWithoutFid.append( mSource->mFields.at( i ) );
-
       if ( !mOgrLayer )
       {
         close();
@@ -124,10 +123,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
   }
   QMutexLocker locker( mSharedDS ? &mSharedDS->mutex() : nullptr );
 
-  if ( mRequest.destinationCrs().isValid() && mRequest.destinationCrs() != mSource->mCrs )
-  {
-    mTransform = QgsCoordinateTransform( mSource->mCrs, mRequest.destinationCrs(), mRequest.transformContext() );
-  }
+  mTransform = mRequest.calculateTransform( mSource->mCrs );
   try
   {
     mFilterRect = filterRectToSourceCrs( mTransform );
@@ -140,13 +136,139 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
   }
 
   mFetchGeometry = ( !mFilterRect.isNull() ) ||
-                   !( mRequest.flags() & QgsFeatureRequest::NoGeometry ) ||
+                   !( mRequest.flags() & Qgis::FeatureRequestFlag::NoGeometry ) ||
                    ( mSource->mOgrGeometryTypeFilter != wkbUnknown );
 
-  QgsAttributeList attrs = ( mRequest.flags() & QgsFeatureRequest::SubsetOfAttributes ) ? mRequest.subsetOfAttributes() : mSource->mFields.allAttributesList();
+  bool filterExpressionAlreadyTakenIntoAccount = false;
+
+#if SQLITE_VERSION_NUMBER >= 3030000L
+  // For GeoPackage, try to compile order by expressions as a SQL statement
+  // Only SQLite >= 3.30.0 supports NULLS FIRST / NULLS LAST
+  // A potential further optimization would be to translate mFilterRect
+  // as a JOIN with the GPKG RTree when it exists, instead of having just OGR
+  // evaluating it as a post processing.
+  const auto constOrderBy = request.orderBy();
+  if ( !constOrderBy.isEmpty() &&
+       source->mDriverName == QLatin1String( "GPKG" ) &&
+       ( request.filterType() == Qgis::FeatureRequestFilterType::NoFilter ||
+         request.filterType() == Qgis::FeatureRequestFilterType::Expression ) &&
+       ( mSource->mSubsetString.isEmpty() ||
+         !mSource->mSubsetString.startsWith( QLatin1String( "SELECT " ), Qt::CaseInsensitive ) ) )
+  {
+    QByteArray sql = QByteArray( "SELECT " );
+    for ( int i = 0; i < source->mFields.size(); ++i )
+    {
+      if ( i > 0 )
+        sql += QByteArray( ", " );
+      sql += QgsOgrProviderUtils::quotedIdentifier( source->mFields[i].name().toUtf8(), source->mDriverName );
+    }
+    if ( strcmp( OGR_L_GetGeometryColumn( mOgrLayer ), "" ) != 0 )
+    {
+      sql += QByteArray( ", " );
+      sql += QgsOgrProviderUtils::quotedIdentifier( OGR_L_GetGeometryColumn( mOgrLayer ), source->mDriverName );
+    }
+    sql += QByteArray( " FROM " );
+    sql += QgsOgrProviderUtils::quotedIdentifier( OGR_L_GetName( mOgrLayer ), source->mDriverName );
+
+    if ( request.filterType() == Qgis::FeatureRequestFilterType::Expression )
+    {
+      QgsSQLiteExpressionCompiler compiler(
+        source->mFields,
+        request.flags() & Qgis::FeatureRequestFlag::IgnoreStaticNodesDuringExpressionCompilation );
+      QgsSqlExpressionCompiler::Result result = compiler.compile( request.filterExpression() );
+      if ( result == QgsSqlExpressionCompiler::Complete || result == QgsSqlExpressionCompiler::Partial )
+      {
+        QString whereClause = compiler.result();
+        sql += QByteArray( " WHERE " );
+        if ( mSource->mSubsetString.isEmpty() )
+        {
+          sql += whereClause.toUtf8();
+        }
+        else
+        {
+          sql += QByteArray( "(" );
+          sql += mSource->mSubsetString.toUtf8();
+          sql += QByteArray( ") AND (" );
+          sql += whereClause.toUtf8();
+          sql += QByteArray( ")" );
+        }
+        mExpressionCompiled = ( result == QgsSqlExpressionCompiler::Complete );
+        mCompileStatus = ( mExpressionCompiled ? Compiled : PartiallyCompiled );
+      }
+      else
+      {
+        sql.clear();
+      }
+    }
+    else if ( !mSource->mSubsetString.isEmpty() )
+    {
+      sql += QByteArray( " WHERE " );
+      sql += mSource->mSubsetString.toUtf8();
+    }
+
+    if ( !sql.isEmpty() )
+    {
+      sql += QByteArray( " ORDER BY " );
+      bool firstOrderBy = true;
+      for ( const QgsFeatureRequest::OrderByClause &clause : constOrderBy )
+      {
+        QgsExpression expression = clause.expression();
+        QgsSQLiteExpressionCompiler compiler(
+          source->mFields, request.flags() & Qgis::FeatureRequestFlag::IgnoreStaticNodesDuringExpressionCompilation );
+        QgsSqlExpressionCompiler::Result result = compiler.compile( &expression );
+        if ( result == QgsSqlExpressionCompiler::Complete &&
+             expression.rootNode()->nodeType() == QgsExpressionNode::ntColumnRef )
+        {
+          if ( !firstOrderBy )
+            sql += QByteArray( ", " );
+          sql += compiler.result().toUtf8();
+          sql += QByteArray( " COLLATE NOCASE" );
+          sql += clause.ascending() ? QByteArray( " ASC" ) : QByteArray( " DESC" );
+          if ( clause.nullsFirst() )
+            sql += QByteArray( " NULLS FIRST" );
+          else
+            sql += QByteArray( " NULLS LAST" );
+        }
+        else
+        {
+          sql.clear();
+          break;
+        }
+        firstOrderBy = false;
+      }
+    }
+
+    if ( !sql.isEmpty() )
+    {
+      mOrderByCompiled = true;
+
+      if ( mOrderByCompiled && request.limit() >= 0 )
+      {
+        sql += QByteArray( " LIMIT " );
+        sql += QString::number( request.limit() ).toUtf8();
+      }
+      QgsDebugMsgLevel( QStringLiteral( "Using optimized orderBy as: %1" ).arg( QString::fromUtf8( sql ) ), 4 );
+      filterExpressionAlreadyTakenIntoAccount = true;
+      if ( mOgrLayerOri && mOgrLayer != mOgrLayerOri )
+      {
+        GDALDatasetReleaseResultSet( mConn->ds, mOgrLayer );
+        mOgrLayer = mOgrLayerOri;
+      }
+      mOgrLayerOri = mOgrLayer;
+      mOgrLayer = QgsOgrProviderUtils::setSubsetString( mOgrLayer, mConn->ds, mSource->mEncoding, sql );
+      if ( !mOgrLayer )
+      {
+        close();
+        return;
+      }
+    }
+  }
+#endif
+
+  QgsAttributeList attrs = ( mRequest.flags() & Qgis::FeatureRequestFlag::SubsetOfAttributes ) ? mRequest.subsetOfAttributes() : mSource->mFields.allAttributesList();
 
   // ensure that all attributes required for expression filter are being fetched
-  if ( mRequest.flags() & QgsFeatureRequest::SubsetOfAttributes && request.filterType() == QgsFeatureRequest::FilterExpression )
+  if ( mRequest.flags() & Qgis::FeatureRequestFlag::SubsetOfAttributes && request.filterType() == Qgis::FeatureRequestFilterType::Expression )
   {
     //ensure that all fields required for filter expressions are prepared
     QSet<int> attributeIndexes = request.filterExpression()->referencedAttributeIndexes( mSource->mFields );
@@ -155,7 +277,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
     mRequest.setSubsetOfAttributes( attrs );
   }
   // also need attributes required by order by
-  if ( mRequest.flags() & QgsFeatureRequest::SubsetOfAttributes && !mRequest.orderBy().isEmpty() )
+  if ( mRequest.flags() & Qgis::FeatureRequestFlag::SubsetOfAttributes && !mRequest.orderBy().isEmpty() )
   {
     QSet<int> attributeIndexes;
     const auto usedAttributeIndices = mRequest.orderBy().usedAttributeIndices( mSource->mFields );
@@ -169,7 +291,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
     mRequest.setSubsetOfAttributes( attrs );
   }
 
-  if ( request.filterType() == QgsFeatureRequest::FilterExpression && request.filterExpression()->needsGeometry() )
+  if ( request.filterType() == Qgis::FeatureRequestFilterType::Expression && request.filterExpression()->needsGeometry() )
   {
     mFetchGeometry = true;
   }
@@ -219,16 +341,16 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
       break;
   }
 
-  if ( request.filterType() == QgsFeatureRequest::FilterExpression )
+  if ( request.filterType() == Qgis::FeatureRequestFilterType::Expression && !filterExpressionAlreadyTakenIntoAccount )
   {
     QgsSqlExpressionCompiler *compiler = nullptr;
     if ( source->mDriverName == QLatin1String( "SQLite" ) || source->mDriverName == QLatin1String( "GPKG" ) )
     {
-      compiler = new QgsSQLiteExpressionCompiler( source->mFields, request.flags() & QgsFeatureRequest::IgnoreStaticNodesDuringExpressionCompilation );
+      compiler = new QgsSQLiteExpressionCompiler( source->mFields, request.flags() & Qgis::FeatureRequestFlag::IgnoreStaticNodesDuringExpressionCompilation );
     }
     else
     {
-      compiler = new QgsOgrExpressionCompiler( source, request.flags() & QgsFeatureRequest::IgnoreStaticNodesDuringExpressionCompilation );
+      compiler = new QgsOgrExpressionCompiler( source, request.flags() & Qgis::FeatureRequestFlag::IgnoreStaticNodesDuringExpressionCompilation );
     }
 
     QgsSqlExpressionCompiler::Result result = compiler->compile( request.filterExpression() );
@@ -270,7 +392,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
     OGR_L_SetAttributeFilter( mOgrLayer, nullptr );
   }
 
-  if ( mRequest.flags() & QgsFeatureRequest::SubsetOfAttributes )
+  if ( mRequest.flags() & Qgis::FeatureRequestFlag::SubsetOfAttributes )
   {
     const QgsAttributeList attrs = mRequest.subsetOfAttributes();
     mRequestAttributes = QVector< int >( attrs.begin(), attrs.end() );
@@ -287,7 +409,7 @@ QgsOgrFeatureIterator::QgsOgrFeatureIterator( QgsOgrFeatureSource *source, bool 
   //       when the logger was disabled.
   //       There is currently no API to connect the change of state of the
   //       logger to the data provider.
-  if ( QgsApplication::databaseQueryLog()->enabled() )
+  if ( QgsApplication::databaseQueryLog()->enabled() && mConn )
   {
     GDALDatasetSetQueryLoggerFunc( mConn->ds, [ ]( const char *pszSQL, const char *pszError, int64_t lNumRecords, int64_t lExecutionTimeMilliseconds, void *pQueryLoggerArg )
     {
@@ -315,6 +437,13 @@ QgsOgrFeatureIterator::~QgsOgrFeatureIterator()
   close();
 }
 
+bool QgsOgrFeatureIterator::prepareOrderBy( const QList<QgsFeatureRequest::OrderByClause> &orderBys )
+{
+  Q_UNUSED( orderBys )
+  // Preparation has already been done in the constructor, so we just communicate the result
+  return mOrderByCompiled;
+}
+
 bool QgsOgrFeatureIterator::nextFeatureFilterExpression( QgsFeature &f )
 {
   if ( !mExpressionCompiled )
@@ -328,7 +457,7 @@ bool QgsOgrFeatureIterator::fetchFeatureWithId( QgsFeatureId id, QgsFeature &fea
   feature.setValid( false );
   gdal::ogr_feature_unique_ptr fet;
 
-  if ( mAllowResetReading && !QgsOgrProviderUtils::canDriverShareSameDatasetAmongLayers( mSource->mDriverName ) )
+  if ( mAllowResetReading && !mSource->mCanDriverShareSameDatasetAmongLayers )
   {
     OGRLayerH nextFeatureBelongingLayer;
     bool found = false;
@@ -401,21 +530,31 @@ bool QgsOgrFeatureIterator::checkFeature( gdal::ogr_feature_unique_ptr &fet, Qgs
 void QgsOgrFeatureIterator::setInterruptionChecker( QgsFeedback *interruptionChecker )
 {
   mInterruptionChecker = interruptionChecker;
+  if ( mCplHttpFetchOverrider && QThread::currentThread() == mCplHttpFetchOverrider->thread() )
+  {
+    mCplHttpFetchOverrider->setFeedback( interruptionChecker );
+  }
 }
 
 bool QgsOgrFeatureIterator::fetchFeature( QgsFeature &feature )
 {
   QMutexLocker locker( mSharedDS ? &mSharedDS->mutex() : nullptr );
 
-  QgsCPLHTTPFetchOverrider oCPLHTTPFetcher( mAuthCfg, mInterruptionChecker );
-  QgsSetCPLHTTPFetchOverriderInitiatorClass( oCPLHTTPFetcher, QStringLiteral( "QgsOgrFeatureIterator" ) )
+  // if we are on the same thread as the iterator was created in, we don't need to initializer another
+  // QgsCPLHTTPFetchOverrider (which is expensive)
+  std::unique_ptr< QgsCPLHTTPFetchOverrider > localHttpFetchOverride;
+  if ( QThread::currentThread() != mCplHttpFetchOverrider->thread() )
+  {
+    localHttpFetchOverride = std::make_unique< QgsCPLHTTPFetchOverrider >( mAuthCfg, mInterruptionChecker );
+    QgsSetCPLHTTPFetchOverriderInitiatorClass( *localHttpFetchOverride, QStringLiteral( "QgsOgrFeatureIterator" ) )
+  }
 
   feature.setValid( false );
 
   if ( mClosed || !mOgrLayer )
     return false;
 
-  if ( mRequest.filterType() == QgsFeatureRequest::FilterFid )
+  if ( mRequest.filterType() == Qgis::FeatureRequestFilterType::Fid )
   {
     bool result = fetchFeatureWithId( mRequest.filterFid(), feature );
     close(); // the feature has been read or was not found: we have finished here
@@ -428,7 +567,7 @@ bool QgsOgrFeatureIterator::fetchFeature( QgsFeature &feature )
 
     return result;
   }
-  else if ( mRequest.filterType() == QgsFeatureRequest::FilterFids )
+  else if ( mRequest.filterType() == Qgis::FeatureRequestFilterType::Fids )
   {
     while ( mFilterFidsIt != mFilterFids.end() )
     {
@@ -456,7 +595,7 @@ bool QgsOgrFeatureIterator::fetchFeature( QgsFeature &feature )
 
   // OSM layers (especially large ones) need the GDALDataset::GetNextFeature() call rather than OGRLayer::GetNextFeature()
   // see more details here: https://trac.osgeo.org/gdal/wiki/rfc66_randomlayerreadwrite
-  if ( !QgsOgrProviderUtils::canDriverShareSameDatasetAmongLayers( mSource->mDriverName ) )
+  if ( !mSource->mCanDriverShareSameDatasetAmongLayers )
   {
     OGRLayerH nextFeatureBelongingLayer;
     while ( fet.reset( GDALDatasetGetNextFeature( mConn->ds, &nextFeatureBelongingLayer, nullptr, nullptr, nullptr ) ), fet )
@@ -489,7 +628,7 @@ void QgsOgrFeatureIterator::resetReading()
   {
     return;
   }
-  if ( !QgsOgrProviderUtils::canDriverShareSameDatasetAmongLayers( mSource->mDriverName ) )
+  if ( !mSource->mCanDriverShareSameDatasetAmongLayers )
   {
     GDALDatasetResetReading( mConn->ds );
   }
@@ -517,6 +656,13 @@ bool QgsOgrFeatureIterator::rewind()
 
 bool QgsOgrFeatureIterator::close()
 {
+  // Finally reset the data source filter, in case it was changed by a previous request
+  // this fixes https://github.com/qgis/QGIS/issues/51934
+  if ( mOgrLayer && ! mSource->mSubsetString.isEmpty() )
+  {
+    OGR_L_SetAttributeFilter( mOgrLayer,  mSource->mEncoding->fromUnicode( mSource->mSubsetString ).constData() );
+  }
+
   if ( mSharedDS )
   {
     iteratorClosed();
@@ -550,7 +696,7 @@ bool QgsOgrFeatureIterator::close()
 
   if ( mConn )
   {
-    //QgsDebugMsg( "Feature iterator of " + mSource->mLayerName + ": releasing connection");
+    //QgsDebugMsgLevel( "Feature iterator of " + mSource->mLayerName + ": releasing connection", 2);
     QgsOgrConnPool::instance()->releaseConnection( mConn );
   }
 
@@ -579,7 +725,7 @@ bool QgsOgrFeatureIterator::readFeature( const gdal::ogr_feature_unique_ptr &fet
   feature.setId( OGR_F_GetFID( fet.get() ) );
   feature.setFields( mSource->mFields ); // allow name-based attribute lookups
 
-  const bool useExactIntersect = mRequest.spatialFilterType() == Qgis::SpatialFilterType::BoundingBox && ( mRequest.flags() & QgsFeatureRequest::ExactIntersect );
+  const bool useExactIntersect = mRequest.spatialFilterType() == Qgis::SpatialFilterType::BoundingBox && ( mRequest.flags() & Qgis::FeatureRequestFlag::ExactIntersect );
   const bool geometryTypeFilter = mSource->mOgrGeometryTypeFilter != wkbUnknown;
   if ( mFetchGeometry || mRequest.spatialFilterType() != Qgis::SpatialFilterType::NoFilter || geometryTypeFilter )
   {
@@ -626,7 +772,7 @@ bool QgsOgrFeatureIterator::readFeature( const gdal::ogr_feature_unique_ptr &fet
   const int fieldCount = mSource->mFields.count();
   QgsAttributes attributes( fieldCount );
   QVariant *attributeData = attributes.data();
-  if ( mRequest.flags() & QgsFeatureRequest::SubsetOfAttributes )
+  if ( mRequest.flags() & Qgis::FeatureRequestFlag::SubsetOfAttributes )
   {
     const int requestedAttributeTotal = mRequestAttributes.size();
     if ( requestedAttributeTotal > 0 )
@@ -652,7 +798,7 @@ bool QgsOgrFeatureIterator::readFeature( const gdal::ogr_feature_unique_ptr &fet
   }
   feature.setAttributes( attributes );
 
-  if ( mRequest.flags() & QgsFeatureRequest::EmbeddedSymbols )
+  if ( mRequest.flags() & Qgis::FeatureRequestFlag::EmbeddedSymbols )
   {
     const QString styleString( OGR_F_GetStyleString( fet.get() ) );
     feature.setEmbeddedSymbol( QgsOgrUtils::symbolFromStyleString( styleString, mSymbolType ).release() );
@@ -668,7 +814,7 @@ QgsOgrFeatureSource::QgsOgrFeatureSource( const QgsOgrProvider *p )
   , mShareSameDatasetAmongLayers( p->mShareSameDatasetAmongLayers )
   , mLayerName( p->layerName() )
   , mLayerIndex( p->layerIndex() )
-  , mSubsetString( p->mSubsetString )
+  , mSubsetString( QgsOgrProviderUtils::cleanSubsetString( p->mSubsetString ) )
   , mEncoding( p->textEncoding() ) // no copying - this is a borrowed pointer from Qt
   , mFields( p->mAttributeFields )
   , mFirstFieldIsFid( p->mFirstFieldIsFid )
@@ -686,6 +832,8 @@ QgsOgrFeatureSource::QgsOgrFeatureSource( const QgsOgrProvider *p )
   for ( int i = ( p->mFirstFieldIsFid ) ? 1 : 0; i < mFields.size(); i++ )
     mFieldsWithoutFid.append( mFields.at( i ) );
   QgsOgrConnPool::instance()->ref( QgsOgrProviderUtils::connectionPoolId( mDataSource, mShareSameDatasetAmongLayers ) );
+
+  mCanDriverShareSameDatasetAmongLayers = QgsOgrProviderUtils::canDriverShareSameDatasetAmongLayers( mDriverName );
 }
 
 QgsOgrFeatureSource::~QgsOgrFeatureSource()

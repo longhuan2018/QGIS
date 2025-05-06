@@ -14,8 +14,10 @@
  ***************************************************************************/
 
 #include "qgsabstract3dengine.h"
+#include "moc_qgsabstract3dengine.cpp"
 
-#include "qgsshadowrenderingframegraph.h"
+#include "qgsframegraph.h"
+#include "qgslogger.h"
 
 #include <Qt3DRender/QRenderCapture>
 #include <Qt3DRender/QRenderSettings>
@@ -23,7 +25,6 @@
 QgsAbstract3DEngine::QgsAbstract3DEngine( QObject *parent )
   : QObject( parent )
 {
-
 }
 
 void QgsAbstract3DEngine::requestCaptureImage()
@@ -31,8 +32,7 @@ void QgsAbstract3DEngine::requestCaptureImage()
   Qt3DRender::QRenderCaptureReply *captureReply;
   captureReply = mFrameGraph->renderCapture()->requestCapture();
 
-  connect( captureReply, &Qt3DRender::QRenderCaptureReply::completed, this, [ = ]
-  {
+  connect( captureReply, &Qt3DRender::QRenderCaptureReply::completed, this, [=] {
     emit imageCaptured( captureReply->image() );
     captureReply->deleteLater();
   } );
@@ -43,8 +43,7 @@ void QgsAbstract3DEngine::requestDepthBufferCapture()
   Qt3DRender::QRenderCaptureReply *captureReply;
   captureReply = mFrameGraph->depthRenderCapture()->requestCapture();
 
-  connect( captureReply, &Qt3DRender::QRenderCaptureReply::completed, this, [ = ]
-  {
+  connect( captureReply, &Qt3DRender::QRenderCaptureReply::completed, this, [=] {
     emit depthBufferCaptured( captureReply->image() );
     captureReply->deleteLater();
   } );
@@ -58,4 +57,31 @@ void QgsAbstract3DEngine::setRenderCaptureEnabled( bool enabled )
 bool QgsAbstract3DEngine::renderCaptureEnabled() const
 {
   return mFrameGraph->renderCaptureEnabled();
+}
+
+void QgsAbstract3DEngine::dumpFrameGraphToConsole() const
+{
+  if ( mFrameGraph )
+  {
+    QgsDebugMsgLevel( QString( "FrameGraph:\n%1" ).arg( mFrameGraph->dumpFrameGraph() ), 1 );
+    QgsDebugMsgLevel( QString( "SceneGraph:\n%1" ).arg( mFrameGraph->dumpSceneGraph() ), 1 );
+  }
+}
+
+QString QgsAbstract3DEngine::dumpFrameGraph() const
+{
+  if ( mFrameGraph )
+  {
+    return mFrameGraph->dumpFrameGraph();
+  }
+  return QString();
+}
+
+QString QgsAbstract3DEngine::dumpSceneGraph() const
+{
+  if ( mFrameGraph )
+  {
+    return mFrameGraph->dumpSceneGraph();
+  }
+  return QString();
 }

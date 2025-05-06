@@ -25,6 +25,7 @@ class QgsGpsConnection;
 class QgsGpsInformation;
 class QgsPoint;
 class QgsMessageBarItem;
+class QgsGpsDetector;
 
 /**
  * Manages a single "canonical" GPS connection for use in the QGIS app, eg for displaying GPS
@@ -40,7 +41,6 @@ class APP_EXPORT QgsAppGpsConnection : public QObject
     Q_OBJECT
 
   public:
-
     QgsAppGpsConnection( QObject *parent );
 
     ~QgsAppGpsConnection() override;
@@ -105,7 +105,7 @@ class APP_EXPORT QgsAppGpsConnection : public QObject
     /**
      * Emitted when the connection status changes.
      */
-    void statusChanged( Qgis::GpsConnectionStatus status );
+    void statusChanged( Qgis::DeviceConnectionStatus status );
 
     /**
      * Emitted when the GPS device has been disconnected.
@@ -140,18 +140,19 @@ class APP_EXPORT QgsAppGpsConnection : public QObject
   private slots:
 
     void onTimeOut();
+    void onConnectionDetected();
 
-    void onConnected( QgsGpsConnection *conn );
+    void setConnectionPrivate( QgsGpsConnection *connection );
 
   private:
-
     void showStatusBarMessage( const QString &msg );
 
     void showGpsConnectFailureWarning( const QString &message );
     void showMessage( Qgis::MessageLevel level, const QString &message );
 
+    QPointer<QgsGpsDetector> mDetector;
     QgsGpsConnection *mConnection = nullptr;
-    QPointer< QgsMessageBarItem > mConnectionMessageItem;
+    QPointer<QgsMessageBarItem> mConnectionMessageItem;
 };
 
 

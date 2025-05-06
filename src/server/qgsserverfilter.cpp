@@ -28,24 +28,24 @@
  *
  */
 
-QgsServerFilter::QgsServerFilter( QgsServerInterface *serverInterface ):
-  mServerInterface( serverInterface )
+QgsServerFilter::QgsServerFilter( QgsServerInterface *serverInterface )
+  : mServerInterface( serverInterface )
 {
 }
 
 void QgsServerFilter::requestReady()
 {
-  QgsDebugMsg( QStringLiteral( "QgsServerFilter plugin default requestReady called" ) );
+  QgsDebugMsgLevel( QStringLiteral( "QgsServerFilter plugin default requestReady called" ), 2 );
 }
 
 void QgsServerFilter::responseComplete()
 {
-  QgsDebugMsg( QStringLiteral( "QgsServerFilter plugin default responseComplete called" ) );
+  QgsDebugMsgLevel( QStringLiteral( "QgsServerFilter plugin default responseComplete called" ), 2 );
 }
 
 void QgsServerFilter::sendResponse()
 {
-  QgsDebugMsg( QStringLiteral( "QgsServerFilter plugin default sendResponse called" ) );
+  QgsDebugMsgLevel( QStringLiteral( "QgsServerFilter plugin default sendResponse called" ), 2 );
 }
 
 bool QgsServerFilter::onRequestReady()
@@ -53,6 +53,11 @@ bool QgsServerFilter::onRequestReady()
   Q_NOWARN_DEPRECATED_PUSH
   requestReady();
   Q_NOWARN_DEPRECATED_POP
+  return true;
+}
+
+bool QgsServerFilter::onProjectReady()
+{
   return true;
 }
 
@@ -71,5 +76,3 @@ bool QgsServerFilter::onSendResponse()
   Q_NOWARN_DEPRECATED_POP
   return true;
 }
-
-

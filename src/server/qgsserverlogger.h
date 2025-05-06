@@ -29,14 +29,12 @@
 
 /**
  * \ingroup server
- * \brief Writes message log into server logfile
- * \since QGIS 2.8
+ * \brief Writes message log into server log files.
  */
 class SERVER_EXPORT QgsServerLogger : public QgsMessageLogConsole
 {
     Q_OBJECT
   public:
-
     /**
      * Gets the singleton instance
      */
@@ -45,14 +43,12 @@ class SERVER_EXPORT QgsServerLogger : public QgsMessageLogConsole
     /**
      * Gets the current log level
      * \returns the log level
-     * \since QGIS 3.0
      */
     Qgis::MessageLevel logLevel() const { return mLogLevel; }
 
     /**
       * Set the current log level
       * \param level the log level
-      * \since QGIS 3.0
       */
     void setLogLevel( Qgis::MessageLevel level );
 

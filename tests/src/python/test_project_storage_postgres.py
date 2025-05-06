@@ -10,32 +10,29 @@ the Free Software Foundation; either version 2 of the License, or
 
 """
 
-__author__ = 'Martin Dobias'
-__date__ = '2018-03-29'
-__copyright__ = 'Copyright 2018, The QGIS Project'
-
-import qgis  # NOQA
-import psycopg2
+__author__ = "Martin Dobias"
+__date__ = "2018-03-29"
+__copyright__ = "Copyright 2018, The QGIS Project"
 
 import os
-import time
 
+import psycopg2
+from qgis.PyQt.QtCore import QUrl, QUrlQuery
 from qgis.core import (
-    QgsApplication,
     QgsDataSourceUri,
     QgsVectorLayer,
-    QgsProject,
 )
-from PyQt5.QtCore import QDateTime, QUrl, QUrlQuery
-from qgis.testing import start_app, unittest
-from utilities import unitTestDataPath
+import unittest
+from qgis.testing import start_app, QgisTestCase
+
 from test_project_storage_base import TestPyQgsProjectStorageBase
+from utilities import unitTestDataPath
 
 QGISAPP = start_app()
 TEST_DATA_DIR = unitTestDataPath()
 
 
-class TestPyQgsProjectStoragePostgres(TestPyQgsProjectStorageBase, unittest.TestCase):
+class TestPyQgsProjectStoragePostgres(QgisTestCase, TestPyQgsProjectStorageBase):
 
     @classmethod
     def setUpClass(cls):
@@ -43,23 +40,24 @@ class TestPyQgsProjectStoragePostgres(TestPyQgsProjectStorageBase, unittest.Test
 
         super().setUpClass()
 
-        cls.dbconn = 'service=qgis_test'
-        if 'QGIS_PGTEST_DB' in os.environ:
-            cls.dbconn = os.environ['QGIS_PGTEST_DB']
+        cls.dbconn = "service=qgis_test"
+        if "QGIS_PGTEST_DB" in os.environ:
+            cls.dbconn = os.environ["QGIS_PGTEST_DB"]
         cls.ds_uri = QgsDataSourceUri(cls.dbconn)
 
         # Create test layers
-        cls.vl = QgsVectorLayer(cls.dbconn + ' sslmode=disable key=\'pk\' srid=4326 type=POINT table="qgis_test"."someData" (geom) sql=', 'test', 'postgres')
+        cls.vl = QgsVectorLayer(
+            cls.dbconn
+            + ' sslmode=disable key=\'pk\' srid=4326 type=POINT table="qgis_test"."someData" (geom) sql=',
+            "test",
+            "postgres",
+        )
         assert cls.vl.isValid()
         cls.con = psycopg2.connect(cls.dbconn)
 
-        cls.schema = 'qgis_test'
-        cls.provider = 'postgres'
-        cls.project_storage_type = 'postgresql'
-
-    @classmethod
-    def tearDownClass(cls):
-        """Run after all tests"""
+        cls.schema = "qgis_test"
+        cls.provider = "postgres"
+        cls.project_storage_type = "postgresql"
 
     def execSQLCommand(self, sql):
         self.assertTrue(self.con)
@@ -78,19 +76,21 @@ class TestPyQgsProjectStoragePostgres(TestPyQgsProjectStorageBase, unittest.Test
 
         u.setScheme("postgresql")
         u.setHost(ds_uri.host())
-        if ds_uri.port() != '':
+        if ds_uri.port() != "":
             u.setPort(int(ds_uri.port()))
-        if ds_uri.username() != '':
+        if ds_uri.username() != "":
             u.setUserName(ds_uri.username())
-        if ds_uri.password() != '':
+        if ds_uri.password() != "":
             u.setPassword(ds_uri.password())
 
-        if ds_uri.service() != '':
+        if ds_uri.service() != "":
             urlQuery.addQueryItem("service", ds_uri.service())
-        if ds_uri.authConfigId() != '':
+        if ds_uri.authConfigId() != "":
             urlQuery.addQueryItem("authcfg", ds_uri.authConfigId())
-        if ds_uri.sslMode() != QgsDataSourceUri.SslPrefer:
-            urlQuery.addQueryItem("sslmode", QgsDataSourceUri.encodeSslMode(ds_uri.sslMode()))
+        if ds_uri.sslMode() != QgsDataSourceUri.SslMode.SslPrefer:
+            urlQuery.addQueryItem(
+                "sslmode", QgsDataSourceUri.encodeSslMode(ds_uri.sslMode())
+            )
 
         urlQuery.addQueryItem("dbname", ds_uri.database())
 
@@ -99,8 +99,8 @@ class TestPyQgsProjectStoragePostgres(TestPyQgsProjectStorageBase, unittest.Test
             urlQuery.addQueryItem("project", project_name)
 
         u.setQuery(urlQuery)
-        return str(u.toEncoded(), 'utf-8')
+        return str(u.toEncoded(), "utf-8")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

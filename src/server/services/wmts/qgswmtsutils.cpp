@@ -17,6 +17,7 @@
 
 #include "qgswmtsutils.h"
 #include "qgswmtsparameters.h"
+#include "qgssettingsregistrycore.h"
 #include "qgsserverprojectutils.h"
 
 #include "qgsproject.h"
@@ -26,22 +27,23 @@
 #include "qgssettings.h"
 #include "qgsprojectviewsettings.h"
 #include "qgscoordinatetransform.h"
+#include "qgssettingsentryimpl.h"
 
 namespace QgsWmts
 {
   namespace
   {
-    QMap< QString, tileMatrixInfo> populateFixedTileMatrixInfoMap();
+    QMap<QString, tileMatrixInfo> populateFixedTileMatrixInfoMap();
 
-    QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( geoEpsgCrsAuthId() );
+    QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( Qgis::geographicCrsAuthId() );
 
     // Constant
     const int tileSize = 256;
     const double POINTS_TO_M = 2.800005600011068 / 10000.0;
 
-    QMap< QString, tileMatrixInfo> fixedTileMatrixInfoMap = populateFixedTileMatrixInfoMap();
-    QMap< QString, tileMatrixInfo> calculatedTileMatrixInfoMap; // for project without WMTSGrids configuration
-  }
+    QMap<QString, tileMatrixInfo> fixedTileMatrixInfoMap = populateFixedTileMatrixInfoMap();
+    QMap<QString, tileMatrixInfo> calculatedTileMatrixInfoMap; // for project without WMTSGrids configuration
+  } // namespace
 
   QString implementationVersion()
   {
@@ -68,7 +70,7 @@ namespace QgsWmts
       href = url.toString();
     }
 
-    return  href;
+    return href;
   }
 
   tileMatrixInfo calculateTileMatrixInfo( const QString &crsStr, const QgsProject *project )
@@ -102,7 +104,7 @@ namespace QgsWmts
     double scaleDenominator = 0.0;
     const int colRes = ( tmi.extent.xMaximum() - tmi.extent.xMinimum() ) / tileSize;
     const int rowRes = ( tmi.extent.yMaximum() - tmi.extent.yMinimum() ) / tileSize;
-    const double UNIT_TO_M = QgsUnitTypes::fromUnitToUnitFactor( tmi.unit, QgsUnitTypes::DistanceMeters );
+    const double UNIT_TO_M = QgsUnitTypes::fromUnitToUnitFactor( tmi.unit, Qgis::DistanceUnit::Meters );
     if ( colRes > rowRes )
       scaleDenominator = std::ceil( colRes * UNIT_TO_M / POINTS_TO_M );
     else
@@ -147,10 +149,10 @@ namespace QgsWmts
 
   tileMatrixSetDef calculateTileMatrixSet( tileMatrixInfo tmi, double minScale )
   {
-    QList< tileMatrixDef > tileMatrixList;
+    QList<tileMatrixDef> tileMatrixList;
     double scaleDenominator = tmi.scaleDenominator;
     const QgsRectangle extent = tmi.extent;
-    const QgsUnitTypes::DistanceUnit unit = tmi.unit;
+    const Qgis::DistanceUnit unit = tmi.unit;
 
     // constant
     double resolution = tmi.resolution;
@@ -196,10 +198,10 @@ namespace QgsWmts
 
     // default scales
     const QgsSettings settings;
-    const QStringList scaleList = settings.value( QStringLiteral( "Map/scales" ), Qgis::defaultProjectScales() ).toString().split( ',' );
+    const QStringList scaleList = QgsSettingsRegistryCore::settingsMapScales->value();
     //load project scales
     const bool useProjectScales = project->viewSettings()->useProjectScales();
-    const QVector< double >projectScales = project->viewSettings()->mapScales();
+    const QVector<double> projectScales = project->viewSettings()->mapScales();
     if ( useProjectScales && projectScales.empty() )
     {
       scale = *std::min_element( projectScales.begin(), projectScales.end() );
@@ -230,9 +232,9 @@ namespace QgsWmts
     return scale;
   }
 
-  QList< tileMatrixSetDef > getTileMatrixSetList( const QgsProject *project, const QString &tms_ref )
+  QList<tileMatrixSetDef> getTileMatrixSetList( const QgsProject *project, const QString &tms_ref )
   {
-    QList< tileMatrixSetDef > tmsList;
+    QList<tileMatrixSetDef> tmsList;
 
     bool gridsDefined = false;
     const QStringList wmtsGridList = project->readListEntry( QStringLiteral( "WMTSGrids" ), QStringLiteral( "CRS" ), QStringList(), &gridsDefined );
@@ -287,19 +289,19 @@ namespace QgsWmts
           tmi.unit = crs.mapUnits();
           tmi.hasAxisInverted = crs.hasAxisInverted();
 
-          const QgsCoordinateTransform crsTransform( QgsCoordinateReferenceSystem::fromOgcWmsCrs( geoEpsgCrsAuthId() ), crs, project );
+          const QgsCoordinateTransform crsTransform( QgsCoordinateReferenceSystem::fromOgcWmsCrs( Qgis::geographicCrsAuthId() ), crs, project );
           try
           {
             // firstly transform CRS bounds expressed in WGS84 to CRS
             const QgsRectangle extent = crsTransform.transformBoundingBox( crs.bounds() );
             // Calculate resolution based on scale denominator
-            resolution = POINTS_TO_M * minScale / QgsUnitTypes::fromUnitToUnitFactor( tmi.unit, QgsUnitTypes::DistanceMeters );
+            resolution = POINTS_TO_M * minScale / QgsUnitTypes::fromUnitToUnitFactor( tmi.unit, Qgis::DistanceUnit::Meters );
             // Get numbers of column and row for the resolution to cover the extent
             col = std::ceil( ( extent.xMaximum() - extent.xMinimum() ) / ( tileSize * resolution ) );
             row = std::ceil( ( extent.yMaximum() - extent.yMinimum() ) / ( tileSize * resolution ) );
             // Calculate extent
-            const double bottom =  fixedTop - row * tileSize * resolution;
-            const double right =  fixedLeft + col * tileSize * resolution;
+            const double bottom = fixedTop - row * tileSize * resolution;
+            const double right = fixedLeft + col * tileSize * resolution;
             tmi.extent = QgsRectangle( fixedLeft, bottom, right, fixedTop );
           }
           catch ( QgsCsException &cse )
@@ -311,7 +313,7 @@ namespace QgsWmts
         // get lastLevel
         tmi.lastLevel = QVariant( config[4] ).toInt();
 
-        QList< tileMatrixDef > tileMatrixList;
+        QList<tileMatrixDef> tileMatrixList;
         for ( int i = 0; i <= tmi.lastLevel; ++i )
         {
           const double scale = tmi.scaleDenominator / std::pow( 2, i );
@@ -366,13 +368,13 @@ namespace QgsWmts
     return tmsList;
   }
 
-  QList< layerDef > getWmtsLayerList( QgsServerInterface *serverIface, const QgsProject *project )
+  QList<layerDef> getWmtsLayerList( QgsServerInterface *serverIface, const QgsProject *project )
   {
-    QList< layerDef > wmtsLayers;
+    QList<layerDef> wmtsLayers;
 #ifdef HAVE_SERVER_PYTHON_PLUGINS
     QgsAccessControl *accessControl = serverIface->accessControls();
 #else
-    ( void )serverIface;
+    ( void ) serverIface;
 #endif
 
     // WMTS Project configuration
@@ -441,15 +443,15 @@ namespace QgsWmts
         }
 
         layerDef pLayer;
-        pLayer.id = treeGroup->customProperty( QStringLiteral( "wmsShortName" ) ).toString();
+        pLayer.id = treeGroup->serverProperties()->shortName();
         if ( pLayer.id.isEmpty() )
           pLayer.id = gName;
 
-        pLayer.title = treeGroup->customProperty( QStringLiteral( "wmsTitle" ) ).toString();
+        pLayer.title = treeGroup->serverProperties()->title();
         if ( pLayer.title.isEmpty() )
           pLayer.title = gName;
 
-        pLayer.abstract = treeGroup->customProperty( QStringLiteral( "wmsAbstract" ) ).toString();
+        pLayer.abstract = treeGroup->serverProperties()->abstract();
 
         QgsRectangle wgs84BoundingRect;
         bool queryable = false;
@@ -527,12 +529,12 @@ namespace QgsWmts
 
       layerDef pLayer;
       pLayer.id = l->name();
-      if ( !l->shortName().isEmpty() )
-        pLayer.id = l->shortName();
+      if ( !l->serverProperties()->shortName().isEmpty() )
+        pLayer.id = l->serverProperties()->shortName();
       pLayer.id = pLayer.id.replace( ' ', '_' );
 
-      pLayer.title = l->title();
-      pLayer.abstract = l->abstract();
+      pLayer.title = l->serverProperties()->title();
+      pLayer.abstract = l->serverProperties()->abstract();
 
       //transform the layer native CRS into WGS84
       const QgsCoordinateReferenceSystem layerCrs = l->crs();
@@ -574,7 +576,7 @@ namespace QgsWmts
   {
     tileMatrixSetLinkDef tmsl;
 
-    QMap< int, tileMatrixLimitDef > tileMatrixLimits;
+    QMap<int, tileMatrixLimitDef> tileMatrixLimits;
 
     QgsRectangle rect( layer.wgs84BoundingRect );
     if ( tms.ref != QLatin1String( "EPSG:4326" ) )
@@ -623,11 +625,10 @@ namespace QgsWmts
     return tmsl;
   }
 
-  QUrlQuery translateWmtsParamToWmsQueryItem( const QString &request, const QgsWmtsParameters &params,
-      const QgsProject *project, QgsServerInterface *serverIface )
+  QUrlQuery translateWmtsParamToWmsQueryItem( const QString &request, const QgsWmtsParameters &params, const QgsProject *project, QgsServerInterface *serverIface )
   {
 #ifndef HAVE_SERVER_PYTHON_PLUGINS
-    ( void )serverIface;
+    ( void ) serverIface;
 #endif
 
     //defining Layer
@@ -665,7 +666,7 @@ namespace QgsWmts
         {
           continue;
         }
-        QString groupLayerId = treeGroup->customProperty( QStringLiteral( "wmsShortName" ) ).toString();
+        QString groupLayerId = treeGroup->serverProperties()->shortName();
         if ( groupLayerId.isEmpty() )
         {
           groupLayerId = gName;
@@ -691,7 +692,7 @@ namespace QgsWmts
           continue;
         }
 #endif
-        QString layerLayerId = l->shortName();
+        QString layerLayerId = l->serverProperties()->shortName();
         if ( layerLayerId.isEmpty() )
         {
           layerLayerId = l->name();
@@ -706,11 +707,33 @@ namespace QgsWmts
     }
 
     //defining Format
-    const QString format = params.formatAsString();
-    //read Format
+    QString format;
+
+    const bool isFeatureInfo { request.compare( QStringLiteral( "getfeatureinfo" ), Qt::CaseInsensitive ) == 0 };
+
+    // If this is a getfeatureinfo request, we must check INFOFORMAT instead of format
+    if ( isFeatureInfo )
+    {
+      format = params.infoFormatAsString();
+    }
+
+    // but we are good and savy and also accept FORMAT for getfeatureinfo requests
     if ( format.isEmpty() )
     {
-      throw QgsRequestNotWellFormedException( QStringLiteral( "Format is mandatory" ) );
+      format = params.formatAsString();
+    }
+
+    // no format? no party!
+    if ( format.isEmpty() )
+    {
+      if ( isFeatureInfo )
+      {
+        throw QgsRequestNotWellFormedException( QStringLiteral( "InfoFormat is mandatory" ) );
+      }
+      else
+      {
+        throw QgsRequestNotWellFormedException( QStringLiteral( "Format is mandatory" ) );
+      }
     }
 
     //defining TileMatrixSet ref
@@ -722,7 +745,7 @@ namespace QgsWmts
     }
 
     // verifying TileMatrixSet value
-    QList< tileMatrixSetDef > tmsList = getTileMatrixSetList( project, tms_ref );
+    QList<tileMatrixSetDef> tmsList = getTileMatrixSetList( project, tms_ref );
     if ( tmsList.isEmpty() )
     {
       throw QgsRequestNotWellFormedException( QStringLiteral( "TileMatrixSet is unknown" ) );
@@ -736,7 +759,7 @@ namespace QgsWmts
     //defining TileMatrix idx
     const int tm_idx = params.tileMatrixAsInt();
     //read TileMatrix
-    if ( tm_idx < 0 || tms.tileMatrixList.count() < tm_idx )
+    if ( tm_idx < 0 || tm_idx >= tms.tileMatrixList.size() )
     {
       throw QgsRequestNotWellFormedException( QStringLiteral( "TileMatrix is unknown" ) );
     }
@@ -766,17 +789,11 @@ namespace QgsWmts
     QString bbox;
     if ( tms.hasAxisInverted )
     {
-      bbox = qgsDoubleToString( miny, 6 ) + ',' +
-             qgsDoubleToString( minx, 6 ) + ',' +
-             qgsDoubleToString( maxy, 6 ) + ',' +
-             qgsDoubleToString( maxx, 6 );
+      bbox = qgsDoubleToString( miny, 6 ) + ',' + qgsDoubleToString( minx, 6 ) + ',' + qgsDoubleToString( maxy, 6 ) + ',' + qgsDoubleToString( maxx, 6 );
     }
     else
     {
-      bbox = qgsDoubleToString( minx, 6 ) + ',' +
-             qgsDoubleToString( miny, 6 ) + ',' +
-             qgsDoubleToString( maxx, 6 ) + ',' +
-             qgsDoubleToString( maxy, 6 );
+      bbox = qgsDoubleToString( minx, 6 ) + ',' + qgsDoubleToString( miny, 6 ) + ',' + qgsDoubleToString( maxx, 6 ) + ',' + qgsDoubleToString( maxy, 6 );
     }
 
     QUrlQuery query;
@@ -793,7 +810,14 @@ namespace QgsWmts
     query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::BBOX ), bbox );
     query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::WIDTH ), QStringLiteral( "256" ) );
     query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::HEIGHT ), QStringLiteral( "256" ) );
-    query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::FORMAT ), format );
+    if ( isFeatureInfo )
+    {
+      query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::INFO_FORMAT ), format );
+    }
+    else
+    {
+      query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::FORMAT ), format );
+    }
     if ( params.format() == QgsWmtsParameters::Format::PNG )
     {
       query.addQueryItem( QgsWmsParameterForWmts::name( QgsWmsParameterForWmts::TRANSPARENT ), QStringLiteral( "true" ) );
@@ -807,9 +831,9 @@ namespace QgsWmts
   namespace
   {
 
-    QMap< QString, tileMatrixInfo> populateFixedTileMatrixInfoMap()
+    QMap<QString, tileMatrixInfo> populateFixedTileMatrixInfoMap()
     {
-      QMap< QString, tileMatrixInfo> m;
+      QMap<QString, tileMatrixInfo> m;
 
       // Tile matrix information
       // to build tile matrix set like Google Mercator or TMS
@@ -820,7 +844,7 @@ namespace QgsWmts
       tmi3857.extent = QgsRectangle( -20037508.3427892480, -20037508.3427892480, 20037508.3427892480, 20037508.3427892480 );
       tmi3857.resolution = 156543.0339280410;
       tmi3857.scaleDenominator = 559082264.0287179;
-      tmi3857.unit = QgsUnitTypes::DistanceMeters;
+      tmi3857.unit = Qgis::DistanceUnit::Meters;
       m[tmi3857.ref] = tmi3857;
 
       // To build tile matrix set like mapcache for WGS84
@@ -831,14 +855,13 @@ namespace QgsWmts
       tmi4326.extent = QgsRectangle( -180, -90, 180, 90 );
       tmi4326.resolution = 0.703125000000000;
       tmi4326.scaleDenominator = 279541132.0143588675418869;
-      tmi4326.unit = QgsUnitTypes::DistanceDegrees;
+      tmi4326.unit = Qgis::DistanceUnit::Meters;
       tmi4326.hasAxisInverted = true;
       m[tmi4326.ref] = tmi4326;
 
       return m;
     }
 
-  }
+  } // namespace
 
 } // namespace QgsWmts
-

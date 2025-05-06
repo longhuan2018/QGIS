@@ -16,11 +16,11 @@
  ***************************************************************************/
 
 #include "qgsdimensionfilter.h"
+#include "qgsfeaturerequest.h"
 
 QgsDimensionFilter::QgsDimensionFilter( const QHash<const QgsVectorLayer *, QStringList> dimensionFilter )
   : mDimensionFilter( dimensionFilter )
 {
-
 }
 
 void QgsDimensionFilter::filterFeatures( const QgsVectorLayer *layer, QgsFeatureRequest &featureRequest ) const

@@ -17,7 +17,11 @@
 
 #include "ui_qgsadvancedsettingswidget.h"
 #include "qgsoptionswidgetfactory.h"
-#include "qgssettings.h"
+#include "qgssettingstree.h"
+#include "qgssettingsentryimpl.h"
+
+class QgsSettingsTreeWidget;
+class QgsSettingsTreeWidgetOld;
 
 /**
  * \ingroup app
@@ -31,20 +35,24 @@ class QgsAdvancedSettingsWidget : public QgsOptionsPageWidget, private Ui::QgsAd
     Q_OBJECT
 
   public:
+    static inline QgsSettingsTreeNode *sTreeSettings = QgsSettingsTree::sTreeApp->createChildNode( QStringLiteral( "settings" ) );
+    static const QgsSettingsEntryBool *settingsUseNewTreeWidget;
+    static const QgsSettingsEntryBool *settingsShowWarning;
+
 
     /**
      * Constructor for QgsAdvancedSettingsWidget with the specified \a parent widget.
      */
     QgsAdvancedSettingsWidget( QWidget *parent );
     ~QgsAdvancedSettingsWidget() override;
+    QString helpKey() const override;
     void apply() override;
 
-    QgsSettingsTree *settingsTree();
-
   private:
+    void createSettingsTreeWidget( bool newWidget, bool oldWidget, bool hide );
 
-    QgsSettings mSettings;
-
+    QgsSettingsTreeWidget *mTreeWidget = nullptr;
+    QgsSettingsTreeWidgetOld *mTreeWidgetOld = nullptr;
 };
 
 
@@ -53,12 +61,10 @@ class QgsAdvancedSettingsOptionsFactory : public QgsOptionsWidgetFactory
     Q_OBJECT
 
   public:
-
     QgsAdvancedSettingsOptionsFactory();
 
     QIcon icon() const override;
     QgsOptionsPageWidget *createWidget( QWidget *parent = nullptr ) const override;
-
 };
 
 

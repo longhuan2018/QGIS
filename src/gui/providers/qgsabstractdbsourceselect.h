@@ -27,7 +27,7 @@ class QItemDelegate;
 
 /**
  * \ingroup gui
- * \brief The QgsAbstractDbSourceSelect class is a base class for database source widget selector
+ * \brief Base class for database source widget selectors.
  * \since QGIS 3.24
  */
 class GUI_EXPORT QgsAbstractDbSourceSelect : public QgsAbstractDataSourceWidget, protected Ui::QgsDbSourceSelectBase
@@ -35,14 +35,14 @@ class GUI_EXPORT QgsAbstractDbSourceSelect : public QgsAbstractDataSourceWidget,
     Q_OBJECT
   public:
     //! Constructor
-    QgsAbstractDbSourceSelect( QWidget *parent = nullptr, Qt::WindowFlags fl = QgsGuiUtils::ModalDialogFlags, QgsProviderRegistry::WidgetMode widgetMode = QgsProviderRegistry::WidgetMode::None );
+    QgsAbstractDbSourceSelect( QWidget *parent = nullptr, Qt::WindowFlags fl = QgsGuiUtils::ModalDialogFlags, QgsProviderRegistry::WidgetMode widgetMode = QgsProviderRegistry::WidgetMode::Standalone );
 
   protected:
     //! Sets the source model for the table and optionally a delegate
     void init( QgsAbstractDbTableModel *model, QItemDelegate *delegate = nullptr );
 
     //! Returns the proxy model used to filter the results
-    QSortFilterProxyModel *proxyModel() {return mProxyModel;}
+    QSortFilterProxyModel *proxyModel() { return mProxyModel; }
 
     QPushButton *mBuildQueryButton = nullptr;
 
@@ -69,7 +69,6 @@ class GUI_EXPORT QgsAbstractDbSourceSelect : public QgsAbstractDataSourceWidget,
 
     QAction *mSearchColumnAllAction = nullptr;
     QList<QAction *> mSearchColumnActions;
-    QAction *mSearchModeWildCardAction = nullptr;
     QAction *mSearchModeRegexAction = nullptr;
 };
 

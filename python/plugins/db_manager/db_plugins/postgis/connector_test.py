@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     connector_test.py
@@ -17,13 +15,13 @@
 ***************************************************************************
 """
 
-__author__ = 'Sandro Santilli'
-__date__ = 'May 2017'
-__copyright__ = '(C) 2017, Sandro Santilli'
+__author__ = "Sandro Santilli"
+__date__ = "May 2017"
+__copyright__ = "(C) 2017, Sandro Santilli"
 
 import os
-import qgis
-from qgis.testing import start_app, unittest
+import unittest
+from qgis.testing import start_app, QgisTestCase
 from qgis.core import QgsDataSourceUri
 from qgis.utils import iface
 from qgis.PyQt.QtCore import QObject
@@ -33,7 +31,7 @@ start_app()
 from db_manager.db_plugins.postgis.connector import PostGisDBConnector
 
 
-class TestDBManagerPostgisConnector(unittest.TestCase):
+class TestDBManagerPostgisConnector(QgisTestCase):
 
     # def setUpClass():
 
@@ -53,8 +51,8 @@ class TestDBManagerPostgisConnector(unittest.TestCase):
     # and https://github.com/qgis/QGIS/issues/19005
     def test_dbnameLessURI(self):
         obj = QObject()  # needs to be kept alive
-        obj.connectionName = lambda: 'fake'
-        obj.providerName = lambda: 'postgres'
+        obj.connectionName = lambda: "fake"
+        obj.providerName = lambda: "postgres"
 
         c = PostGisDBConnector(QgsDataSourceUri(), obj)
         self.assertIsInstance(c, PostGisDBConnector)
@@ -62,18 +60,18 @@ class TestDBManagerPostgisConnector(unittest.TestCase):
 
         # No username was passed, so we expect it to be taken
         # from PGUSER or USER environment variables
-        expected_user = os.environ.get('PGUSER') or os.environ.get('USER')
+        expected_user = os.environ.get("PGUSER") or os.environ.get("USER")
         actual_user = self._getUser(c)
         self.assertEqual(actual_user, expected_user)
 
         # No database was passed, so we expect it to be taken
         # from PGDATABASE or expected user
-        expected_db = os.environ.get('PGDATABASE') or expected_user
+        expected_db = os.environ.get("PGDATABASE") or expected_user
         actual_db = self._getDatabase(c)
         self.assertEqual(actual_db, expected_db)
 
     # TODO: add service-only test (requires a ~/.pg_service.conf file)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

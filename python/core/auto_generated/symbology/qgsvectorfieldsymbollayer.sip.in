@@ -3,7 +3,7 @@
  *                                                                      *
  * src/core/symbology/qgsvectorfieldsymbollayer.h                       *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/
 
 
@@ -13,7 +13,8 @@
 class QgsVectorFieldSymbolLayer: QgsMarkerSymbolLayer
 {
 %Docstring(signature="appended")
-A symbol layer class for displaying displacement arrows based on point layer attributes.
+A symbol layer class for displaying displacement arrows based on point
+layer attributes.
 %End
 
 %TypeHeaderCode
@@ -73,8 +74,9 @@ Creates the symbol layer
 
     virtual bool usesMapUnits() const;
 
+ virtual void toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const /Deprecated/;
 
-    virtual void toSld( QDomDocument &doc, QDomElement &element, const QVariantMap &props ) const;
+    virtual bool toSld( QDomDocument &doc, QDomElement &element, QgsSldExportContext &context ) const;
 
 
     virtual void drawPreviewIcon( QgsSymbolRenderContext &context, QSize size );
@@ -98,9 +100,9 @@ Creates the symbol layer
     void setAngleUnits( AngleUnits units );
     AngleUnits angleUnits() const;
 
-    virtual void setOutputUnit( QgsUnitTypes::RenderUnit unit );
+    virtual void setOutputUnit( Qgis::RenderUnit unit );
 
-    virtual QgsUnitTypes::RenderUnit outputUnit() const;
+    virtual Qgis::RenderUnit outputUnit() const;
 
 
     virtual void setMapUnitScale( const QgsMapUnitScale &scale );
@@ -108,7 +110,7 @@ Creates the symbol layer
     virtual QgsMapUnitScale mapUnitScale() const;
 
 
-    void setDistanceUnit( QgsUnitTypes::RenderUnit unit );
+    void setDistanceUnit( Qgis::RenderUnit unit );
 %Docstring
 Sets the units for the distance.
 
@@ -117,7 +119,7 @@ Sets the units for the distance.
 .. seealso:: :py:func:`distanceUnit`
 %End
 
-    QgsUnitTypes::RenderUnit distanceUnit() const;
+    Qgis::RenderUnit distanceUnit() const;
 %Docstring
 Returns the units for the distance.
 
@@ -140,5 +142,5 @@ Returns the units for the distance.
  *                                                                      *
  * src/core/symbology/qgsvectorfieldsymbollayer.h                       *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/

@@ -32,15 +32,10 @@
 class QgsWFSDataSourceURI
 {
   public:
-
-    //! Http method for DCP URIs
-    enum Method
-    {
-      Get,
-      Post
-    };
-
     explicit QgsWFSDataSourceURI( const QString &uri );
+
+    //! Copy constructor
+    QgsWFSDataSourceURI( const QgsWFSDataSourceURI &other );
 
     //! Returns whether the URI is a valid one
     bool isValid() const;
@@ -52,7 +47,7 @@ class QgsWFSDataSourceURI
     QUrl baseURL( bool bIncludeServiceWFS = true ) const;
 
     //! Returns request URL (with SERVICE=WFS parameter)
-    QUrl requestUrl( const QString &request, const Method &method = Method::Get ) const;
+    QUrl requestUrl( const QString &request, Qgis::HttpMethod method = Qgis::HttpMethod::Get ) const;
 
     //! Gets WFS version. Can be auto, 1.0.0, 1.1.0 or 2.0.0.
     QString version() const;
@@ -66,8 +61,16 @@ class QgsWFSDataSourceURI
     //! Returns user defined limit page size. 0=server udefault
     long long pageSize() const;
 
+    //! Whether paging is enabled
+    enum class PagingStatus
+    {
+      DEFAULT, //! For WFS <= 1.1, no paging. For WFS 2.0, trust GetCapabilities "ImplementsResultPaging"
+      ENABLED, //! Enabled
+      DISABLED // Disabled
+    };
+
     //! Returns whether paging is enabled.
-    bool pagingEnabled() const;
+    PagingStatus pagingStatus() const;
 
     //! Gets typename (with prefix)
     QString typeName() const;
@@ -94,7 +97,7 @@ class QgsWFSDataSourceURI
     bool hasGeometryTypeFilter() const;
 
     //! Gets the geometry type filter.
-    QgsWkbTypes::Type geometryTypeFilter() const;
+    Qgis::WkbType geometryTypeFilter() const;
 
     //! Gets SQL query
     QString sql() const;
@@ -107,6 +110,9 @@ class QgsWFSDataSourceURI
 
     //! Sets GetFeature output format
     void setOutputFormat( const QString &outputFormat );
+
+    //! Returns the preferred HTTP method for requests
+    Qgis::HttpMethod httpMethod() const;
 
     //! Returns whether GetFeature request should include the request bounding box. Defaults to false
     bool isRestrictedToRequestBBOX() const;
@@ -129,13 +135,19 @@ class QgsWFSDataSourceURI
     //! Returns authorization parameters
     const QgsAuthorizationSettings &auth() const { return mAuth; }
 
+    //! How to analyze DescribeFeatureType response
+    enum class FeatureMode
+    {
+      Default,         //! If the server supports transaction, same as SIMPLE_FEATURE. Otherwise COMPLEX_FEATURE
+      SimpleFeatures,  //! Analyze DescribeFeatureType response with QGIS built-in Simple Feature analyzer
+      ComplexFeatures, //! Analyze DescribeFeatureType response with OGR GMLAS Complex Feature analyzer
+    };
+
+    //! Returns how to analyze DescribeFeatureType response.
+    FeatureMode featureMode() const;
+
     //! Builds a derived uri from a base uri
-    static QString build( const QString &uri,
-                          const QString &typeName,
-                          const QString &crsString = QString(),
-                          const QString &sql = QString(),
-                          const QString &filter = QString(),
-                          bool restrictToCurrentViewExtent = false );
+    static QString build( const QString &uri, const QString &typeName, const QString &crsString = QString(), const QString &sql = QString(), const QString &filter = QString(), bool restrictToCurrentViewExtent = false );
 
     //! Sets Get DCP endpoints
     void setGetEndpoints( const QgsStringMap &map );
@@ -149,8 +161,11 @@ class QgsWFSDataSourceURI
     //! Whether the initial GetFeature request, used to determine if gml:description/name/identifiers are used, should be skipped
     bool skipInitialGetFeature() const;
 
+    //! Assignment operator
+    QgsWFSDataSourceURI &operator=( const QgsWFSDataSourceURI &other );
+
   private:
-    QgsDataSourceUri    mURI;
+    QgsDataSourceUri mURI;
     QgsAuthorizationSettings mAuth;
     QgsStringMap mGetEndpoints;
     QgsStringMap mPostEndpoints;

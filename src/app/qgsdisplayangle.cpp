@@ -14,22 +14,23 @@
  ***************************************************************************/
 
 #include "qgsdisplayangle.h"
+#include "moc_qgsdisplayangle.cpp"
 #include "qgsmapcanvas.h"
-#include "qgslogger.h"
 #include "qgsunittypes.h"
-#include "qgsmaptoolmeasureangle.h"
 #include "qgssettings.h"
 #include "qgsprojectdisplaysettings.h"
 #include "qgsproject.h"
 #include "qgsbearingnumericformat.h"
+#include "qgsmaptool.h"
+#include "qgsgui.h"
 
 #include <cmath>
 
 QgsDisplayAngle::QgsDisplayAngle( QgsMapTool *tool, Qt::WindowFlags f )
   : QDialog( tool->canvas()->topLevelWidget(), f )
-  , mTool( tool )
 {
   setupUi( this );
+  QgsGui::enableAutoGeometryRestore( this );
 }
 
 void QgsDisplayAngle::setAngleInRadians( double value )
@@ -37,9 +38,9 @@ void QgsDisplayAngle::setAngleInRadians( double value )
   mValue = value;
 
   const QgsSettings settings;
-  const QgsUnitTypes::AngleUnit unit = QgsUnitTypes::decodeAngleUnit( settings.value( QStringLiteral( "qgis/measure/angleunits" ), QgsUnitTypes::encodeUnit( QgsUnitTypes::AngleDegrees ) ).toString() );
+  const Qgis::AngleUnit unit = QgsUnitTypes::decodeAngleUnit( settings.value( QStringLiteral( "qgis/measure/angleunits" ), QgsUnitTypes::encodeUnit( Qgis::AngleUnit::Degrees ) ).toString() );
   const int decimals = settings.value( QStringLiteral( "qgis/measure/decimalplaces" ), 3 ).toInt();
-  mAngleLineEdit->setText( QgsUnitTypes::formatAngle( mValue * QgsUnitTypes::fromUnitToUnitFactor( QgsUnitTypes::AngleRadians, unit ), decimals, unit ) );
+  mAngleLineEdit->setText( QgsUnitTypes::formatAngle( mValue * QgsUnitTypes::fromUnitToUnitFactor( Qgis::AngleUnit::Radians, unit ), decimals, unit ) );
 }
 
 void QgsDisplayAngle::setBearingInRadians( double value )

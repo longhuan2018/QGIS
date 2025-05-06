@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsannotationwidget.h"
+#include "moc_qgsannotationwidget.cpp"
 #include "qgsmapcanvasannotationitem.h"
 #include "qgsannotation.h"
 #include "qgsstyle.h"
@@ -25,8 +26,14 @@
 #include "qgisapp.h"
 #include "qgsfillsymbol.h"
 #include "qgsmarkersymbol.h"
+#include "qgsdoublespinbox.h"
+#include "qgssettingsentryimpl.h"
+#include "qgssettingstree.h"
 
 #include <QColorDialog>
+
+
+const QgsSettingsEntryBool *QgsAnnotationWidget::settingLiveUpdate = new QgsSettingsEntryBool( QStringLiteral( "live-update" ), QgsSettingsTree::sTreeAnnotations, false, QObject::tr( "Whether the annotations are dynamically updated while they are edited" ) );
 
 
 QgsAnnotationWidget::QgsAnnotationWidget( QgsMapCanvasAnnotationItem *item, QWidget *parent, Qt::WindowFlags f )
@@ -79,6 +86,16 @@ QgsAnnotationWidget::QgsAnnotationWidget( QgsMapCanvasAnnotationItem *item, QWid
   mFrameStyleButton->setMessageBar( QgisApp::instance()->messageBar() );
 
   connect( mFrameStyleButton, &QgsSymbolButton::changed, this, &QgsAnnotationWidget::frameStyleChanged );
+
+  // connect to the changed signal
+  connect( mFrameStyleButton, &QgsSymbolButton::changed, this, &QgsAnnotationWidget::changed );
+  connect( mMapMarkerButton, &QgsSymbolButton::changed, this, &QgsAnnotationWidget::changed );
+  connect( mLayerComboBox, &QgsMapLayerComboBox::layerChanged, this, &QgsAnnotationWidget::changed );
+  connect( mSpinTopMargin, static_cast<void ( QgsDoubleSpinBox::* )( double )>( &QgsDoubleSpinBox::valueChanged ), this, &QgsAnnotationWidget::changed );
+  connect( mSpinLeftMargin, static_cast<void ( QgsDoubleSpinBox::* )( double )>( &QgsDoubleSpinBox::valueChanged ), this, &QgsAnnotationWidget::changed );
+  connect( mSpinRightMargin, static_cast<void ( QgsDoubleSpinBox::* )( double )>( &QgsDoubleSpinBox::valueChanged ), this, &QgsAnnotationWidget::changed );
+  connect( mSpinBottomMargin, static_cast<void ( QgsDoubleSpinBox::* )( double )>( &QgsDoubleSpinBox::valueChanged ), this, &QgsAnnotationWidget::changed );
+  connect( mMapPositionFixedCheckBox, &QCheckBox::stateChanged, this, &QgsAnnotationWidget::changed );
 }
 
 QColor QgsAnnotationWidget::backgroundColor()
@@ -102,10 +119,7 @@ void QgsAnnotationWidget::apply()
       annotation->setFillSymbol( mFrameStyleButton->clonedSymbol<QgsFillSymbol>() );
       annotation->setMarkerSymbol( mMapMarkerButton->clonedSymbol<QgsMarkerSymbol>() );
       annotation->setMapLayer( mLayerComboBox->currentLayer() );
-      annotation->setContentsMargin( QgsMargins( mSpinLeftMargin->value(),
-                                     mSpinTopMargin->value(),
-                                     mSpinRightMargin->value(),
-                                     mSpinBottomMargin->value() ) );
+      annotation->setContentsMargin( QgsMargins( mSpinLeftMargin->value(), mSpinTopMargin->value(), mSpinRightMargin->value(), mSpinBottomMargin->value() ) );
     }
     mItem->update();
   }

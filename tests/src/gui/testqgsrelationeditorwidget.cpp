@@ -34,13 +34,14 @@ class TestQgsRelationEditorWidget : public QObject
     TestQgsRelationEditorWidget() = default;
 
   private slots:
-    void initTestCase(); // will be called before the first testfunction is executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
     void cleanupTestCase(); // will be called after the last testfunction was executed.
-    void init(); // will be called before each testfunction is executed.
-    void cleanup(); // will be called after every testfunction.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
 
     void testMultiEdit1N();
     void testMultiEditNM();
+    void testFeatureRequest();
     void testUpdateUi();
 
   private:
@@ -159,7 +160,7 @@ void TestQgsRelationEditorWidget::init()
   mLayerJoin->commitChanges();
 
   QgsFeature jft3( mLayerJoin->fields() );
-  jft3.setAttribute( QStringLiteral( "pk" ), 102 );
+  jft3.setAttribute( QStringLiteral( "pk" ), 103 );
   jft3.setAttribute( QStringLiteral( "fk_layer1" ), 0 );
   jft3.setAttribute( QStringLiteral( "fk_layer2" ), 11 );
   mLayerJoin->startEditing();
@@ -177,8 +178,7 @@ void TestQgsRelationEditorWidget::cleanup()
 void TestQgsRelationEditorWidget::testMultiEdit1N()
 {
   // Init a relation editor widget
-  QgsRelationEditorWidget relationEditorWidget( QVariantMap(),
-      new QWidget() );
+  QgsRelationEditorWidget relationEditorWidget( QVariantMap(), new QWidget() );
   relationEditorWidget.setRelations( *mRelation, QgsRelation() );
 
   QVERIFY( !relationEditorWidget.multiEditModeActive() );
@@ -201,14 +201,12 @@ void TestQgsRelationEditorWidget::testMultiEdit1N()
   {
     QTreeWidgetItem *parentItem = relationEditorWidget.mMultiEditTreeWidget->topLevelItem( parentIndex );
     setParentItemsText.insert( parentItem->text( 0 ) );
-    QCOMPARE( parentItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(),
-              static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Parent ) );
+    QCOMPARE( parentItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(), static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Parent ) );
     for ( int childIndex = 0; childIndex < parentItem->childCount(); ++childIndex )
     {
       QTreeWidgetItem *childItem = parentItem->child( childIndex );
       setChildrenItemsText.insert( childItem->text( 0 ) );
-      QCOMPARE( childItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(),
-                static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Child ) );
+      QCOMPARE( childItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(), static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Child ) );
 
       if ( childItem->text( 0 ) == QLatin1String( "Layer1-0" ) )
         QCOMPARE( parentItem->text( 0 ), QStringLiteral( "Layer2-10" ) );
@@ -218,19 +216,15 @@ void TestQgsRelationEditorWidget::testMultiEdit1N()
     }
   }
 
-  QCOMPARE( setParentItemsText, QSet<QString>() << QStringLiteral( "Layer2-10" )
-            << QStringLiteral( "Layer2-11" )
-            << QStringLiteral( "Layer2-12" ) );
+  QCOMPARE( setParentItemsText, QSet<QString>() << QStringLiteral( "Layer2-10" ) << QStringLiteral( "Layer2-11" ) << QStringLiteral( "Layer2-12" ) );
 
-  QCOMPARE( setChildrenItemsText, QSet<QString>() << QStringLiteral( "Layer1-0" )
-            << QStringLiteral( "Layer1-1" ) );
+  QCOMPARE( setChildrenItemsText, QSet<QString>() << QStringLiteral( "Layer1-0" ) << QStringLiteral( "Layer1-1" ) );
 }
 
 void TestQgsRelationEditorWidget::testMultiEditNM()
 {
   // Init a relation editor widget
-  QgsRelationEditorWidget relationEditorWidget( QVariantMap(),
-      new QWidget() );
+  QgsRelationEditorWidget relationEditorWidget( QVariantMap(), new QWidget() );
   relationEditorWidget.setRelations( *mRelation1N, *mRelationNM );
 
   QVERIFY( !relationEditorWidget.multiEditModeActive() );
@@ -253,14 +247,12 @@ void TestQgsRelationEditorWidget::testMultiEditNM()
   {
     QTreeWidgetItem *parentItem = relationEditorWidget.mMultiEditTreeWidget->topLevelItem( parentIndex );
     setParentItemsText.insert( parentItem->text( 0 ) );
-    QCOMPARE( parentItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(),
-              static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Parent ) );
+    QCOMPARE( parentItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(), static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Parent ) );
     for ( int childIndex = 0; childIndex < parentItem->childCount(); ++childIndex )
     {
       QTreeWidgetItem *childItem = parentItem->child( childIndex );
       listChildrenItemsText.append( childItem->text( 0 ) );
-      QCOMPARE( childItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(),
-                static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Child ) );
+      QCOMPARE( childItem->data( 0, static_cast<int>( QgsRelationEditorWidget::MultiEditTreeWidgetRole::FeatureType ) ).toInt(), static_cast<int>( QgsRelationEditorWidget::MultiEditFeatureType::Child ) );
 
       if ( childItem->text( 0 ) == QLatin1String( "Layer2-10" ) )
         QCOMPARE( parentItem->text( 0 ), QStringLiteral( "Layer1-0" ) );
@@ -275,14 +267,32 @@ void TestQgsRelationEditorWidget::testMultiEditNM()
     }
   }
 
-  QCOMPARE( setParentItemsText, QSet<QString>() << QStringLiteral( "Layer1-0" )
-            << QStringLiteral( "Layer1-1" ) );
+  QCOMPARE( setParentItemsText, QSet<QString>() << QStringLiteral( "Layer1-0" ) << QStringLiteral( "Layer1-1" ) );
 
   listChildrenItemsText.sort();
-  QCOMPARE( listChildrenItemsText, QStringList() << QStringLiteral( "Layer2-10" )
-            << QStringLiteral( "Layer2-11" )
-            << QStringLiteral( "Layer2-11" ) );
+  QCOMPARE( listChildrenItemsText, QStringList() << QStringLiteral( "Layer2-10" ) << QStringLiteral( "Layer2-11" ) << QStringLiteral( "Layer2-11" ) );
+}
 
+void TestQgsRelationEditorWidget::testFeatureRequest()
+{
+  // Init a relation editor widget
+  QgsRelationEditorWidget relationEditorWidget( QVariantMap(), new QWidget() );
+  relationEditorWidget.setRelations( *mRelation1N, *mRelationNM );
+
+  QVERIFY( !relationEditorWidget.multiEditModeActive() );
+
+  QgsFeatureIterator featureIterator = mLayer1->getFeatures();
+  QgsFeature feature;
+  featureIterator.nextFeature( feature );
+  relationEditorWidget.setFeature( feature );
+
+  QgsAttributeEditorContext context;
+  QgsTrackedVectorLayerTools tools;
+  context.setVectorLayerTools( &tools );
+  relationEditorWidget.setEditorContext( context );
+
+  relationEditorWidget.updateUiSingleEdit();
+  QCOMPARE( relationEditorWidget.mDualView->masterModel()->request().filterExpression()->expression(), QStringLiteral( "\"pk\" IN (10,11)" ) );
 }
 
 void TestQgsRelationEditorWidget::testUpdateUi()
@@ -302,6 +312,7 @@ void TestQgsRelationEditorWidget::testUpdateUi()
 
   relationEditorWidget.setVisible( true );
 
+  //get feature with pk 10
   QgsFeature feat = mLayer2->getFeature( 1 );
   QVERIFY( feat.isValid() );
   relationEditorWidget.setFeature( feat );
@@ -312,8 +323,13 @@ void TestQgsRelationEditorWidget::testUpdateUi()
   QVERIFY( model );
 
   QCOMPARE( model->rowCount(), 1 );
+  //referencing feature on mLayer1 should be pk 0 (fid 1)
   QCOMPARE( model->data( model->index( 0, 0 ) ), 0 );
+  //as well be found with FilteredSelectionManager (fid 1)
+  relationEditorWidget.relation().referencingLayer()->selectAll();
+  QVERIFY( relationEditorWidget.selectedChildFeatureIds().contains( 1 ) );
 
+  //get feature with pk 11
   feat = mLayer2->getFeature( 2 );
   QVERIFY( feat.isValid() );
   relationEditorWidget.setFeature( feat );
@@ -321,26 +337,36 @@ void TestQgsRelationEditorWidget::testUpdateUi()
   // model hasn't changed (old one has not being destroyed)
   QVERIFY( model );
   QCOMPARE( model->rowCount(), 1 );
+  //referencing feature on mLayer1 should be pk 1 (fid 2)
   QCOMPARE( model->data( model->index( 0, 0 ) ), 1 );
+  //as well be found with FilteredSelectionManager (fid 2)
+  relationEditorWidget.relation().referencingLayer()->selectAll();
+  QVERIFY( relationEditorWidget.selectedChildFeatureIds().contains( 2 ) );
 
   // Now try with NM relations
   relationEditorWidget.setRelations( *mRelationNM, *mRelation1N );
   // model has not been destroyed (mLayer1 is still the displayed layer)
   QVERIFY( model );
 
+  //get feature with pk 10
   feat = mLayer2->getFeature( 1 );
   QVERIFY( feat.isValid() );
   relationEditorWidget.setFeature( feat );
 
   // model not destroyed, set request only
   QCOMPARE( model->rowCount(), 1 );
+  //referencing feature on mLayer1 should be pk 0 (fid 1)
   QCOMPARE( model->data( model->index( 0, 0 ) ), 0 );
+  //as well be found with FilteredSelectionManager (fid 1)
+  relationEditorWidget.nmRelation().referencedLayer()->selectAll();
+  QVERIFY( relationEditorWidget.selectedChildFeatureIds().contains( 1 ) );
 
   relationEditorWidget.setRelations( *mRelation1N, *mRelationNM );
   // model has been destroyed (mLayer2 is now the displayed layer)
   QVERIFY( !model );
   model = relationEditorWidget.mDualView->masterModel();
 
+  //get feature with pk 0
   feat = mLayer1->getFeature( 1 );
   QVERIFY( feat.isValid() );
   relationEditorWidget.setFeature( feat );
@@ -348,8 +374,14 @@ void TestQgsRelationEditorWidget::testUpdateUi()
   // model not destroyed, set request only
   QVERIFY( model );
   QCOMPARE( model->rowCount(), 2 );
+  //referencing feature on mLayer2 should be pk 10 (fid 1) and pk 11 (fid 2)
   QCOMPARE( model->data( model->index( 0, 0 ) ), 10 );
   QCOMPARE( model->data( model->index( 1, 0 ) ), 11 );
+
+  //as well be found with FilteredSelectionManager (fid 1 and fid 2)
+  relationEditorWidget.nmRelation().referencedLayer()->selectAll();
+  QVERIFY( relationEditorWidget.selectedChildFeatureIds().contains( 1 ) );
+  QVERIFY( relationEditorWidget.selectedChildFeatureIds().contains( 2 ) );
 }
 
 QGSTEST_MAIN( TestQgsRelationEditorWidget )

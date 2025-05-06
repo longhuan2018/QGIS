@@ -84,6 +84,7 @@ QgsCoordinateTransformPrivate::QgsCoordinateTransformPrivate( const QgsCoordinat
   , mIsValid( other.mIsValid )
   , mShortCircuit( other.mShortCircuit )
   , mGeographicToWebMercator( other.mGeographicToWebMercator )
+  , mHasVerticalComponent( other.mHasVerticalComponent )
   , mSourceCRS( other.mSourceCRS )
   , mDestCRS( other.mDestCRS )
   , mSourceDatumTransform( other.mSourceDatumTransform )
@@ -163,6 +164,8 @@ bool QgsCoordinateTransformPrivate::initialize()
     mSourceCRS.isGeographic() &&
     mDestCRS.authid() == QLatin1String( "EPSG:3857" );
 
+  mHasVerticalComponent = mSourceCRS.hasVerticalAxis() && mDestCRS.hasVerticalAxis();
+
   mSourceIsDynamic = mSourceCRS.isDynamic();
   mSourceCoordinateEpoch = mSourceCRS.coordinateEpoch();
   mDestIsDynamic = mDestCRS.isDynamic();
@@ -194,8 +197,8 @@ bool QgsCoordinateTransformPrivate::initialize()
   ProjData res = threadLocalProjData();
 
 #ifdef COORDINATE_TRANSFORM_VERBOSE
-  QgsDebugMsg( "From proj : " + mSourceCRS.toProj() );
-  QgsDebugMsg( "To proj   : " + mDestCRS.toProj() );
+  QgsDebugMsgLevel( "From proj : " + mSourceCRS.toProj(), 2 );
+  QgsDebugMsgLevel( "To proj   : " + mDestCRS.toProj(), 2 );
 #endif
 
   if ( !res )
@@ -204,22 +207,20 @@ bool QgsCoordinateTransformPrivate::initialize()
 #ifdef COORDINATE_TRANSFORM_VERBOSE
   if ( mIsValid )
   {
-    QgsDebugMsg( QStringLiteral( "------------------------------------------------------------" ) );
-    QgsDebugMsg( QStringLiteral( "The OGR Coordinate transformation for this layer was set to" ) );
+    QgsDebugMsgLevel( QStringLiteral( "------------------------------------------------------------" ), 2 );
+    QgsDebugMsgLevel( QStringLiteral( "The OGR Coordinate transformation for this layer was set to" ), 2 );
     QgsLogger::debug<QgsCoordinateReferenceSystem>( "Input", mSourceCRS, __FILE__, __FUNCTION__, __LINE__ );
     QgsLogger::debug<QgsCoordinateReferenceSystem>( "Output", mDestCRS, __FILE__, __FUNCTION__, __LINE__ );
-    QgsDebugMsg( QStringLiteral( "------------------------------------------------------------" ) );
+    QgsDebugMsgLevel( QStringLiteral( "------------------------------------------------------------" ), 2 );
   }
   else
   {
-    QgsDebugMsg( QStringLiteral( "------------------------------------------------------------" ) );
-    QgsDebugMsg( QStringLiteral( "The OGR Coordinate transformation FAILED TO INITIALIZE!" ) );
-    QgsDebugMsg( QStringLiteral( "------------------------------------------------------------" ) );
+    QgsDebugError( QStringLiteral( "The OGR Coordinate transformation FAILED TO INITIALIZE!" ) );
   }
 #else
   if ( !mIsValid )
   {
-    QgsDebugMsg( QStringLiteral( "Coordinate transformation failed to initialize!" ) );
+    QgsDebugError( QStringLiteral( "Coordinate transformation failed to initialize!" ) );
   }
 #endif
 
@@ -246,36 +247,6 @@ void QgsCoordinateTransformPrivate::calculateTransforms( const QgsCoordinateTran
   }
 }
 
-static void proj_collecting_logger( void *user_data, int /*level*/, const char *message )
-{
-  QStringList *dest = reinterpret_cast< QStringList * >( user_data );
-  dest->append( QString( message ) );
-}
-
-static void proj_logger( void *, int level, const char *message )
-{
-#ifndef QGISDEBUG
-  Q_UNUSED( message )
-#endif
-  if ( level == PJ_LOG_ERROR )
-  {
-    const QString messageString( message );
-    if ( messageString == QLatin1String( "push: Invalid latitude" ) )
-    {
-      // these messages tend to spam the console as they can be repeated 1000s of times
-      QgsDebugMsgLevel( messageString, 3 );
-    }
-    else
-    {
-      QgsDebugMsg( messageString );
-    }
-  }
-  else if ( level == PJ_LOG_DEBUG )
-  {
-    QgsDebugMsgLevel( QString( message ), 3 );
-  }
-}
-
 ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
 {
   QgsReadWriteLocker locker( mProjLock, QgsReadWriteLocker::Read );
@@ -293,8 +264,7 @@ ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
   locker.changeMode( QgsReadWriteLocker::Write );
 
   // use a temporary proj error collector
-  QStringList projErrors;
-  proj_log_func( context, &projErrors, proj_collecting_logger );
+  QgsScopedProjCollectingLogger errorLogger;
 
   mIsReversed = false;
 
@@ -344,7 +314,6 @@ ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
   {
     if ( !mSourceCRS.projObject() || ! mDestCRS.projObject() )
     {
-      proj_log_func( context, nullptr, nullptr );
       return nullptr;
     }
 
@@ -363,12 +332,13 @@ ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
       {
         // huh?
         const int errNo = proj_context_errno( context );
-        if ( errNo && errNo != -61 )
+        if ( errNo )
         {
-          nonAvailableError = QString( proj_errno_string( errNo ) );
+          nonAvailableError = QString( proj_context_errno_string( context, errNo ) );
         }
         else
         {
+          // in theory should never be hit!
           nonAvailableError = QObject::tr( "No coordinate operations are available between these two reference systems" );
         }
       }
@@ -496,9 +466,10 @@ ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
   if ( !transform && nonAvailableError.isEmpty() )
   {
     const int errNo = proj_context_errno( context );
-    if ( errNo && errNo != -61 )
+    const QStringList projErrors = errorLogger.errors();
+    if ( errNo )
     {
-      nonAvailableError = QString( proj_errno_string( errNo ) );
+      nonAvailableError = QString( proj_context_errno_string( context, errNo ) );
     }
     else if ( !projErrors.empty() )
     {
@@ -530,9 +501,6 @@ ProjData QgsCoordinateTransformPrivate::threadLocalProjData()
       QgsMessageLog::logMessage( err, QString(), Qgis::MessageLevel::Critical );
     }
   }
-
-  // reset logger to terminal output
-  proj_log_func( context, nullptr, proj_logger );
 
   if ( !transform )
   {

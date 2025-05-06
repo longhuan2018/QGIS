@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshowhidelabels.h"
+#include "moc_qgsmaptoolshowhidelabels.cpp"
 
 #include "qgsexception.h"
 #include "qgsfeatureiterator.h"
@@ -35,8 +36,8 @@ QgsMapToolShowHideLabels::QgsMapToolShowHideLabels( QgsMapCanvas *canvas, QgsAdv
   mToolName = tr( "Show/hide labels" );
   mRubberBand = nullptr;
 
-  mPalProperties << QgsPalLayerSettings::Show;
-  mDiagramProperties << QgsDiagramLayerSettings::Show;
+  mPalProperties << QgsPalLayerSettings::Property::Show;
+  mDiagramProperties << QgsDiagramLayerSettings::Property::Show;
 }
 
 QgsMapToolShowHideLabels::~QgsMapToolShowHideLabels()
@@ -70,7 +71,7 @@ void QgsMapToolShowHideLabels::canvasPressEvent( QgsMapMouseEvent *e )
   mSelectRect.setRect( 0, 0, 0, 0 );
   mSelectRect.setTopLeft( e->pos() );
   mSelectRect.setBottomRight( e->pos() );
-  mRubberBand = new QgsRubberBand( mCanvas, QgsWkbTypes::PolygonGeometry );
+  mRubberBand = new QgsRubberBand( mCanvas, Qgis::GeometryType::Polygon );
 }
 
 void QgsMapToolShowHideLabels::canvasMoveEvent( QgsMapMouseEvent *e )
@@ -123,7 +124,7 @@ void QgsMapToolShowHideLabels::canvasReleaseEvent( QgsMapMouseEvent *e )
 
     showHideLabels( e );
 
-    mRubberBand->reset( QgsWkbTypes::PolygonGeometry );
+    mRubberBand->reset( Qgis::GeometryType::Polygon );
     delete mRubberBand;
     mRubberBand = nullptr;
   }
@@ -222,8 +223,7 @@ void QgsMapToolShowHideLabels::showHideLabels( QMouseEvent *e )
   }
 }
 
-bool QgsMapToolShowHideLabels::selectedFeatures( QgsVectorLayer *vlayer,
-    QgsFeatureIds &selectedFeatIds )
+bool QgsMapToolShowHideLabels::selectedFeatures( QgsVectorLayer *vlayer, QgsFeatureIds &selectedFeatIds )
 {
   // culled from QgsMapToolSelectUtils::setSelectFeatures()
 
@@ -259,13 +259,13 @@ bool QgsMapToolShowHideLabels::selectedFeatures( QgsVectorLayer *vlayer,
 
   QApplication::setOverrideCursor( Qt::WaitCursor );
 
-  QgsDebugMsg( "Selection layer: " + vlayer->name() );
-  QgsDebugMsg( "Selection polygon: " + selectGeomTrans.asWkt() );
+  QgsDebugMsgLevel( "Selection layer: " + vlayer->name(), 2 );
+  QgsDebugMsgLevel( "Selection polygon: " + selectGeomTrans.asWkt(), 2 );
 
   QgsFeatureIterator fit = vlayer->getFeatures( QgsFeatureRequest()
-                           .setFilterRect( selectGeomTrans.boundingBox() )
-                           .setFlags( QgsFeatureRequest::NoGeometry | QgsFeatureRequest::ExactIntersect )
-                           .setNoAttributes() );
+                                                  .setFilterRect( selectGeomTrans.boundingBox() )
+                                                  .setFlags( Qgis::FeatureRequestFlag::NoGeometry | Qgis::FeatureRequestFlag::ExactIntersect )
+                                                  .setNoAttributes() );
 
   QgsFeature f;
   while ( fit.nextFeature( f ) )
@@ -278,8 +278,7 @@ bool QgsMapToolShowHideLabels::selectedFeatures( QgsVectorLayer *vlayer,
   return !selectedFeatIds.empty();
 }
 
-bool QgsMapToolShowHideLabels::selectedLabelFeatures( QgsVectorLayer *vlayer,
-    QList<QgsLabelPosition> &listPos )
+bool QgsMapToolShowHideLabels::selectedLabelFeatures( QgsVectorLayer *vlayer, QList<QgsLabelPosition> &listPos )
 {
   listPos.clear();
 
@@ -296,7 +295,7 @@ bool QgsMapToolShowHideLabels::selectedLabelFeatures( QgsVectorLayer *vlayer,
   QList<QgsLabelPosition> labelPosList = labelingResults->labelsWithinRect( ext );
 
   QList<QgsLabelPosition>::const_iterator it;
-  for ( it = labelPosList.constBegin() ; it != labelPosList.constEnd(); ++it )
+  for ( it = labelPosList.constBegin(); it != labelPosList.constEnd(); ++it )
   {
     const QgsLabelPosition &pos = *it;
 
@@ -333,7 +332,7 @@ bool QgsMapToolShowHideLabels::showHide( const QgsLabelPosition &pos, bool show 
       QgsDiagramIndexes indexes;
       createAuxiliaryFields( details, indexes );
 
-      showCol = indexes[ QgsDiagramLayerSettings::Show ];
+      showCol = indexes[QgsDiagramLayerSettings::Property::Show];
     }
   }
   else
@@ -343,7 +342,7 @@ bool QgsMapToolShowHideLabels::showHide( const QgsLabelPosition &pos, bool show 
       QgsPalIndexes indexes;
       createAuxiliaryFields( details, indexes );
 
-      showCol = indexes[ QgsPalLayerSettings::Show ];
+      showCol = indexes[QgsPalLayerSettings::Property::Show];
     }
   }
 

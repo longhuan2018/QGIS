@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsrenderingoptions.h"
+#include "moc_qgsrenderingoptions.cpp"
 #include "qgssettings.h"
 #include "qgsapplication.h"
 #include "qgssettingsregistrycore.h"
@@ -32,8 +33,8 @@ QgsRenderingOptionsWidget::QgsRenderingOptionsWidget( QWidget *parent )
   QgsSettings settings;
   chkAddedVisibility->setChecked( settings.value( QStringLiteral( "/qgis/new_layers_visible" ), true ).toBool() );
 
-  spinMaxThreads->setRange( 0, QThread::idealThreadCount() );
-  spinMaxThreads->setClearValue( 0, tr( "All Available (%1)" ).arg( QThread::idealThreadCount() ) );
+  spinMaxThreads->setRange( 1, QThread::idealThreadCount() );
+  spinMaxThreads->setClearValue( 1, tr( "All Available (%1)" ).arg( QThread::idealThreadCount() ) );
   if ( QgsApplication::maxThreads() != -1 )
     spinMaxThreads->setValue( QgsApplication::maxThreads() );
   else
@@ -53,6 +54,11 @@ QgsRenderingOptionsWidget::QgsRenderingOptionsWidget( QWidget *parent )
   doubleSpinBoxMagnifierDefault->setClearValue( 100 );
 
   chkAntiAliasing->setChecked( settings.value( QStringLiteral( "/qgis/enable_anti_aliasing" ), true ).toBool() );
+}
+
+QString QgsRenderingOptionsWidget::helpKey() const
+{
+  return QStringLiteral( "introduction/qgis_configuration.html#rendering-options" );
 }
 
 void QgsRenderingOptionsWidget::apply()
@@ -77,7 +83,7 @@ void QgsRenderingOptionsWidget::apply()
 // QgsRenderingOptionsFactory
 //
 QgsRenderingOptionsFactory::QgsRenderingOptionsFactory()
-  : QgsOptionsWidgetFactory( tr( "Rendering" ), QIcon() )
+  : QgsOptionsWidgetFactory( tr( "Rendering" ), QIcon(), QStringLiteral( "rendering" ) )
 {
 }
 

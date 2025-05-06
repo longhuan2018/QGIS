@@ -16,8 +16,10 @@
  ***************************************************************************/
 
 #include "qgslocator.h"
+#include "moc_qgslocator.cpp"
 #include "qgsmessagelog.h"
-#include "qgssettings.h"
+#include "qgssettingsentryimpl.h"
+
 #include <QtConcurrent>
 #include <functional>
 
@@ -86,11 +88,7 @@ QMap<QString, QgsLocatorFilter *> QgsLocator::prefixedFilters() const
   {
     if ( !filter->activePrefix().isEmpty() && filter->enabled() )
     {
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-      filters.insertMulti( filter->activePrefix(), filter );
-#else
       filters.insert( filter->activePrefix(), filter );
-#endif
     }
   }
   return filters;

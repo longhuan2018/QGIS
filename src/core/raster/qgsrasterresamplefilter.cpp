@@ -18,10 +18,7 @@
 #include "qgsrasterdataprovider.h"
 #include "qgsrasterresamplefilter.h"
 #include "qgsrasterresampler.h"
-#include "qgsrasterprojector.h"
 #include "qgsrastertransparency.h"
-#include "qgsrasterviewport.h"
-#include "qgsmaptopixel.h"
 
 //resamplers
 #include "qgsbilinearrasterresampler.h"
@@ -78,7 +75,7 @@ bool QgsRasterResampleFilter::setInput( QgsRasterInterface *input )
   // Resampler can only work with single band ARGB32_Premultiplied
   if ( !input )
   {
-    QgsDebugMsg( QStringLiteral( "No input" ) );
+    QgsDebugError( QStringLiteral( "No input" ) );
     return false;
   }
 
@@ -92,14 +89,14 @@ bool QgsRasterResampleFilter::setInput( QgsRasterInterface *input )
 
   if ( input->bandCount() < 1 )
   {
-    QgsDebugMsg( QStringLiteral( "No input band" ) );
+    QgsDebugError( QStringLiteral( "No input band" ) );
     return false;
   }
 
   if ( input->dataType( 1 ) != Qgis::DataType::ARGB32_Premultiplied &&
        input->dataType( 1 ) != Qgis::DataType::ARGB32 )
   {
-    QgsDebugMsg( QStringLiteral( "Unknown input data type" ) );
+    QgsDebugError( QStringLiteral( "Unknown input data type" ) );
     return false;
   }
 
@@ -126,7 +123,7 @@ QgsRasterBlock *QgsRasterResampleFilter::block( int bandNo, QgsRectangle  const 
   const int bandNumber = 1;
 
   QgsDebugMsgLevel( QStringLiteral( "width = %1 height = %2 extent = %3" ).arg( width ).arg( height ).arg( extent.toString() ), 4 );
-  std::unique_ptr< QgsRasterBlock > outputBlock( new QgsRasterBlock() );
+  auto outputBlock = std::make_unique<QgsRasterBlock>();
   if ( !mInput )
     return outputBlock.release();
 
@@ -136,7 +133,7 @@ QgsRasterBlock *QgsRasterResampleFilter::block( int bandNo, QgsRectangle  const 
   if ( mZoomedInResampler || mZoomedOutResampler )
   {
     QgsRasterDataProvider *provider = dynamic_cast<QgsRasterDataProvider *>( mInput->sourceInput() );
-    if ( provider && ( provider->capabilities() & QgsRasterDataProvider::Size ) )
+    if ( provider && ( provider->capabilities() & Qgis::RasterInterfaceCapability::Size ) )
     {
       outputXRes = extent.width() / width;
       providerXRes = provider->extent().width() / provider->xSize();
@@ -195,7 +192,7 @@ QgsRasterBlock *QgsRasterResampleFilter::block( int bandNo, QgsRectangle  const 
   std::unique_ptr< QgsRasterBlock > inputBlock( mInput->block( bandNumber, bufferedExtent, resWidth, resHeight, feedback ) );
   if ( !inputBlock || inputBlock->isEmpty() )
   {
-    QgsDebugMsg( QStringLiteral( "No raster data!" ) );
+    QgsDebugError( QStringLiteral( "No raster data!" ) );
     return outputBlock.release();
   }
 
@@ -248,7 +245,7 @@ QgsRasterBlock *QgsRasterResampleFilter::block( int bandNo, QgsRectangle  const 
   else
   {
     // Should not happen
-    QgsDebugMsg( QStringLiteral( "Unexpected resampling" ) );
+    QgsDebugError( QStringLiteral( "Unexpected resampling" ) );
     dstImg = img.scaled( width, height );
   }
 

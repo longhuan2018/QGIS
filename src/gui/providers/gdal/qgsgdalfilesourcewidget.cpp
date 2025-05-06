@@ -16,11 +16,14 @@
  ***************************************************************************/
 
 #include "qgsgdalfilesourcewidget.h"
+#include "moc_qgsgdalfilesourcewidget.cpp"
 ///@cond PRIVATE
 
 #include "qgsproviderregistry.h"
-#include "ogr/qgsogrhelperfunctions.h"
+#include "qgsgdalguiutils.h"
+#include "qgsfilewidget.h"
 
+#include <QHBoxLayout>
 #include <gdal.h>
 
 QgsGdalFileSourceWidget::QgsGdalFileSourceWidget( QWidget *parent )

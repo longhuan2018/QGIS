@@ -25,20 +25,19 @@
 class QgsAnnotationWidget;
 class QgsMapCanvasAnnotationItem;
 
-class APP_EXPORT QgsTextAnnotationDialog: public QDialog, private Ui::QgsTextAnnotationDialogBase
+class APP_EXPORT QgsTextAnnotationDialog : public QDialog, private Ui::QgsTextAnnotationDialogBase
 {
     Q_OBJECT
   public:
     QgsTextAnnotationDialog( QgsMapCanvasAnnotationItem *item, QWidget *parent = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
 
   protected:
-
     void showEvent( QShowEvent *event ) override;
 
   private:
     QgsMapCanvasAnnotationItem *mItem = nullptr;
     //! Text document (a clone of the annotation items document)
-    std::unique_ptr< QTextDocument > mTextDocument;
+    std::unique_ptr<QTextDocument> mTextDocument;
     QgsAnnotationWidget *mEmbeddedWidget = nullptr;
 
     void blockAllSignals( bool block );
@@ -52,6 +51,8 @@ class APP_EXPORT QgsTextAnnotationDialog: public QDialog, private Ui::QgsTextAnn
     void mButtonBox_clicked( QAbstractButton *button );
     void backgroundColorChanged( const QColor &color );
     void showHelp();
+    void onSettingsChanged();
+    void onLiveUpdateToggled( bool checked );
 };
 
 #endif // QGSTEXTANNOTATIONDIALOG_H

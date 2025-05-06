@@ -10,6 +10,8 @@ export DH_OPTIONS
 # Enable hardening build flags
 export DEB_BUILD_MAINT_OPTIONS=hardening=+all
 
+export DEB_PYTHON_INSTALL_LAYOUT=deb_system
+
 include /usr/share/dpkg/pkg-info.mk
 
 # These are used for cross-compiling and for saving the configure script
@@ -41,7 +43,7 @@ endif
 
 QT_PLUGINS_DIR = lib/$(DEB_BUILD_MULTIARCH)/qt5/plugins
 
-ifneq ($(DISTRIBUTION),$(findstring $(DISTRIBUTION),"bullseye focal jammy kinetic lunar"))
+ifneq ($(DISTRIBUTION),$(findstring $(DISTRIBUTION),"bookworm jammy kinetic lunar mantic noble oracular"))
 	DISTRIBUTION := sid
 endif
 
@@ -56,7 +58,7 @@ GRASSVER=$(subst .,,$(shell pkg-config --modversion grass|cut -d. -f1))
 GRASSABI=$(subst .,,$(shell pkg-config --modversion grass|cut -d. -f1,2,3|sed -e 's/RC/-/'))
 
 # Include percentage of started edges
-export NINJA_STATUS=[%f/%t %p]
+export NINJA_STATUS=[%f/%t %p] 
 
 ifeq (,$(filter terse,$(DEB_BUILD_OPTIONS)))
 	NINJA_OPTS += -v
@@ -79,6 +81,7 @@ PYTHON_LIBRARY=$(shell python3-config --ldflags --embed | sed -e 's,-L\(.*\) -L[
 CMAKE_OPTS := \
 	-G Ninja \
 	-DBUILDNAME=$(DEB_BUILD_NAME) \
+	-DWITH_INTERNAL_NLOHMANN_JSON=OFF \
 	-DCMAKE_VERBOSE_MAKEFILE=1 \
 	-DCMAKE_INSTALL_PREFIX=/usr \
 	-DBINDINGS_GLOBAL_INSTALL=TRUE \
@@ -86,8 +89,6 @@ CMAKE_OPTS := \
 	-DPEDANTIC=TRUE \
 	-DSERVER_SKIP_ECW=TRUE \
 	-DQGIS_CGIBIN_SUBDIR=/usr/lib/cgi-bin \
-	-DWITH_APIDOC=TRUE \
-	-DGENERATE_QHP=TRUE \
 	-DWITH_CUSTOM_WIDGETS=TRUE \
 	-DWITH_SERVER=TRUE \
 	-DWITH_SERVER_PLUGINS=TRUE \
@@ -100,14 +101,11 @@ CMAKE_OPTS := \
 	-DGEOS_LIBRARY=/usr/lib/$(DEB_BUILD_MULTIARCH)/libgeos_c.so \
 	-DWITH_HANA=TRUE \
 	-DWITH_EPT=TRUE \
-	-DSUBMIT_URL="https://cdash.orfeo-toolbox.org/submit.php?project=QGIS"
+	-DSUBMIT_URL="https://cdash.orfeo-toolbox.org/submit.php?project=QGIS" \
+	-DPUSH_TO_CDASH=TRUE
 
 ifneq ($(SHA),)
 	CMAKE_OPTS += -DSHA=$(SHA)
-endif
-
-ifeq (,$(findstring $(DISTRIBUTION),"sid kinetic lunar"))
-	CMAKE_OPTS += -DWITH_PDAL=TRUE
 endif
 
 ifneq (,$(findstring ;$(GRASSVER);, ";7;8;"))
@@ -117,7 +115,7 @@ ifneq (,$(findstring ;$(GRASSVER);, ";7;8;"))
 		-DGRASS_PREFIX$(GRASSVER)=/usr/lib/$(GRASS)
 endif
 
-ifneq (,$(findstring $(DISTRIBUTION),"sid kinetic lunar"))
+ifneq (,$(findstring $(DISTRIBUTION),"sid kinetic lunar mantic noble oracular"))
 	CMAKE_OPTS += -DGDAL_LIBRARY=/usr/lib/$(DEB_BUILD_MULTIARCH)/libgdal.so
 endif
 
@@ -125,19 +123,26 @@ $(shell test -f /usr/include/$(DEB_BUILD_MULTIARCH)/qt5/Qt3DExtras/qt3dextrasver
 ifneq (0,$(.SHELLSTATUS))
 # Qt3DExtras intentionally removed from debian (#895386) and in turn ubuntu
 	CMAKE_OPTS += \
-	        -DQt53DExtras_DIR=$(realpath external/qt3dextra-headers/cmake/Qt53DExtras) \
+		-DQt53DExtras_DIR=$(realpath external/qt3dextra-headers/cmake/Qt53DExtras) \
 		-DQT5_3DEXTRA_INCLUDE_DIR=$(realpath external/qt3dextra-headers) \
 		-DQT5_3DEXTRA_LIBRARY=/usr/lib/$(DEB_BUILD_MULTIARCH)/libQt53DExtras.so
 endif
 
+ifneq (,$(WITH_APIDOC))
+	CMAKE_OPTS += -DWITH_APIDOC=TRUE -DGENERATE_QHP=TRUE
+else
+	CMAKE_OPTS += -DWITH_APIDOC=OFF -DGENERATE_QHP=OFF
+endif
+
+
 ifneq (,$(WITH_ORACLE))
 ifeq ($(DEB_BUILD_ARCH),amd64)
-	ORACLE_INCLUDEDIR=/usr/include/oracle/18.5/client64/
-	ORACLE_LIBDIR=/usr/lib/oracle/18.5/client64/lib/
+	ORACLE_INCLUDEDIR=/usr/include/oracle/21/client64/
+	ORACLE_LIBDIR=/usr/lib/oracle/21/client64/lib/
 endif
 ifeq ($(DEB_BUILD_ARCH),i386)
-	ORACLE_INCLUDEDIR=/usr/include/oracle/18.5/client/
-	ORACLE_LIBDIR=/usr/lib/oracle/18.5/client/lib/
+	ORACLE_INCLUDEDIR=/usr/include/oracle/21/client/
+	ORACLE_LIBDIR=/usr/lib/oracle/21/client/lib/
 endif
 	CMAKE_OPTS += \
 		-DWITH_ORACLE=TRUE \
@@ -152,7 +157,7 @@ endif
 ifneq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 	CMAKE_OPTS += -DENABLE_TESTS=FALSE
 else
-	CMAKE_OPTS += -DENABLE_TESTS=TRUE -DDART_TESTING_TIMEOUT=60 -DPUSH_TO_CDASH=TRUE
+	CMAKE_OPTS += -DENABLE_TESTS=TRUE -DDART_TESTING_TIMEOUT=60
 endif
 
 CPPFLAGS := $(shell dpkg-buildflags --get CPPFLAGS)
@@ -191,8 +196,26 @@ endif
 
 CONTROL_EXPRESSIONS = $(DISTRIBUTION) grass$(GRASSVER)
 
+ifneq (,$(findstring $(DISTRIBUTION),"jammy"))
+	CONTROL_EXPRESSIONS += pdal
+	CMAKE_OPTS += -DWITH_PDAL=TRUE
+else ifneq (,$(findstring -noble-ubuntugis-,$(DEB_BUILD_NAME)))
+	CONTROL_EXPRESSIONS += pdal
+	CMAKE_OPTS += -DWITH_PDAL=TRUE
+else
+	CMAKE_OPTS += -DWITH_PDAL=FALSE
+endif
+
+ifneq (,$(WITH_APIDOC))
+CONTROL_EXPRESSIONS += apidoc
+endif
+
 ifneq (,$(WITH_ORACLE))
-	CONTROL_EXPRESSIONS += oracle
+CONTROL_EXPRESSIONS += oracle
+endif
+
+ifeq ($(shell pkg-config --exists pdal && dpkg --compare-versions $$(pkg-config --modversion pdal) ge 2.5 && echo 1 || echo 0),1)
+CONTROL_EXPRESSIONS += pdal_wrench
 endif
 
 define gentemplate
@@ -245,7 +268,9 @@ else
 	ninja $(NINJA_OPTS) -C $(QGIS_BUILDDIR)
 endif
 
+ifneq (,$(WITH_APIDOC))
 	ninja $(NINJA_OPTS) -C $(QGIS_BUILDDIR) apidoc
+endif
 
 override_dh_auto_test: test-stamp
 
@@ -272,8 +297,10 @@ endif
 override_dh_auto_install:
 	DESTDIR=$(CURDIR)/debian/tmp ninja $(NINJA_OPTS) -C $(QGIS_BUILDDIR) install
 
+ifneq (,$(WITH_APIDOC))
 	# remove unwanted files
 	$(RM) $(CURDIR)/debian/tmp/usr/share/qgis/doc/api/installdox
+endif
 
 	# replace leaflet and jquery urls
 	perl -i -p \
@@ -288,8 +315,8 @@ override_dh_auto_install:
 	$(RM) $(CURDIR)/debian/tmp/usr/share/qgis/doc/LICENSE
 	$(RM) $(CURDIR)/debian/tmp/usr/share/qgis/python/plugins/db_manager/LICENSE
 	$(RM) $(CURDIR)/debian/tmp/usr/share/qgis/python/plugins/MetaSearch/LICENSE.txt
-	$(RM) $(CURDIR)/debian/tmp/usr/bin/test_provider_wcs
 	$(RM) $(CURDIR)/debian/tmp/usr/bin/qgis_bench
+	$(RM) $(CURDIR)/debian/tmp/usr/bin/test_provider_wcs
 	$(RM) $(CURDIR)/debian/tmp/usr/share/qgis/resources/wcs-servers.json
 
 	# remove documentation outside usr/share/doc
@@ -306,13 +333,13 @@ override_dh_auto_install:
 	mv $(CURDIR)/debian/tmp/usr/share/qgis/resources/srs.db $(CURDIR)/debian/tmp/usr/share/qgis/resources/srs-template.db
 
 	# Mime info
-	install -o root -g root -d $(CURDIR)/debian/tmp/usr/share/mime/packages
-	install -o root -g root -m 644 $(CURDIR)/debian/qgis.xml $(CURDIR)/debian/tmp/usr/share/mime/packages
+	install -d $(CURDIR)/debian/tmp/usr/share/mime/packages
+	install -m 644 $(CURDIR)/debian/qgis.xml $(CURDIR)/debian/tmp/usr/share/mime/packages
 
 	# qgis binaries
-	install -o root -g root -m 755 -d $(CURDIR)/debian/qgis/usr/bin
-	install -o root -g root -m 755 $(CURDIR)/debian/tmp/usr/bin/qgis $(CURDIR)/debian/qgis/usr/bin/qgis.bin
-	install -o root -g root -m 755 $(CURDIR)/debian/tmp/usr/bin/qgis_process $(CURDIR)/debian/qgis/usr/bin/qgis_process.bin
+	install -m 755 -d $(CURDIR)/debian/qgis/usr/bin
+	install -m 755 $(CURDIR)/debian/tmp/usr/bin/qgis $(CURDIR)/debian/qgis/usr/bin/qgis.bin
+	install -m 755 $(CURDIR)/debian/tmp/usr/bin/qgis_process $(CURDIR)/debian/qgis/usr/bin/qgis_process.bin
 
 	$(RM) $(CURDIR)/debian/tmp/usr/bin/qgis $(CURDIR)/debian/tmp/usr/bin/qgis_process
 
@@ -322,14 +349,12 @@ override_dh_auto_install:
 		-e "s#\{ORACLE_LIBDIR\}#$(ORACLE_LIBDIR)#g" \
 		$(CURDIR)/debian/qgis.sh.in >$(CURDIR)/debian/qgis.sh
 
-	install -o root -g root -m 755 $(CURDIR)/debian/qgis.sh $(CURDIR)/debian/qgis/usr/bin/qgis
-	install -o root -g root -m 755 $(CURDIR)/debian/qgis.sh $(CURDIR)/debian/qgis/usr/bin/qgis_process
+	install -m 755 $(CURDIR)/debian/qgis.sh $(CURDIR)/debian/qgis/usr/bin/qgis
+	install -m 755 $(CURDIR)/debian/qgis.sh $(CURDIR)/debian/qgis/usr/bin/qgis_process
 
-ifneq (,$(findstring $(DISTRIBUTION),"jammy kinetic lunar sid"))
 	mkdir -p $(CURDIR)/debian/libqgis-dev
 	cd $(CURDIR)/debian/tmp && find . -name "*.sip" | tar --remove-files -cf - -T - | tar -C $(CURDIR)/debian/libqgis-dev -xf - --xform 's,\./usr/lib/python./dist-packages/qgis,usr/share/sip/qgis,'
 	find $(CURDIR)/debian/tmp/ -depth -empty -type d -delete
-endif
 
 override_dh_missing:
 	dh_missing --fail-missing
@@ -351,9 +376,6 @@ override_dh_installmime:
 override_dh_python3:
 	dh_python3
 	dh_python3 usr/share/qgis/grass/scripts
-ifeq (,$(findstring $(DISTRIBUTION),"jammy kinetic lunar sid"))
-	dh_sip3 -ppython3-qgis
-endif
 
 override_dh_compress:
 	dh_compress --exclude=pdf

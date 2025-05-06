@@ -17,15 +17,19 @@
 
 #include "qgsprocessingcontext.h"
 #include "qgsprocessingutils.h"
+#include "qgsunittypes.h"
 #include "qgsproviderregistry.h"
-#include "qgsmaplayerlistutils_p.h"
-#include "qgssettings.h"
+#include "qgsprocessing.h"
+
+//
+// QgsProcessingContext
+//
 
 QgsProcessingContext::QgsProcessingContext()
   : mPreferredVectorFormat( QgsProcessingUtils::defaultVectorExtension() )
   , mPreferredRasterFormat( QgsProcessingUtils::defaultRasterExtension() )
 {
-  auto callback = [ = ]( const QgsFeature & feature )
+  auto callback = [this]( const QgsFeature & feature )
   {
     if ( mFeedback )
       mFeedback->reportError( QObject::tr( "Encountered a transform error when reprojecting feature with id %1." ).arg( feature.id() ) );
@@ -67,7 +71,7 @@ void QgsProcessingContext::addLayerToLoadOnCompletion( const QString &layer, con
   mLayersToLoadOnCompletion.insert( layer, details );
 }
 
-void QgsProcessingContext::setInvalidGeometryCheck( QgsFeatureRequest::InvalidGeometryCheck check )
+void QgsProcessingContext::setInvalidGeometryCheck( Qgis::InvalidGeometryCheck check )
 {
   mInvalidGeometryCheck = check;
   mUseDefaultInvalidGeometryCallback = true;
@@ -82,12 +86,12 @@ std::function<void ( const QgsFeature & )> QgsProcessingContext::invalidGeometry
     return mInvalidGeometryCallback;
 }
 
-std::function<void ( const QgsFeature & )> QgsProcessingContext::defaultInvalidGeometryCallbackForCheck( QgsFeatureRequest::InvalidGeometryCheck check, QgsFeatureSource *source ) const
+std::function<void ( const QgsFeature & )> QgsProcessingContext::defaultInvalidGeometryCallbackForCheck( Qgis::InvalidGeometryCheck check, QgsFeatureSource *source ) const
 {
   const QString sourceName = source ? source->sourceName() : QString();
   switch ( check )
   {
-    case  QgsFeatureRequest::GeometryAbortOnInvalid:
+    case Qgis::InvalidGeometryCheck::AbortOnInvalid:
     {
       auto callback = [sourceName]( const QgsFeature & feature )
       {
@@ -99,9 +103,9 @@ std::function<void ( const QgsFeature & )> QgsProcessingContext::defaultInvalidG
       return callback;
     }
 
-    case QgsFeatureRequest::GeometrySkipInvalid:
+    case Qgis::InvalidGeometryCheck::SkipInvalid:
     {
-      auto callback = [ = ]( const QgsFeature & feature )
+      auto callback = [this, sourceName]( const QgsFeature & feature )
       {
         if ( mFeedback )
         {
@@ -114,7 +118,7 @@ std::function<void ( const QgsFeature & )> QgsProcessingContext::defaultInvalidG
       return callback;
     }
 
-    case QgsFeatureRequest::GeometryNoCheck:
+    case Qgis::InvalidGeometryCheck::NoCheck:
       return nullptr;
   }
   return nullptr;
@@ -123,6 +127,7 @@ std::function<void ( const QgsFeature & )> QgsProcessingContext::defaultInvalidG
 void QgsProcessingContext::takeResultsFrom( QgsProcessingContext &context )
 {
   setLayersToLoadOnCompletion( context.mLayersToLoadOnCompletion );
+  mModelResult = context.mModelResult;
   context.mLayersToLoadOnCompletion.clear();
   tempLayerStore.transferLayersFromStore( context.temporaryLayerStore() );
 }
@@ -137,22 +142,42 @@ QgsMapLayer *QgsProcessingContext::takeResultLayer( const QString &id )
   return tempLayerStore.takeMapLayer( tempLayerStore.mapLayer( id ) );
 }
 
-QgsProcessingContext::LogLevel QgsProcessingContext::logLevel() const
+Qgis::ProcessingLogLevel QgsProcessingContext::logLevel() const
 {
   return mLogLevel;
 }
 
-void QgsProcessingContext::setLogLevel( LogLevel level )
+void QgsProcessingContext::setLogLevel( Qgis::ProcessingLogLevel level )
 {
   mLogLevel = level;
+}
+
+QString QgsProcessingContext::temporaryFolder() const
+{
+  return mTemporaryFolderOverride;
+}
+
+void QgsProcessingContext::setTemporaryFolder( const QString &folder )
+{
+  mTemporaryFolderOverride = folder;
+}
+
+int QgsProcessingContext::maximumThreads() const
+{
+  return mMaximumThreads;
+}
+
+void QgsProcessingContext::setMaximumThreads( int threads )
+{
+  mMaximumThreads = threads;
 }
 
 QVariantMap QgsProcessingContext::exportToMap() const
 {
   QVariantMap res;
-  if ( mDistanceUnit != QgsUnitTypes::DistanceUnknownUnit )
+  if ( mDistanceUnit != Qgis::DistanceUnit::Unknown )
     res.insert( QStringLiteral( "distance_units" ), QgsUnitTypes::encodeUnit( mDistanceUnit ) );
-  if ( mAreaUnit != QgsUnitTypes::AreaUnknownUnit )
+  if ( mAreaUnit != Qgis::AreaUnit::Unknown )
     res.insert( QStringLiteral( "area_units" ), QgsUnitTypes::encodeUnit( mAreaUnit ) );
   if ( !mEllipsoid.isEmpty() )
     res.insert( QStringLiteral( "ellipsoid" ), mEllipsoid );
@@ -181,9 +206,9 @@ QStringList QgsProcessingContext::asQgisProcessArguments( QgsProcessingContext::
   };
 
   QStringList res;
-  if ( mDistanceUnit != QgsUnitTypes::DistanceUnknownUnit )
+  if ( mDistanceUnit != Qgis::DistanceUnit::Unknown )
     res << QStringLiteral( "--distance_units=%1" ).arg( QgsUnitTypes::encodeUnit( mDistanceUnit ) );
-  if ( mAreaUnit != QgsUnitTypes::AreaUnknownUnit )
+  if ( mAreaUnit != Qgis::AreaUnit::Unknown )
     res << QStringLiteral( "--area_units=%1" ).arg( QgsUnitTypes::encodeUnit( mAreaUnit ) );
   if ( !mEllipsoid.isEmpty() )
     res << QStringLiteral( "--ellipsoid=%1" ).arg( mEllipsoid );
@@ -216,22 +241,22 @@ void QgsProcessingContext::setEllipsoid( const QString &ellipsoid )
   mEllipsoid = ellipsoid;
 }
 
-QgsUnitTypes::DistanceUnit QgsProcessingContext::distanceUnit() const
+Qgis::DistanceUnit QgsProcessingContext::distanceUnit() const
 {
   return mDistanceUnit;
 }
 
-void QgsProcessingContext::setDistanceUnit( QgsUnitTypes::DistanceUnit unit )
+void QgsProcessingContext::setDistanceUnit( Qgis::DistanceUnit unit )
 {
   mDistanceUnit = unit;
 }
 
-QgsUnitTypes::AreaUnit QgsProcessingContext::areaUnit() const
+Qgis::AreaUnit QgsProcessingContext::areaUnit() const
 {
   return mAreaUnit;
 }
 
-void QgsProcessingContext::setAreaUnit( QgsUnitTypes::AreaUnit areaUnit )
+void QgsProcessingContext::setAreaUnit( Qgis::AreaUnit areaUnit )
 {
   mAreaUnit = areaUnit;
 }
@@ -283,4 +308,25 @@ void QgsProcessingContext::LayerDetails::setOutputLayerName( QgsMapLayer *layer 
   {
     layer->setName( name );
   }
+}
+
+
+QgsProcessingModelInitialRunConfig *QgsProcessingContext::modelInitialRunConfig()
+{
+  return mModelConfig.get();
+}
+
+void QgsProcessingContext::setModelInitialRunConfig( std::unique_ptr< QgsProcessingModelInitialRunConfig > config )
+{
+  mModelConfig = std::move( config );
+}
+
+std::unique_ptr< QgsProcessingModelInitialRunConfig > QgsProcessingContext::takeModelInitialRunConfig()
+{
+  return std::move( mModelConfig );
+}
+
+void QgsProcessingContext::clearModelResult()
+{
+  mModelResult.clear();
 }

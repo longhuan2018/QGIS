@@ -16,6 +16,7 @@ email                : jef at norbit dot de
  ***************************************************************************/
 
 #include "qgsoraclecolumntypetask.h"
+#include "moc_qgsoraclecolumntypetask.cpp"
 #include "qgslogger.h"
 #include "qgsoracleconnpool.h"
 
@@ -37,25 +38,20 @@ bool QgsOracleColumnTypeTask::run()
   QgsOracleConn *conn = QgsOracleConnPool::instance()->acquireConnection( conninfo );
   if ( !conn )
   {
-    QgsDebugMsg( "Connection failed - " + conninfo );
+    QgsDebugError( "Connection failed - " + conninfo );
     return false;
   }
 
   emit progressMessage( tr( "Retrieving tables of %1…" ).arg( mName ) );
   QVector<QgsOracleLayerProperty> layerProperties;
-  if ( !conn->supportedLayers( layerProperties,
-                               mSchema,
-                               QgsOracleConn::geometryColumnsOnly( mName ),
-                               QgsOracleConn::userTablesOnly( mName ),
-                               mAllowGeometrylessTables ) ||
-       layerProperties.isEmpty() )
+  if ( !conn->supportedLayers( layerProperties, mSchema, QgsOracleConn::geometryColumnsOnly( mName ), QgsOracleConn::userTablesOnly( mName ), mAllowGeometrylessTables ) || layerProperties.isEmpty() )
   {
     return false;
   }
 
   int i = 0, n = layerProperties.size();
   for ( QVector<QgsOracleLayerProperty>::iterator it = layerProperties.begin(),
-        end = layerProperties.end();
+                                                  end = layerProperties.end();
         it != end; ++it )
   {
     QgsOracleLayerProperty &layerProperty = *it;
@@ -63,9 +59,7 @@ bool QgsOracleColumnTypeTask::run()
     {
       setProgress( ( i * 100. ) / n );
       emit progressMessage( tr( "Scanning column %1.%2.%3…" )
-                            .arg( layerProperty.ownerName,
-                                  layerProperty.tableName,
-                                  layerProperty.geometryColName ) );
+                              .arg( layerProperty.ownerName, layerProperty.tableName, layerProperty.geometryColName ) );
       conn->retrieveLayerTypes( layerProperty, mUseEstimatedMetadata, QgsOracleConn::onlyExistingTypes( mName ) );
     }
 

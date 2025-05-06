@@ -148,7 +148,7 @@ class CORE_EXPORT QgsGpsInformation
     /**
      * Contains the fix type, where 1 = no fix, 2 = 2d fix, 3 = 3d fix
      *
-     * \deprecated, use constellationFixStatus() or bestFixStatus() instead.
+     * \deprecated QGIS 3.40. Use constellationFixStatus() or bestFixStatus() instead.
      */
     int fixType = 0;
 
@@ -171,7 +171,7 @@ class CORE_EXPORT QgsGpsInformation
 
     /**
      * GPS quality indicator (0 = Invalid; 1 = Fix; 2 = Differential, 3 = Sensitive, etc.)
-     * \deprecated use qualityIndicator instead
+     * \deprecated QGIS 3.40. Use qualityIndicator() instead.
      */
     int quality = -1;
 
@@ -202,6 +202,24 @@ class CORE_EXPORT QgsGpsInformation
     bool satInfoComplete = false;
 
     /**
+     * Returns the navigation status.
+     *
+     * \see setNavigationStatus()
+     *
+     * \since QGIS 3.38
+     */
+    Qgis::GpsNavigationStatus navigationStatus() const { return mNavigationStatus; }
+
+    /**
+     * Sets the navigation \a status.
+     *
+     * \see navigationStatus()
+     *
+     * \since QGIS 3.38
+     */
+    void setNavigationStatus( Qgis::GpsNavigationStatus status ) { mNavigationStatus = status; }
+
+    /**
      * Returns whether the connection information is valid
      * \since QGIS 3.10
      */
@@ -209,7 +227,7 @@ class CORE_EXPORT QgsGpsInformation
 
     /**
      * Returns the fix status
-     * \deprecated, use constellationFixStatus() or bestFixStatus() instead.
+     * \deprecated QGIS 3.40. Use constellationFixStatus() or bestFixStatus() instead.
      */
     Q_DECL_DEPRECATED Qgis::GpsFixStatus fixStatus() const SIP_DEPRECATED;
 
@@ -230,6 +248,7 @@ class CORE_EXPORT QgsGpsInformation
   private:
 
     QMap< Qgis::GnssConstellation, Qgis::GpsFixStatus > mConstellationFixStatus;
+    Qgis::GpsNavigationStatus mNavigationStatus = Qgis::GpsNavigationStatus::NotValid;
 
     friend class QgsNmeaConnection;
     friend class QgsQtLocationConnection;

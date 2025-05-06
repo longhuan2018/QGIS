@@ -16,10 +16,12 @@
  ***************************************************************************/
 
 #include "qgsgeometryoptions.h"
-
+#include "moc_qgsgeometryoptions.cpp"
 #include "qgsxmlutils.h"
+#include "qgssettingsentryimpl.h"
+#include "qgssettingstree.h"
 
-const QgsSettingsEntryString *QgsGeometryOptions::settingsGeometryValidationDefaultChecks = new QgsSettingsEntryString( QStringLiteral( "default_checks" ), QgsSettings::sTreeGeometryValidation, QString() );
+const QgsSettingsEntryString *QgsGeometryOptions::settingsGeometryValidationDefaultChecks = new QgsSettingsEntryString( QStringLiteral( "default_checks" ), QgsSettingsTree::sTreeGeometryValidation, QString() );
 
 QgsGeometryOptions::QgsGeometryOptions()
 {

@@ -30,12 +30,12 @@
 // Get window for pid
 struct EnumData
 {
-  DWORD dwProcessId;
-  HWND hWnd;
+    DWORD dwProcessId;
+    HWND hWnd;
 };
 BOOL CALLBACK EnumProc( HWND hWnd, LPARAM lParam )
 {
-  EnumData &ed = *( EnumData * )lParam;
+  EnumData &ed = *( EnumData * ) lParam;
   DWORD dwProcessId = 0x0;
   GetWindowThreadProcessId( hWnd, &dwProcessId );
   if ( ed.dwProcessId == dwProcessId )
@@ -49,8 +49,7 @@ BOOL CALLBACK EnumProc( HWND hWnd, LPARAM lParam )
 HWND FindWindowFromProcessId( DWORD dwProcessId )
 {
   EnumData ed = { dwProcessId };
-  if ( !EnumWindows( EnumProc, ( LPARAM )&ed ) &&
-       ( GetLastError() == ERROR_SUCCESS ) )
+  if ( !EnumWindows( EnumProc, ( LPARAM ) &ed ) && ( GetLastError() == ERROR_SUCCESS ) )
   {
     return ed.hWnd;
   }
@@ -63,17 +62,16 @@ void QgsGrassWin::hideWindow( int pid )
   Q_UNUSED( pid )
   QgsDebugMsgLevel( QString( "pid = %1" ).arg( pid ), 2 );
 #ifdef Q_OS_WIN
-  HWND hWnd = FindWindowFromProcessId( ( DWORD )pid );
+  HWND hWnd = FindWindowFromProcessId( ( DWORD ) pid );
   if ( hWnd )
   {
     QgsDebugMsgLevel( "driver window found -> minimize", 2 );
   }
   else
   {
-    QgsDebugMsg( "cannot find driver window" );
+    QgsDebugError( "cannot find driver window" );
   }
   // Unfortunately the window opens first for a moment
   ShowWindow( hWnd, SW_HIDE );
 #endif
 }
-

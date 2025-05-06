@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgstilescalewidget.h"
+#include "moc_qgstilescalewidget.cpp"
 #include "qgsmapcanvas.h"
 #include "qgsrasterlayer.h"
 #include "qgsrasterdataprovider.h"
@@ -52,7 +53,7 @@ void QgsTileScaleWidget::layerChanged( QgsMapLayer *layer )
   if ( !rl || !rl->dataProvider() )
     return;
 
-  const QList< double > resolutions = rl->dataProvider()->nativeResolutions();
+  const QList<double> resolutions = rl->dataProvider()->nativeResolutions();
   if ( resolutions.isEmpty() )
     return;
 
@@ -94,8 +95,7 @@ void QgsTileScaleWidget::scaleChanged( double scale )
     QgsDebugMsgLevel( QStringLiteral( "test resolution %1: %2 d:%3" ).arg( i ).arg( mResolutions.at( i ) ).arg( mupp - mResolutions.at( i ) ), 2 );
   }
 
-  if ( i == mResolutions.size() ||
-       ( i > 0 && mResolutions.at( i ) - mupp > mupp - mResolutions.at( i - 1 ) ) )
+  if ( i == mResolutions.size() || ( i > 0 && mResolutions.at( i ) - mupp > mupp - mResolutions.at( i - 1 ) ) )
   {
     QgsDebugMsgLevel( QStringLiteral( "previous resolution" ), 2 );
     i--;
@@ -105,6 +105,9 @@ void QgsTileScaleWidget::scaleChanged( double scale )
   mSlider->blockSignals( true );
   mSlider->setValue( i );
   mSlider->blockSignals( false );
+
+
+  mLabelScale->setText( tr( "Zoom: %1" ).arg( i ) );
 }
 
 void QgsTileScaleWidget::mSlider_valueChanged( int value )
@@ -134,7 +137,7 @@ void QgsTileScaleWidget::showTileScale( QMainWindow *mainWindow )
   QgsDebugMsgLevel( QStringLiteral( "canvas:%1 [%2]" ).arg( ( quint64 ) canvas, 0, 16 ).arg( canvas ? canvas->objectName() : QString() ), 4 );
   if ( !canvas )
   {
-    QgsDebugMsg( QStringLiteral( "map canvas mapCanvas not found" ) );
+    QgsDebugError( QStringLiteral( "map canvas mapCanvas not found" ) );
     return;
   }
 
@@ -144,12 +147,11 @@ void QgsTileScaleWidget::showTileScale( QMainWindow *mainWindow )
   QgsLayerTreeView *legend = mainWindow->findChild<QgsLayerTreeView *>( QStringLiteral( "theLayerTreeView" ) );
   if ( legend )
   {
-    connect( legend, &QgsLayerTreeView::currentLayerChanged,
-             tws, &QgsTileScaleWidget::layerChanged );
+    connect( legend, &QgsLayerTreeView::currentLayerChanged, tws, &QgsTileScaleWidget::layerChanged );
   }
   else
   {
-    QgsDebugMsg( QStringLiteral( "legend not found" ) );
+    QgsDebugError( QStringLiteral( "legend not found" ) );
   }
 
   //create the dock widget
@@ -169,7 +171,7 @@ void QgsTileScaleWidget::showTileScale( QMainWindow *mainWindow )
   }
   else
   {
-    QgsDebugMsg( QStringLiteral( "panel menu not found" ) );
+    QgsDebugError( QStringLiteral( "panel menu not found" ) );
   }
 
   dock->setWidget( tws );

@@ -203,7 +203,15 @@ QList<const QgsPointCloudExpressionNode *> QgsPointCloudExpression::nodes() cons
 bool QgsPointCloudExpression::checkExpression( const QgsExpression &expression, const QgsPointCloudBlock *block, QString &errorMessage )
 {
   QgsPointCloudExpression exp( expression );
-  exp.prepare( block );
+  ( void )exp.prepare( block );
   errorMessage = exp.parserErrorString();
   return !exp.hasParserError();
+}
+
+QString QgsPointCloudExpression::asPdalExpression() const
+{
+  if ( !d->mRootNode )
+    return QString();
+
+  return d->mRootNode->toPdal();
 }

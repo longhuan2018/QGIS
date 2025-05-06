@@ -14,25 +14,24 @@
  ***************************************************************************/
 
 #include "qgsprocessingtoolboxtreeview.h"
+#include "moc_qgsprocessingtoolboxtreeview.cpp"
 #include "qgsprocessingtoolboxmodel.h"
 
 #include <QKeyEvent>
 
 ///@cond PRIVATE
 
-QgsProcessingToolboxTreeView::QgsProcessingToolboxTreeView( QWidget *parent,
-    QgsProcessingRegistry *registry,
-    QgsProcessingRecentAlgorithmLog *recentLog )
+QgsProcessingToolboxTreeView::QgsProcessingToolboxTreeView( QWidget *parent, QgsProcessingRegistry *registry, QgsProcessingRecentAlgorithmLog *recentLog, QgsProcessingFavoriteAlgorithmManager *favoriteManager )
   : QTreeView( parent )
 {
-  mModel = new QgsProcessingToolboxProxyModel( this, registry, recentLog );
+  mModel = new QgsProcessingToolboxProxyModel( this, registry, recentLog, favoriteManager );
   mToolboxModel = mModel->toolboxModel();
   setModel( mModel );
 }
 
-void QgsProcessingToolboxTreeView::setRegistry( QgsProcessingRegistry *registry, QgsProcessingRecentAlgorithmLog *recentLog )
+void QgsProcessingToolboxTreeView::setRegistry( QgsProcessingRegistry *registry, QgsProcessingRecentAlgorithmLog *recentLog, QgsProcessingFavoriteAlgorithmManager *favoriteManager )
 {
-  QgsProcessingToolboxProxyModel *newModel = new QgsProcessingToolboxProxyModel( this, registry, recentLog );
+  QgsProcessingToolboxProxyModel *newModel = new QgsProcessingToolboxProxyModel( this, registry, recentLog, favoriteManager );
   mToolboxModel = newModel->toolboxModel();
   setModel( newModel );
   mModel->deleteLater();
@@ -83,6 +82,28 @@ const QgsProcessingAlgorithm *QgsProcessingToolboxTreeView::selectedAlgorithm()
   {
     const QModelIndex index = selectionModel()->selectedIndexes().at( 0 );
     return algorithmForIndex( index );
+  }
+  else
+  {
+    return nullptr;
+  }
+}
+
+const QgsProcessingParameterType *QgsProcessingToolboxTreeView::parameterTypeForIndex( const QModelIndex &index )
+{
+  const QModelIndex sourceIndex = mModel->mapToSource( index );
+  if ( mToolboxModel->isParameter( sourceIndex ) )
+    return mToolboxModel->parameterTypeForIndex( sourceIndex );
+  else
+    return nullptr;
+}
+
+const QgsProcessingParameterType *QgsProcessingToolboxTreeView::selectedParameterType()
+{
+  if ( selectionModel()->hasSelection() )
+  {
+    const QModelIndex index = selectionModel()->selectedIndexes().at( 0 );
+    return parameterTypeForIndex( index );
   }
   else
   {

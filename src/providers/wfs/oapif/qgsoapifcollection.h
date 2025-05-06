@@ -30,23 +30,29 @@ using namespace nlohmann;
 //! Describes a collection
 struct QgsOapifCollection
 {
-  //! Identifier
-  QString mId;
+    //! Identifier
+    QString mId;
 
-  //! Title
-  QString mTitle;
+    //! Title
+    QString mTitle;
 
-  //! Description
-  QString mDescription;
+    //! Description
+    QString mDescription;
 
-  //! Bounding box (in CRS84)
-  QgsRectangle mBbox;
+    //! Bounding box
+    QgsRectangle mBbox;
 
-  //! Layer metadata
-  QgsLayerMetadata mLayerMetadata;
+    //! Bounding box Crs
+    QgsCoordinateReferenceSystem mBboxCrs;
 
-  //! Fills a collection from its JSON serialization
-  bool deserialize( const json &j );
+    //! List of available CRS
+    QList<QString> mCrsList;
+
+    //! Layer metadata
+    QgsLayerMetadata mLayerMetadata;
+
+    //! Fills a collection from its JSON serialization
+    bool deserialize( const json &j, const json &jCollections );
 };
 
 //! Manages the /collections request
@@ -94,7 +100,6 @@ class QgsOapifCollectionsRequest : public QgsBaseNetworkRequest
     QString mNextUrl;
 
     ApplicationLevelError mAppLevelError = ApplicationLevelError::NoError;
-
 };
 
 //! Manages the /collection/{collectionId} request
@@ -137,7 +142,6 @@ class QgsOapifCollectionRequest : public QgsBaseNetworkRequest
     QgsOapifCollection mCollection;
 
     ApplicationLevelError mAppLevelError = ApplicationLevelError::NoError;
-
 };
 
 #endif // QGSOAPIFCOLLECTION_H

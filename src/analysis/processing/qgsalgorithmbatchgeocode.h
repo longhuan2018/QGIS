@@ -67,9 +67,7 @@ class QgsGeocoderInterface;
  */
 class ANALYSIS_EXPORT QgsBatchGeocodeAlgorithm : public QgsProcessingFeatureBasedAlgorithm
 {
-
   public:
-
     /**
      * Constructor for QgsBatchGeocodeAlgorithm.
      *
@@ -89,10 +87,10 @@ class ANALYSIS_EXPORT QgsBatchGeocodeAlgorithm : public QgsProcessingFeatureBase
   protected:
     QString outputName() const override;
     bool prepareAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
-    QgsFeatureList processFeature( const QgsFeature &feature,  QgsProcessingContext &, QgsProcessingFeedback *feedback ) override;
+    QgsFeatureList processFeature( const QgsFeature &feature, QgsProcessingContext &, QgsProcessingFeedback *feedback ) override;
     QgsCoordinateReferenceSystem outputCrs( const QgsCoordinateReferenceSystem &inputCrs ) const override;
     QgsFields outputFields( const QgsFields &inputFields ) const override;
-    QgsWkbTypes::Type outputWkbType( QgsWkbTypes::Type inputWkbType ) const override;
+    Qgis::WkbType outputWkbType( Qgis::WkbType inputWkbType ) const override;
 
   private:
     bool mIsInPlace = false;
@@ -101,10 +99,7 @@ class ANALYSIS_EXPORT QgsBatchGeocodeAlgorithm : public QgsProcessingFeatureBase
     QgsStringMap mInPlaceFieldMap;
     mutable QgsCoordinateReferenceSystem mOutputCrs;
     mutable QStringList mAdditionalFields;
-
 };
 
 
 #endif // QGSALGORITHMBATCHGEOCODE_H
-
-

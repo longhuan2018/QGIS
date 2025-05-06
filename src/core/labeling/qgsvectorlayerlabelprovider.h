@@ -29,13 +29,13 @@ class QgsSymbol;
 
 /**
  * \ingroup core
- * \brief The QgsVectorLayerLabelProvider class implements a label provider
- * for vector layers. Parameters for the labeling are taken from the layer's
+ * \brief Implements a label provider for vector layers.
+ *
+ * Parameters for the labeling are taken from the layer's
  * custom properties or from the given settings.
  *
  * \note this class is not a part of public API yet. See notes in QgsLabelingEngine
  * \note not available in Python bindings
- * \since QGIS 2.12
  */
 class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
 {
@@ -49,7 +49,7 @@ class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
                                           const QString &layerName = QString() );
 
     //! Constructor to initialize the provider from any map layer (e.g. vector tile layer)
-    explicit QgsVectorLayerLabelProvider( QgsWkbTypes::GeometryType geometryType,
+    explicit QgsVectorLayerLabelProvider( Qgis::GeometryType geometryType,
                                           const QgsFields &fields,
                                           const QgsCoordinateReferenceSystem &crs,
                                           const QString &providerId,
@@ -100,7 +100,6 @@ class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
      * \param fet point feature
      * \param context render context
      * \param symbols symbols rendered for point feature
-     * \since QGIS 2.14
      */
     static QgsGeometry getPointObstacleGeometry( QgsFeature &fet, QgsRenderContext &context, const QgsSymbolList &symbols );
 
@@ -116,7 +115,7 @@ class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
      * a call to prepare() which uses the list of fields.
      * \since QGIS 3.14
      */
-    void setFields( const QgsFields &fields ) { mFields = fields; }
+    void setFields( const QgsFields &fields );
 
   protected:
     //! initialization method - called from constructors
@@ -128,7 +127,7 @@ class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
     //! Layer's labeling configuration
     QgsPalLayerSettings mSettings;
     //! Geometry type of layer
-    QgsWkbTypes::GeometryType mLayerGeometryType;
+    Qgis::GeometryType mLayerGeometryType;
 
     QgsFeatureRenderer *mRenderer = nullptr;
 
@@ -147,6 +146,8 @@ class CORE_EXPORT QgsVectorLayerLabelProvider : public QgsAbstractLabelProvider
   private:
 
     friend class TestQgsLabelingEngine;
+    friend class QgsVectorTileBasicLabelProvider;
+
     void drawCallout( QgsRenderContext &context, pal::LabelPosition *label ) const;
 };
 

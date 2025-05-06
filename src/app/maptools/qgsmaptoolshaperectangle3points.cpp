@@ -15,8 +15,8 @@
 ***************************************************************************/
 
 #include "qgsmaptoolshaperectangle3points.h"
+#include "moc_qgsmaptoolshaperectangle3points.cpp"
 #include "qgsgeometryrubberband.h"
-#include "qgsgeometryutils.h"
 #include "qgslinestring.h"
 #include "qgsmapcanvas.h"
 #include "qgspoint.h"
@@ -76,8 +76,7 @@ QgsMapToolShapeAbstract *QgsMapToolShapeRectangle3PointsMetadata::factory( QgsMa
 }
 
 QgsMapToolShapeRectangle3Points::QgsMapToolShapeRectangle3Points( const QString &id, QgsMapToolShapeRectangle3PointsMetadata::CreateMode createMode, QgsMapToolCapture *parentTool )
-  : QgsMapToolShapeRectangleAbstract( id, parentTool ),
-    mCreateMode( createMode )
+  : QgsMapToolShapeRectangleAbstract( id, parentTool ), mCreateMode( createMode )
 {
 }
 
@@ -101,7 +100,7 @@ bool QgsMapToolShapeRectangle3Points::cadCanvasReleaseEvent( QgsMapMouseEvent *e
       mPoints.append( point );
     }
 
-    QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+    Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
 
     if ( !mPoints.isEmpty() && !mTempRubberBand )
     {
@@ -135,7 +134,7 @@ void QgsMapToolShapeRectangle3Points::cadCanvasMoveEvent( QgsMapMouseEvent *e, Q
     {
       case 1:
       {
-        std::unique_ptr<QgsLineString> line( new QgsLineString() );
+        auto line = std::make_unique<QgsLineString>();
         line->addVertex( mPoints.at( 0 ) );
         line->addVertex( point );
         mTempRubberBand->setGeometry( line.release() );
@@ -160,7 +159,7 @@ void QgsMapToolShapeRectangle3Points::cadCanvasMoveEvent( QgsMapMouseEvent *e, Q
             mRectangle = QgsQuadrilateral::rectangleFrom3Points( mPoints.at( 0 ), mPoints.at( 1 ), point, QgsQuadrilateral::Projected );
             break;
         }
-        mTempRubberBand->setGeometry( mRectangle.toPolygon( ) );
+        mTempRubberBand->setGeometry( mRectangle.toPolygon() );
       }
       break;
       default:

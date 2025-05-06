@@ -22,11 +22,11 @@
 #include "qgsabstractprofilesurfacegenerator.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgscoordinatetransformcontext.h"
+#include "qgscurve.h"
 
 #include <memory>
 
 class QgsProfileRequest;
-class QgsCurve;
 class QgsRasterLayer;
 class QgsRasterDataProvider;
 class QgsRasterBlockFeedback;
@@ -84,7 +84,7 @@ class CORE_EXPORT QgsRasterLayerProfileGenerator : public QgsAbstractProfileSurf
 
   private:
     QString mId;
-    std::unique_ptr<QgsRasterBlockFeedback> mFeedback = nullptr;
+    std::unique_ptr<QgsRasterBlockFeedback> mFeedback;
 
     std::unique_ptr< QgsCurve > mProfileCurve;
 

@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsattributedialog.h"
+#include "moc_qgsattributedialog.cpp"
 
 #include "qgsattributeform.h"
 #include "qgshighlight.h"
@@ -78,17 +79,28 @@ void QgsAttributeDialog::accept()
     if ( error.isEmpty() )
       error = tr( "An unknown error was encountered saving attributes" );
 
-    mMessageBar->pushMessage( QString(),
-                              error,
-                              Qgis::MessageLevel::Critical );
+    mMessageBar->pushMessage( QString(), error, Qgis::MessageLevel::Critical );
   }
 }
 
 void QgsAttributeDialog::show()
 {
   QDialog::show();
+
   raise();
   activateWindow();
+}
+
+void QgsAttributeDialog::showEvent( QShowEvent *event )
+{
+  QDialog::showEvent( event );
+  // We cannot call restoreGeometry() in the constructor or init because the dialog is not yet visible
+  // and the geometry restoration will not take the window decorations (frame) into account.
+  if ( mFirstShow )
+  {
+    mFirstShow = false;
+    restoreGeometry();
+  }
 }
 
 void QgsAttributeDialog::reject()
@@ -133,8 +145,6 @@ void QgsAttributeDialog::init( QgsVectorLayer *layer, QgsFeature *feature, const
     mMenuBar->addMenu( mMenu );
     layout()->setMenuBar( mMenuBar );
   }
-
-  restoreGeometry();
   focusNextChild();
 }
 
@@ -179,4 +189,3 @@ QgsMapLayerActionContext QgsAttributeDialog::createActionContext()
   context.setMessageBar( mMessageBar );
   return context;
 }
-

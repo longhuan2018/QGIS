@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     RenderingStyleFilePanel.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 import warnings
@@ -34,21 +32,25 @@ pluginPath = os.path.split(os.path.dirname(__file__))[0]
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'widgetBaseSelector.ui'))
+        os.path.join(pluginPath, "ui", "widgetBaseSelector.ui")
+    )
 
 
 class RenderingStyleFilePanel(BASE, WIDGET):
 
     def __init__(self):
-        super(RenderingStyleFilePanel, self).__init__(None)
+        super().__init__(None)
         self.setupUi(self)
 
         self.btnSelect.clicked.connect(self.showSelectionDialog)
 
     def showSelectionDialog(self):
-        filename, selected_filter = QFileDialog.getOpenFileName(self,
-                                                                self.tr('Select Style File'), '',
-                                                                self.tr('QGIS Layer Style File (*.qml *.QML)'))
+        filename, selected_filter = QFileDialog.getOpenFileName(
+            self,
+            self.tr("Select Style File"),
+            "",
+            self.tr("QGIS Layer Style File (*.qml *.QML)"),
+        )
         if filename:
             self.leText.setText(filename)
 
@@ -58,5 +60,5 @@ class RenderingStyleFilePanel(BASE, WIDGET):
     def getValue(self):
         s = self.leText.text()
         if isWindows():
-            s = s.replace('\\', '/')
+            s = s.replace("\\", "/")
         return s

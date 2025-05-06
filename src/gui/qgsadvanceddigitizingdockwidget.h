@@ -22,28 +22,29 @@
 #include <memory>
 
 #include "ui_qgsadvanceddigitizingdockwidgetbase.h"
-#include "qgsadvanceddigitizingfloater.h"
 #include "qgis_gui.h"
 #include "qgis_sip.h"
+#include "qgsadvanceddigitizingtools.h"
 #include "qgsdockwidget.h"
 #include "qgsmessagebaritem.h"
 #include "qgspointxy.h"
 #include "qgspointlocator.h"
 #include "qgssnapindicator.h"
-#include "qgscadutils.h"
 
 
 class QgsAdvancedDigitizingCanvasItem;
 class QgsAdvancedDigitizingFloater;
+class QgsAdvancedDigitizingTool;
 class QgsMapCanvas;
 class QgsMapTool;
 class QgsMapToolAdvancedDigitizing;
 class QgsMapMouseEvent;
+class QgsUserInputWidget;
 
 /**
  * \ingroup gui
- * \brief The QgsAdvancedDigitizingDockWidget class is a dockable widget
- * used to handle the CAD tools on top of a selection of map tools.
+ * \brief A dockable widget used to handle the CAD tools on top of a selection of map tools.
+ *
  * It handles both the UI and the constraints. Constraints are applied
  * by implementing filters called from QgsMapToolAdvancedDigitizing.
  */
@@ -52,18 +53,17 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     Q_OBJECT
 
   public:
-
     /**
      * The CadCapacity enum defines the possible constraints to be set
      * depending on the number of points in the CAD point list (the list of points
      * currently digitized)
      */
-    enum CadCapacity
+    enum CadCapacity SIP_ENUM_BASETYPE( IntFlag )
     {
-      AbsoluteAngle = 1, //!< Azimuth
-      RelativeAngle = 2, //!< Also for parallel and perpendicular
+      AbsoluteAngle = 1,       //!< Azimuth
+      RelativeAngle = 2,       //!< Also for parallel and perpendicular
       RelativeCoordinates = 4, //!< This corresponds to distance and relative coordinates
-      Distance = 8, //!< Distance
+      Distance = 8,            //!< Distance
     };
     Q_DECLARE_FLAGS( CadCapacities, CadCapacity )
     Q_FLAG( CadCapacities )
@@ -75,20 +75,21 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      */
     enum WidgetSetMode
     {
-      ReturnPressed, FocusOut, TextEdited
+      ReturnPressed,
+      FocusOut,
+      TextEdited
     };
 
 
     /**
      * \ingroup gui
-     * \brief The CadConstraint is an abstract class for all basic constraints (angle/distance/x/y).
+     * \brief The CadConstraint is a class for all basic constraints (angle/distance/x/y).
      * It contains all values (locked, value, relative) and pointers to corresponding widgets.
      * \note Relative is not mandatory since it is not used for distance.
      */
     class GUI_EXPORT CadConstraint
     {
       public:
-
         /**
          * The lock mode
          */
@@ -132,7 +133,6 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
          * Returns TRUE if a repeating lock is set for the constraint. Repeating locks are not
          * automatically cleared after a new point is added.
          * \see setRepeatingLock()
-         * \since QGIS 2.16
          */
         bool isRepeatingLock() const { return mRepeatingLock; }
 
@@ -161,7 +161,6 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
          * automatically cleared after a new point is added.
          * \param repeating set to TRUE to set the lock to repeat automatically
          * \see isRepeatingLock()
-         * \since QGIS 2.16
          */
         void setRepeatingLock( bool repeating );
 
@@ -176,6 +175,12 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
          * \param updateWidget set to FALSE to prevent automatically updating the associated widget's value
          */
         void setValue( double value, bool updateWidget = true );
+
+        /**
+         * Returns a localized formatted string representation of the value.
+         * \since QGIS 3.32
+         */
+        QString displayValue() const;
 
         /**
          * Toggle lock mode
@@ -203,6 +208,31 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
          */
         void setPrecision( int precision );
 
+        /**
+         * Returns the constraint type
+         * \since QGIS 3.32
+         */
+        Qgis::CadConstraintType cadConstraintType() const;
+
+        /**
+         * Sets the constraint type to \a constraintType
+         * \since QGIS 3.32
+         */
+        void setCadConstraintType( Qgis::CadConstraintType constraintType );
+
+        /**
+         * Sets the map canvas to \a mapCanvas
+         * \since QGIS 3.32
+         */
+        void setMapCanvas( QgsMapCanvas *mapCanvas );
+
+        /**
+         * Removes unit suffix from the constraint text.
+         * \since QGIS 3.34
+         */
+        static QString removeSuffix( const QString &text, Qgis::CadConstraintType constraintType );
+
+
       private:
         QLineEdit *mLineEdit = nullptr;
         QToolButton *mLockerButton = nullptr;
@@ -213,14 +243,18 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
         bool mRelative;
         double mValue;
         int mPrecision = 6;
+        Qgis::CadConstraintType mCadConstraintType = Qgis::CadConstraintType::Generic;
+        QgsMapCanvas *mMapCanvas = nullptr;
     };
 
     /**
      * Create an advanced digitizing dock widget
      * \param canvas The map canvas on which the widget operates
      * \param parent The parent
+     * \param userInputWidget The user input widget on which tools can add widget overlays on top of the map canvas (since QGIS 3.40)
      */
-    explicit QgsAdvancedDigitizingDockWidget( QgsMapCanvas *canvas, QWidget *parent = nullptr );
+    explicit QgsAdvancedDigitizingDockWidget( QgsMapCanvas *canvas, QWidget *parent = nullptr, QgsUserInputWidget *userInputWidget = nullptr );
+    ~QgsAdvancedDigitizingDockWidget();
 
     /**
      * Filter key events to e.g. toggle construction mode or adapt constraints
@@ -239,14 +273,39 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     /**
      * align to segment for between line constraint.
      * If between line constraints are used, this will determine the angle to be locked depending on the snapped segment.
-     * \since QGIS 3.0
      */
     bool alignToSegment( QgsMapMouseEvent *e, QgsAdvancedDigitizingDockWidget::CadConstraint::LockMode lockMode = QgsAdvancedDigitizingDockWidget::CadConstraint::HardLock );
 
     /**
+     * Processes the canvas press \a event.
+     */
+    void processCanvasPressEvent( QgsMapMouseEvent *event );
+
+    /**
+     * Processes the canvas move \a event.
+     */
+    void processCanvasMoveEvent( QgsMapMouseEvent *event );
+
+    /**
+     * Processes the canvas release \a event.
+     */
+    void processCanvasReleaseEvent( QgsMapMouseEvent *event );
+
+    /**
+     * Sets an advanced digitizing tool which will take over digitizing until the tool is close.
+     * \since QGIS 3.40
+     */
+    void setTool( QgsAdvancedDigitizingTool *tool );
+
+    /**
+     * Returns the current advanced digitizing tool. Returns NULLPTR if not set.
+     * \since QGIS 3.40
+     */
+    QgsAdvancedDigitizingTool *tool() const;
+
+    /**
      * unlock all constraints
      * \param releaseRepeatingLocks set to FALSE to preserve the lock for any constraints set to repeating lock mode
-     * \since QGIS 3.0
      */
     void releaseLocks( bool releaseRepeatingLocks = true );
 
@@ -264,7 +323,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * Determines if Z or M will be enabled.
      * \since QGIS 3.22
      */
-    void switchZM( );
+    void switchZM();
 
     /**
      * Sets whether Z is enabled
@@ -278,16 +337,43 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      */
     void setEnabledM( bool enable );
 
-    //! construction mode is used to draw intermediate points. These points won't be given any further (i.e. to the map tools)
+    /**
+     * Returns whether the construction mode is activated. The construction mode is used to draw intermediate
+     * points that will not be part of a geometry being digitized.
+     */
     bool constructionMode() const { return mConstructionMode; }
+
+    /**
+     * Returns the vector layer within which construction guides are stored.
+     * \since QGIS 3.40
+     */
+    QgsVectorLayer *constructionGuidesLayer() const { return mConstructionGuidesLayer.get(); }
+
+    /**
+     * Returns whether the construction guides are visible.
+     * \since QGIS 3.40
+     */
+    bool showConstructionGuides() const;
+
+    /**
+     * Returns whether points should snap to construction guides.
+     * \since QGIS 3.40
+     */
+    bool snapToConstructionGuides() const;
+
+    /**
+     * Returns whether construction guides are being recorded.
+     * \since QGIS 3.40
+     */
+    bool recordConstructionGuides() const;
 
     /**
      * Returns the between line constraints which are used to place
      * perpendicular/parallel segments to snapped segments on the canvas
      */
-    Qgis::BetweenLineConstraint betweenLineConstraint() const  { return mBetweenLineConstraint; }
+    Qgis::BetweenLineConstraint betweenLineConstraint() const { return mBetweenLineConstraint; }
     //! Returns the \a CadConstraint on the angle
-    const CadConstraint *constraintAngle() const  { return mAngleConstraint.get(); }
+    const CadConstraint *constraintAngle() const { return mAngleConstraint.get(); }
     //! Returns the \a CadConstraint on the distance
     const CadConstraint *constraintDistance() const { return mDistanceConstraint.get(); }
     //! Returns the \a CadConstraint on the X coordinate
@@ -325,6 +411,12 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     double softLockY() const { return mSoftLockY; }
 
     /**
+     * Toggles the distance constraint.
+     * \since QGIS 3.40
+     */
+    void toggleConstraintDistance();
+
+    /**
      * Returns the point locator match
      * \since QGIS 3.4
      */
@@ -334,7 +426,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * Returns the snap matches whose vertices have been locked
      * \since QGIS 3.26
      */
-    QList< QgsPointLocator::Match > lockedSnapVertices() const { return mLockedSnapVertices; }
+    QList<QgsPointLocator::Match> lockedSnapVertices() const { return mLockedSnapVertices; }
 
     /**
       * Removes all points from the locked snap vertex list
@@ -345,28 +437,31 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
 
     /**
      * Removes all points from the CAD point list
-     * \since QGIS 3.0
      */
     void clearPoints();
 
     /**
      * Adds point to the CAD point list
-     * \since QGIS 3.0
      */
     void addPoint( const QgsPointXY &point );
 
     /**
-     * Remove previous point in the CAD point list
+     * Removes previous point in the CAD point list
      * \since QGIS 3.8
      */
     void removePreviousPoint();
+
+    /**
+     * Updates the current \a point in the CAD point list
+     * \since QGIS 3.30.2
+     */
+    void updateCurrentPoint( const QgsPoint &point );
 
     /**
      * Configures list of current CAD points
      *
      * Some map tools may find it useful to override list of CAD points that is otherwise
      * automatically populated when user clicks with left mouse button on map canvas.
-     * \since QGIS 3.0
      */
     void setPoints( const QList<QgsPointXY> &points );
 
@@ -377,7 +472,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      *
      * \since QGIS 3.22
      */
-    QgsPoint currentPointV2( bool *exists  = nullptr ) const;
+    QgsPoint currentPointV2( bool *exists = nullptr ) const;
 
     /**
      * Returns the last CAD point, in a map \a layer's coordinates.
@@ -390,9 +485,9 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * The last point.
      * Helper for the CAD point list. The CAD point list is the list of points
      * currently digitized. It contains both  "normal" points and intermediate points (construction mode).
-     * \deprecated since QGIS 3.22. Use currentPointV2() instead.
+     * \deprecated QGIS 3.22. Use currentPointV2() instead.
      */
-    Q_DECL_DEPRECATED QgsPointXY currentPoint( bool *exists  = nullptr ) const SIP_DEPRECATED { return currentPointV2( exists ); };
+    Q_DECL_DEPRECATED QgsPointXY currentPoint( bool *exists = nullptr ) const SIP_DEPRECATED { return currentPointV2( exists ); };
 
     /**
      * The previous point.
@@ -405,7 +500,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * The previous point.
      * Helper for the CAD point list. The CAD point list is the list of points
      * currently digitized. It contains both  "normal" points and intermediate points (construction mode).
-     * \deprecated since QGIS 3.22. Use previousPointV2() instead.
+     * \deprecated QGIS 3.22. Use previousPointV2() instead.
      */
     Q_DECL_DEPRECATED QgsPointXY previousPoint( bool *exists = nullptr ) const SIP_DEPRECATED { return previousPointV2( exists ); };
 
@@ -420,7 +515,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * The penultimate point.
      * Helper for the CAD point list. The CAD point list is the list of points
      * currently digitized. It contains both  "normal" points and intermediate points (construction mode).
-     * \deprecated since QGIS 3.22. Use penultimatePointV2() instead.
+     * \deprecated QGIS 3.22. Use penultimatePointV2() instead.
      */
     Q_DECL_DEPRECATED QgsPointXY penultimatePoint( bool *exists = nullptr ) const SIP_DEPRECATED { return penultimatePointV2( exists ); };
 
@@ -457,7 +552,6 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
 
     /**
      * Updates canvas item that displays constraints on the ma
-     * \since QGIS 3.0
      */
     void updateCadPaintItem();
 
@@ -525,19 +619,25 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * Convenient method to get the Z value from the line edit wiget
      * \since QGIS 3.22
      */
-    double getLineZ( ) const;
+    double getLineZ() const;
 
     /**
      * Convenient method to get the M value from the line edit wiget
      * \since QGIS 3.22
      */
-    double getLineM( ) const;
+    double getLineM() const;
 
     /**
      * Returns the capacities
      * \since QGIS 3.26
      */
     CadCapacities capacities() const { return mCapacities; };
+
+    /**
+     * Returns the formatted label for common angle snapping option.
+     * \since QGIS 3.32
+     */
+    QString formatCommonAngleSnapping( double angle );
 
   signals:
 
@@ -567,7 +667,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      * when a constraint is toggled.
      *
      * \param point The last known digitizing point. Can be used to emulate a mouse event.
-     * \deprecated since QGIS 3.22. No longer used, will be removed in QGIS 4.0. Use pointChangedV2 instead.
+     * \deprecated QGIS 3.22. No longer used, will be removed in QGIS 4.0. Use pointChangedV2() instead.
      */
     Q_DECL_DEPRECATED void pointChanged( const QgsPointXY &point ) SIP_DEPRECATED;
 
@@ -629,6 +729,14 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     * \since QGIS 3.8
     */
     void valueDistanceChanged( const QString &value );
+
+    /**
+    * Emitted whenever the bearing \a value changes.
+    * Could be used by widgets that must reflect the current advanced digitizing state.
+    * \note unstable API (will likely change)
+    * \since QGIS 3.32
+    */
+    void valueBearingChanged( const QString &value );
 
     /**
     * Emitted whenever the X parameter is \a locked.
@@ -860,6 +968,17 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     */
     void focusOnDistanceRequested();
 
+    /**
+    * Emitted whenever the snapping to common angle option changes, angle = 0 means that the functionality is disabled.
+    * \since QGIS 3.32
+    */
+    void valueCommonAngleSnappingChanged( double angle );
+
+    /**
+     * Emitted whenever the option to show common angle snapping in the floater changes.
+     * \note Not available in Python bindings
+     */
+    void commonAngleSnappingShowInFloaterChanged( bool enabled ) SIP_SKIP;
 
   private slots:
     //! Sets the between line constraint by clicking on the perpendicular/parallel buttons
@@ -902,7 +1021,6 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     void settingsButtonTriggered( QAction *action );
 
   private:
-
     /**
      * Returns the layer currently associated with the map tool using the dock widget.
      */
@@ -927,10 +1045,6 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
      */
     QList<QgsPointXY> snapSegmentToAllLayers( const QgsPointXY &originalMapPoint, bool *snapped = nullptr ) const;
 
-    //! update the current point in the CAD point list
-    void updateCurrentPoint( const QgsPoint &point );
-
-
     /**
      * filters key press
      * \note called by eventFilter (filter on line edits), canvasKeyPressEvent (filter on map tool) and keyPressEvent (filter on dock)
@@ -950,7 +1064,7 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     CadConstraint *objectToConstraint( const QObject *obj ) const;
 
     //! Attempts to convert a user input value to double, either directly or via expression
-    double parseUserInput( const QString &inputValue, bool &ok ) const;
+    double parseUserInput( const QString &inputValue, const Qgis::CadConstraintType type, bool &ok ) const;
 
     /**
      * Updates a constraint value based on a text input.
@@ -963,15 +1077,27 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     //! Updates values of constraints that are not locked based on the current point
     void updateUnlockedConstraintValues( const QgsPoint &point );
 
-
     /**
      * Adds or removes the snap match if it is already in the locked snap queue or not.
      * \param snapMatch the snap match to add or remove.
      * \param previouslySnap the previous snap match to avoid toggling the same match.
      */
-    void toggleLockedSnapVertex( const QgsPointLocator::Match &snapMatch, QgsPointLocator::Match previouslySnap );
+    void toggleLockedSnapVertex( const QgsPointLocator::Match &snapMatch, const QgsPointLocator::Match &previouslySnap );
+
+    /**
+     * Resets the vector layer and point locator objects handling construction guides.
+     */
+    void resetConstructionGuides();
+
+    /**
+     * Updates the construction guides layer CRS to match the map canvas' destination CRS
+     * and reproject pre-existing construction guides.
+     */
+    void updateConstructionGuidesCrs();
 
     QgsMapCanvas *mMapCanvas = nullptr;
+    QgsUserInputWidget *mUserInputWidget = nullptr;
+
     QgsAdvancedDigitizingCanvasItem *mCadPaintItem = nullptr;
     //! Snapping indicator
     std::unique_ptr<QgsSnapIndicator> mSnapIndicator;
@@ -989,30 +1115,43 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     bool mConstructionMode = false;
 
     // constraints
-    std::unique_ptr< CadConstraint > mAngleConstraint;
-    std::unique_ptr< CadConstraint > mDistanceConstraint;
-    std::unique_ptr< CadConstraint > mXConstraint;
-    std::unique_ptr< CadConstraint > mYConstraint;
-    std::unique_ptr< CadConstraint > mZConstraint;
-    std::unique_ptr< CadConstraint > mMConstraint;
-    std::unique_ptr< CadConstraint > mLineExtensionConstraint;
-    std::unique_ptr< CadConstraint > mXyVertexConstraint;
+    std::unique_ptr<CadConstraint> mAngleConstraint;
+    std::unique_ptr<CadConstraint> mDistanceConstraint;
+    std::unique_ptr<CadConstraint> mXConstraint;
+    std::unique_ptr<CadConstraint> mYConstraint;
+    std::unique_ptr<CadConstraint> mZConstraint;
+    std::unique_ptr<CadConstraint> mMConstraint;
+    std::unique_ptr<CadConstraint> mLineExtensionConstraint;
+    std::unique_ptr<CadConstraint> mXyVertexConstraint;
     Qgis::BetweenLineConstraint mBetweenLineConstraint;
     double mCommonAngleConstraint; // if 0: do not snap to common angles
 
-    // point list and current snap point / segment
+    //! Flag that controls whether snapping to features has priority over common angle
+    bool mSnappingPrioritizeFeatures = false;
+
+    // Point list and current snap point / segment
     QList<QgsPoint> mCadPointList;
     QList<QgsPointXY> mSnappedSegment;
 
     bool mSessionActive = false;
 
-    // error message
+    // Construction path history
+    std::unique_ptr<QgsVectorLayer> mConstructionGuidesLayer;
+    QgsFeatureId mConstructionGuideId;
+    QgsLineString mConstructionGuideLine;
+    bool mDeferredUpdateConstructionGuidesCrs = false;
+
+    // Error message
     std::unique_ptr<QgsMessageBarItem> mErrorMessage;
 
     // UI
-    QMap< QAction *, double > mCommonAngleActions; // map the common angle actions with their angle values
-    QAction *mLineExtensionAction;
-    QAction *mXyVertexAction;
+    QMap<double, QAction *> mCommonAngleActions; // map the common angle actions with their angle values
+    QAction *mLineExtensionAction = nullptr;
+    QAction *mXyVertexAction = nullptr;
+    QAction *mRecordConstructionGuides = nullptr;
+    QAction *mShowConstructionGuides = nullptr;
+    QAction *mSnapToConstructionGuides = nullptr;
+    QAction *mClearConstructionGuides = nullptr;
 
     // Snap indicator
     QgsPointLocator::Match mSnapMatch;
@@ -1022,7 +1161,10 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
     Qgis::LineExtensionSide mSoftLockLineExtension;
     double mSoftLockX;
     double mSoftLockY;
-    QQueue< QgsPointLocator::Match > mLockedSnapVertices;
+    QQueue<QgsPointLocator::Match> mLockedSnapVertices;
+
+    // Advanced digitizing tool
+    QPointer<QgsAdvancedDigitizingTool> mCurrentTool;
 
 #ifdef SIP_RUN
     //! event filter for line edits in the dock UI (angle/distance/x/y line edits)
@@ -1030,6 +1172,14 @@ class GUI_EXPORT QgsAdvancedDigitizingDockWidget : public QgsDockWidget, private
 #endif
     //! Convenient method to convert a 2D Point to a QgsPoint
     QgsPoint pointXYToPoint( const QgsPointXY &point ) const;
+
+    QMenu *mCommonAngleActionsMenu = nullptr;
+    QMenu *mFloaterActionsMenu = nullptr;
+
+    static const QgsSettingsEntryBool *settingsCadSnappingPriorityPrioritizeFeature;
+    static const QgsSettingsEntryBool *settingsCadRecordConstructionGuides;
+    static const QgsSettingsEntryBool *settingsCadShowConstructionGuides;
+    static const QgsSettingsEntryBool *settingsCadSnapToConstructionGuides;
 
     friend class TestQgsAdvancedDigitizing;
     friend class TestQgsAdvancedDigitizingDockWidget;

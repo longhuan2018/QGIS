@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsdecorationlayoutextentdialog.h"
+#include "moc_qgsdecorationlayoutextentdialog.cpp"
 
 #include "qgsdecorationlayoutextent.h"
 
@@ -63,7 +64,7 @@ void QgsDecorationLayoutExtentDialog::updateGuiElements()
 void QgsDecorationLayoutExtentDialog::updateDecoFromGui()
 {
   mDeco.setEnabled( grpEnable->isChecked() );
-  mDeco.setSymbol( mSymbolButton->clonedSymbol< QgsFillSymbol >() );
+  mDeco.setSymbol( mSymbolButton->clonedSymbol<QgsFillSymbol>() );
   mDeco.setTextFormat( mButtonFontStyle->textFormat() );
   mDeco.setLabelExtents( mCheckBoxLabelExtents->isChecked() );
 }
@@ -87,5 +88,5 @@ void QgsDecorationLayoutExtentDialog::buttonBox_rejected()
 
 void QgsDecorationLayoutExtentDialog::showHelp()
 {
-  QgsHelp::openHelp( QStringLiteral( "introduction/general_tools.html#layout-extents" ) );
+  QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#layoutextents-decoration" ) );
 }

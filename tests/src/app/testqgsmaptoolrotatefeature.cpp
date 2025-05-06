@@ -33,21 +33,22 @@
  * \ingroup UnitTests
  * This is a unit test for the vertex tool
  */
-class TestQgsMapToolRotateFeature: public QObject
+class TestQgsMapToolRotateFeature : public QObject
 {
     Q_OBJECT
   public:
     TestQgsMapToolRotateFeature();
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
 
     void testRotateFeature();
     void testRotateFeatureManualAnchor();
     void testCancelManualAnchor();
     void testRotateFeatureManualAnchorAfterStartRotate();
     void testRotateFeatureManualAnchorSnapping();
+    void testAvoidIntersectionsAndTopoEdit();
 
   private:
     QgisApp *mQgisApp = nullptr;
@@ -214,9 +215,9 @@ void TestQgsMapToolRotateFeature::testRotateFeatureManualAnchorSnapping()
 
   QgsSnappingConfig cfg = mCanvas->snappingUtils()->config();
   const double tolerance = cfg.tolerance();
-  const QgsTolerance::UnitType units = cfg.units();
+  const Qgis::MapToolUnit units = cfg.units();
   cfg.setTolerance( 0.5 );
-  cfg.setUnits( QgsTolerance::LayerUnits );
+  cfg.setUnits( Qgis::MapToolUnit::Layer );
   mCanvas->snappingUtils()->setConfig( cfg );
 
   // set anchor point, should snap to (1.1, 5)
@@ -239,6 +240,34 @@ void TestQgsMapToolRotateFeature::testRotateFeatureManualAnchorSnapping()
   cfg.setTolerance( tolerance );
   cfg.setUnits( units );
   mCanvas->snappingUtils()->setConfig( cfg );
+}
+
+void TestQgsMapToolRotateFeature::testAvoidIntersectionsAndTopoEdit()
+{
+  const bool topologicalEditing = QgsProject::instance()->topologicalEditing();
+  const Qgis::AvoidIntersectionsMode mode( QgsProject::instance()->avoidIntersectionsMode() );
+
+  QgsProject::instance()->setAvoidIntersectionsMode( Qgis::AvoidIntersectionsMode::AvoidIntersectionsCurrentLayer );
+  QgsProject::instance()->setTopologicalEditing( true );
+
+  TestQgsMapToolUtils utils( mRotateTool );
+
+  // remove anchor point if it exists
+  utils.mouseClick( 1, 1, Qt::RightButton, Qt::KeyboardModifiers(), true );
+
+  utils.mouseClick( 1, 1, Qt::LeftButton, Qt::KeyboardModifiers(), true );
+  utils.mouseMove( 1.6, 0.5 );
+  utils.mouseClick( 1.6, 0.5, Qt::LeftButton, Qt::KeyboardModifiers(), true );
+
+  const QString wkt1 = "Polygon ((0.5 1.21, 1.1 0.61, 1.1 0.39, 0.5 -0.21, -0.21 0.5, 0.5 1.21))";
+  QCOMPARE( mLayerBase->getFeature( 1 ).geometry().asWkt( 2 ), wkt1 );
+  const QString wkt2 = "Polygon ((1.1 0, 1.1 0.39, 1.1 0.61, 1.1 5, 2.1 5, 2.1 0, 1.1 0))";
+  QCOMPARE( mLayerBase->getFeature( 2 ).geometry().asWkt( 2 ), wkt2 );
+
+  mLayerBase->undoStack()->undo();
+
+  QgsProject::instance()->setTopologicalEditing( topologicalEditing );
+  QgsProject::instance()->setAvoidIntersectionsMode( mode );
 }
 
 

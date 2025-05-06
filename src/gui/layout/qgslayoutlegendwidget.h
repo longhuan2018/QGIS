@@ -23,10 +23,13 @@
 
 #include "qgis_gui.h"
 #include "ui_qgslayoutlegendwidgetbase.h"
+#include "ui_qgslayoutlegendmapfilteringwidgetbase.h"
 #include "qgslayoutitemwidget.h"
 #include "qgslayoutitemlegend.h"
 #include <QWidget>
 #include <QItemDelegate>
+
+class QgsLayoutLegendMapFilteringWidget;
 
 ///@cond PRIVATE
 
@@ -37,7 +40,7 @@
  * \note This class is not a part of public API
  * \since QGIS 3.12
  */
-class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public QgsExpressionContextGenerator, private Ui::QgsLayoutLegendWidgetBase
+class GUI_EXPORT QgsLayoutLegendWidget : public QgsLayoutItemBaseWidget, public QgsExpressionContextGenerator, private Ui::QgsLayoutLegendWidgetBase
 {
     Q_OBJECT
 
@@ -64,7 +67,6 @@ class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public Q
     void setCurrentNodeStyleFromAction();
 
   protected:
-
     bool setNewItem( QgsLayoutItem *item ) override;
 
   private slots:
@@ -89,6 +91,7 @@ class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public Q
     void mIconLabelSpaceSpinBox_valueChanged( double d );
     void mBoxSpaceSpinBox_valueChanged( double d );
     void mColumnSpaceSpinBox_valueChanged( double d );
+    void maxWidthChanged( double width );
     void mCheckBoxAutoUpdate_stateChanged( int state, bool userTriggered = true );
     void composerMapChanged( QgsLayoutItem *item );
     void mCheckboxResizeContents_toggled( bool checked );
@@ -115,6 +118,9 @@ class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public Q
     void selectedChanged( const QModelIndex &current, const QModelIndex &previous );
 
     void setLegendMapViewData();
+
+    void expandLegendTree();
+    void collapseLegendTree();
 
   private slots:
     //! Sets GUI according to state of mLegend
@@ -147,9 +153,11 @@ class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public Q
     QgsLayoutLegendWidget() = delete;
     void blockAllSignals( bool b );
 
-    QPointer< QgsLayoutItemLegend > mLegend;
+    QPointer<QgsLayoutItemLegend> mLegend;
     QgsMapCanvas *mMapCanvas = nullptr;
     QgsLayoutItemPropertiesWidget *mItemPropertiesWidget = nullptr;
+
+    QPointer<QgsLayoutLegendMapFilteringWidget> mMapFilteringWidget;
 };
 
 /**
@@ -161,7 +169,6 @@ class GUI_EXPORT QgsLayoutLegendWidget: public QgsLayoutItemBaseWidget, public Q
  */
 class GUI_EXPORT QgsLayoutLegendMenuProvider : public QgsLayerTreeViewMenuProvider
 {
-
   public:
     //! constructor
     QgsLayoutLegendMenuProvider( QgsLayerTreeView *view, QgsLayoutLegendWidget *w );
@@ -182,12 +189,11 @@ class GUI_EXPORT QgsLayoutLegendMenuProvider : public QgsLayerTreeViewMenuProvid
  * \note This class is not a part of public API
  * \since QGIS 3.14
  */
-class GUI_EXPORT QgsLayoutLegendNodeWidget: public QgsPanelWidget, private Ui::QgsLayoutLegendNodeWidgetBase
+class GUI_EXPORT QgsLayoutLegendNodeWidget : public QgsPanelWidget, private Ui::QgsLayoutLegendNodeWidgetBase
 {
     Q_OBJECT
 
   public:
-
     QgsLayoutLegendNodeWidget( QgsLayoutItemLegend *legend, QgsLayerTreeNode *node, QgsLayerTreeModelLegendNode *legendNode, int originalLegendNodeIndex, QWidget *parent = nullptr );
 
     void setDockMode( bool dockMode ) override;
@@ -204,16 +210,68 @@ class GUI_EXPORT QgsLayoutLegendNodeWidget: public QgsPanelWidget, private Ui::Q
     void columnSplitChanged();
 
   private:
-
     QgsLayoutItemLegend *mLegend = nullptr;
     QgsLayerTreeNode *mNode = nullptr;
     QgsLayerTreeLayer *mLayer = nullptr;
     QgsLayerTreeModelLegendNode *mLegendNode = nullptr;
     int mOriginalLegendNodeIndex = -1;
+};
 
+
+/**
+ * \ingroup gui
+ * \brief Model for legend linked map items
+ *
+ * \note This class is not a part of public API
+ * \since QGIS 3.32
+ */
+class GUI_EXPORT QgsLayoutLegendMapFilteringModel : public QSortFilterProxyModel
+{
+    Q_OBJECT
+
+  public:
+    //! constructor
+    explicit QgsLayoutLegendMapFilteringModel( QgsLayoutItemLegend *legend, QgsLayoutModel *layoutModel, QObject *parent = nullptr );
+
+    int columnCount( const QModelIndex &parent = QModelIndex() ) const override;
+    QVariant data( const QModelIndex &index, int role ) const override;
+    bool setData( const QModelIndex &index, const QVariant &value, int role ) override;
+    Qt::ItemFlags flags( const QModelIndex &index ) const override;
+
+  protected:
+    bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override;
+
+  private:
+    QgsLayoutModel *mLayoutModel = nullptr;
+    QPointer<QgsLayoutItemLegend> mLegendItem;
+};
+
+/**
+ * \ingroup gui
+ * \brief Allows configuration of layout legend map filtering settings.
+ *
+ * \note This class is not a part of public API
+ * \since QGIS 3.32
+ */
+class GUI_EXPORT QgsLayoutLegendMapFilteringWidget : public QgsLayoutItemBaseWidget, private Ui::QgsLayoutLegendMapFilteringWidgetBase
+{
+    Q_OBJECT
+
+  public:
+    //! constructor
+    explicit QgsLayoutLegendMapFilteringWidget( QgsLayoutItemLegend *legend );
+
+  protected:
+    bool setNewItem( QgsLayoutItem *item ) final;
+
+  private slots:
+    void updateGuiElements();
+
+  private:
+    QPointer<QgsLayoutItemLegend> mLegendItem;
+    bool mBlockUpdates = false;
 };
 
 ///@endcond
 
 #endif //QGSLAYOUTLEGENDWIDGET_H
-

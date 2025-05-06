@@ -305,7 +305,7 @@ QgsGeoPackageProjectUri QgsGeoPackageProjectStorage::decodeUri( const QString &u
   QgsGeoPackageProjectUri gpkgUri;
 
   // Check for windows paths: github issue #33057
-  const QRegularExpression winLocalPath { R"(^[A-Za-z]:)" };
+  const thread_local QRegularExpression winLocalPath { R"(^[A-Za-z]:)" };
   // Check for windows network shares: github issue #31310
   const QString path { ( winLocalPath.match( urlAsString ).hasMatch() ||
                          urlAsString.startsWith( QLatin1String( "//" ) ) ) ?
@@ -369,10 +369,10 @@ bool QgsGeoPackageProjectStorage::removeProject( const QString &uri )
     errCause = QObject::tr( "Could not remove project %1: %2" ).arg( uri, errCause );
     QgsMessageLog::logMessage( errCause, QStringLiteral( "OGR" ), Qgis::MessageLevel::Warning );
   }
-  else if ( QgsProject::instance()->fileName() == uri )
+  else if ( QgsProject::instance()->fileName() == uri ) // skip-keyword-check
   {
     QgsMessageLog::logMessage( QStringLiteral( "Current project was removed from storage, marking it dirty." ), QStringLiteral( "OGR" ), Qgis::MessageLevel::Warning );
-    QgsProject::instance()->setDirty( true );
+    QgsProject::instance()->setDirty( true ); // skip-keyword-check
   }
   return errCause.isEmpty();
 }

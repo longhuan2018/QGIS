@@ -17,6 +17,8 @@
 #ifndef QGSMAPLAYERUTILS_H
 #define QGSMAPLAYERUTILS_H
 
+#define MAXIMUM_OPENSTREETMAP_TILES_FETCH  5000
+
 #include "qgis_sip.h"
 #include "qgis_core.h"
 #include "qgis.h"
@@ -26,6 +28,7 @@ class QgsRectangle;
 class QgsCoordinateReferenceSystem;
 class QgsCoordinateTransformContext;
 class QgsAbstractDatabaseProviderConnection;
+class QgsGeometry;
 
 /**
  * \ingroup core
@@ -78,7 +81,7 @@ class CORE_EXPORT QgsMapLayerUtils
      *
      * \since QGIS 3.26
      */
-    static QList< QgsMapLayer * > sortLayersByType( const QList< QgsMapLayer * > &layers, const QList< QgsMapLayerType > &order );
+    static QList< QgsMapLayer * > sortLayersByType( const QList< QgsMapLayer * > &layers, const QList< Qgis::LayerType > &order );
 
     /**
      * Launders a layer's name, converting it into a format which is general suitable for
@@ -93,6 +96,13 @@ class CORE_EXPORT QgsMapLayerUtils
      * \since QGIS 3.28
      */
     static QString launderLayerName( const QString &name );
+
+    /**
+     * Returns TRUE if the layer is served by OpenStreetMap server.
+     *
+     * \since QGIS 3.40
+     */
+    static bool isOpenStreetMapLayer( QgsMapLayer *layer );
 
 };
 

@@ -15,9 +15,10 @@
  ***************************************************************************/
 
 #include "qgsauthapiheaderedit.h"
+#include "moc_qgsauthapiheaderedit.cpp"
 #include "ui_qgsauthapiheaderedit.h"
 
-#include "qgsapplication.h"
+#include "qgslogger.h"
 
 QgsAuthApiHeaderEdit::QgsAuthApiHeaderEdit( QWidget *parent )
   : QgsAuthMethodEdit( parent )
@@ -92,7 +93,7 @@ void QgsAuthApiHeaderEdit::removeHeaderPair()
 
 void QgsAuthApiHeaderEdit::clearHeaderPairs()
 {
-  for ( int i = tblwdgHeaderPairs->rowCount(); i > 0 ; --i )
+  for ( int i = tblwdgHeaderPairs->rowCount(); i > 0; --i )
   {
     tblwdgHeaderPairs->removeRow( i - 1 );
   }

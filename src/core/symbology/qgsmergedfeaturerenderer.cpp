@@ -26,6 +26,7 @@
 #include "qgspainteffect.h"
 #include "qgspainteffectregistry.h"
 #include "qgsstyleentityvisitor.h"
+#include "qgsmaptopixelgeometrysimplifier.h"
 
 #include <QDomDocument>
 #include <QDomElement>
@@ -165,6 +166,16 @@ void QgsMergedFeatureRenderer::startRender( QgsRenderContext &context, const Qgs
   }
 }
 
+Qgis::FeatureRendererFlags QgsMergedFeatureRenderer::flags() const
+{
+  Qgis::FeatureRendererFlags res;
+  if ( mSubRenderer )
+  {
+    res = mSubRenderer->flags();
+  }
+  return res;
+}
+
 bool QgsMergedFeatureRenderer::renderFeature( const QgsFeature &feature, QgsRenderContext &context, int layer, bool selected, bool drawVertexMarker )
 {
   if ( !context.painter() || !mSubRenderer )
@@ -232,6 +243,20 @@ bool QgsMergedFeatureRenderer::renderFeature( const QgsFeature &feature, QgsRend
   }
   QgsGeometry geom = feature.geometry();
 
+  // Simplify the geometry, if needed.
+  if ( context.vectorSimplifyMethod().forceLocalOptimization() )
+  {
+    const int simplifyHints = context.vectorSimplifyMethod().simplifyHints();
+    const QgsMapToPixelSimplifier simplifier( simplifyHints, context.vectorSimplifyMethod().tolerance(),
+        context.vectorSimplifyMethod().simplifyAlgorithm() );
+
+    QgsGeometry simplified( simplifier.simplify( geom ) );
+    if ( !simplified.isEmpty() )
+    {
+      geom = simplified;
+    }
+  }
+
   QgsCoordinateTransform xform = context.coordinateTransform();
   if ( xform.isValid() )
   {
@@ -294,7 +319,7 @@ void QgsMergedFeatureRenderer::stopRender( QgsRenderContext &context )
       case QgsMergedFeatureRenderer::Merge:
       {
         QgsGeometry unioned( QgsGeometry::unaryUnion( cit.geometries ) );
-        if ( unioned.type() == QgsWkbTypes::LineGeometry )
+        if ( unioned.type() == Qgis::GeometryType::Line )
           unioned = unioned.mergeLines();
         feat.setGeometry( unioned );
         break;
@@ -328,13 +353,13 @@ void QgsMergedFeatureRenderer::stopRender( QgsRenderContext &context )
         for ( const QgsGeometry &geom : std::as_const( cit.geometries ) )
         {
           QgsMultiPolygonXY multi;
-          QgsWkbTypes::Type type = QgsWkbTypes::flatType( geom.constGet()->wkbType() );
+          Qgis::WkbType type = QgsWkbTypes::flatType( geom.constGet()->wkbType() );
 
-          if ( ( type == QgsWkbTypes::Polygon ) || ( type == QgsWkbTypes::CurvePolygon ) )
+          if ( ( type == Qgis::WkbType::Polygon ) || ( type == Qgis::WkbType::CurvePolygon ) )
           {
             multi.append( geom.asPolygon() );
           }
-          else if ( ( type == QgsWkbTypes::MultiPolygon ) || ( type == QgsWkbTypes::MultiSurface ) )
+          else if ( ( type == Qgis::WkbType::MultiPolygon ) || ( type == Qgis::WkbType::MultiSurface ) )
           {
             multi = geom.asMultiPolygon();
           }
@@ -366,7 +391,11 @@ void QgsMergedFeatureRenderer::stopRender( QgsRenderContext &context )
     if ( feat.hasGeometry() )
     {
       mContext.expressionContext().setFeature( feat );
+      const bool prevSimplify = context.vectorSimplifyMethod().forceLocalOptimization();
+      // we've already simplified, no need to re-do simplification
+      mContext.vectorSimplifyMethod().setForceLocalOptimization( false );
       mSubRenderer->renderFeature( feat, mContext );
+      mContext.vectorSimplifyMethod().setForceLocalOptimization( prevSimplify );
     }
   }
 
@@ -563,13 +592,13 @@ QgsMergedFeatureRenderer *QgsMergedFeatureRenderer::convertFromRenderer( const Q
        renderer->type() == QLatin1String( "graduatedSymbol" ) ||
        renderer->type() == QLatin1String( "RuleRenderer" ) )
   {
-    std::unique_ptr< QgsMergedFeatureRenderer > res = std::make_unique< QgsMergedFeatureRenderer >( renderer->clone() );
+    auto res = std::make_unique< QgsMergedFeatureRenderer >( renderer->clone() );
     renderer->copyRendererData( res.get() );
     return res.release();
   }
   else if ( renderer->type() == QLatin1String( "invertedPolygonRenderer" ) )
   {
-    std::unique_ptr< QgsMergedFeatureRenderer > res = std::make_unique< QgsMergedFeatureRenderer >( renderer->embeddedRenderer() ? renderer->embeddedRenderer()->clone() : nullptr );
+    auto res = std::make_unique< QgsMergedFeatureRenderer >( renderer->embeddedRenderer() ? renderer->embeddedRenderer()->clone() : nullptr );
     renderer->copyRendererData( res.get() );
     return res.release();
   }

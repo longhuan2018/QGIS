@@ -31,7 +31,7 @@ class QgsSearchWidgetWrapper;
 
 /**
  * \ingroup gui
- * \brief Every attribute editor widget needs a factory, which inherits this class
+ * \brief Every attribute editor widget needs a factory, which inherits this class.
  *
  * It provides metadata for the widgets such as the name (human readable), it serializes
  * the configuration to an xml structure and loads the configuration from there.
@@ -42,7 +42,6 @@ class QgsSearchWidgetWrapper;
 class GUI_EXPORT QgsEditorWidgetFactory
 {
   public:
-
     /**
      * Constructor
      *
@@ -106,7 +105,10 @@ class GUI_EXPORT QgsEditorWidgetFactory
      * \returns A map of widget type names and weight values
      * \note not available in Python bindings
      */
-    virtual QHash<const char *, int> supportedWidgetTypes() { return QHash<const char *, int>(); } SIP_SKIP
+    virtual QHash<const char *, int> supportedWidgetTypes() SIP_SKIP
+    {
+      return QHash<const char *, int>();
+    }
 
     /**
      * This method allows disabling this editor widget type for a certain field.

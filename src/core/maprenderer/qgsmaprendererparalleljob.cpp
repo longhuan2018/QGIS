@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsmaprendererparalleljob.h"
+#include "moc_qgsmaprendererparalleljob.cpp"
 
 #include "qgsfeedback.h"
 #include "qgslabelingengine.h"
@@ -186,7 +187,7 @@ void QgsMapRendererParallelJob::waitForFinished()
 
     mSecondPassFutureWatcher.waitForFinished();
 
-    QgsDebugMsg( QStringLiteral( "waitForFinished (1): %1 ms" ).arg( t.elapsed() / 1000.0 ) );
+    QgsDebugMsgLevel( QStringLiteral( "waitForFinished (1): %1 ms" ).arg( t.elapsed() / 1000.0 ), 2 );
 
     renderLayersSecondPassFinished();
   }
@@ -356,6 +357,12 @@ void QgsMapRendererParallelJob::renderLayerStatic( LayerRenderJob &job )
   if ( job.cached )
     return;
 
+  if ( job.previewRenderImage && !job.previewRenderImageInitialized )
+  {
+    job.previewRenderImage->fill( 0 );
+    job.previewRenderImageInitialized = true;
+  }
+
   if ( job.img )
   {
     job.img->fill( 0 );
@@ -375,16 +382,16 @@ void QgsMapRendererParallelJob::renderLayerStatic( LayerRenderJob &job )
   catch ( QgsException &e )
   {
     Q_UNUSED( e )
-    QgsDebugMsg( "Caught unhandled QgsException: " + e.what() );
+    QgsDebugError( "Caught unhandled QgsException: " + e.what() );
   }
   catch ( std::exception &e )
   {
     Q_UNUSED( e )
-    QgsDebugMsg( "Caught unhandled std::exception: " + QString::fromLatin1( e.what() ) );
+    QgsDebugError( "Caught unhandled std::exception: " + QString::fromLatin1( e.what() ) );
   }
   catch ( ... )
   {
-    QgsDebugMsg( QStringLiteral( "Caught unhandled unknown exception" ) );
+    QgsDebugError( QStringLiteral( "Caught unhandled unknown exception" ) );
   }
 
   job.errors = job.renderer->errors();
@@ -421,23 +428,23 @@ void QgsMapRendererParallelJob::renderLabelsStatic( QgsMapRendererParallelJob *s
     catch ( QgsException &e )
     {
       Q_UNUSED( e )
-      QgsDebugMsg( "Caught unhandled QgsException: " + e.what() );
+      QgsDebugError( "Caught unhandled QgsException: " + e.what() );
     }
     catch ( std::exception &e )
     {
       Q_UNUSED( e )
-      QgsDebugMsg( "Caught unhandled std::exception: " + QString::fromLatin1( e.what() ) );
+      QgsDebugError( "Caught unhandled std::exception: " + QString::fromLatin1( e.what() ) );
     }
     catch ( ... )
     {
-      QgsDebugMsg( QStringLiteral( "Caught unhandled unknown exception" ) );
+      QgsDebugError( QStringLiteral( "Caught unhandled unknown exception" ) );
     }
 
     painter.end();
 
     job.renderingTime = labelTime.elapsed();
     job.complete = true;
-    job.participatingLayers = _qgis_listRawToQPointer( self->mLabelingEngineV2->participatingLayers() );
+    job.participatingLayers = self->participatingLabelLayers( self->mLabelingEngineV2.get() );
     if ( job.img )
     {
       self->mFinalImage = composeImage( self->mSettings, self->mLayerJobs, self->mLabelJob );

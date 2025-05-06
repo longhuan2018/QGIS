@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 
 #include "QgisUntwine.hpp"
@@ -55,6 +56,9 @@ std::string QgisUntwine::progressMessage() const
 std::string QgisUntwine::errorMessage() const
 {
     readPipe();
+
+    if ( m_errorMsg.empty() && m_exitCode != 0 )
+        m_errorMsg = "Untwine exited with code: " + std::to_string( m_exitCode );
 
     return m_errorMsg;
 }

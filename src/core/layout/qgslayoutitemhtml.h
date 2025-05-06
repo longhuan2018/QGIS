@@ -25,13 +25,13 @@
 
 class QgsWebPage;
 class QImage;
+class QgsLayoutItemLabel;
 class QgsVectorLayer;
 class QgsNetworkContentFetcher;
 
 /**
  * \ingroup core
  * \brief A layout multiframe subclass for HTML content.
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsLayoutItemHtml: public QgsLayoutMultiFrame
 {
@@ -62,6 +62,13 @@ class CORE_EXPORT QgsLayoutItemHtml: public QgsLayoutMultiFrame
      * Returns a new QgsLayoutItemHtml for the specified parent \a layout.
      */
     static QgsLayoutItemHtml *create( QgsLayout *layout ) SIP_FACTORY;
+
+    /**
+     * Returns a new QgsLayoutItemHtml matching the content and rendering of a given \a label.
+     *
+     * \since QGIS 3.32
+     */
+    static QgsLayoutItemHtml *createFromLabel( QgsLayoutItemLabel *label ) SIP_FACTORY;
 
     /**
      * Sets the source \a mode for item's HTML content.
@@ -224,7 +231,7 @@ class CORE_EXPORT QgsLayoutItemHtml: public QgsLayoutMultiFrame
     //! Recalculates the frame sizes for the current viewport dimensions
     void recalculateFrameSizes() override;
 
-    void refreshDataDefinedProperty( QgsLayoutObject::DataDefinedProperty property = QgsLayoutObject::AllProperties ) override;
+    void refreshDataDefinedProperty( QgsLayoutObject::DataDefinedProperty property = QgsLayoutObject::DataDefinedProperty::AllProperties ) override;
 
   protected:
 

@@ -32,7 +32,7 @@ class QgsElevationProfilePlotItem;
 /**
  * \ingroup quick
  *
- * \brief This class implements a visual Qt Quick Item that does elevation profile rendering
+ * \brief Implements a visual Qt Quick Item that does elevation profile rendering
  * according to the current project settings and a profile curve geometry.
  *
  * \since QGIS 3.30
@@ -58,7 +58,6 @@ class QUICK_EXPORT QgsQuickElevationProfileCanvas : public QQuickItem
     Q_PROPERTY( bool isRendering READ isRendering NOTIFY isRenderingChanged )
 
   public:
-
     /**
      * Constructor for QgsElevationProfileCanvas, with the specified \a parent widget.
      */
@@ -259,8 +258,6 @@ class QUICK_EXPORT QgsQuickElevationProfileCanvas : public QQuickItem
 
     QgsGeometry mProfileCurve;
     double mTolerance = 0;
-
-    bool mFirstDrawOccurred = false;
 
     bool mZoomFullWhenJobFinished = true;
 

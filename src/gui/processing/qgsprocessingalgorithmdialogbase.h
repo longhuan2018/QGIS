@@ -20,15 +20,19 @@
 #include "qgis_gui.h"
 #include "ui_qgsprocessingalgorithmdialogbase.h"
 #include "ui_qgsprocessingalgorithmprogressdialogbase.h"
-#include "processing/qgsprocessingcontext.h"
-#include "processing/qgsprocessingfeedback.h"
+#include "ui_qgsprocessingcontextoptionsbase.h"
+#include "qgsprocessingcontext.h"
+#include "qgsprocessingfeedback.h"
 #include "qgsprocessingwidgetwrapper.h"
+
+#include <QThread>
 
 ///@cond NOT_STABLE
 
 class QgsProcessingAlgorithm;
 class QToolButton;
 class QgsProcessingAlgorithmDialogBase;
+class QgsProcessingContextOptionsWidget;
 class QgsMessageBar;
 class QgsProcessingAlgRunnerTask;
 class QgsTask;
@@ -39,14 +43,12 @@ class QgsTask;
  * \ingroup gui
  * \brief QgsProcessingFeedback subclass linked to a QgsProcessingAlgorithmDialogBase
  * \note Not stable API
- * \since QGIS 3.0
  */
 class QgsProcessingAlgorithmDialogFeedback : public QgsProcessingFeedback
 {
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsProcessingAlgorithmDialogFeedback.
      */
@@ -61,6 +63,7 @@ class QgsProcessingAlgorithmDialogFeedback : public QgsProcessingFeedback
     void commandInfoPushed( const QString &text );
     void debugInfoPushed( const QString &text );
     void consoleInfoPushed( const QString &text );
+    void formattedMessagePushed( const QString &html );
 
   public slots:
 
@@ -71,7 +74,7 @@ class QgsProcessingAlgorithmDialogFeedback : public QgsProcessingFeedback
     void pushCommandInfo( const QString &info ) override;
     void pushDebugInfo( const QString &info ) override;
     void pushConsoleInfo( const QString &info ) override;
-
+    void pushFormattedMessage( const QString &html, const QString &text ) override;
 };
 #endif
 
@@ -79,14 +82,12 @@ class QgsProcessingAlgorithmDialogFeedback : public QgsProcessingFeedback
  * \ingroup gui
  * \brief Base class for processing algorithm dialogs.
  * \note This is not considered stable API and may change in future QGIS versions.
- * \since QGIS 3.0
  */
 class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsProcessingParametersGenerator, public QgsProcessingContextGenerator, private Ui::QgsProcessingDialogBase
 {
     Q_OBJECT
 
   public:
-
     /**
      * Log format options.
      * \since QGIS 3.2
@@ -94,7 +95,7 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     enum LogFormat
     {
       FormatPlainText, //!< Plain text file (.txt)
-      FormatHtml, //!< HTML file (.html)
+      FormatHtml,      //!< HTML file (.html)
     };
 
     /**
@@ -105,7 +106,7 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     enum class DialogMode : int
     {
       Single, //!< Single algorithm execution mode
-      Batch, //!< Batch processing mode
+      Batch,  //!< Batch processing mode
     };
     Q_ENUM( QgsProcessingAlgorithmDialogBase::DialogMode )
 
@@ -181,7 +182,7 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
      * \see setLogLevel()
      * \since QGIS 3.20
      */
-    QgsProcessingContext::LogLevel logLevel() const;
+    Qgis::ProcessingLogLevel logLevel() const;
 
     /**
      * Sets the logging \a level to use when running algorithms from the dialog.
@@ -189,7 +190,7 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
      * \see logLevel()
      * \since QGIS 3.20
      */
-    void setLogLevel( QgsProcessingContext::LogLevel level );
+    void setLogLevel( Qgis::ProcessingLogLevel level );
 
     /**
      * Sets the parameter \a values to show in the dialog.
@@ -216,6 +217,15 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
      * Pushes an information string to the dialog's log.
      */
     void pushInfo( const QString &info );
+
+    /**
+     * Pushes a pre-formatted message to the dialog's log
+     *
+     * This can be used to push formatted HTML messages to the dialog.
+     *
+     * \since QGIS 3.36
+     */
+    void pushFormattedMessage( const QString &html );
 
     /**
      * Pushes a debug info string to the dialog's log.
@@ -275,7 +285,6 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     void reject() override;
 
   protected:
-
     void closeEvent( QCloseEvent *e ) override;
 
     /**
@@ -379,7 +388,6 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     /**
      * Formats an input \a string for display in the log tab.
      *
-     * \since QGIS 3.0.1
      */
     static QString formatStringForLog( const QString &string );
 
@@ -390,7 +398,25 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
      */
     virtual bool isFinalized();
 
+    /**
+     * Applies any defined overrides for Processing context settings to the specified \a context.
+     *
+     * This allows the dialog to override default Processing settings for an individual algorithm execution.
+     *
+     * \since QGIS 3.32
+     */
+    void applyContextOverrides( QgsProcessingContext *context );
+
   signals:
+
+    /**
+     * Emitted when the algorithm is about to run in the specified \a context.
+     *
+     * This signal can be used to tweak the \a context prior to the algorithm execution.
+     *
+     * \since QGIS 3.38
+     */
+    void algorithmAboutToRun( QgsProcessingContext *context );
 
     /**
      * Emitted whenever an algorithm has finished executing in the dialog.
@@ -428,9 +454,9 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     void linkClicked( const QUrl &url );
     void taskTriggered( QgsTask *task );
     void closeClicked();
+    void urlClicked( const QUrl &url );
 
   private:
-
     DialogMode mMode = DialogMode::Single;
 
     QPushButton *mButtonRun = nullptr;
@@ -443,24 +469,32 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
     QMenu *mAdvancedMenu = nullptr;
     QAction *mCopyAsQgisProcessCommand = nullptr;
     QAction *mPasteJsonAction = nullptr;
+    QAction *mContextSettingsAction = nullptr;
 
     bool mExecuted = false;
     bool mExecutedAnyResult = false;
     QVariantMap mResults;
     QgsPanelWidget *mMainWidget = nullptr;
-    std::unique_ptr< QgsProcessingAlgorithm > mAlgorithm;
+    std::unique_ptr<QgsProcessingAlgorithm> mAlgorithm;
     QgsProcessingAlgRunnerTask *mAlgorithmTask = nullptr;
 
     bool mHelpCollapsed = false;
 
     int mMessageLoggedCount = 0;
 
-    QgsProcessingContext::LogLevel mLogLevel = QgsProcessingContext::DefaultLevel;
+    Qgis::ProcessingLogLevel mLogLevel = Qgis::ProcessingLogLevel::DefaultLevel;
+
+    QPointer<QgsProcessingContextOptionsWidget> mContextOptionsWidget;
+    bool mOverrideDefaultContextSettings = false;
+    Qgis::InvalidGeometryCheck mGeometryCheck = Qgis::InvalidGeometryCheck::AbortOnInvalid;
+    Qgis::DistanceUnit mDistanceUnits = Qgis::DistanceUnit::Unknown;
+    Qgis::AreaUnit mAreaUnits = Qgis::AreaUnit::Unknown;
+    QString mTemporaryFolderOverride;
+    int mMaximumThreads = QThread::idealThreadCount();
 
     QString formatHelp( QgsProcessingAlgorithm *algorithm );
     void scrollToBottomOfLog();
     void processEvents();
-
 };
 
 #ifndef SIP_RUN
@@ -469,14 +503,12 @@ class GUI_EXPORT QgsProcessingAlgorithmDialogBase : public QDialog, public QgsPr
  * \ingroup gui
  * \brief A modal dialog for showing algorithm progress and log messages.
  * \note This is not considered stable API and may change in future QGIS versions.
- * \since QGIS 3.0
  */
 class QgsProcessingAlgorithmProgressDialog : public QDialog, private Ui::QgsProcessingProgressDialogBase
 {
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsProcessingAlgorithmProgressDialog.
      */
@@ -500,7 +532,67 @@ class QgsProcessingAlgorithmProgressDialog : public QDialog, private Ui::QgsProc
   public slots:
 
     void reject() override;
+};
 
+/**
+ * \ingroup gui
+ * \brief Widget for configuring settings for a Processing context.
+ * \note Not stable API
+ * \since QGIS 3.32
+ */
+class GUI_EXPORT QgsProcessingContextOptionsWidget : public QgsPanelWidget, private Ui::QgsProcessingContextOptionsBase
+{
+    Q_OBJECT
+
+  public:
+    /**
+     * Constructor for QgsProcessingContextOptionsWidget, with the specified \a parent widget.
+     */
+    QgsProcessingContextOptionsWidget( QWidget *parent SIP_TRANSFERTHIS = nullptr );
+
+    /**
+     * Sets the widget state using the specified \a context.
+     */
+    void setFromContext( const QgsProcessingContext *context );
+
+    /**
+     * Returns the invalid geometry check selected in the widget.
+     */
+    Qgis::InvalidGeometryCheck invalidGeometryCheck() const;
+
+    /**
+     * Returns the distance unit selected in the widget.
+     */
+    Qgis::DistanceUnit distanceUnit() const;
+
+    /**
+     * Returns the area unit selected in the widget.
+     */
+    Qgis::AreaUnit areaUnit() const;
+
+    /**
+     * Returns the optional temporary folder override location.
+     */
+    QString temporaryFolder();
+
+    /**
+     * Returns the number of threads to use selected in the widget.
+     */
+    int maximumThreads() const;
+
+    /**
+     * Sets the log \a level to shown in the widget.
+     *
+     * \since QGIS 3.34
+     */
+    void setLogLevel( Qgis::ProcessingLogLevel level );
+
+    /**
+     * Returns the logging level selected in the widget.
+     *
+     * \since QGIS 3.34
+     */
+    Qgis::ProcessingLogLevel logLevel() const;
 };
 
 #endif

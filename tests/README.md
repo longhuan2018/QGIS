@@ -4,7 +4,7 @@ QGIS unit tests
 # Building tests
 
 Make sure that you have enabled building of tests in CMake.
-`cmake -DENABLE_TESTS=ON ..`
+`cmake -D ENABLE_TESTS=ON ..`
 
 # Setting up the test environment
 
@@ -21,7 +21,7 @@ options.
 ## Postgres
 
 Make sure that you have enabled building of postgres test in CMake.
-`cmake -DENABLE_TESTS=ON -DENABLE_PGTEST=ON ..`
+`cmake -D ENABLE_TESTS=ON -D ENABLE_PGTEST=ON ..`
 
 To test the postgres provider you will need to setup a test database
 to which the postgres provider can connect.
@@ -40,16 +40,18 @@ The test database must be initialized using the sql-scripts:
 
     tests/testdata/provider/testdata_pg*.sql
 
-They take care of activating PostGIS and creating some tables containing
-test data.
+They take care of creating database test users, activating PostGIS
+and creating some tables containing test data. For this reason the
+database role running them needs to have privileges to perform
+those operations.
 
 For convenience, a shell script is provided to create the database
 and initialize it as needed:
 
     tests/testdata/provider/testdata_pg.sh
 
-Some tests will attempt to create database users too and expect them to
-be allowed to connect using a password.
+Some tests will attempt to create database users too and expect them
+to be allowed to connect using a password.
 Most PostgreSQL installation by default use "ident" authentication
 model when connecting via unix sockets. Make sure the `qgis_test`
 service (or your `QGIS_PGTEST_DB` connection string) uses a connection
@@ -61,7 +63,7 @@ Some tests require a specific PostgreSQL server configuration
 to bring up such server would be to (tweak $srcdir appropriately):
 
     QGIS_WORKSPACE=${srcdir} \
-    docker-compose -f .docker/docker-compose-testing-postgres.yml up -d postgres
+    docker compose -f .docker/docker-compose-testing-postgres.yml up -d postgres
     export PGHOST=`docker inspect docker_postgres_1 | jq -r .[0].NetworkSettings.Networks.docker_default.IPAddress`
     export PGUSER=docker
     export PGPASSWORD=docker
@@ -108,6 +110,9 @@ A useful hunting tool is `git grep`, which could be used like this:
   $ ctest -V -R PyQgsAuthManagerPasswordPostgresTest # use the CMakeLists.txt name
 ```
 
+You may also use `ctest -N` to get a list of test names according to
+ctest.
+
 If you get `Could not connect to any X display` errors it means that your build
 machine does not have an X server.  In that case you need to run the test under
 `xvfb-run`.  For example:
@@ -126,6 +131,16 @@ with something like this (tweak $builddir and $srcdir as appropriate)
    python ${srcdir}/tests/src/python/test_qgsvectorfilewriter.py
    TestQgsVectorLayer.testOverwriteLayer
 ```
+
+A convenient way to set all the variables used in the above snippet
+automatically is by sourcing the tests/env.sh script in build dir,
+for example:
+
+```
+source build/tests/env.sh
+python ${srcdir}/tests/src/python/test_provider_postgres.py \
+  TestPyQgsPostgresProvider.testExtent
+````
 
 #### Running python tests in GDB
 

@@ -20,12 +20,10 @@
 #include "qgsgeometry.h"
 #include "qgsvectorlayer.h"
 #include "qgsvectordataprovider.h"
-#include "qgsvectorlayerutils.h"
 #include "qgsreadwritelocker.h"
 
 #include <QMutexLocker>
 #include <QThread>
-
 
 
 QgsFeaturePool::QgsFeaturePool( QgsVectorLayer *layer )
@@ -33,13 +31,26 @@ QgsFeaturePool::QgsFeaturePool( QgsVectorLayer *layer )
   , mLayer( layer )
   , mGeometryType( layer->geometryType() )
   , mFeatureSource( std::make_unique<QgsVectorLayerFeatureSource>( layer ) )
+  , mLayerId( layer->id() )
   , mLayerName( layer->name() )
+  , mCrs( layer->crs() )
 {
-
+  Q_ASSERT( QThread::currentThread() == mLayer->thread() );
 }
 
 bool QgsFeaturePool::getFeature( QgsFeatureId id, QgsFeature &feature )
 {
+  // If the feature we want is amongst the features that have been updated,
+  // then get it from the dedicated hash.
+  // It would not be thread-safe to get it directly from the layer,
+  // and it could be outdated in the feature source (in case of a memory layer),
+  // and it could have been cleared from the cache due to a cache overflow.
+  if ( mUpdatedFeatures.contains( id ) )
+  {
+    feature = mUpdatedFeatures[id];
+    return true;
+  }
+
   // Why is there a write lock acquired here? Weird, we only want to read a feature from the cache, right?
   // A method like `QCache::object(const Key &key) const` certainly would not modify its internals.
   // Mmmh. What if reality was different?
@@ -47,8 +58,8 @@ bool QgsFeaturePool::getFeature( QgsFeatureId id, QgsFeature &feature )
   // small print of the QCache docs. This is the hint that reality is different.
   //
   // https://bugreports.qt.io/browse/QTBUG-19794
+  /* DO NOT CHANGE */ QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Write ); // DO NOT CHANGE!!!!!
 
-  QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Write );
   QgsFeature *cachedFeature = mFeatureCache.object( id );
   if ( cachedFeature )
   {
@@ -72,10 +83,12 @@ bool QgsFeaturePool::getFeature( QgsFeatureId id, QgsFeature &feature )
 
 QgsFeatureIds QgsFeaturePool::getFeatures( const QgsFeatureRequest &request, QgsFeedback *feedback )
 {
-  QgsReadWriteLocker( mCacheLock, QgsReadWriteLocker::Write );
+  QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Write );
   Q_UNUSED( feedback )
-  Q_ASSERT( QThread::currentThread() == qApp->thread() );
+  Q_ASSERT( mLayer );
+  Q_ASSERT( QThread::currentThread() == mLayer->thread() );
 
+  mUpdatedFeatures.clear();
   mFeatureCache.clear();
   mIndex = QgsSpatialIndex();
 
@@ -108,7 +121,8 @@ QgsFeatureIds QgsFeaturePool::getIntersects( const QgsRectangle &rect ) const
 
 QgsVectorLayer *QgsFeaturePool::layer() const
 {
-  Q_ASSERT( QThread::currentThread() == qApp->thread() );
+  if ( mLayer )
+    Q_ASSERT( QThread::currentThread() == mLayer->thread() );
 
   return mLayer.data();
 }
@@ -128,19 +142,21 @@ void QgsFeaturePool::insertFeature( const QgsFeature &feature, bool skipLock )
   mIndex.addFeature( indexFeature );
 }
 
-void QgsFeaturePool::refreshCache( const QgsFeature &feature )
+void QgsFeaturePool::refreshCache( QgsFeature feature, const QgsFeature &origFeature )
 {
-  QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Write );
-  mFeatureCache.remove( feature.id() );
-  mIndex.deleteFeature( feature );
-  locker.unlock();
+  // insert/refresh the updated features as well
+  mUpdatedFeatures.insert( feature.id(), feature );
 
-  QgsFeature tempFeature;
-  getFeature( feature.id(), tempFeature );
+  QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Write );
+  mFeatureCache.insert( feature.id(), new QgsFeature( feature ) );
+  mIndex.deleteFeature( origFeature );
+  mIndex.addFeature( feature );
+  locker.unlock();
 }
 
 void QgsFeaturePool::removeFeature( const QgsFeatureId featureId )
 {
+  mUpdatedFeatures.remove( featureId );
   QgsFeature origFeature;
   QgsReadWriteLocker locker( mCacheLock, QgsReadWriteLocker::Unlocked );
   if ( getFeature( featureId, origFeature ) )
@@ -170,17 +186,15 @@ QString QgsFeaturePool::layerName() const
 
 QgsCoordinateReferenceSystem QgsFeaturePool::crs() const
 {
-  QgsReadWriteLocker( mCacheLock, QgsReadWriteLocker::Read );
-  return mFeatureSource->crs();
+  return mCrs;
 }
 
-QgsWkbTypes::GeometryType QgsFeaturePool::geometryType() const
+Qgis::GeometryType QgsFeaturePool::geometryType() const
 {
   return mGeometryType;
 }
 
 QString QgsFeaturePool::layerId() const
 {
-  QgsReadWriteLocker( mCacheLock, QgsReadWriteLocker::Read );
-  return mFeatureSource->id();
+  return mLayerId;
 }

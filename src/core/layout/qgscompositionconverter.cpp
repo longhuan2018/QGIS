@@ -29,19 +29,19 @@
 #include "qgssymbollayerutils.h"
 #include "qgssymbollayer.h"
 #include "qgsproject.h"
-#include "qgsmaplayerstylemanager.h"
 #include "qgsvectorlayer.h"
 #include "qgslinesymbollayer.h"
 #include "qgslinesymbol.h"
 #include "qgsfillsymbol.h"
-#include "qgsmarkersymbol.h"
+#include "qgsmaplayerstyle.h"
+#include "qgslayoutrendercontext.h"
+#include "qgsunittypes.h"
 
 #include "qgsprintlayout.h"
 #include "qgslayoutatlas.h"
 
 #include "qgslayoutundostack.h"
 #include "qgslayoutpagecollection.h"
-#include "qgslayoutitemregistry.h"
 #include "qgslayoutitemlabel.h"
 #include "qgslayoutitemshape.h"
 #include "qgslayoutitempicture.h"
@@ -69,50 +69,50 @@ void QgsCompositionConverter::initPropertyDefinitions()
 
   sPropertyDefinitions = QgsPropertiesDefinition
   {
-    { QgsCompositionConverter::TestProperty, QgsPropertyDefinition( "dataDefinedProperty", QgsPropertyDefinition::DataTypeString, "invalid property", QString() ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::TestProperty ), QgsPropertyDefinition( "dataDefinedProperty", QgsPropertyDefinition::DataTypeString, "invalid property", QString() ) },
     {
-      QgsCompositionConverter::PresetPaperSize, QgsPropertyDefinition( "dataDefinedPaperSize", QgsPropertyDefinition::DataTypeString, QObject::tr( "Paper size" ), QObject::tr( "string " ) + QStringLiteral( "[<b>A5</b>|<b>A4</b>|<b>A3</b>|<b>A2</b>|<b>A1</b>|<b>A0</b>"
+      static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PresetPaperSize ), QgsPropertyDefinition( "dataDefinedPaperSize", QgsPropertyDefinition::DataTypeString, QObject::tr( "Paper size" ), QObject::tr( "string " ) + QStringLiteral( "[<b>A5</b>|<b>A4</b>|<b>A3</b>|<b>A2</b>|<b>A1</b>|<b>A0</b>"
           "|<b>B5</b>|<b>B4</b>|<b>B3</b>|<b>B2</b>|<b>B1</b>|<b>B0</b>"
           "|<b>Legal</b>|<b>Ansi A</b>|<b>Ansi B</b>|<b>Ansi C</b>|<b>Ansi D</b>|<b>Ansi E</b>"
           "|<b>Arch A</b>|<b>Arch B</b>|<b>Arch C</b>|<b>Arch D</b>|<b>Arch E</b>|<b>Arch E1</b>]"
-                                                                                                                                                                                                            ) )
+                                                                                                                                                                                                                                                       ) )
     },
-    { QgsCompositionConverter::PaperWidth, QgsPropertyDefinition( "dataDefinedPaperWidth", QObject::tr( "Page width" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::PaperHeight, QgsPropertyDefinition( "dataDefinedPaperHeight", QObject::tr( "Page height" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::NumPages, QgsPropertyDefinition( "dataDefinedNumPages", QObject::tr( "Number of pages" ), QgsPropertyDefinition::IntegerPositive ) },
-    { QgsCompositionConverter::PaperOrientation, QgsPropertyDefinition( "dataDefinedPaperOrientation", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "string " ) + QStringLiteral( "[<b>portrait</b>|<b>landscape</b>]" ) ) },
-    { QgsCompositionConverter::PageNumber, QgsPropertyDefinition( "dataDefinedPageNumber", QObject::tr( "Page number" ), QgsPropertyDefinition::IntegerPositive ) },
-    { QgsCompositionConverter::PositionX, QgsPropertyDefinition( "dataDefinedPositionX", QObject::tr( "Position (X)" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::PositionY, QgsPropertyDefinition( "dataDefinedPositionY", QObject::tr( "Position (Y)" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::ItemWidth, QgsPropertyDefinition( "dataDefinedWidth", QObject::tr( "Width" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::ItemHeight, QgsPropertyDefinition( "dataDefinedHeight", QObject::tr( "Height" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::ItemRotation, QgsPropertyDefinition( "dataDefinedRotation", QObject::tr( "Rotation angle" ), QgsPropertyDefinition::Rotation ) },
-    { QgsCompositionConverter::Transparency, QgsPropertyDefinition( "dataDefinedTransparency", QObject::tr( "Transparency" ), QgsPropertyDefinition::Opacity ) },
-    { QgsCompositionConverter::Opacity, QgsPropertyDefinition( "dataDefinedOpacity", QObject::tr( "Opacity" ), QgsPropertyDefinition::Opacity ) },
-    { QgsCompositionConverter::BlendMode, QgsPropertyDefinition( "dataDefinedBlendMode", QObject::tr( "Blend mode" ), QgsPropertyDefinition::BlendMode ) },
-    { QgsCompositionConverter::ExcludeFromExports, QgsPropertyDefinition( "dataDefinedExcludeExports", QObject::tr( "Exclude item from exports" ), QgsPropertyDefinition::Boolean ) },
-    { QgsCompositionConverter::FrameColor, QgsPropertyDefinition( "dataDefinedFrameColor", QObject::tr( "Frame color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::BackgroundColor, QgsPropertyDefinition( "dataDefinedBackgroundColor", QObject::tr( "Background color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::MapRotation, QgsPropertyDefinition( "dataDefinedMapRotation", QObject::tr( "Map rotation" ), QgsPropertyDefinition::Rotation ) },
-    { QgsCompositionConverter::MapScale, QgsPropertyDefinition( "dataDefinedMapScale", QObject::tr( "Map scale" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::MapXMin, QgsPropertyDefinition( "dataDefinedMapXMin", QObject::tr( "Extent minimum X" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::MapYMin, QgsPropertyDefinition( "dataDefinedMapYMin", QObject::tr( "Extent minimum Y" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::MapXMax, QgsPropertyDefinition( "dataDefinedMapXMax", QObject::tr( "Extent maximum X" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::MapYMax, QgsPropertyDefinition( "dataDefinedMapYMax", QObject::tr( "Extent maximum Y" ), QgsPropertyDefinition::Double ) },
-    { QgsCompositionConverter::MapAtlasMargin, QgsPropertyDefinition( "dataDefinedMapAtlasMargin", QObject::tr( "Atlas margin" ), QgsPropertyDefinition::DoublePositive ) },
-    { QgsCompositionConverter::MapLayers, QgsPropertyDefinition( "dataDefinedMapLayers", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "list of map layer names separated by | characters" ) ) },
-    { QgsCompositionConverter::MapStylePreset, QgsPropertyDefinition( "dataDefinedMapStylePreset", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "list of map layer names separated by | characters" ) ) },
-    { QgsCompositionConverter::PictureSource, QgsPropertyDefinition( "dataDefinedSource", QObject::tr( "Picture source (URL)" ), QgsPropertyDefinition::String ) },
-    { QgsCompositionConverter::SourceUrl, QgsPropertyDefinition( "dataDefinedSourceUrl", QObject::tr( "Source URL" ), QgsPropertyDefinition::String ) },
-    { QgsCompositionConverter::PictureSvgBackgroundColor, QgsPropertyDefinition( "dataDefinedSvgBackgroundColor", QObject::tr( "SVG background color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::PictureSvgStrokeColor, QgsPropertyDefinition( "dataDefinedSvgStrokeColor", QObject::tr( "SVG stroke color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::PictureSvgStrokeWidth, QgsPropertyDefinition( "dataDefinedSvgStrokeWidth", QObject::tr( "SVG stroke width" ), QgsPropertyDefinition::StrokeWidth ) },
-    { QgsCompositionConverter::LegendTitle, QgsPropertyDefinition( "dataDefinedLegendTitle", QObject::tr( "Legend title" ), QgsPropertyDefinition::String ) },
-    { QgsCompositionConverter::LegendColumnCount, QgsPropertyDefinition( "dataDefinedLegendColumns", QObject::tr( "Number of columns" ), QgsPropertyDefinition::IntegerPositiveGreaterZero ) },
-    { QgsCompositionConverter::ScalebarFillColor, QgsPropertyDefinition( "dataDefinedScalebarFill", QObject::tr( "Fill color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::ScalebarFillColor2, QgsPropertyDefinition( "dataDefinedScalebarFill2", QObject::tr( "Secondary fill color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::ScalebarLineColor, QgsPropertyDefinition( "dataDefinedScalebarLineColor", QObject::tr( "Line color" ), QgsPropertyDefinition::ColorWithAlpha ) },
-    { QgsCompositionConverter::ScalebarLineWidth, QgsPropertyDefinition( "dataDefinedScalebarLineWidth", QObject::tr( "Line width" ), QgsPropertyDefinition::StrokeWidth ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PaperWidth ), QgsPropertyDefinition( "dataDefinedPaperWidth", QObject::tr( "Page width" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PaperHeight ), QgsPropertyDefinition( "dataDefinedPaperHeight", QObject::tr( "Page height" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::NumPages ), QgsPropertyDefinition( "dataDefinedNumPages", QObject::tr( "Number of pages" ), QgsPropertyDefinition::IntegerPositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PaperOrientation ), QgsPropertyDefinition( "dataDefinedPaperOrientation", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "string " ) + QStringLiteral( "[<b>portrait</b>|<b>landscape</b>]" ) ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PageNumber ), QgsPropertyDefinition( "dataDefinedPageNumber", QObject::tr( "Page number" ), QgsPropertyDefinition::IntegerPositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PositionX ), QgsPropertyDefinition( "dataDefinedPositionX", QObject::tr( "Position (X)" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PositionY ), QgsPropertyDefinition( "dataDefinedPositionY", QObject::tr( "Position (Y)" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ItemWidth ), QgsPropertyDefinition( "dataDefinedWidth", QObject::tr( "Width" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ItemHeight ), QgsPropertyDefinition( "dataDefinedHeight", QObject::tr( "Height" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ItemRotation ), QgsPropertyDefinition( "dataDefinedRotation", QObject::tr( "Rotation angle" ), QgsPropertyDefinition::Rotation ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::Transparency ), QgsPropertyDefinition( "dataDefinedTransparency", QObject::tr( "Transparency" ), QgsPropertyDefinition::Opacity ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::Opacity ), QgsPropertyDefinition( "dataDefinedOpacity", QObject::tr( "Opacity" ), QgsPropertyDefinition::Opacity ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::BlendMode ), QgsPropertyDefinition( "dataDefinedBlendMode", QObject::tr( "Blend mode" ), QgsPropertyDefinition::BlendMode ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ExcludeFromExports ), QgsPropertyDefinition( "dataDefinedExcludeExports", QObject::tr( "Exclude item from exports" ), QgsPropertyDefinition::Boolean ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::FrameColor ), QgsPropertyDefinition( "dataDefinedFrameColor", QObject::tr( "Frame color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::BackgroundColor ), QgsPropertyDefinition( "dataDefinedBackgroundColor", QObject::tr( "Background color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapRotation ), QgsPropertyDefinition( "dataDefinedMapRotation", QObject::tr( "Map rotation" ), QgsPropertyDefinition::Rotation ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapScale ), QgsPropertyDefinition( "dataDefinedMapScale", QObject::tr( "Map scale" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapXMin ), QgsPropertyDefinition( "dataDefinedMapXMin", QObject::tr( "Extent minimum X" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapYMin ), QgsPropertyDefinition( "dataDefinedMapYMin", QObject::tr( "Extent minimum Y" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapXMax ), QgsPropertyDefinition( "dataDefinedMapXMax", QObject::tr( "Extent maximum X" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapYMax ), QgsPropertyDefinition( "dataDefinedMapYMax", QObject::tr( "Extent maximum Y" ), QgsPropertyDefinition::Double ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapAtlasMargin ), QgsPropertyDefinition( "dataDefinedMapAtlasMargin", QObject::tr( "Atlas margin" ), QgsPropertyDefinition::DoublePositive ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapLayers ), QgsPropertyDefinition( "dataDefinedMapLayers", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "list of map layer names separated by | characters" ) ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::MapStylePreset ), QgsPropertyDefinition( "dataDefinedMapStylePreset", QgsPropertyDefinition::DataTypeString, QObject::tr( "Symbol size" ), QObject::tr( "list of map layer names separated by | characters" ) ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PictureSource ), QgsPropertyDefinition( "dataDefinedSource", QObject::tr( "Picture source (URL)" ), QgsPropertyDefinition::String ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::SourceUrl ), QgsPropertyDefinition( "dataDefinedSourceUrl", QObject::tr( "Source URL" ), QgsPropertyDefinition::String ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PictureSvgBackgroundColor ), QgsPropertyDefinition( "dataDefinedSvgBackgroundColor", QObject::tr( "SVG background color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PictureSvgStrokeColor ), QgsPropertyDefinition( "dataDefinedSvgStrokeColor", QObject::tr( "SVG stroke color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::PictureSvgStrokeWidth ), QgsPropertyDefinition( "dataDefinedSvgStrokeWidth", QObject::tr( "SVG stroke width" ), QgsPropertyDefinition::StrokeWidth ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::LegendTitle ), QgsPropertyDefinition( "dataDefinedLegendTitle", QObject::tr( "Legend title" ), QgsPropertyDefinition::String ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::LegendColumnCount ), QgsPropertyDefinition( "dataDefinedLegendColumns", QObject::tr( "Number of columns" ), QgsPropertyDefinition::IntegerPositiveGreaterZero ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ScalebarFillColor ), QgsPropertyDefinition( "dataDefinedScalebarFill", QObject::tr( "Fill color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ScalebarFillColor2 ), QgsPropertyDefinition( "dataDefinedScalebarFill2", QObject::tr( "Secondary fill color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ScalebarLineColor ), QgsPropertyDefinition( "dataDefinedScalebarLineColor", QObject::tr( "Line color" ), QgsPropertyDefinition::ColorWithAlpha ) },
+    { static_cast< int >( QgsCompositionConverter::DataDefinedProperty::ScalebarLineWidth ), QgsPropertyDefinition( "dataDefinedScalebarLineWidth", QObject::tr( "Line width" ), QgsPropertyDefinition::StrokeWidth ) },
   };
 }
 
@@ -129,7 +129,7 @@ std::unique_ptr< QgsPrintLayout > QgsCompositionConverter::createLayoutFromCompo
 
   const QDomElement parentElement = composerElement.parentNode().toElement();
 
-  std::unique_ptr< QgsPrintLayout > layout = std::make_unique< QgsPrintLayout >( project );
+  auto layout = std::make_unique< QgsPrintLayout >( project );
   layout->undoStack()->blockCommands( true );
 
   layout->mCustomProperties.readXml( composerElement );
@@ -170,7 +170,7 @@ std::unique_ptr< QgsPrintLayout > QgsCompositionConverter::createLayoutFromCompo
       // Not necessary: double y2 = snapLineElem.attribute( QStringLiteral( "y2" ) ).toDouble();
       const Qt::Orientation orientation( x1 == x2 ? Qt::Orientation::Vertical : Qt::Orientation::Horizontal );
       const QgsLayoutMeasurement position( x1 == x2 ? x1 : y1 );
-      std::unique_ptr< QgsLayoutGuide > guide = std::make_unique< QgsLayoutGuide >( orientation, position, page );
+      auto guide = std::make_unique< QgsLayoutGuide >( orientation, position, page );
       layout->guides().addGuide( guide.release() );
     }
   }
@@ -543,12 +543,12 @@ bool QgsCompositionConverter::readLabelXml( QgsLayoutItemLabel *layoutItem, cons
   if ( font.pointSizeF() > 0 )
   {
     format.setSize( font.pointSizeF() );
-    format.setSizeUnit( QgsUnitTypes::RenderPoints );
+    format.setSizeUnit( Qgis::RenderUnit::Points );
   }
   else if ( font.pixelSize() > 0 )
   {
     format.setSize( font.pixelSize() );
-    format.setSizeUnit( QgsUnitTypes::RenderPixels );
+    format.setSizeUnit( Qgis::RenderUnit::Pixels );
   }
 
   //font color
@@ -936,7 +936,7 @@ bool QgsCompositionConverter::readMapXml( QgsLayoutItemMap *layoutItem, const QD
   for ( int i = 0; i < mapOverviewNodeList.size(); ++i )
   {
     const QDomElement mapOverviewElem = mapOverviewNodeList.at( i ).toElement();
-    std::unique_ptr<QgsLayoutItemMapOverview> mapOverview( new QgsLayoutItemMapOverview( mapOverviewElem.attribute( QStringLiteral( "name" ) ), layoutItem ) );
+    auto mapOverview = std::make_unique<QgsLayoutItemMapOverview>( mapOverviewElem.attribute( QStringLiteral( "name" ) ), layoutItem );
     mapOverview->readXml( mapOverviewElem, doc, context );
     const QString frameMapId = mapOverviewElem.attribute( QStringLiteral( "frameMap" ), QStringLiteral( "-1" ) );
     if ( frameMapId != QLatin1String( "-1" ) && mapId2Uuid.contains( frameMapId ) )
@@ -974,9 +974,9 @@ bool QgsCompositionConverter::readMapXml( QgsLayoutItemMap *layoutItem, const QD
     mapGrid->setFramePenColor( QgsSymbolLayerUtils::decodeColor( gridElem.attribute( QStringLiteral( "framePenColor" ), QStringLiteral( "0,0,0" ) ) ) );
     mapGrid->setFrameFillColor1( QgsSymbolLayerUtils::decodeColor( gridElem.attribute( QStringLiteral( "frameFillColor1" ), QStringLiteral( "255,255,255,255" ) ) ) );
     mapGrid->setFrameFillColor2( QgsSymbolLayerUtils::decodeColor( gridElem.attribute( QStringLiteral( "frameFillColor2" ), QStringLiteral( "0,0,0,255" ) ) ) );
-    mapGrid->setBlendMode( QgsPainting::getCompositionMode( static_cast< QgsPainting::BlendMode >( itemElem.attribute( QStringLiteral( "gridBlendMode" ), QStringLiteral( "0" ) ).toUInt() ) ) );
+    mapGrid->setBlendMode( QgsPainting::getCompositionMode( static_cast< Qgis::BlendMode >( itemElem.attribute( QStringLiteral( "gridBlendMode" ), QStringLiteral( "0" ) ).toUInt() ) ) );
     const QDomElement gridSymbolElem = gridElem.firstChildElement( QStringLiteral( "symbol" ) );
-    QgsLineSymbol *lineSymbol = nullptr;
+    std::unique_ptr< QgsLineSymbol > lineSymbol;
     if ( gridSymbolElem.isNull() )
     {
       //old project file, read penWidth /penColorRed, penColorGreen, penColorBlue
@@ -990,7 +990,7 @@ bool QgsCompositionConverter::readMapXml( QgsLayoutItemMap *layoutItem, const QD
     {
       lineSymbol = QgsSymbolLayerUtils::loadSymbol<QgsLineSymbol>( gridSymbolElem, context );
     }
-    mapGrid->setLineSymbol( lineSymbol );
+    mapGrid->setLineSymbol( lineSymbol.release() );
 
     //annotation
     const QDomNodeList annotationNodeList = gridElem.elementsByTagName( QStringLiteral( "Annotation" ) );
@@ -1016,12 +1016,12 @@ bool QgsCompositionConverter::readMapXml( QgsLayoutItemMap *layoutItem, const QD
       if ( annotationFont.pointSizeF() > 0 )
       {
         annotationFormat.setSize( annotationFont.pointSizeF() );
-        annotationFormat.setSizeUnit( QgsUnitTypes::RenderPoints );
+        annotationFormat.setSizeUnit( Qgis::RenderUnit::Points );
       }
       else if ( annotationFont.pixelSize() > 0 )
       {
         annotationFormat.setSize( annotationFont.pixelSize() );
-        annotationFormat.setSizeUnit( QgsUnitTypes::RenderPixels );
+        annotationFormat.setSizeUnit( Qgis::RenderUnit::Pixels );
       }
       annotationFormat.setColor( QgsSymbolLayerUtils::decodeColor( itemElem.attribute( QStringLiteral( "fontColor" ), QStringLiteral( "0,0,0,255" ) ) ) );
       mapGrid->setAnnotationTextFormat( annotationFormat );
@@ -1065,7 +1065,7 @@ bool QgsCompositionConverter::readScaleBarXml( QgsLayoutItemScaleBar *layoutItem
   layoutItem->setNumberOfSegments( itemElem.attribute( QStringLiteral( "numSegments" ), QStringLiteral( "2" ) ).toInt() );
   layoutItem->setNumberOfSegmentsLeft( itemElem.attribute( QStringLiteral( "numSegmentsLeft" ), QStringLiteral( "0" ) ).toInt() );
   layoutItem->setUnitsPerSegment( itemElem.attribute( QStringLiteral( "numUnitsPerSegment" ), QStringLiteral( "1.0" ) ).toDouble() );
-  layoutItem->setSegmentSizeMode( static_cast<QgsScaleBarSettings::SegmentSizeMode>( itemElem.attribute( QStringLiteral( "segmentSizeMode" ), QStringLiteral( "0" ) ).toInt() ) );
+  layoutItem->setSegmentSizeMode( static_cast<Qgis::ScaleBarSegmentSizeMode>( itemElem.attribute( QStringLiteral( "segmentSizeMode" ), QStringLiteral( "0" ) ).toInt() ) );
   layoutItem->setMinimumBarWidth( itemElem.attribute( QStringLiteral( "minBarWidth" ), QStringLiteral( "50" ) ).toDouble() );
   layoutItem->setMaximumBarWidth( itemElem.attribute( QStringLiteral( "maxBarWidth" ), QStringLiteral( "150" ) ).toDouble() );
   layoutItem->mSegmentMillimeters = itemElem.attribute( QStringLiteral( "segmentMillimeters" ), QStringLiteral( "0.0" ) ).toDouble();
@@ -1128,10 +1128,10 @@ bool QgsCompositionConverter::readScaleBarXml( QgsLayoutItemScaleBar *layoutItem
     layoutItem->alternateFillSymbol()->setColor( QColor( itemElem.attribute( QStringLiteral( "brush2Color" ), QStringLiteral( "#ffffff" ) ) ) );
   }
 
-  std::unique_ptr< QgsLineSymbol > lineSymbol = std::make_unique< QgsLineSymbol >();
-  std::unique_ptr< QgsSimpleLineSymbolLayer > lineSymbolLayer = std::make_unique< QgsSimpleLineSymbolLayer >();
+  auto lineSymbol = std::make_unique< QgsLineSymbol >();
+  auto lineSymbolLayer = std::make_unique< QgsSimpleLineSymbolLayer >();
   lineSymbolLayer->setWidth( itemElem.attribute( QStringLiteral( "outlineWidth" ), QStringLiteral( "0.3" ) ).toDouble() );
-  lineSymbolLayer->setWidthUnit( QgsUnitTypes::RenderMillimeters );
+  lineSymbolLayer->setWidthUnit( Qgis::RenderUnit::Millimeters );
   lineSymbolLayer->setPenJoinStyle( QgsSymbolLayerUtils::decodePenJoinStyle( itemElem.attribute( QStringLiteral( "lineJoinStyle" ), QStringLiteral( "miter" ) ) ) );
   lineSymbolLayer->setPenCapStyle( QgsSymbolLayerUtils::decodePenCapStyle( itemElem.attribute( QStringLiteral( "lineCapStyle" ), QStringLiteral( "square" ) ) ) );
   //stroke color
@@ -1196,20 +1196,20 @@ bool QgsCompositionConverter::readScaleBarXml( QgsLayoutItemScaleBar *layoutItem
 
   if ( itemElem.attribute( QStringLiteral( "unitType" ) ).isEmpty() )
   {
-    QgsUnitTypes::DistanceUnit u = QgsUnitTypes::DistanceUnknownUnit;
+    Qgis::DistanceUnit u = Qgis::DistanceUnit::Unknown;
     switch ( itemElem.attribute( QStringLiteral( "units" ) ).toInt() )
     {
       case 0:
-        u = QgsUnitTypes::DistanceUnknownUnit;
+        u = Qgis::DistanceUnit::Unknown;
         break;
       case 1:
-        u = QgsUnitTypes::DistanceMeters;
+        u = Qgis::DistanceUnit::Meters;
         break;
       case 2:
-        u = QgsUnitTypes::DistanceFeet;
+        u = Qgis::DistanceUnit::Feet;
         break;
       case 3:
-        u = QgsUnitTypes::DistanceNauticalMiles;
+        u = Qgis::DistanceUnit::NauticalMiles;
         break;
     }
     layoutItem->setUnits( u );
@@ -1218,7 +1218,7 @@ bool QgsCompositionConverter::readScaleBarXml( QgsLayoutItemScaleBar *layoutItem
   {
     layoutItem->setUnits( QgsUnitTypes::decodeDistanceUnit( itemElem.attribute( QStringLiteral( "unitType" ) ) ) );
   }
-  layoutItem->setAlignment( static_cast< QgsScaleBarSettings::Alignment >( itemElem.attribute( QStringLiteral( "alignment" ), QStringLiteral( "0" ) ).toInt() ) );
+  layoutItem->setAlignment( static_cast< Qgis::ScaleBarAlignment >( itemElem.attribute( QStringLiteral( "alignment" ), QStringLiteral( "0" ) ).toInt() ) );
 
   //composer map: use uuid
   const QString mapId = itemElem.attribute( QStringLiteral( "mapId" ), QStringLiteral( "-1" ) );
@@ -1278,12 +1278,12 @@ bool QgsCompositionConverter::readLegendXml( QgsLayoutItemLegend *layoutItem, co
       QgsLegendStyle style;
       style.readXml( styleElem, QDomDocument() );
       const QString name = styleElem.attribute( QStringLiteral( "name" ) );
-      QgsLegendStyle::Style s;
-      if ( name == QLatin1String( "title" ) ) s = QgsLegendStyle::Title;
-      else if ( name == QLatin1String( "group" ) ) s = QgsLegendStyle::Group;
-      else if ( name == QLatin1String( "subgroup" ) ) s = QgsLegendStyle::Subgroup;
-      else if ( name == QLatin1String( "symbol" ) ) s = QgsLegendStyle::Symbol;
-      else if ( name == QLatin1String( "symbolLabel" ) ) s = QgsLegendStyle::SymbolLabel;
+      Qgis::LegendComponent s;
+      if ( name == QLatin1String( "title" ) ) s = Qgis::LegendComponent::Title;
+      else if ( name == QLatin1String( "group" ) ) s = Qgis::LegendComponent::Group;
+      else if ( name == QLatin1String( "subgroup" ) ) s = Qgis::LegendComponent::Subgroup;
+      else if ( name == QLatin1String( "symbol" ) ) s = Qgis::LegendComponent::Symbol;
+      else if ( name == QLatin1String( "symbolLabel" ) ) s = Qgis::LegendComponent::SymbolLabel;
       else continue;
       layoutItem->setStyle( s, style );
     }
@@ -1292,10 +1292,10 @@ bool QgsCompositionConverter::readLegendXml( QgsLayoutItemLegend *layoutItem, co
   //font color
   QColor fontClr;
   fontClr.setNamedColor( itemElem.attribute( QStringLiteral( "fontColor" ), QStringLiteral( "#000000" ) ) );
-  layoutItem->rstyle( QgsLegendStyle::Title ).textFormat().setColor( fontClr );
-  layoutItem->rstyle( QgsLegendStyle::Group ).textFormat().setColor( fontClr );
-  layoutItem->rstyle( QgsLegendStyle::Subgroup ).textFormat().setColor( fontClr );
-  layoutItem->rstyle( QgsLegendStyle::SymbolLabel ).textFormat().setColor( fontClr );
+  layoutItem->rstyle( Qgis::LegendComponent::Title ).textFormat().setColor( fontClr );
+  layoutItem->rstyle( Qgis::LegendComponent::Group ).textFormat().setColor( fontClr );
+  layoutItem->rstyle( Qgis::LegendComponent::Subgroup ).textFormat().setColor( fontClr );
+  layoutItem->rstyle( Qgis::LegendComponent::SymbolLabel ).textFormat().setColor( fontClr );
 
   //spaces
   layoutItem->setBoxSpace( itemElem.attribute( QStringLiteral( "boxSpace" ), QStringLiteral( "2.0" ) ).toDouble() );
@@ -1462,12 +1462,12 @@ bool QgsCompositionConverter::readTableXml( QgsLayoutItemAttributeTable *layoutI
   if ( headerFont.pointSizeF() > 0 )
   {
     headerFormat.setSize( headerFont.pointSizeF() );
-    headerFormat.setSizeUnit( QgsUnitTypes::RenderPoints );
+    headerFormat.setSizeUnit( Qgis::RenderUnit::Points );
   }
   else if ( headerFont.pixelSize() > 0 )
   {
     headerFormat.setSize( headerFont.pixelSize() );
-    headerFormat.setSizeUnit( QgsUnitTypes::RenderPixels );
+    headerFormat.setSizeUnit( Qgis::RenderUnit::Pixels );
   }
   headerFormat.setColor( QgsSymbolLayerUtils::decodeColor( itemElem.attribute( QStringLiteral( "headerFontColor" ), QStringLiteral( "0,0,0,255" ) ) ) );
   layoutItem->setHeaderTextFormat( headerFormat );
@@ -1484,12 +1484,12 @@ bool QgsCompositionConverter::readTableXml( QgsLayoutItemAttributeTable *layoutI
   if ( contentFont.pointSizeF() > 0 )
   {
     contentFormat.setSize( contentFont.pointSizeF() );
-    contentFormat.setSizeUnit( QgsUnitTypes::RenderPoints );
+    contentFormat.setSizeUnit( Qgis::RenderUnit::Points );
   }
   else if ( contentFont.pixelSize() > 0 )
   {
     contentFormat.setSize( contentFont.pixelSize() );
-    contentFormat.setSizeUnit( QgsUnitTypes::RenderPixels );
+    contentFormat.setSizeUnit( Qgis::RenderUnit::Pixels );
   }
   contentFormat.setColor( QgsSymbolLayerUtils::decodeColor( itemElem.attribute( QStringLiteral( "contentFontColor" ), QStringLiteral( "0,0,0,255" ) ) ) );
   layoutItem->setContentTextFormat( contentFormat );
@@ -1629,9 +1629,9 @@ bool QgsCompositionConverter::readPolyXml( T *layoutItem, const QDomElement &ite
     QgsReadWriteContext context;
     if ( project )
       context.setPathResolver( project->pathResolver( ) );
-    T2 *styleSymbol = QgsSymbolLayerUtils::loadSymbol<T2>( symbolElement, context );
+    std::unique_ptr< T2 > styleSymbol = QgsSymbolLayerUtils::loadSymbol<T2>( symbolElement, context );
     if ( styleSymbol )
-      layoutItem->setSymbol( styleSymbol );
+      layoutItem->setSymbol( styleSymbol.release() );
   }
   // Disable frame for shapes
   layoutItem->setFrameEnabled( false );
@@ -1742,7 +1742,7 @@ bool QgsCompositionConverter::readXml( QgsLayoutItem *layoutItem, const QDomElem
   }
 
   //blend mode
-  layoutItem->setBlendMode( QgsPainting::getCompositionMode( static_cast< QgsPainting::BlendMode >( itemElem.attribute( QStringLiteral( "blendMode" ), QStringLiteral( "0" ) ).toUInt() ) ) );
+  layoutItem->setBlendMode( QgsPainting::getCompositionMode( static_cast< Qgis::BlendMode >( itemElem.attribute( QStringLiteral( "blendMode" ), QStringLiteral( "0" ) ).toUInt() ) ) );
 
   //opacity
   if ( itemElem.hasAttribute( QStringLiteral( "opacity" ) ) )
@@ -1785,13 +1785,13 @@ bool QgsCompositionConverter::readOldComposerObjectXml( QgsLayoutObject *layoutI
   {
     layoutItem->mDataDefinedProperties.readXml( propsNode.toElement(), sPropertyDefinitions );
   }
-  if ( layoutItem->mDataDefinedProperties.isActive( QgsCompositionConverter::Transparency ) )
+  if ( layoutItem->mDataDefinedProperties.isActive( QgsCompositionConverter::DataDefinedProperty::Transparency ) )
   {
     // upgrade transparency -> opacity
-    QString exp = layoutItem->mDataDefinedProperties.property( QgsCompositionConverter::Transparency ).asExpression();
+    QString exp = layoutItem->mDataDefinedProperties.property( QgsCompositionConverter::DataDefinedProperty::Transparency ).asExpression();
     exp = QStringLiteral( "100.0 - (%1)" ).arg( exp );
-    layoutItem->mDataDefinedProperties.setProperty( QgsCompositionConverter::Opacity, QgsProperty::fromExpression( exp ) );
-    layoutItem->mDataDefinedProperties.setProperty( QgsCompositionConverter::Transparency, QgsProperty() );
+    layoutItem->mDataDefinedProperties.setProperty( QgsCompositionConverter::DataDefinedProperty::Opacity, QgsProperty::fromExpression( exp ) );
+    layoutItem->mDataDefinedProperties.setProperty( QgsCompositionConverter::DataDefinedProperty::Transparency, QgsProperty() );
   }
 
   //custom properties
@@ -1821,7 +1821,7 @@ void QgsCompositionConverter::readOldDataDefinedPropertyMap( const QDomElement &
 
 QgsProperty QgsCompositionConverter::readOldDataDefinedProperty( const QgsCompositionConverter::DataDefinedProperty property, const QDomElement &ddElem )
 {
-  if ( property == QgsCompositionConverter::AllProperties || property == QgsCompositionConverter::NoProperty )
+  if ( property == QgsCompositionConverter::DataDefinedProperty::AllProperties || property == QgsCompositionConverter::DataDefinedProperty::NoProperty )
   {
     //invalid property
     return QgsProperty();

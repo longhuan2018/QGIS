@@ -11,10 +11,10 @@ set(QGIS_APP_SRCS
   qgisappinterface.cpp
   qgisappstylesheet.cpp
   qgsabout.cpp
-  qgsalignrasterdialog.cpp
   qgsappauthrequesthandler.cpp
   qgsappbrowserproviders.cpp
   qgsappcoordinateoperationhandlers.cpp
+  qgsappdbutils.cpp
   qgsapplayertreeviewmenuprovider.cpp
   qgsappwindowmanager.cpp
   qgsappscreenshots.cpp
@@ -72,9 +72,9 @@ set(QGIS_APP_SRCS
   qgstemporalcontrollerdockwidget.cpp
   qgsversioninfo.cpp
   qgsrecentprojectsitemsmodel.cpp
+  qgsrecentprojectsmenueventfilter.cpp
   qgsvectorlayerdigitizingproperties.cpp
   qgswelcomepage.cpp
-  qgsdockablewidgethelper.cpp
 
   qgsmaptooladdfeature.cpp
   qgsmaptooladdpart.cpp
@@ -105,12 +105,11 @@ set(QGIS_APP_SRCS
   qgsmaptoolsimplify.cpp
   qgsmaptoolsplitfeatures.cpp
   qgsmaptoolsplitparts.cpp
-  qgsmaptoolsvgannotation.cpp
-  qgsmaptooltextannotation.cpp
 
   annotations/qgsannotationitempropertieswidget.cpp
   annotations/qgsannotationlayerproperties.cpp
 
+  canvas/qgsappcanvasfiltering.cpp
   canvas/qgscanvasrefreshblocker.cpp
 
   decorations/qgsdecorationitem.cpp
@@ -128,12 +127,17 @@ set(QGIS_APP_SRCS
   decorations/qgsdecorationscalebardialog.cpp
   decorations/qgsdecorationgrid.cpp
   decorations/qgsdecorationgriddialog.cpp
+  decorations/qgsdecorationoverlay.cpp
 
   pointcloud/qgspointcloudelevationpropertieswidget.cpp
   pointcloud/qgspointcloudlayerproperties.cpp
   pointcloud/qgspointcloudlayerstylewidget.cpp
 
   raster/qgsrasterelevationpropertieswidget.cpp
+
+  tiledscene/qgstiledsceneelevationpropertieswidget.cpp
+  tiledscene/qgstiledscenelayerproperties.cpp
+  tiledscene/qgstiledscenelayerstylewidget.cpp
 
   vertextool/qgslockedfeature.cpp
   vertextool/qgsvertexeditor.cpp
@@ -171,6 +175,7 @@ set(QGIS_APP_SRCS
   devtools/networklogger/qgsnetworkloggerwidgetfactory.cpp
   devtools/profiler/qgsprofilerpanelwidget.cpp
   devtools/profiler/qgsprofilerwidgetfactory.cpp
+  devtools/documentation/qgsdocumentationpanelwidget.cpp
   devtools/querylogger/qgsappquerylogger.cpp
   devtools/querylogger/qgsdatabasequeryloggernode.cpp
   devtools/querylogger/qgsqueryloggerpanelwidget.cpp
@@ -225,6 +230,7 @@ set(QGIS_APP_SRCS
   locator/qgslocatoroptionswidget.cpp
 
   maptools/qgsappmaptools.cpp
+  maptools/qgsavoidintersectionsoperation.cpp
   maptools/qgsmaptoolsdigitizingtechniquemanager.cpp
 
   maptools/qgsmaptoolshapecircleabstract.cpp
@@ -253,14 +259,18 @@ set(QGIS_APP_SRCS
   options/qgsadvancedoptions.cpp
   options/qgscodeeditoroptions.cpp
   options/qgscustomprojectionoptions.cpp
+  options/qgselevationoptions.cpp
   options/qgsfontoptions.cpp
   options/qgsgpsdeviceoptions.cpp
   options/qgsgpsoptions.cpp
+  options/qgsideoptions.cpp
   options/qgsoptions.cpp
   options/qgsoptionsutils.cpp
   options/qgsrasterrenderingoptions.cpp
   options/qgsrenderingoptions.cpp
   options/qgsvectorrenderingoptions.cpp
+  options/qgsuserprofileoptions.cpp
+  options/qgsuserprofileselectiondialog.cpp
 
   gps/qgsappgpsconnection.cpp
   gps/qgsappgpsdigitizing.cpp
@@ -272,6 +282,9 @@ set(QGIS_APP_SRCS
   gps/qgsgpsmarker.cpp
   gps/qgsgpstoolbar.cpp
 
+  sensor/qgssensortablewidget.cpp
+  sensor/qgsprojectsensorsettingswidget.cpp
+
   project/qgsprojectelevationsettingswidget.cpp
 
   pluginmanager/qgspluginmanager.cpp
@@ -280,7 +293,7 @@ set(QGIS_APP_SRCS
   pluginmanager/qgspluginsortfilterproxymodel.cpp
   pluginmanager/qgspluginitemdelegate.cpp
 
-  qgssettingstree.cpp
+  qgssettingstreewidgetold.cpp
   qgssettingsregistryapp.cpp
   qgsvariantdelegate.cpp
   qgscrashhandler.cpp
@@ -333,11 +346,12 @@ if (WITH_3D)
     3d/qgs3danimationexportdialog.cpp
     3d/qgs3dapputils.cpp
     3d/qgs3dicongenerator.cpp
-    3d/qgs3dmapcanvas.cpp
     3d/qgs3dmapconfigwidget.cpp
-    3d/qgs3dmaptool.cpp
     3d/qgs3dmaptoolidentify.cpp
     3d/qgs3dmaptoolmeasureline.cpp
+    3d/qgs3dmaptoolpointcloudchangeattributepaintbrush.cpp
+    3d/qgs3dmaptoolpointcloudchangeattribute.cpp
+    3d/qgs3dmaptoolpointcloudchangeattributepolygon.cpp
     3d/qgs3dmeasuredialog.cpp
     3d/qgs3dmodelsourcelineedit.cpp
     3d/qgs3dnavigationwidget.cpp
@@ -347,6 +361,7 @@ if (WITH_3D)
     3d/qgsline3dsymbolwidget.cpp
     3d/qgsmaterialwidget.cpp
     3d/qgsmesh3dsymbolwidget.cpp
+    3d/qgsmetalroughmaterialwidget.cpp
     3d/qgsnullmaterialwidget.cpp
     3d/qgspoint3dsymbolwidget.cpp
     3d/qgspolygon3dsymbolwidget.cpp
@@ -355,6 +370,7 @@ if (WITH_3D)
     3d/qgsrulebased3drendererwidget.cpp
     3d/qgssimplelinematerialwidget.cpp
     3d/qgssymbol3dwidget.cpp
+    3d/qgstiledscenelayer3drendererwidget.cpp
     3d/qgsvectorlayer3dpropertieswidget.cpp
     3d/qgsvectorlayer3drendererwidget.cpp
     3d/qgsmeshlayer3drendererwidget.cpp
@@ -367,17 +383,26 @@ if (WITH_3D)
     3d/qgspointcloudlayer3drendererwidget.cpp
     3d/qgs3dmapcanvaswidget.cpp
     3d/qgs3dviewsmanagerdialog.cpp
+    3d/qgs3ddebugwidget.cpp
+    3d/qgsmaptoolclippingplanes.cpp
   )
 endif()
 
 find_package(${QT_VERSION_BASE} COMPONENTS UiTools REQUIRED)
 
 set (WITH_QWTPOLAR FALSE CACHE BOOL "Determines whether QwtPolar is available or whether functionality requiring QwtPolar should be disabled.")
-
-if (WITH_QWTPOLAR)
+# Once we bump the minimum QWT VERSION to 6.2 or newer, we should get rid of WITH_QWTPOLAR
+if(QWT_VERSION_STR VERSION_GREATER_EQUAL 6.2 OR WITH_QWTPOLAR)
   add_definitions(-DWITH_QWTPOLAR)
-  # Try to find QwtPolar on the system
-  find_package(QwtPolar)
+
+  if(QWT_VERSION_STR VERSION_LESS 6.2)
+    find_package(QwtPolar REQUIRED)
+  else()
+    set(FOUND_QwtPolar TRUE)
+    set(QWTPOLAR_LIBRARY ${QWT_LIBRARY})
+    set(QWTPOLAR_INCLUDE_DIR ${QWT_INCLUDE_DIR})
+    add_definitions(-DQWT_POLAR_VERSION=0x060200)
+  endif()
   # If not found on the system, offer the possibility to build QwtPolar
   # internally
   if(NOT FOUND_QwtPolar)
@@ -385,7 +410,7 @@ if (WITH_QWTPOLAR)
   else()
     set(DEFAULT_WITH_INTERNAL_QWTPOLAR FALSE)
   endif()
-  set (WITH_INTERNAL_QWTPOLAR DEFAULT_WITH_INTERNAL_QWTPOLAR CACHE BOOL "Use internal build of QwtPolar")
+  set (WITH_INTERNAL_QWTPOLAR ${DEFAULT_WITH_INTERNAL_QWTPOLAR} CACHE BOOL "Use internal build of QwtPolar")
 
   if(WITH_INTERNAL_QWTPOLAR)
     set(QGIS_APP_SRCS
@@ -413,12 +438,6 @@ if (WITH_QWTPOLAR)
 else()
   set(QWTPOLAR_LIBRARY "")
   set(QWTPOLAR_INCLUDE_DIR "")
-endif()
-
-if (POSTGRES_FOUND)
-  if(HAVE_PGCONFIG)
-    add_definitions(-DHAVE_PGCONFIG=1)
-  endif()
 endif()
 
 # Test data dir for QgsAppScreenShots
@@ -459,23 +478,26 @@ if(PEDANTIC)
 endif()
 
 if(MSVC)
-# -wd4091 Avoid 'typedef' ignored on left of '' when no variable is declared warning in dbghelp.h
-set_source_files_properties(
-  qgisapp.cpp
-  main.cpp
-  qgscrashhandler.cpp
-  PROPERTIES COMPILE_FLAGS -wd4091)
+  # -wd4091 Avoid 'typedef' ignored on left of '' when no variable is declared warning in dbghelp.h
+  set_source_files_properties(
+    qgisapp.cpp
+    main.cpp
+    qgscrashhandler.cpp
+    PROPERTIES COMPILE_FLAGS -wd4091
+  )
+  set_source_files_properties(
+    qgisapp.cpp
+    PROPERTIES COMPILE_FLAGS "/bigobj"
+  )
+elseif(MINGW)
+  set_source_files_properties(
+    qgisapp.cpp
+    PROPERTIES COMPILE_FLAGS "-Wa,-mbig-obj"
+  )
 endif()
 
 if(HAVE_OPENCL)
-    include_directories(SYSTEM ${OpenCL_INCLUDE_DIRS})
-endif()
-
-if (WITH_PDAL)
-  include_directories(SYSTEM ${PDAL_INCLUDE_DIR})
-  if(MSVC)
-    add_definitions(-DWIN32_LEAN_AND_MEAN)
-  endif()
+  include_directories(SYSTEM ${OpenCL_INCLUDE_DIRS})
 endif()
 
 if(ENABLE_MODELTEST)
@@ -490,10 +512,6 @@ if (APPLE)
   include_directories(${CMAKE_SOURCE_DIR}/src/native/mac)
 endif()
 
-if (POSTGRES_FOUND)
-  include_directories(SYSTEM ${POSTGRES_INCLUDE_DIR})
-endif()
-
 #############
 if (ANDROID)
   add_library(${QGIS_APP_NAME} ${LIBRARY_TYPE} ${QGIS_APPMAIN_SRCS})
@@ -501,10 +519,21 @@ if (ANDROID)
   # require c++17
   target_compile_features(${QGIS_APP_NAME} PRIVATE cxx_std_17)
 else()
-  add_executable(${QGIS_APP_NAME} MACOSX_BUNDLE WIN32 ${QGIS_APPMAIN_SRCS})
+  if(APPLE)
+    set (CREATE_MACOSX_BUNDLE TRUE CACHE BOOL "Create macosx bundle during build. Disable for development to avoid copying libraries and ease debugging.")
+    if(CREATE_MACOSX_BUNDLE)
+      set(MACOSX_BUNDLE "MACOSX_BUNDLE")
+    endif()
+  endif()
+  add_executable(${QGIS_APP_NAME} ${MACOSX_BUNDLE} WIN32 ${QGIS_APPMAIN_SRCS})
+
+  if(WIN32 AND BUILD_WITH_QT6)
+    qt_disable_unicode_defines(${QGIS_APP_NAME})
+  endif()
 
   # require c++17
   target_compile_features(${QGIS_APP_NAME} PRIVATE cxx_std_17)
+  target_compile_definitions(${QGIS_APP_NAME} PRIVATE "QT_PLUGINS_DIR=\"${QT_PLUGINS_DIR}\"")
 endif()
 
 # Putting IMAGE_RCC_SRCS into qgis_app lib is causing problems when the lib is
@@ -514,28 +543,44 @@ add_library(qgis_app ${LIBRARY_TYPE} ${QGIS_APP_SRCS})
 # require c++17
 target_compile_features(qgis_app PRIVATE cxx_std_17)
 
+target_compile_definitions(qgis_app PRIVATE "QT_PLUGINS_DIR=\"${QT_PLUGINS_DIR}\"")
+if (POSTGRES_FOUND)
+  target_compile_definitions(qgis_app PRIVATE -DPOSTGRESQL_VERSION=\"${PostgreSQL_VERSION_STRING}\")
+endif()
+
 target_include_directories(qgis_app PUBLIC
   ${CMAKE_SOURCE_DIR}/external/nmea
 
   ${CMAKE_SOURCE_DIR}/src/app
   ${CMAKE_SOURCE_DIR}/src/app/decorations
+  ${CMAKE_SOURCE_DIR}/src/app/devtools
   ${CMAKE_SOURCE_DIR}/src/app/devtools/networklogger
+  ${CMAKE_SOURCE_DIR}/src/app/georeferencer
   ${CMAKE_SOURCE_DIR}/src/app/labeling
   ${CMAKE_SOURCE_DIR}/src/app/layout
   ${CMAKE_SOURCE_DIR}/src/app/pluginmanager
   ${CMAKE_SOURCE_DIR}/src/app/gps
+  ${CMAKE_SOURCE_DIR}/src/app/sensor
   ${CMAKE_SOURCE_DIR}/src/app/dwg
   ${CMAKE_SOURCE_DIR}/src/app/maptools
   ${CMAKE_SOURCE_DIR}/src/app/mesh
   ${CMAKE_SOURCE_DIR}/src/app/locator
+  ${CMAKE_SOURCE_DIR}/src/app/options
   ${CMAKE_SOURCE_DIR}/src/app/pointcloud
+  ${CMAKE_SOURCE_DIR}/src/app/settings
+  ${CMAKE_SOURCE_DIR}/src/app/tiledscene
   ${CMAKE_SOURCE_DIR}/src/app/vectortile
   ${CMAKE_SOURCE_DIR}/src/plugins
-  ${CMAKE_SOURCE_DIR}/src/python
   ${CMAKE_SOURCE_DIR}/src/native
 
   ${CMAKE_BINARY_DIR}/src/app
 )
+
+if (WITH_PYTHON)
+  target_include_directories(qgis_app PUBLIC
+    ${CMAKE_SOURCE_DIR}/src/python
+  )
+endif()
 
 if (WITH_3D)
   target_include_directories(qgis_app PUBLIC
@@ -544,7 +589,6 @@ if (WITH_3D)
 endif()
 
 target_include_directories(qgis_app SYSTEM PUBLIC
-  ${QT_QTUITOOLS_INCLUDE_DIR}
   ${QWTPOLAR_INCLUDE_DIR}
   ${CMAKE_SOURCE_DIR}/external/qt-unix-signals
 )
@@ -569,6 +613,12 @@ target_link_libraries(qgis_app
 
 target_compile_definitions(qgis_app PRIVATE "-DQT_NO_FOREACH")
 
+if (USE_PRECOMPILED_HEADERS)
+  target_precompile_headers(qgis_app PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_SOURCE_DIR}/src/core/qgis.h>)
+endif()
+
+set_target_properties(qgis_app PROPERTIES UNITY_BUILD ${ENABLE_UNITY_BUILDS})
+
 if (WITH_BINDINGS)
   add_definitions(-DWITH_BINDINGS)
   target_link_libraries(qgis_app qgispython)
@@ -580,15 +630,6 @@ endif()
 
 if (WITH_3D)
   target_link_libraries(qgis_app qgis_3d)
-endif()
-
-if (HAVE_GEOREFERENCER)
-  include_directories(SYSTEM
-    ${GSL_INCLUDE_DIR}
-  )
-  target_link_libraries(qgis_app
-    ${GSL_LIBRARIES}
-  )
 endif()
 
 GENERATE_EXPORT_HEADER(
@@ -654,16 +695,12 @@ if (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
   target_link_libraries(${QGIS_APP_NAME} ${EXECINFO_LIBRARY})
 endif()
 
-if (POSTGRES_FOUND)
-  target_link_libraries (qgis_app ${POSTGRES_LIBRARY})
-endif()
-
 if (WITH_PDAL)
   target_link_libraries(qgis_app ${PDAL_LIBRARIES})
 endif()
 
 if(MSVC)
-  install(FILES qgis.ico qgis-mime.ico qgis-qgs.ico qgis-qlr.ico qgis-qml.ico qgis-qpt.ico DESTINATION ${CMAKE_INSTALL_PREFIX}/icons)
+  install(FILES qgis.ico qgis-mime.ico qgis-qgs.ico qgis-qlr.ico qgis-qml.ico qgis-qpt.ico DESTINATION icons)
 endif()
 
 install(TARGETS qgis_app

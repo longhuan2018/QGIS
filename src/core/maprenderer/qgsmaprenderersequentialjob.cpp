@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsmaprenderersequentialjob.h"
+#include "moc_qgsmaprenderersequentialjob.cpp"
 
 #include "qgslogger.h"
 #include "qgsmaprenderercustompainterjob.h"
@@ -83,6 +84,7 @@ void QgsMapRendererSequentialJob::cancel()
     return;
 
   QgsDebugMsgLevel( QStringLiteral( "sequential - cancel internal" ), 5 );
+  // cppcheck-suppress nullPointerRedundantCheck
   mInternalJob->cancel();
 
   Q_ASSERT( !mInternalJob && !mPainter );

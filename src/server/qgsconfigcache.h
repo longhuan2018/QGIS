@@ -64,7 +64,6 @@ class SERVER_EXPORT QgsAbstractCacheStrategy
     virtual void attach( QgsConfigCache *cache ) = 0;
 
     virtual ~QgsAbstractCacheStrategy() = default;
-
 };
 
 #endif // SIP_RUN
@@ -72,13 +71,11 @@ class SERVER_EXPORT QgsAbstractCacheStrategy
 /**
  * \ingroup server
  * \brief Cache for server configuration.
- * \since QGIS 2.8
  */
 class SERVER_EXPORT QgsConfigCache : public QObject
 {
     Q_OBJECT
   public:
-
     /**
      * Initialize from settings.
      *
@@ -107,7 +104,6 @@ class SERVER_EXPORT QgsConfigCache : public QObject
      * \param path the filename of the QGIS project
      * \param settings QGIS server settings
      * \returns the project or NULLPTR if an error happened
-     * \since QGIS 3.0
      */
     const QgsProject *project( const QString &path, const QgsServerSettings *settings = nullptr );
 
@@ -130,6 +126,14 @@ class SERVER_EXPORT QgsConfigCache : public QObject
     //! Initialize with a strategy implementation.
     QgsConfigCache( QgsAbstractCacheStrategy *strategy ) SIP_SKIP;
 
+  signals:
+
+    /**
+     * Emitted whenever a project is removed from the cache.
+     * \since QGIS 3.38
+     */
+    void projectRemovedFromCache( const QString &path );
+
   private:
     // SIP require this
     QgsConfigCache() SIP_FORCE;
@@ -139,7 +143,7 @@ class SERVER_EXPORT QgsConfigCache : public QObject
     QDomDocument *xmlDocument( const QString &filePath );
 
     QCache<QString, QDomDocument> mXmlDocumentCache;
-    QCache<QString, std::pair<QDateTime, std::unique_ptr<QgsProject> > > mProjectCache;
+    QCache<QString, std::pair<QDateTime, std::unique_ptr<QgsProject>>> mProjectCache;
 
     std::unique_ptr<QgsAbstractCacheStrategy> mStrategy;
 
@@ -200,10 +204,9 @@ class SERVER_EXPORT QgsFileSystemCacheStrategy : public QgsAbstractCacheStrategy
  * \brief Periodic system cache strategy for server configuration
  * \since QGIS 3.26
  */
-class SERVER_EXPORT QgsPeriodicCacheStrategy: public QgsAbstractCacheStrategy
+class SERVER_EXPORT QgsPeriodicCacheStrategy : public QgsAbstractCacheStrategy
 {
   public:
-
     /**
      *  Creates a new periodic strategy
      *  \param interval The invalidation check interval in milliseconds
@@ -254,7 +257,7 @@ class SERVER_EXPORT QgsPeriodicCacheStrategy: public QgsAbstractCacheStrategy
  * invalidation
  * \since QGIS 3.26
  */
-class SERVER_EXPORT QgsNullCacheStrategy: public QgsAbstractCacheStrategy
+class SERVER_EXPORT QgsNullCacheStrategy : public QgsAbstractCacheStrategy
 {
   public:
     //! Creates a new null strategy
@@ -282,4 +285,3 @@ class SERVER_EXPORT QgsNullCacheStrategy: public QgsAbstractCacheStrategy
 #endif // SIP_RUN
 
 #endif // QGSCONFIGCACHE_H
-

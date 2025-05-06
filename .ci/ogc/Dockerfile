@@ -1,7 +1,6 @@
 FROM ubuntu:latest
-MAINTAINER Paul Blottiere <blottiere.paul@gmail.com>
 RUN  export DEBIAN_FRONTEND=noninteractive
-ENV  DEBIAN_FRONTEND noninteractive
+ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
     && apt-get upgrade -y \
@@ -17,6 +16,7 @@ RUN apt-get update \
   libzip-dev \
   libprotobuf-dev \
   qtbase5-dev \
+  libdraco-dev \
   libqt5svg5-dev \
   libqt5serialport5-dev \
   qttools5-dev \

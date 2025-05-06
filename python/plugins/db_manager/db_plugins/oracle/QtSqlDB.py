@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 /***************************************************************************
 Name                 : QtSqlDB
@@ -19,8 +17,6 @@ email                : jef at norbit dot de
  *                                                                         *
  ***************************************************************************/
 """
-from builtins import range
-from builtins import object
 
 from qgis.PyQt.QtCore import QVariant, QDate, QTime, QDateTime, QByteArray
 from qgis.PyQt.QtSql import QSqlDatabase, QSqlQuery, QSqlField
@@ -60,16 +56,16 @@ def TimestampFromTicks(ticks):
 class ConnectionError(Exception):
 
     def __init__(self, *args, **kwargs):
-        super(ConnectionError, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class ExecError(Exception):
 
     def __init__(self, *args, **kwargs):
-        super(ExecError, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
-class QtSqlDBCursor(object):
+class QtSqlDBCursor:
 
     def __init__(self, conn):
         self.qry = QSqlQuery(conn)
@@ -82,7 +78,7 @@ class QtSqlDBCursor(object):
 
     def execute(self, operation, parameters=[]):
         if len(parameters) == 0:
-            if not self.qry.exec_(operation):
+            if not self.qry.exec(operation):
                 raise ExecError(self.qry.lastError().databaseText())
         else:
             if not self.qry.prepare(operation):
@@ -91,7 +87,7 @@ class QtSqlDBCursor(object):
             for i in range(len(parameters)):
                 self.qry.bindValue(i, parameters[i])
 
-            if not self.qry.exec_():
+            if not self.qry.exec():
                 raise ExecError(self.qry.lastError().databaseText())
 
         self.rowcount = self.qry.size()
@@ -116,15 +112,17 @@ class QtSqlDBCursor(object):
             else:
                 continue
 
-            self.description.append([
-                f.name(),  # name
-                t,  # type_code
-                f.length(),  # display_size
-                f.length(),  # internal_size
-                f.precision(),  # precision
-                None,  # scale
-                f.requiredStatus() != QSqlField.Required  # null_ok
-            ])
+            self.description.append(
+                [
+                    f.name(),  # name
+                    t,  # type_code
+                    f.length(),  # display_size
+                    f.length(),  # internal_size
+                    f.precision(),  # precision
+                    None,  # scale
+                    f.requiredStatus() != QSqlField.RequiredStatus.Required,  # null_ok
+                ]
+            )
 
     def executemany(self, operation, seq_of_parameters):
         if len(seq_of_parameters) == 0:
@@ -137,7 +135,7 @@ class QtSqlDBCursor(object):
             for i in range(len(r)):
                 self.qry.bindValue(i, r[i])
 
-            if not self.qry.exec_():
+            if not self.qry.exec():
                 raise ExecError(self.qry.lastError().databaseText())
 
     def scroll(self, row):
@@ -150,9 +148,11 @@ class QtSqlDBCursor(object):
         row = []
         for i in range(len(self.description)):
             value = self.qry.value(i)
-            if (isinstance(value, QDate) or
-                    isinstance(value, QTime) or
-                    isinstance(value, QDateTime)):
+            if (
+                isinstance(value, QDate)
+                or isinstance(value, QTime)
+                or isinstance(value, QDateTime)
+            ):
                 value = value.toString()
             elif isinstance(value, QByteArray):
                 value = "GEOMETRY"
@@ -189,12 +189,13 @@ class QtSqlDBCursor(object):
         raise ExecError("nyi")
 
 
-class QtSqlDBConnection(object):
+class QtSqlDBConnection:
     connections = 0
 
     def __init__(self, driver, dbname, user, passwd):
         self.conn = QSqlDatabase.addDatabase(
-            driver, "qtsql_%d" % QtSqlDBConnection.connections)
+            driver, "qtsql_%d" % QtSqlDBConnection.connections
+        )
         QtSqlDBConnection.connections += 1
         self.conn.setDatabaseName(dbname)
         self.conn.setUserName(user)

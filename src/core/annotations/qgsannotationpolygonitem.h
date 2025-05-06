@@ -22,6 +22,7 @@
 #include "qgis_sip.h"
 #include "qgsannotationitem.h"
 
+class QgsCurvePolygon;
 
 /**
  * \ingroup core
@@ -42,9 +43,10 @@ class CORE_EXPORT QgsAnnotationPolygonItem : public QgsAnnotationItem
     QString type() const override;
     void render( QgsRenderContext &context, QgsFeedback *feedback ) override;
     bool writeXml( QDomElement &element, QDomDocument &document, const QgsReadWriteContext &context ) const override;
-    QList< QgsAnnotationItemNode > nodes() const override;
-    Qgis::AnnotationItemEditOperationResult applyEdit( QgsAbstractAnnotationItemEditOperation *operation ) override;
-    QgsAnnotationItemEditOperationTransientResults *transientEditResults( QgsAbstractAnnotationItemEditOperation *operation ) override SIP_FACTORY;
+    QList< QgsAnnotationItemNode > nodesV2( const QgsAnnotationItemEditContext &context ) const override;
+    Qgis::AnnotationItemEditOperationResult applyEditV2( QgsAbstractAnnotationItemEditOperation *operation, const QgsAnnotationItemEditContext &context ) override;
+    QgsAnnotationItemEditOperationTransientResults *transientEditResultsV2( QgsAbstractAnnotationItemEditOperation *operation, const QgsAnnotationItemEditContext &context ) override SIP_FACTORY;
+    Qgis::AnnotationItemFlags flags() const override;
 
     /**
      * Creates a new polygon annotation item.
@@ -52,7 +54,7 @@ class CORE_EXPORT QgsAnnotationPolygonItem : public QgsAnnotationItem
     static QgsAnnotationPolygonItem *create() SIP_FACTORY;
 
     bool readXml( const QDomElement &element, const QgsReadWriteContext &context ) override;
-    QgsAnnotationPolygonItem *clone() override SIP_FACTORY;
+    QgsAnnotationPolygonItem *clone() const override SIP_FACTORY;
     QgsRectangle boundingBox() const override;
 
     /**
@@ -71,7 +73,7 @@ class CORE_EXPORT QgsAnnotationPolygonItem : public QgsAnnotationItem
      *
      * \see geometry()
      */
-    void setGeometry( QgsCurvePolygon *geometry SIP_TRANSFER ) { mPolygon.reset( geometry ); }
+    void setGeometry( QgsCurvePolygon *geometry SIP_TRANSFER );
 
     /**
      * Returns the symbol used to render the item.

@@ -17,6 +17,7 @@ email                : hugo dot mercier at oslandia dot com
  ***************************************************************************/
 
 #include "qgsvirtuallayersourceselect.h"
+#include "moc_qgsvirtuallayersourceselect.cpp"
 
 #include "layertree/qgslayertreeview.h"
 #include "qgsvectorlayer.h"
@@ -24,10 +25,6 @@ email                : hugo dot mercier at oslandia dot com
 #include "qgsproject.h"
 #include "qgsprovidermetadata.h"
 #include "qgsprojectionselectiondialog.h"
-#include "layertree/qgslayertreemodel.h"
-#include "layertree/qgslayertreegroup.h"
-#include "layertree/qgslayertreelayer.h"
-#include "layertree/qgslayertree.h"
 #include "qgsproviderregistry.h"
 #include "qgsiconutils.h"
 #include "qgsembeddedlayerselectdialog.h"
@@ -81,29 +78,29 @@ QgsVirtualLayerSourceSelect::QgsVirtualLayerSourceSelect( QWidget *parent, Qt::W
   buttonBox->addButton( pbn, QDialogButtonBox::ActionRole );
   connect( pbn, &QAbstractButton::clicked, this, &QgsVirtualLayerSourceSelect::testQuery );
 
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::Point ), tr( "Point" ), static_cast< long long >( QgsWkbTypes::Point ) );
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::LineString ), tr( "LineString" ), static_cast< long long >( QgsWkbTypes::LineString ) );
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::Polygon ), tr( "Polygon" ), static_cast< long long >( QgsWkbTypes::Polygon ) );
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::MultiPoint ), tr( "MultiPoint" ), static_cast< long long >( QgsWkbTypes::MultiPoint ) );
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::MultiLineString ), tr( "MultiLineString" ), static_cast< long long >( QgsWkbTypes::MultiLineString ) );
-  mGeometryType->addItem( QgsIconUtils::iconForWkbType( QgsWkbTypes::MultiPolygon ), tr( "MultiPolygon" ), static_cast< long long >( QgsWkbTypes::MultiPolygon ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::Point ), tr( "Point" ), static_cast<long long>( Qgis::WkbType::Point ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::LineString ), tr( "LineString" ), static_cast<long long>( Qgis::WkbType::LineString ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::Polygon ), tr( "Polygon" ), static_cast<long long>( Qgis::WkbType::Polygon ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::MultiPoint ), tr( "MultiPoint" ), static_cast<long long>( Qgis::WkbType::MultiPoint ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::MultiLineString ), tr( "MultiLineString" ), static_cast<long long>( Qgis::WkbType::MultiLineString ) );
+  mGeometryType->addItem( QgsIconUtils::iconForWkbType( Qgis::WkbType::MultiPolygon ), tr( "MultiPolygon" ), static_cast<long long>( Qgis::WkbType::MultiPolygon ) );
 
   mQueryEdit->setLineNumbersVisible( true );
 
   connect( mBrowseCRSBtn, &QAbstractButton::clicked, this, &QgsVirtualLayerSourceSelect::browseCRS );
-  connect( mAddLayerBtn, &QAbstractButton::clicked, this, [ = ] { addLayer( true ); } );
+  connect( mAddLayerBtn, &QAbstractButton::clicked, this, [=] { addLayerPrivate( true ); } );
   connect( mRemoveLayerBtn, &QAbstractButton::clicked, this, &QgsVirtualLayerSourceSelect::removeLayer );
   connect( mImportLayerBtn, &QAbstractButton::clicked, this, &QgsVirtualLayerSourceSelect::importLayer );
   connect( mLayersTable->selectionModel(), &QItemSelectionModel::currentRowChanged, this, &QgsVirtualLayerSourceSelect::tableRowChanged );
 
   // prepare provider list
-  const QSet< QString > vectorLayerProviders = QgsProviderRegistry::instance()->providersForLayerType( QgsMapLayerType::VectorLayer );
+  const QSet<QString> vectorLayerProviders = QgsProviderRegistry::instance()->providersForLayerType( Qgis::LayerType::Vector );
   mProviderList = qgis::setToList( vectorLayerProviders );
   std::sort( mProviderList.begin(), mProviderList.end() );
 
   // It needs to find the layertree view without relying on the parent
   // being the main window
-  const QList< QWidget * > widgets = qApp->allWidgets();
+  const QList<QWidget *> widgets = qApp->allWidgets();
   for ( const QWidget *widget : widgets )
   {
     if ( !mTreeView )
@@ -135,7 +132,7 @@ void QgsVirtualLayerSourceSelect::setBrowserModel( QgsBrowserModel *model )
   QgsAbstractDataSourceWidget::setBrowserModel( model );
   for ( int i = 0; i < mLayersTable->rowCount(); i++ )
   {
-    qobject_cast< QgsVirtualLayerSourceWidget * >( mLayersTable->cellWidget( i, LayerColumn::Source ) )->setBrowserModel( model );
+    qobject_cast<QgsVirtualLayerSourceWidget *>( mLayersTable->cellWidget( i, LayerColumn::Source ) )->setBrowserModel( model );
   }
 }
 
@@ -167,7 +164,7 @@ void QgsVirtualLayerSourceSelect::layerComboChanged( int idx )
     mUIDField->setText( def.uid() );
   }
 
-  if ( def.geometryWkbType() == QgsWkbTypes::NoGeometry )
+  if ( def.geometryWkbType() == Qgis::WkbType::NoGeometry )
   {
     mNoGeometryRadio->setChecked( true );
   }
@@ -189,7 +186,7 @@ void QgsVirtualLayerSourceSelect::layerComboChanged( int idx )
   const auto constSourceLayers = def.sourceLayers();
   for ( const QgsVirtualLayerDefinition::SourceLayer &l : constSourceLayers )
   {
-    if ( ! l.isReferenced() )
+    if ( !l.isReferenced() )
     {
       addEmbeddedLayer( l.name(), l.provider(), l.encoding(), l.source() );
     }
@@ -218,21 +215,21 @@ QgsVirtualLayerDefinition QgsVirtualLayerSourceSelect::getVirtualLayerDef()
 {
   QgsVirtualLayerDefinition def;
 
-  if ( ! mQueryEdit->text().isEmpty() )
+  if ( !mQueryEdit->text().isEmpty() )
   {
     def.setQuery( mQueryEdit->text() );
   }
-  if ( mUIDColumnNameChck->isChecked() && ! mUIDField->text().isEmpty() )
+  if ( mUIDColumnNameChck->isChecked() && !mUIDField->text().isEmpty() )
   {
     def.setUid( mUIDField->text() );
   }
   if ( mNoGeometryRadio->isChecked() )
   {
-    def.setGeometryWkbType( QgsWkbTypes::NoGeometry );
+    def.setGeometryWkbType( Qgis::WkbType::NoGeometry );
   }
   else if ( mGeometryRadio->isChecked() )
   {
-    const QgsWkbTypes::Type t = mGeometryType->currentIndex() > -1 ? static_cast<QgsWkbTypes::Type>( mGeometryType->currentData().toLongLong() ) : QgsWkbTypes::NoGeometry;
+    const Qgis::WkbType t = mGeometryType->currentIndex() > -1 ? static_cast<Qgis::WkbType>( mGeometryType->currentData().toLongLong() ) : Qgis::WkbType::NoGeometry;
     def.setGeometryWkbType( t );
     def.setGeometryField( mGeometryField->text() );
     def.setGeometrySrid( mSrid );
@@ -244,7 +241,7 @@ QgsVirtualLayerDefinition QgsVirtualLayerSourceSelect::getVirtualLayerDef()
     const QString name = mLayersTable->item( i, LayerColumn::Name )->text();
     const QString provider = qobject_cast<QComboBox *>( mLayersTable->cellWidget( i, LayerColumn::Provider ) )->currentData().toString();
     const QString encoding = qobject_cast<QComboBox *>( mLayersTable->cellWidget( i, LayerColumn::Encoding ) )->currentText();
-    const QString source = qobject_cast< QgsVirtualLayerSourceWidget * >( mLayersTable->cellWidget( i, LayerColumn::Source ) )->source();
+    const QString source = qobject_cast<QgsVirtualLayerSourceWidget *>( mLayersTable->cellWidget( i, LayerColumn::Source ) )->source();
     def.addSource( name, source, provider, encoding );
   }
 
@@ -257,10 +254,10 @@ bool QgsVirtualLayerSourceSelect::preFlight()
   // If the definition is empty just do nothing.
   // TODO: a validation function that can enable/disable the test button
   //       according to the validity of the active layer definition
-  if ( ! def.toString().isEmpty() )
+  if ( !def.toString().isEmpty() )
   {
     const QgsVectorLayer::LayerOptions options { QgsProject::instance()->transformContext() };
-    std::unique_ptr<QgsVectorLayer> vl( new QgsVectorLayer( def.toString(), QStringLiteral( "test" ), QStringLiteral( "virtual" ), options ) );
+    auto vl = std::make_unique<QgsVectorLayer>( def.toString(), QStringLiteral( "test" ), QStringLiteral( "virtual" ), options );
     if ( vl->isValid() )
     {
       const QStringList fieldNames = vl->fields().names();
@@ -311,7 +308,7 @@ void QgsVirtualLayerSourceSelect::testQuery()
   }
 }
 
-void QgsVirtualLayerSourceSelect::addLayer( bool browseForLayer )
+void QgsVirtualLayerSourceSelect::addLayerPrivate( bool browseForLayer )
 {
   mLayersTable->insertRow( mLayersTable->rowCount() );
 
@@ -377,7 +374,7 @@ void QgsVirtualLayerSourceSelect::updateLayersList()
   if ( mTreeView )
   {
     QList<QgsMapLayer *> selected = mTreeView->selectedLayers();
-    if ( selected.size() == 1 && selected[0]->type() == QgsMapLayerType::VectorLayer && static_cast<QgsVectorLayer *>( selected[0] )->providerType() == QLatin1String( "virtual" ) )
+    if ( selected.size() == 1 && selected[0]->type() == Qgis::LayerType::Vector && static_cast<QgsVectorLayer *>( selected[0] )->providerType() == QLatin1String( "virtual" ) )
     {
       mLayerNameCombo->setCurrentIndex( mLayerNameCombo->findData( selected[0]->id() ) );
     }
@@ -402,7 +399,7 @@ void QgsVirtualLayerSourceSelect::updateLayersList()
   const auto constMapLayers = QgsProject::instance()->mapLayers();
   for ( QgsMapLayer *l : constMapLayers )
   {
-    if ( l->type() == QgsMapLayerType::VectorLayer )
+    if ( l->type() == Qgis::LayerType::Vector )
     {
       apis->add( l->name() );
       QgsVectorLayer *vl = static_cast<QgsVectorLayer *>( l );
@@ -422,7 +419,7 @@ void QgsVirtualLayerSourceSelect::updateLayersList()
 void QgsVirtualLayerSourceSelect::addEmbeddedLayer( const QString &name, const QString &provider, const QString &encoding, const QString &source )
 {
   // insert a new row
-  addLayer();
+  addLayerPrivate();
   const int n = mLayersTable->rowCount() - 1;
   // local name
   mLayersTable->item( n, LayerColumn::Name )->setText( name );
@@ -453,7 +450,7 @@ void QgsVirtualLayerSourceSelect::importLayer()
 
 void QgsVirtualLayerSourceSelect::addButtonClicked()
 {
-  if ( ! preFlight() )
+  if ( !preFlight() )
   {
     return;
   }
@@ -484,7 +481,7 @@ void QgsVirtualLayerSourceSelect::addButtonClicked()
   }
   // This check is to prevent a crash, a proper implementation should handle
   // the Add button state when a virtual layer definition is available
-  if ( ! def.toString().isEmpty() )
+  if ( !def.toString().isEmpty() )
   {
     if ( replace )
     {
@@ -492,10 +489,13 @@ void QgsVirtualLayerSourceSelect::addButtonClicked()
     }
     else
     {
+      Q_NOWARN_DEPRECATED_PUSH
       emit addVectorLayer( def.toString(), layerName, QStringLiteral( "virtual" ) );
+      Q_NOWARN_DEPRECATED_POP
+      emit addLayer( Qgis::LayerType::Vector, def.toString(), layerName, QStringLiteral( "virtual" ) );
     }
   }
-  if ( widgetMode() == QgsProviderRegistry::WidgetMode::None )
+  if ( widgetMode() == QgsProviderRegistry::WidgetMode::Standalone )
   {
     accept();
   }
@@ -508,11 +508,11 @@ void QgsVirtualLayerSourceSelect::showHelp()
 
 void QgsVirtualLayerSourceSelect::rowSourceChanged()
 {
-  QgsVirtualLayerSourceWidget *widget = qobject_cast< QgsVirtualLayerSourceWidget * >( sender() );
+  QgsVirtualLayerSourceWidget *widget = qobject_cast<QgsVirtualLayerSourceWidget *>( sender() );
   // we have to find the matching row for the source widget which was changed
   for ( int row = 0; row < mLayersTable->rowCount(); row++ )
   {
-    QgsVirtualLayerSourceWidget *rowSourceWidget = qobject_cast< QgsVirtualLayerSourceWidget * >( mLayersTable->cellWidget( row, LayerColumn::Source ) );
+    QgsVirtualLayerSourceWidget *rowSourceWidget = qobject_cast<QgsVirtualLayerSourceWidget *>( mLayersTable->cellWidget( row, LayerColumn::Source ) );
     if ( rowSourceWidget == widget )
     {
       // automatically update provider to match
@@ -585,7 +585,7 @@ QString QgsVirtualLayerSourceWidget::provider() const
 
 void QgsVirtualLayerSourceWidget::browseForLayer()
 {
-  QgsDataSourceSelectDialog dlg( qobject_cast< QgsBrowserGuiModel * >( mBrowserModel ), true, QgsMapLayerType::VectorLayer, this );
+  QgsDataSourceSelectDialog dlg( qobject_cast<QgsBrowserGuiModel *>( mBrowserModel ), true, Qgis::LayerType::Vector, this );
   dlg.setWindowTitle( tr( "Select Layer Source" ) );
 
   QString source = mLineEdit->text();
@@ -594,8 +594,7 @@ void QgsVirtualLayerSourceWidget::browseForLayer()
   {
     const QString path = sourceParts.value( QStringLiteral( "path" ) ).toString();
     const QString closestPath = QFile::exists( path ) ? path : QgsFileUtils::findClosestExistingPath( path );
-    source.replace( path, QStringLiteral( "<a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( closestPath ).toString(),
-                    path ) );
+    source.replace( path, QStringLiteral( "<a href=\"%1\">%2</a>" ).arg( QUrl::fromLocalFile( closestPath ).toString(), path ) );
   }
   dlg.setDescription( tr( "Current source: %1" ).arg( source ) );
 

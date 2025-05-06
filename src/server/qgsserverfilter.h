@@ -31,20 +31,13 @@ class QgsServerInterface;
 /**
  * \ingroup server
  * \class QgsServerFilter
- * \brief Class defining I/O filters for QGIS Server and
+ * \brief Defines I/O filters for QGIS Server and
  * implemented in plugins.
  *
- * Filters can define any (or none) of the following hooks:
- *
- * - requestReady() - called when request is ready
- * - responseComplete() - called when the response is complete after core services have returned to main loop
- * - sendResponse() - called just before sending output to FGCI
  */
 class SERVER_EXPORT QgsServerFilter
 {
-
   public:
-
     /**
      * Constructor
      * QgsServerInterface passed to plugins constructors
@@ -64,7 +57,7 @@ class SERVER_EXPORT QgsServerFilter
      * This method is considered as deprecated and \see onRequestReady should
      * be used instead.
      *
-     * \deprecated Will be removed in QGIS 4.0
+     * \deprecated QGIS 3.40. Will be removed in QGIS 4.0.
      */
     Q_DECL_DEPRECATED virtual void requestReady() SIP_DEPRECATED;
 
@@ -76,7 +69,7 @@ class SERVER_EXPORT QgsServerFilter
      * This method is considered as deprecated and \see onResponseComplete should
      * be used instead.
      *
-     * \deprecated Will be removed in QGIS 4.0
+     * \deprecated QGIS 3.40. Will be removed in QGIS 4.0.
      */
     Q_DECL_DEPRECATED virtual void responseComplete() SIP_DEPRECATED;
 
@@ -91,7 +84,7 @@ class SERVER_EXPORT QgsServerFilter
      * This method is considered as deprecated and \see onSendResponse should
      * be used instead.
      *
-     * \deprecated Will be removed in QGIS 4.0
+     * \deprecated QGIS 3.40. Will be removed in QGIS 4.0.
      */
     Q_DECL_DEPRECATED virtual void sendResponse() SIP_DEPRECATED;
 
@@ -104,6 +97,16 @@ class SERVER_EXPORT QgsServerFilter
      * \since QGIS 3.24
      */
     virtual bool onRequestReady();
+
+    /**
+     * Method called when the QgsProject instance is ready to be used to perform the request,
+     * just before entering the main switch for core services.
+     *
+     * \return true if the call must propagate to the subsequent filters, false otherwise
+     *
+     * \since QGIS 3.36
+     */
+    virtual bool onProjectReady();
 
     /**
      * Method called when the QgsRequestHandler processing has done and
@@ -131,10 +134,8 @@ class SERVER_EXPORT QgsServerFilter
     virtual bool onSendResponse();
 
 
-
   private:
     QgsServerInterface *mServerInterface = nullptr;
-
 };
 
 typedef QMultiMap<int, QgsServerFilter *> QgsServerFiltersMap;

@@ -18,22 +18,21 @@
 
 #include "qgis_core.h"
 #include "qgis_sip.h"
-
 #include "qgsmaplayer.h"
 #include "qgsvectortilematrixset.h"
 #include "qgsfeatureid.h"
 
-class QgsVectorTileLabeling;
 class QgsVectorTileRenderer;
-
-class QgsTileXYZ;
+class QgsVectorTileLabeling;
 class QgsFeature;
 class QgsGeometry;
 class QgsSelectionContext;
+class QgsVectorTileRawData;
 
 /**
  * \ingroup core
  * \brief Implements a map layer that is dedicated to rendering of vector tiles.
+ *
  * Vector tiles compared to "ordinary" vector layers are pre-processed data
  * optimized for fast rendering. A dataset is provided with a series of zoom levels
  * for different map scales. Each zoom level has a matrix of tiles that contain
@@ -50,11 +49,13 @@ class QgsSelectionContext;
  * Vector tile layer currently does not use the concept of data providers that other
  * layer types use. The process of rendering of vector tiles looks like this:
  *
+ * ~~~
  * +--------+                +------+                 +---------+
  * |  DATA  |                |  RAW |                 | DECODED |
  * |        | --> LOADER --> |      | --> DECODER --> |         | --> RENDERER
  * | SOURCE |                | TILE |                 |  TILE   |
  * +--------+                +------+                 +---------+
+ * ~~~
  *
  * Data source is a place from where tiles are fetched from (URL for HTTP access, local
  * files, MBTiles file, GeoPackage file or others. Loader (QgsVectorTileLoader) class
@@ -186,7 +187,7 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
     //! Returns type of the data source
     QString sourceType() const { return mSourceType; }
     //! Returns URL/path of the data source (syntax different to each data source type)
-    QString sourcePath() const { return mSourcePath; }
+    QString sourcePath() const;
 
     //! Returns minimum zoom level at which source has any valid tiles (negative = unconstrained)
     int sourceMinZoom() const { return mMatrixSet.minimumZoom(); }
@@ -200,7 +201,7 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
      * \note This call may issue a network request (depending on the source type) and will block
      * the caller until the request is finished.
      */
-    QByteArray getRawTile( QgsTileXYZ tileID ) SIP_SKIP;
+    QgsVectorTileRawData getRawTile( QgsTileXYZ tileID ) SIP_SKIP;
 
     /**
      * Sets renderer for the map layer.
@@ -217,6 +218,27 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
     void setLabeling( QgsVectorTileLabeling *labeling SIP_TRANSFER );
     //! Returns currently assigned labeling
     QgsVectorTileLabeling *labeling() const;
+
+    /**
+     * Returns whether the layer contains labels which are enabled and should be drawn.
+     * \returns TRUE if layer contains enabled labels
+     *
+     * \see setLabelsEnabled()
+     * \since QGIS 3.34
+     */
+    bool labelsEnabled() const;
+
+    /**
+     * Sets whether labels should be \a enabled for the layer.
+     *
+     * \note Labels will only be rendered if labelsEnabled() is TRUE and a labeling
+     * object is returned by labeling().
+     *
+     * \see labelsEnabled()
+     * \see labeling()
+     * \since QGIS 3.34
+     */
+    void setLabelsEnabled( bool enabled );
 
     //! Sets whether to render also borders of tiles (useful for debugging)
     void setTileBorderRenderingEnabled( bool enabled ) { mTileBorderRendering = enabled; }
@@ -288,8 +310,6 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
   private:
     //! Type of the data source
     QString mSourceType;
-    //! URL/Path of the data source
-    QString mSourcePath;
 
     QgsVectorTileMatrixSet mMatrixSet;
 
@@ -297,11 +317,10 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
     std::unique_ptr<QgsVectorTileRenderer> mRenderer;
     //! Labeling assigned to the layer to produce labels
     std::unique_ptr<QgsVectorTileLabeling> mLabeling;
+    //! True if labels are enabled
+    bool mLabelsEnabled = true;
     //! Whether we draw borders of tiles
     bool mTileBorderRendering = false;
-
-    QVariantMap mArcgisLayerConfiguration;
-    QVariantMap mArcgisStyleConfiguration;
 
     QgsCoordinateTransformContext mTransformContext;
 
@@ -309,41 +328,11 @@ class CORE_EXPORT QgsVectorTileLayer : public QgsMapLayer
 
     QHash< QgsFeatureId, QgsFeature > mSelectedFeatures;
 
-    bool setupArcgisVectorTileServiceConnection( const QString &uri, const QgsDataSourceUri &dataSourceUri );
-
     void setDataSourcePrivate( const QString &dataSource, const QString &baseName, const QString &provider,
-                               const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags ) override;
+                               const QgsDataProvider::ProviderOptions &options, Qgis::DataProviderReadFlags flags ) override;
 
     bool loadDefaultStyleAndSubLayersPrivate( QString &error, QStringList &warnings, QList< QgsMapLayer * > *subLayers );
 
-
 };
-
-#ifndef SIP_RUN
-///@cond PRIVATE
-
-/**
- * A minimal data provider for vector tile layers.
- *
- * \since QGIS 3.22
- */
-class QgsVectorTileDataProvider : public QgsDataProvider
-{
-    Q_OBJECT
-
-  public:
-    QgsVectorTileDataProvider( const QgsDataProvider::ProviderOptions &providerOptions,
-                               QgsDataProvider::ReadFlags flags );
-    QgsCoordinateReferenceSystem crs() const override;
-    QString name() const override;
-    QString description() const override;
-    QgsRectangle extent() const override;
-    bool isValid() const override;
-    bool renderInPreview( const QgsDataProvider::PreviewContext &context ) override;
-
-};
-///@endcond
-#endif
-
 
 #endif // QGSVECTORTILELAYER_H

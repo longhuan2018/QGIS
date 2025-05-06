@@ -25,7 +25,7 @@ void QgsAccessControl::resolveFilterFeatures( const QList<QgsMapLayer *> &layers
 {
   for ( QgsMapLayer *l : layers )
   {
-    if ( l->type() == QgsMapLayerType::VectorLayer )
+    if ( l->type() == Qgis::LayerType::Vector )
     {
       const QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( l );
       mFilterFeaturesExpressions[vl->id()] = resolveFilterFeatures( vl );
@@ -68,7 +68,6 @@ void QgsAccessControl::unresolveFilterFeatures()
 //! Filter the features of the layer
 void QgsAccessControl::filterFeatures( const QgsVectorLayer *layer, QgsFeatureRequest &featureRequest ) const
 {
-
   QString expression;
 
   if ( mResolved && mFilterFeaturesExpressions.contains( layer->id() ) )
@@ -197,7 +196,7 @@ bool QgsAccessControl::fillCacheKey( QStringList &cacheKey ) const
   for ( acIterator = mPluginsAccessControls->constBegin(); acIterator != mPluginsAccessControls->constEnd(); ++acIterator )
   {
     const QString newKey = acIterator.value()->cacheKey();
-    if ( ! newKey.isEmpty() )
+    if ( !newKey.isEmpty() )
     {
       cacheKey.clear();
       return false;

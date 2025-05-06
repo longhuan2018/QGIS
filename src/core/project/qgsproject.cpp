@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsproject.h"
+#include "moc_qgsproject.cpp"
 
 #include "qgsdatasourceuri.h"
 #include "qgslabelingenginesettings.h"
@@ -25,7 +26,6 @@
 #include "qgslogger.h"
 #include "qgsmessagelog.h"
 #include "qgsmaplayerfactory.h"
-#include "qgspluginlayer.h"
 #include "qgspluginlayerregistry.h"
 #include "qgsprojectfiletransform.h"
 #include "qgssnappingconfig.h"
@@ -51,7 +51,7 @@
 #include "qgsmaplayerstore.h"
 #include "qgsziputils.h"
 #include "qgsauxiliarystorage.h"
-#include "qgssymbollayerutils.h"
+#include "qgscolorutils.h"
 #include "qgsapplication.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgsstyleentityvisitor.h"
@@ -59,6 +59,7 @@
 #include "qgsprojectstylesettings.h"
 #include "qgsprojecttimesettings.h"
 #include "qgsvectortilelayer.h"
+#include "qgstiledscenelayer.h"
 #include "qgsruntimeprofiler.h"
 #include "qgsannotationlayer.h"
 #include "qgspointcloudlayer.h"
@@ -69,6 +70,12 @@
 #include "qgscombinedstylemodel.h"
 #include "qgsprojectgpssettings.h"
 #include "qgsthreadingutils.h"
+#include "qgssensormanager.h"
+#include "qgsproviderregistry.h"
+#include "qgsrunnableprovidercreator.h"
+#include "qgssettingsregistrycore.h"
+#include "qgspluginlayer.h"
+#include "qgspythonrunner.h"
 
 #include <algorithm>
 #include <QApplication>
@@ -82,6 +89,7 @@
 #include <QStandardPaths>
 #include <QUuid>
 #include <QRegularExpression>
+#include <QThreadPool>
 
 #ifdef _MSC_VER
 #include <sys/utime.h>
@@ -103,29 +111,10 @@ QgsProject *QgsProject::sProject = nullptr;
 QStringList makeKeyTokens_( const QString &scope, const QString &key )
 {
   QStringList keyTokens = QStringList( scope );
-#if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
-  keyTokens += key.split( '/', QString::SkipEmptyParts );
-#else
   keyTokens += key.split( '/', Qt::SkipEmptyParts );
-#endif
 
   // be sure to include the canonical root node
   keyTokens.push_front( QStringLiteral( "properties" ) );
-
-  //check validy of keys since an invalid xml name will will be dropped upon saving the xml file. If not valid, we print a message to the console.
-  for ( int i = 0; i < keyTokens.size(); ++i )
-  {
-    const QString keyToken = keyTokens.at( i );
-
-    //invalid chars in XML are found at http://www.w3.org/TR/REC-xml/#NT-NameChar
-    //note : it seems \x10000-\xEFFFF is valid, but it when added to the regexp, a lot of unwanted characters remain
-    const thread_local QRegularExpression sInvalidRegexp = QRegularExpression( QStringLiteral( "([^:A-Z_a-z\\x{C0}-\\x{D6}\\x{D8}-\\x{F6}\\x{F8}-\\x{2FF}\\x{370}-\\x{37D}\\x{37F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}\\-\\.0-9\\x{B7}\\x{0300}-\\x{036F}\\x{203F}-\\x{2040}]|^[^:A-Z_a-z\\x{C0}-\\x{D6}\\x{D8}-\\x{F6}\\x{F8}-\\x{2FF}\\x{370}-\\x{37D}\\x{37F}-\\x{1FFF}\\x{200C}-\\x{200D}\\x{2070}-\\x{218F}\\x{2C00}-\\x{2FEF}\\x{3001}-\\x{D7FF}\\x{F900}-\\x{FDCF}\\x{FDF0}-\\x{FFFD}])" ) );
-    if ( keyToken.contains( sInvalidRegexp ) )
-    {
-      const QString errorString = QObject::tr( "Entry token invalid : '%1'. The token will not be saved to file." ).arg( keyToken );
-      QgsMessageLog::logMessage( errorString, QString(), Qgis::MessageLevel::Critical );
-    }
-  }
 
   return keyTokens;
 }
@@ -368,20 +357,21 @@ QgsProject::QgsProject( QObject *parent, Qgis::ProjectCapabilities capabilities 
   : QObject( parent )
   , mCapabilities( capabilities )
   , mLayerStore( new QgsMapLayerStore( this ) )
-  , mBadLayerHandler( new QgsProjectBadLayerHandler() )
+  , mBadLayerHandler( std::make_unique<QgsProjectBadLayerHandler>() )
   , mSnappingConfig( this )
-  , mRelationManager( new QgsRelationManager( this ) )
+  , mRelationManager( std::make_unique<QgsRelationManager>( this ) )
   , mAnnotationManager( new QgsAnnotationManager( this ) )
   , mLayoutManager( new QgsLayoutManager( this ) )
   , m3DViewsManager( new QgsMapViewsManager( this ) )
   , mBookmarkManager( QgsBookmarkManager::createProjectBasedManager( this ) )
+  , mSensorManager( new QgsSensorManager( this ) )
   , mViewSettings( new QgsProjectViewSettings( this ) )
   , mStyleSettings( new QgsProjectStyleSettings( this ) )
   , mTimeSettings( new QgsProjectTimeSettings( this ) )
   , mElevationProperties( new QgsProjectElevationProperties( this ) )
   , mDisplaySettings( new QgsProjectDisplaySettings( this ) )
   , mGpsSettings( new QgsProjectGpsSettings( this ) )
-  , mRootGroup( new QgsLayerTree )
+  , mRootGroup( std::make_unique<QgsLayerTree>() )
   , mLabelingEngineSettings( new QgsLabelingEngineSettings )
   , mArchive( new QgsArchive() )
   , mAuxiliaryStorage( new QgsAuxiliaryStorage() )
@@ -396,30 +386,30 @@ QgsProject::QgsProject( QObject *parent, Qgis::ProjectCapabilities capabilities 
   // bind the layer tree to the map layer registry.
   // whenever layers are added to or removed from the registry,
   // layer tree will be updated
-  mLayerTreeRegistryBridge = new QgsLayerTreeRegistryBridge( mRootGroup, this, this );
+  mLayerTreeRegistryBridge = std::make_unique<QgsLayerTreeRegistryBridge>( mRootGroup.get(), this, this );
   connect( this, &QgsProject::layersAdded, this, &QgsProject::onMapLayersAdded );
-  connect( this, &QgsProject::layersRemoved, this, [ = ] { cleanTransactionGroups(); } );
+  connect( this, &QgsProject::layersRemoved, this, [this] { cleanTransactionGroups(); } );
   connect( this, qOverload< const QList<QgsMapLayer *> & >( &QgsProject::layersWillBeRemoved ), this, &QgsProject::onMapLayersRemoved );
 
   // proxy map layer store signals to this
   connect( mLayerStore.get(), qOverload<const QStringList &>( &QgsMapLayerStore::layersWillBeRemoved ),
-  this, [ = ]( const QStringList & layers ) { mProjectScope.reset(); emit layersWillBeRemoved( layers ); } );
+  this, [this]( const QStringList & layers ) { mProjectScope.reset(); emit layersWillBeRemoved( layers ); } );
   connect( mLayerStore.get(), qOverload< const QList<QgsMapLayer *> & >( &QgsMapLayerStore::layersWillBeRemoved ),
-  this, [ = ]( const QList<QgsMapLayer *> &layers ) { mProjectScope.reset(); emit layersWillBeRemoved( layers ); } );
+  this, [this]( const QList<QgsMapLayer *> &layers ) { mProjectScope.reset(); emit layersWillBeRemoved( layers ); } );
   connect( mLayerStore.get(), qOverload< const QString & >( &QgsMapLayerStore::layerWillBeRemoved ),
-  this, [ = ]( const QString & layer ) { mProjectScope.reset(); emit layerWillBeRemoved( layer ); } );
+  this, [this]( const QString & layer ) { mProjectScope.reset(); emit layerWillBeRemoved( layer ); } );
   connect( mLayerStore.get(), qOverload< QgsMapLayer * >( &QgsMapLayerStore::layerWillBeRemoved ),
-  this, [ = ]( QgsMapLayer * layer ) { mProjectScope.reset(); emit layerWillBeRemoved( layer ); } );
+  this, [this]( QgsMapLayer * layer ) { mProjectScope.reset(); emit layerWillBeRemoved( layer ); } );
   connect( mLayerStore.get(), qOverload<const QStringList & >( &QgsMapLayerStore::layersRemoved ), this,
-  [ = ]( const QStringList & layers ) { mProjectScope.reset(); emit layersRemoved( layers ); } );
+  [this]( const QStringList & layers ) { mProjectScope.reset(); emit layersRemoved( layers ); } );
   connect( mLayerStore.get(), &QgsMapLayerStore::layerRemoved, this,
-  [ = ]( const QString & layer ) { mProjectScope.reset(); emit layerRemoved( layer ); } );
+  [this]( const QString & layer ) { mProjectScope.reset(); emit layerRemoved( layer ); } );
   connect( mLayerStore.get(), &QgsMapLayerStore::allLayersRemoved, this,
-  [ = ]() { mProjectScope.reset(); emit removeAll(); } );
+  [this]() { mProjectScope.reset(); emit removeAll(); } );
   connect( mLayerStore.get(), &QgsMapLayerStore::layersAdded, this,
-  [ = ]( const QList< QgsMapLayer * > &layers ) { mProjectScope.reset(); emit layersAdded( layers ); } );
+  [this]( const QList< QgsMapLayer * > &layers ) { mProjectScope.reset(); emit layersAdded( layers ); } );
   connect( mLayerStore.get(), &QgsMapLayerStore::layerWasAdded, this,
-  [ = ]( QgsMapLayer * layer ) { mProjectScope.reset(); emit layerWasAdded( layer ); } );
+  [this]( QgsMapLayer * layer ) { mProjectScope.reset(); emit layerWasAdded( layer ); } );
 
   if ( QgsApplication::instance() )
   {
@@ -427,20 +417,20 @@ QgsProject::QgsProject( QObject *parent, Qgis::ProjectCapabilities capabilities 
   }
 
   connect( mLayerStore.get(), qOverload< const QList<QgsMapLayer *> & >( &QgsMapLayerStore::layersWillBeRemoved ), this,
-           [ = ]( const QList<QgsMapLayer *> &layers )
+           [this]( const QList<QgsMapLayer *> &layers )
   {
     for ( const auto &layer : layers )
     {
-      disconnect( layer, &QgsMapLayer::dataSourceChanged, mRelationManager, &QgsRelationManager::updateRelationsStatus );
+      disconnect( layer, &QgsMapLayer::dataSourceChanged, mRelationManager.get(), &QgsRelationManager::updateRelationsStatus );
     }
   }
          );
   connect( mLayerStore.get(),  qOverload< const QList<QgsMapLayer *> & >( &QgsMapLayerStore::layersAdded ), this,
-           [ = ]( const QList<QgsMapLayer *> &layers )
+           [this]( const QList<QgsMapLayer *> &layers )
   {
     for ( const auto &layer : layers )
     {
-      connect( layer, &QgsMapLayer::dataSourceChanged, mRelationManager, &QgsRelationManager::updateRelationsStatus );
+      connect( layer, &QgsMapLayer::dataSourceChanged, mRelationManager.get(), &QgsRelationManager::updateRelationsStatus );
     }
   }
          );
@@ -458,10 +448,8 @@ QgsProject::~QgsProject()
   mIsBeingDeleted = true;
 
   clear();
-  delete mBadLayerHandler;
-  delete mRelationManager;
-  delete mLayerTreeRegistryBridge;
-  delete mRootGroup;
+  releaseHandlesToProjectArchive();
+
   if ( this == sProject )
   {
     sProject = nullptr;
@@ -474,13 +462,13 @@ void QgsProject::setInstance( QgsProject *project )
 }
 
 
-QgsProject *QgsProject::instance()
+QgsProject *QgsProject::instance() // skip-keyword-check
 {
   if ( !sProject )
   {
     sProject = new QgsProject;
 
-    connect( sProject, &QgsProject::projectColorsChanged, QgsStyle::defaultStyle(), &QgsStyle::triggerIconRebuild );
+    connect( sProject, &QgsProject::projectColorsChanged, QgsStyle::defaultStyle( false ), &QgsStyle::triggerIconRebuild );
   }
   return sProject;
 }
@@ -519,9 +507,8 @@ void QgsProject::setFlags( Qgis::ProjectFlags flags )
     for ( auto layerIt = layers.constBegin(); layerIt != layers.constEnd(); ++layerIt )
     {
       if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layerIt.value() ) )
-      {
-        vl->dataProvider()->setProviderProperty( QgsVectorDataProvider::EvaluateDefaultValues, newEvaluateDefaultValues );
-      }
+        if ( vl->dataProvider() )
+          vl->dataProvider()->setProviderProperty( QgsVectorDataProvider::EvaluateDefaultValues, newEvaluateDefaultValues );
     }
   }
 
@@ -539,7 +526,11 @@ void QgsProject::setFlags( Qgis::ProjectFlags flags )
     }
   }
 
-  mFlags = flags;
+  if ( mFlags != flags )
+  {
+    mFlags = flags;
+    setDirty( true );
+  }
 }
 
 void QgsProject::setFlag( Qgis::ProjectFlag flag, bool enabled )
@@ -630,7 +621,7 @@ void QgsProject::registerTranslatableContainers( QgsTranslationContext *translat
 
   for ( QgsAttributeEditorElement *element : elements )
   {
-    if ( element->type() == QgsAttributeEditorElement::AeTypeContainer )
+    if ( element->type() == Qgis::AttributeEditorType::Container )
     {
       QgsAttributeEditorContainer *container = dynamic_cast<QgsAttributeEditorContainer *>( element );
 
@@ -654,11 +645,11 @@ void QgsProject::registerTranslatableObjects( QgsTranslationContext *translation
     translationContext->registerTranslation( QStringLiteral( "project:layers:%1" ).arg( layer->layerId() ), layer->name() );
 
     QgsMapLayer *mapLayer = layer->layer();
-    if ( mapLayer && mapLayer->type() == QgsMapLayerType::VectorLayer )
+    if ( mapLayer && mapLayer->type() == Qgis::LayerType::Vector )
     {
       QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( mapLayer );
 
-      //register aliases and fields
+      //register aliases and widget settings
       const QgsFields fields = vlayer->fields();
       for ( const QgsField &field : fields )
       {
@@ -670,9 +661,21 @@ void QgsProject::registerTranslatableObjects( QgsTranslationContext *translation
 
         translationContext->registerTranslation( QStringLiteral( "project:layers:%1:fieldaliases" ).arg( vlayer->id() ), fieldName );
 
-        if ( field.editorWidgetSetup().type() == QLatin1String( "ValueRelation" ) )
+        if ( field.editorWidgetSetup().type() == QStringLiteral( "ValueRelation" ) )
         {
           translationContext->registerTranslation( QStringLiteral( "project:layers:%1:fields:%2:valuerelationvalue" ).arg( vlayer->id(), field.name() ), field.editorWidgetSetup().config().value( QStringLiteral( "Value" ) ).toString() );
+        }
+        if ( field.editorWidgetSetup().type() == QStringLiteral( "ValueMap" ) )
+        {
+          if ( field.editorWidgetSetup().config().value( QStringLiteral( "map" ) ).canConvert<QList<QVariant>>() )
+          {
+            const QList<QVariant> valueList = field.editorWidgetSetup().config().value( QStringLiteral( "map" ) ).toList();
+
+            for ( int i = 0, row = 0; i < valueList.count(); i++, row++ )
+            {
+              translationContext->registerTranslation( QStringLiteral( "project:layers:%1:fields:%2:valuemapdescriptions" ).arg( vlayer->id(), field.name() ), valueList[i].toMap().constBegin().key() );
+            }
+          }
         }
       }
 
@@ -934,12 +937,21 @@ QgsCoordinateReferenceSystem QgsProject::crs() const
   return mCrs;
 }
 
+QgsCoordinateReferenceSystem QgsProject::crs3D() const
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS
+
+  return mCrs3D.isValid() ? mCrs3D : mCrs;
+}
+
 void QgsProject::setCrs( const QgsCoordinateReferenceSystem &crs, bool adjustEllipsoid )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
   if ( crs != mCrs )
   {
+    const QgsCoordinateReferenceSystem oldVerticalCrs = verticalCrs();
+    const QgsCoordinateReferenceSystem oldCrs3D = mCrs3D;
     mCrs = crs;
     writeEntry( QStringLiteral( "SpatialRefSys" ), QStringLiteral( "/ProjectionsEnabled" ), crs.isValid() ? 1 : 0 );
     mProjectScope.reset();
@@ -949,8 +961,15 @@ void QgsProject::setCrs( const QgsCoordinateReferenceSystem &crs, bool adjustEll
     if ( !mMainAnnotationLayer->crs().isValid() || mMainAnnotationLayer->isEmpty() )
       mMainAnnotationLayer->setCrs( crs );
 
+    rebuildCrs3D();
+
     setDirty( true );
     emit crsChanged();
+    // Did vertical crs also change as a result of this? If so, emit signal
+    if ( oldVerticalCrs != verticalCrs() )
+      emit verticalCrsChanged();
+    if ( oldCrs3D != mCrs3D )
+      emit crs3DChanged();
   }
 
   if ( adjustEllipsoid )
@@ -963,9 +982,9 @@ QString QgsProject::ellipsoid() const
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL
 
   if ( !crs().isValid() )
-    return geoNone();
+    return Qgis::geoNone();
 
-  return readEntry( QStringLiteral( "Measure" ), QStringLiteral( "/Ellipsoid" ), geoNone() );
+  return readEntry( QStringLiteral( "Measure" ), QStringLiteral( "/Ellipsoid" ), Qgis::geoNone() );
 }
 
 void QgsProject::setEllipsoid( const QString &ellipsoid )
@@ -978,6 +997,136 @@ void QgsProject::setEllipsoid( const QString &ellipsoid )
   mProjectScope.reset();
   writeEntry( QStringLiteral( "Measure" ), QStringLiteral( "/Ellipsoid" ), ellipsoid );
   emit ellipsoidChanged( ellipsoid );
+}
+
+QgsCoordinateReferenceSystem QgsProject::verticalCrs() const
+{
+  // this method is called quite extensively from other threads via QgsProject::createExpressionContextScope()
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL
+
+  switch ( mCrs.type() )
+  {
+    case Qgis::CrsType::Vertical: // would hope this never happens!
+      QgsDebugError( QStringLiteral( "Project has a vertical CRS set as the horizontal CRS!" ) );
+      return mCrs;
+
+    case Qgis::CrsType::Compound:
+      return mCrs.verticalCrs();
+
+    case Qgis::CrsType::Unknown:
+    case Qgis::CrsType::Geodetic:
+    case Qgis::CrsType::Geocentric:
+    case Qgis::CrsType::Geographic2d:
+    case Qgis::CrsType::Geographic3d:
+    case Qgis::CrsType::Projected:
+    case Qgis::CrsType::Temporal:
+    case Qgis::CrsType::Engineering:
+    case Qgis::CrsType::Bound:
+    case Qgis::CrsType::Other:
+    case Qgis::CrsType::DerivedProjected:
+      break;
+  }
+  return mVerticalCrs;
+}
+
+bool QgsProject::setVerticalCrs( const QgsCoordinateReferenceSystem &crs, QString *errorMessage )
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS
+  bool res = true;
+  if ( crs.isValid() )
+  {
+    // validate that passed crs is a vertical crs
+    switch ( crs.type() )
+    {
+      case Qgis::CrsType::Vertical:
+        break;
+
+      case Qgis::CrsType::Unknown:
+      case Qgis::CrsType::Compound:
+      case Qgis::CrsType::Geodetic:
+      case Qgis::CrsType::Geocentric:
+      case Qgis::CrsType::Geographic2d:
+      case Qgis::CrsType::Geographic3d:
+      case Qgis::CrsType::Projected:
+      case Qgis::CrsType::Temporal:
+      case Qgis::CrsType::Engineering:
+      case Qgis::CrsType::Bound:
+      case Qgis::CrsType::Other:
+      case Qgis::CrsType::DerivedProjected:
+        if ( errorMessage )
+          *errorMessage = QObject::tr( "Specified CRS is a %1 CRS, not a Vertical CRS" ).arg( qgsEnumValueToKey( crs.type() ) );
+        return false;
+    }
+  }
+
+  if ( crs != mVerticalCrs )
+  {
+    const QgsCoordinateReferenceSystem oldVerticalCrs = verticalCrs();
+    const QgsCoordinateReferenceSystem oldCrs3D = mCrs3D;
+
+    switch ( mCrs.type() )
+    {
+      case Qgis::CrsType::Compound:
+        if ( crs != oldVerticalCrs )
+        {
+          if ( errorMessage )
+            *errorMessage = QObject::tr( "Project CRS is a Compound CRS, specified Vertical CRS will be ignored" );
+          return false;
+        }
+        break;
+
+      case Qgis::CrsType::Geographic3d:
+        if ( crs != oldVerticalCrs )
+        {
+          if ( errorMessage )
+            *errorMessage = QObject::tr( "Project CRS is a Geographic 3D CRS, specified Vertical CRS will be ignored" );
+          return false;
+        }
+        break;
+
+      case Qgis::CrsType::Geocentric:
+        if ( crs != oldVerticalCrs )
+        {
+          if ( errorMessage )
+            *errorMessage = QObject::tr( "Project CRS is a Geocentric CRS, specified Vertical CRS will be ignored" );
+          return false;
+        }
+        break;
+
+      case Qgis::CrsType::Projected:
+        if ( mCrs.hasVerticalAxis() && crs != oldVerticalCrs )
+        {
+          if ( errorMessage )
+            *errorMessage = QObject::tr( "Project CRS is a Projected 3D CRS, specified Vertical CRS will be ignored" );
+          return false;
+        }
+        break;
+
+      case Qgis::CrsType::Unknown:
+      case Qgis::CrsType::Geodetic:
+      case Qgis::CrsType::Geographic2d:
+      case Qgis::CrsType::Temporal:
+      case Qgis::CrsType::Engineering:
+      case Qgis::CrsType::Bound:
+      case Qgis::CrsType::Other:
+      case Qgis::CrsType::Vertical:
+      case Qgis::CrsType::DerivedProjected:
+        break;
+    }
+
+    mVerticalCrs = crs;
+    res = rebuildCrs3D( errorMessage );
+    mProjectScope.reset();
+
+    setDirty( true );
+    // only emit signal if vertical crs was actually changed, so eg if mCrs is compound
+    // then we haven't actually changed the vertical crs by this call!
+    if ( verticalCrs() != oldVerticalCrs )
+      emit verticalCrsChanged();
+    if ( mCrs3D != oldCrs3D )
+      emit crs3DChanged();
+  }
+  return res;
 }
 
 QgsCoordinateTransformContext QgsProject::transformContext() const
@@ -1012,6 +1161,17 @@ void QgsProject::clear()
 
   ScopedIntIncrementor snapSingleBlocker( &mBlockSnappingUpdates );
 
+  emit aboutToBeCleared();
+
+  if ( !mIsBeingDeleted )
+  {
+    // Unregister expression functions stored in the project.
+    // If we clean on destruction we may end-up with a non-valid
+    // mPythonUtils, so be safe and only clean when not destroying.
+    // This should be called before calling mProperties.clearKeys().
+    cleanFunctionsFromProject();
+  }
+
   mProjectScope.reset();
   mFile.setFileName( QString() );
   mProperties.clearKeys();
@@ -1026,6 +1186,8 @@ void QgsProject::clear()
   mDirty = false;
   mCustomVariables.clear();
   mCrs = QgsCoordinateReferenceSystem();
+  mVerticalCrs = QgsCoordinateReferenceSystem();
+  mCrs3D = QgsCoordinateReferenceSystem();
   mMetadata = QgsProjectMetadata();
   mElevationShadingRenderer = QgsElevationShadingRenderer();
   if ( !mSettings.value( QStringLiteral( "projects/anonymize_new_projects" ), false, QgsSettings::Core ).toBool() )
@@ -1041,11 +1203,13 @@ void QgsProject::clear()
 
   //fallback to QGIS default measurement unit
   bool ok = false;
-  const QgsUnitTypes::DistanceUnit distanceUnit = QgsUnitTypes::decodeDistanceUnit( mSettings.value( QStringLiteral( "/qgis/measure/displayunits" ) ).toString(), &ok );
-  setDistanceUnits( ok ? distanceUnit : QgsUnitTypes::DistanceMeters );
+  const Qgis::DistanceUnit distanceUnit = QgsUnitTypes::decodeDistanceUnit( mSettings.value( QStringLiteral( "/qgis/measure/displayunits" ) ).toString(), &ok );
+  setDistanceUnits( ok ? distanceUnit : Qgis::DistanceUnit::Meters );
   ok = false;
-  const QgsUnitTypes::AreaUnit areaUnits = QgsUnitTypes::decodeAreaUnit( mSettings.value( QStringLiteral( "/qgis/measure/areaunits" ) ).toString(), &ok );
-  setAreaUnits( ok ? areaUnits : QgsUnitTypes::AreaSquareMeters );
+  const Qgis::AreaUnit areaUnits = QgsUnitTypes::decodeAreaUnit( mSettings.value( QStringLiteral( "/qgis/measure/areaunits" ) ).toString(), &ok );
+  setAreaUnits( ok ? areaUnits : Qgis::AreaUnit::SquareMeters );
+
+  setScaleMethod( Qgis::ScaleCalculationMethod::HorizontalMiddle );
 
   mEmbeddedLayers.clear();
   mRelationManager->clear();
@@ -1053,6 +1217,7 @@ void QgsProject::clear()
   mLayoutManager->clear();
   m3DViewsManager->clear();
   mBookmarkManager->clear();
+  mSensorManager->clear();
   mViewSettings->reset();
   mTimeSettings->reset();
   mElevationProperties->reset();
@@ -1068,10 +1233,14 @@ void QgsProject::clear()
 
   mLabelingEngineSettings->clear();
 
+  // must happen BEFORE archive reset, because we need to release the hold on any files which
+  // exists within the archive. Otherwise the archive can't be removed.
+  releaseHandlesToProjectArchive();
+
   mAuxiliaryStorage.reset( new QgsAuxiliaryStorage() );
   mArchive.reset( new QgsArchive() );
 
-  // must happen after archive reset!
+  // must happen AFTER archive reset, as it will populate a new style database within the new archive
   mStyleSettings->reset();
 
   emit labelingEngineSettingsChanged();
@@ -1115,6 +1284,11 @@ void QgsProject::clear()
 
   setDirty( false );
   emit homePathChanged();
+  if ( !mBlockChangeSignalsDuringClear )
+  {
+    emit verticalCrsChanged();
+    emit crs3DChanged();
+  }
   emit cleared();
 }
 
@@ -1133,20 +1307,20 @@ void dump_( const QgsProjectPropertyKey &topQgsPropertyKey )
  * scope.  "layers" is a list containing three string values.
  *
  * \code{.xml}
- * <properties>
- *   <fsplugin>
- *     <foo type="int" >42</foo>
- *     <baz type="int" >1</baz>
- *     <layers type="QStringList" >
+ * <properties name="properties">
+ *   <properties name="fsplugin">
+ *     <properties name="foo" type="int" >42</properties>
+ *     <properties name="baz" type="int" >1</properties>
+ *     <properties name="layers" type="QStringList">
  *       <value>railroad</value>
  *       <value>airport</value>
- *     </layers>
- *     <xyqzzy type="int" >1</xyqzzy>
- *     <bar type="double" >123.456</bar>
- *     <feature_types type="QStringList" >
+ *     </properties>
+ *     <properties name="xyqzzy" type="int" >1</properties>
+ *     <properties name="bar" type="double" >123.456</properties>
+ *     <properties name="feature_types" type="QStringList">
  *        <value>type</value>
- *     </feature_types>
- *   </fsplugin>
+ *     </properties>
+ *   </properties>
  * </properties>
  * \endcode
  *
@@ -1166,13 +1340,13 @@ void _getProperties( const QDomDocument &doc, QgsProjectPropertyKey &project_pro
 
   if ( propertiesElem.firstChild().isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "empty ``properties'' XML tag ... bailing" ) );
+    QgsDebugError( QStringLiteral( "empty ``properties'' XML tag ... bailing" ) );
     return;
   }
 
   if ( ! project_properties.readXml( propertiesElem ) )
   {
-    QgsDebugMsg( QStringLiteral( "Project_properties.readXml() failed" ) );
+    QgsDebugError( QStringLiteral( "Project_properties.readXml() failed" ) );
   }
 }
 
@@ -1191,7 +1365,7 @@ QgsPropertyCollection getDataDefinedServerProperties( const QDomDocument &doc, c
   {
     if ( !ddServerProperties.readXml( ddElem, dataDefinedServerPropertyDefinitions ) )
     {
-      QgsDebugMsg( QStringLiteral( "dataDefinedServerProperties.readXml() failed" ) );
+      QgsDebugError( QStringLiteral( "dataDefinedServerProperties.readXml() failed" ) );
     }
   }
   return ddServerProperties;
@@ -1239,7 +1413,7 @@ static void readProjectFileMetadata( const QDomDocument &doc, QString &lastUser,
 
   if ( !nl.count() )
   {
-    QgsDebugMsg( QStringLiteral( "unable to find qgis element" ) );
+    QgsDebugError( QStringLiteral( "unable to find qgis element" ) );
     return;
   }
 
@@ -1257,7 +1431,7 @@ QgsProjectVersion getVersion( const QDomDocument &doc )
 
   if ( !nl.count() )
   {
-    QgsDebugMsg( QStringLiteral( " unable to find qgis element in project file" ) );
+    QgsDebugError( QStringLiteral( " unable to find qgis element in project file" ) );
     return QgsProjectVersion( 0, 0, 0, QString() );
   }
 
@@ -1296,6 +1470,205 @@ void QgsProject::setAvoidIntersectionsMode( const Qgis::AvoidIntersectionsMode m
 
   mAvoidIntersectionsMode = mode;
   emit avoidIntersectionsModeChanged();
+}
+
+static  QgsMapLayer::ReadFlags projectFlagsToLayerReadFlags( Qgis::ProjectReadFlags projectReadFlags, Qgis::ProjectFlags projectFlags )
+{
+  QgsMapLayer::ReadFlags layerFlags = QgsMapLayer::ReadFlags();
+  // Propagate don't resolve layers
+  if ( projectReadFlags & Qgis::ProjectReadFlag::DontResolveLayers )
+    layerFlags |= QgsMapLayer::FlagDontResolveLayers;
+  // Propagate trust layer metadata flag
+  // Propagate read extent from XML based trust layer metadata flag
+  if ( ( projectFlags & Qgis::ProjectFlag::TrustStoredLayerStatistics ) || ( projectReadFlags & Qgis::ProjectReadFlag::TrustLayerMetadata ) )
+  {
+    layerFlags |= QgsMapLayer::FlagTrustLayerMetadata;
+    layerFlags |= QgsMapLayer::FlagReadExtentFromXml;
+  }
+  // Propagate open layers in read-only mode
+  if ( ( projectReadFlags & Qgis::ProjectReadFlag::ForceReadOnlyLayers ) )
+    layerFlags |= QgsMapLayer::FlagForceReadOnly;
+
+  return layerFlags;
+}
+
+struct LayerToLoad
+{
+  QString layerId;
+  QString provider;
+  QString dataSource;
+  QgsDataProvider::ProviderOptions options;
+  Qgis::DataProviderReadFlags flags;
+  QDomElement layerElement;
+};
+
+void QgsProject::preloadProviders( const QVector<QDomNode> &parallelLayerNodes,
+                                   const QgsReadWriteContext &context,
+                                   QMap<QString, QgsDataProvider *> &loadedProviders,
+                                   QgsMapLayer::ReadFlags layerReadFlags,
+                                   int totalProviderCount )
+{
+  int i = 0;
+  QEventLoop loop;
+
+  QMap<QString, LayerToLoad> layersToLoad;
+
+  for ( const QDomNode &node : parallelLayerNodes )
+  {
+    LayerToLoad layerToLoad;
+
+    const QDomElement layerElement = node.toElement();
+    layerToLoad.layerElement = layerElement;
+    layerToLoad.layerId = layerElement.namedItem( QStringLiteral( "id" ) ).toElement().text();
+    layerToLoad.provider = layerElement.namedItem( QStringLiteral( "provider" ) ).toElement().text();
+    layerToLoad.dataSource = layerElement.namedItem( QStringLiteral( "datasource" ) ).toElement().text();
+
+    layerToLoad.dataSource = QgsProviderRegistry::instance()->relativeToAbsoluteUri( layerToLoad.provider, layerToLoad.dataSource, context );
+
+    layerToLoad.options = QgsDataProvider::ProviderOptions( {context.transformContext()} );
+    layerToLoad.flags = QgsMapLayer::providerReadFlags( node, layerReadFlags );
+
+    // Requesting credential from worker thread could lead to deadlocks because the main thread is waiting for worker thread to fininsh
+    layerToLoad.flags.setFlag( Qgis::DataProviderReadFlag::SkipCredentialsRequest, true );
+    layerToLoad.flags.setFlag( Qgis::DataProviderReadFlag::ParallelThreadLoading, true );
+
+    layersToLoad.insert( layerToLoad.layerId, layerToLoad );
+  }
+
+  while ( !layersToLoad.isEmpty() )
+  {
+    const QList<LayerToLoad> layersToAttemptInParallel = layersToLoad.values();
+    QString layerToAttemptInMainThread;
+
+    QHash<QString, QgsRunnableProviderCreator *> runnables;
+    QThreadPool threadPool;
+    threadPool.setMaxThreadCount( QgsSettingsRegistryCore::settingsLayerParallelLoadingMaxCount->value() );
+
+    for ( const LayerToLoad &lay : layersToAttemptInParallel )
+    {
+      QgsRunnableProviderCreator *run = new QgsRunnableProviderCreator( lay.layerId, lay.provider, lay.dataSource, lay.options, lay.flags );
+      runnables.insert( lay.layerId, run );
+
+      QObject::connect( run, &QgsRunnableProviderCreator::providerCreated, run, [&]( bool isValid, const QString & layId )
+      {
+        if ( isValid )
+        {
+          layersToLoad.remove( layId );
+          i++;
+          QgsRunnableProviderCreator *finishedRun = runnables.value( layId, nullptr );
+          Q_ASSERT( finishedRun );
+
+          std::unique_ptr<QgsDataProvider> provider( finishedRun->dataProvider() );
+          Q_ASSERT( provider && provider->isValid() );
+
+          loadedProviders.insert( layId, provider.release() );
+          emit layerLoaded( i, totalProviderCount );
+        }
+        else
+        {
+          if ( layerToAttemptInMainThread.isEmpty() )
+            layerToAttemptInMainThread = layId;
+          threadPool.clear(); //we have to stop all loading provider to try this layer in main thread and maybe have credentials
+        }
+
+        if ( i == parallelLayerNodes.count() || !isValid )
+          loop.quit();
+      } );
+      threadPool.start( run );
+    }
+    loop.exec();
+
+    threadPool.waitForDone(); // to be sure all threads are finished
+
+    qDeleteAll( runnables );
+
+    // We try with the first layer returned invalid but this time in the main thread to maybe have credentials and continue with others not loaded in parallel
+    auto it = layersToLoad.find( layerToAttemptInMainThread );
+    if ( it != layersToLoad.end() )
+    {
+      std::unique_ptr<QgsDataProvider> provider;
+      QString layerId;
+      {
+        const LayerToLoad &lay = it.value();
+        Qgis::DataProviderReadFlags providerFlags = lay.flags;
+        providerFlags.setFlag( Qgis::DataProviderReadFlag::SkipCredentialsRequest, false );
+        providerFlags.setFlag( Qgis::DataProviderReadFlag::ParallelThreadLoading, false );
+        QgsScopedRuntimeProfile profile( "Create data providers/" + lay.layerId, QStringLiteral( "projectload" ) );
+        provider.reset( QgsProviderRegistry::instance()->createProvider( lay.provider, lay.dataSource, lay.options, providerFlags ) );
+        i++;
+        if ( provider && provider->isValid() )
+        {
+          emit layerLoaded( i, totalProviderCount );
+        }
+        layerId = lay.layerId;
+        layersToLoad.erase( it );
+        // can't access "lay" anymore -- it's now been freed
+      }
+      loadedProviders.insert( layerId, provider.release() );
+    }
+
+    // if there still are some not loaded providers or some invalid in parallel thread we start again
+  }
+
+}
+
+void QgsProject::releaseHandlesToProjectArchive()
+{
+  mStyleSettings->removeProjectStyle();
+}
+
+bool QgsProject::rebuildCrs3D( QString *error )
+{
+  bool res = true;
+  if ( !mCrs.isValid() )
+  {
+    mCrs3D = QgsCoordinateReferenceSystem();
+  }
+  else if ( !mVerticalCrs.isValid() )
+  {
+    mCrs3D = mCrs;
+  }
+  else
+  {
+    switch ( mCrs.type() )
+    {
+      case Qgis::CrsType::Compound:
+      case Qgis::CrsType::Geographic3d:
+      case Qgis::CrsType::Geocentric:
+        mCrs3D = mCrs;
+        break;
+
+      case Qgis::CrsType::Projected:
+      {
+        QString tempError;
+        mCrs3D = mCrs.hasVerticalAxis() ? mCrs : QgsCoordinateReferenceSystem::createCompoundCrs( mCrs, mVerticalCrs, error ? *error : tempError );
+        res = mCrs3D.isValid();
+        break;
+      }
+
+      case Qgis::CrsType::Vertical:
+        // nonsense situation
+        mCrs3D = QgsCoordinateReferenceSystem();
+        res = false;
+        break;
+
+      case Qgis::CrsType::Unknown:
+      case Qgis::CrsType::Geodetic:
+      case Qgis::CrsType::Geographic2d:
+      case Qgis::CrsType::Temporal:
+      case Qgis::CrsType::Engineering:
+      case Qgis::CrsType::Bound:
+      case Qgis::CrsType::Other:
+      case Qgis::CrsType::DerivedProjected:
+      {
+        QString tempError;
+        mCrs3D = QgsCoordinateReferenceSystem::createCompoundCrs( mCrs, mVerticalCrs, error ? *error : tempError );
+        res = mCrs3D.isValid();
+        break;
+      }
+    }
+  }
+  return res;
 }
 
 bool QgsProject::_getMapLayers( const QDomDocument &doc, QList<QDomNode> &brokenNodes, Qgis::ProjectReadFlags flags )
@@ -1343,17 +1716,49 @@ bool QgsProject::_getMapLayers( const QDomDocument &doc, QList<QDomNode> &broken
   const QVector<QDomNode> sortedLayerNodes = depSorter.sortedLayerNodes();
   const int totalLayerCount = sortedLayerNodes.count();
 
-  int i = 0;
-  for ( const QDomNode &node : sortedLayerNodes )
+  QVector<QDomNode> parallelLoading;
+  QMap<QString, QgsDataProvider *> loadedProviders;
+
+  if ( !( flags & Qgis::ProjectReadFlag::DontResolveLayers ) &&
+       QgsSettingsRegistryCore::settingsLayerParallelLoading->value() )
+  {
+    profile.switchTask( tr( "Load providers in parallel" ) );
+    for ( const QDomNode &node : sortedLayerNodes )
+    {
+      const QDomElement element = node.toElement();
+      if ( element.attribute( QStringLiteral( "embedded" ) ) != QLatin1String( "1" ) )
+      {
+        const QString layerId = node.namedItem( QStringLiteral( "id" ) ).toElement().text();
+        if ( !depSorter.isLayerDependent( layerId ) )
+        {
+          const QDomNode mnl = element.namedItem( QStringLiteral( "provider" ) );
+          const QDomElement mne = mnl.toElement();
+          const QString provider = mne.text();
+          QgsProviderMetadata *meta = QgsProviderRegistry::instance()->providerMetadata( provider );
+          if ( meta && meta->providerCapabilities().testFlag( QgsProviderMetadata::ParallelCreateProvider ) )
+          {
+            parallelLoading.append( node );
+            continue;
+          }
+        }
+      }
+    }
+
+    QgsReadWriteContext context;
+    context.setPathResolver( pathResolver() );
+    if ( !parallelLoading.isEmpty() )
+      preloadProviders( parallelLoading, context, loadedProviders, projectFlagsToLayerReadFlags( flags, mFlags ), sortedLayerNodes.count() );
+  }
+
+  int i = loadedProviders.count();
+  for ( const QDomNode &node : std::as_const( sortedLayerNodes ) )
   {
     const QDomElement element = node.toElement();
-
     const QString name = translate( QStringLiteral( "project:layers:%1" ).arg( node.namedItem( QStringLiteral( "id" ) ).toElement().text() ), node.namedItem( QStringLiteral( "layername" ) ).toElement().text() );
     if ( !name.isNull() )
       emit loadingLayer( tr( "Loading layer %1" ).arg( name ) );
 
     profile.switchTask( name );
-
     if ( element.attribute( QStringLiteral( "embedded" ) ) == QLatin1String( "1" ) )
     {
       createEmbeddedLayer( element.attribute( QStringLiteral( "id" ) ), readPath( element.attribute( QStringLiteral( "project" ) ) ), brokenNodes, true, flags );
@@ -1364,8 +1769,9 @@ bool QgsProject::_getMapLayers( const QDomDocument &doc, QList<QDomNode> &broken
       context.setPathResolver( pathResolver() );
       context.setProjectTranslator( this );
       context.setTransformContext( transformContext() );
+      QString layerId = element.namedItem( QStringLiteral( "id" ) ).toElement().text();
 
-      if ( !addLayer( element, brokenNodes, context, flags ) )
+      if ( !addLayer( element, brokenNodes, context, flags, loadedProviders.take( layerId ) ) )
       {
         returnStatus = false;
       }
@@ -1382,7 +1788,11 @@ bool QgsProject::_getMapLayers( const QDomDocument &doc, QList<QDomNode> &broken
   return returnStatus;
 }
 
-bool QgsProject::addLayer( const QDomElement &layerElem, QList<QDomNode> &brokenNodes, QgsReadWriteContext &context, Qgis::ProjectReadFlags flags )
+bool QgsProject::addLayer( const QDomElement &layerElem,
+                           QList<QDomNode> &brokenNodes,
+                           QgsReadWriteContext &context,
+                           Qgis::ProjectReadFlags flags,
+                           QgsDataProvider *provider )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
@@ -1393,57 +1803,54 @@ bool QgsProject::addLayer( const QDomElement &layerElem, QList<QDomNode> &broken
   QgsScopedRuntimeProfile profile( tr( "Create layer" ), QStringLiteral( "projectload" ) );
 
   bool ok = false;
-  const QgsMapLayerType layerType( QgsMapLayerFactory::typeFromString( type, ok ) );
+  const Qgis::LayerType layerType( QgsMapLayerFactory::typeFromString( type, ok ) );
   if ( !ok )
   {
-    QgsDebugMsg( QStringLiteral( "Unknown layer type \"%1\"" ).arg( type ) );
+    QgsDebugError( QStringLiteral( "Unknown layer type \"%1\"" ).arg( type ) );
     return false;
   }
 
   switch ( layerType )
   {
-    case QgsMapLayerType::VectorLayer:
-    {
+    case Qgis::LayerType::Vector:
       mapLayer = std::make_unique<QgsVectorLayer>();
-      // apply specific settings to vector layer
-      if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( mapLayer.get() ) )
-      {
-        vl->setReadExtentFromXml( ( mFlags & Qgis::ProjectFlag::TrustStoredLayerStatistics ) || ( flags & Qgis::ProjectReadFlag::TrustLayerMetadata ) );
-      }
       break;
-    }
 
-    case QgsMapLayerType::RasterLayer:
+    case Qgis::LayerType::Raster:
       mapLayer = std::make_unique<QgsRasterLayer>();
       break;
 
-    case QgsMapLayerType::MeshLayer:
+    case Qgis::LayerType::Mesh:
       mapLayer = std::make_unique<QgsMeshLayer>();
       break;
 
-    case QgsMapLayerType::VectorTileLayer:
+    case Qgis::LayerType::VectorTile:
       mapLayer = std::make_unique<QgsVectorTileLayer>();
       break;
 
-    case QgsMapLayerType::PointCloudLayer:
+    case Qgis::LayerType::PointCloud:
       mapLayer = std::make_unique<QgsPointCloudLayer>();
       break;
 
-    case QgsMapLayerType::PluginLayer:
+    case Qgis::LayerType::TiledScene:
+      mapLayer = std::make_unique<QgsTiledSceneLayer>();
+      break;
+
+    case Qgis::LayerType::Plugin:
     {
       const QString typeName = layerElem.attribute( QStringLiteral( "name" ) );
       mapLayer.reset( QgsApplication::pluginLayerRegistry()->createLayer( typeName ) );
       break;
     }
 
-    case QgsMapLayerType::AnnotationLayer:
+    case Qgis::LayerType::Annotation:
     {
       const QgsAnnotationLayer::LayerOptions options( mTransformContext );
       mapLayer = std::make_unique<QgsAnnotationLayer>( QString(), options );
       break;
     }
 
-    case QgsMapLayerType::GroupLayer:
+    case Qgis::LayerType::Group:
     {
       const QgsGroupLayer::LayerOptions options( mTransformContext );
       mapLayer = std::make_unique<QgsGroupLayer>( QString(), options );
@@ -1453,7 +1860,7 @@ bool QgsProject::addLayer( const QDomElement &layerElem, QList<QDomNode> &broken
 
   if ( !mapLayer )
   {
-    QgsDebugMsg( QStringLiteral( "Unable to create layer" ) );
+    QgsDebugError( QStringLiteral( "Unable to create layer" ) );
     return false;
   }
 
@@ -1463,21 +1870,24 @@ bool QgsProject::addLayer( const QDomElement &layerElem, QList<QDomNode> &broken
   // because if it was, the newly created layer will not be added to the store and it would leak.
   const QString layerId { layerElem.namedItem( QStringLiteral( "id" ) ).toElement().text() };
   Q_ASSERT( ! layerId.isEmpty() );
-  const bool layerWasStored { layerStore()->mapLayer( layerId ) != nullptr };
+  const bool layerWasStored = layerStore()->mapLayer( layerId );
 
   // have the layer restore state that is stored in Dom node
-  QgsMapLayer::ReadFlags layerFlags = QgsMapLayer::ReadFlags();
-  if ( flags & Qgis::ProjectReadFlag::DontResolveLayers )
-    layerFlags |= QgsMapLayer::FlagDontResolveLayers;
-  // Propagate trust layer metadata flag
-  if ( ( mFlags & Qgis::ProjectFlag::TrustStoredLayerStatistics ) || ( flags & Qgis::ProjectReadFlag::TrustLayerMetadata ) )
-    layerFlags |= QgsMapLayer::FlagTrustLayerMetadata;
-  // Propagate open layers in read-only mode
-  if ( ( flags & Qgis::ProjectReadFlag::ForceReadOnlyLayers ) )
-    layerFlags |= QgsMapLayer::FlagForceReadOnly;
+  QgsMapLayer::ReadFlags layerFlags = projectFlagsToLayerReadFlags( flags, mFlags );
 
   profile.switchTask( tr( "Load layer source" ) );
-  const bool layerIsValid = mapLayer->readLayerXml( layerElem, context, layerFlags ) && mapLayer->isValid();
+  const bool layerIsValid = mapLayer->readLayerXml( layerElem, context, layerFlags, provider ) && mapLayer->isValid();
+
+  // apply specific settings to vector layer
+  if ( QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( mapLayer.get() ) )
+  {
+    vl->setReadExtentFromXml( layerFlags & QgsMapLayer::FlagReadExtentFromXml );
+    if ( vl->dataProvider() )
+    {
+      const bool evaluateDefaultValues = mFlags & Qgis::ProjectFlag::EvaluateDefaultValuesOnProviderSide;
+      vl->dataProvider()->setProviderProperty( QgsVectorDataProvider::EvaluateDefaultValues, evaluateDefaultValues );
+    }
+  }
 
   profile.switchTask( tr( "Add layer to project" ) );
   QList<QgsMapLayer *> newLayers;
@@ -1500,7 +1910,7 @@ bool QgsProject::addLayer( const QDomElement &layerElem, QList<QDomNode> &broken
     // It's a bad layer: do not add to legend (the user will decide if she wants to do so)
     addMapLayers( newLayers, false );
     newLayers.first();
-    QgsDebugMsg( "Unable to load " + type + " layer" );
+    QgsDebugError( "Unable to load " + type + " layer" );
     brokenNodes.push_back( layerElem );
   }
 
@@ -1577,9 +1987,10 @@ bool QgsProject::read( Qgis::ProjectReadFlags flags )
       const QString attachmentsZip = finfo.absoluteDir().absoluteFilePath( QStringLiteral( "%1_attachments.zip" ).arg( finfo.completeBaseName() ) );
       if ( QFile( attachmentsZip ).exists() )
       {
-        std::unique_ptr<QgsArchive> archive( new QgsArchive() );
+        auto archive = std::make_unique<QgsArchive>();
         if ( archive->unzip( attachmentsZip ) )
         {
+          releaseHandlesToProjectArchive();
           mArchive = std::move( archive );
         }
       }
@@ -1625,7 +2036,7 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   }
 
   profile.switchTask( tr( "Reading project file" ) );
-  std::unique_ptr<QDomDocument> doc( new QDomDocument( QStringLiteral( "qgis" ) ) );
+  auto doc = std::make_unique<QDomDocument>( QStringLiteral( "qgis" ) );
 
   if ( !projectFile.open( QIODevice::ReadOnly | QIODevice::Text ) )
   {
@@ -1636,19 +2047,30 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
     return false;
   }
 
+  QTextStream textStream( &projectFile );
+#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+  textStream.setCodec( "UTF-8" );
+#endif
+  QString projectString = textStream.readAll();
+  projectFile.close();
+
+  for ( int i = 0; i < 32; i++ )
+  {
+    if ( i == 9 || i == 10 || i == 13 )
+    {
+      continue;
+    }
+    projectString.replace( QChar( i ), QStringLiteral( "%1%2%1" ).arg( FONTMARKER_CHR_FIX, QString::number( i ) ) );
+  }
+
   // location of problem associated with errorMsg
   int line, column;
   QString errorMsg;
-
-  if ( !doc->setContent( &projectFile, &errorMsg, &line, &column ) )
+  if ( !doc->setContent( projectString, &errorMsg, &line, &column ) )
   {
     const QString errorString = tr( "Project file read error in file %1: %2 at line %3 column %4" )
                                 .arg( projectFile.fileName(), errorMsg ).arg( line ).arg( column );
-
-    QgsDebugMsg( errorString );
-
-    projectFile.close();
-
+    QgsDebugError( errorString );
     setError( errorString );
 
     return false;
@@ -1698,11 +2120,29 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   // start new project, just keep the file name and auxiliary storage
   profile.switchTask( tr( "Creating auxiliary storage" ) );
   const QString fileName = mFile.fileName();
+
+  const QgsCoordinateReferenceSystem oldVerticalCrs = verticalCrs();
+  const QgsCoordinateReferenceSystem oldCrs3D = mCrs3D;
+
+  // NOTE [ND] -- I suspect this is wrong, as the archive may contain any number of non-auxiliary
+  // storage related files from the previously loaded project.
   std::unique_ptr<QgsAuxiliaryStorage> aStorage = std::move( mAuxiliaryStorage );
   std::unique_ptr<QgsArchive> archive = std::move( mArchive );
+
+  // don't emit xxxChanged signals during the clear() call, as we'll be emitting
+  // them again after reading the properties from the project file
+  mBlockChangeSignalsDuringClear = true;
   clear();
+  mBlockChangeSignalsDuringClear = false;
+
+  // this is ugly, but clear() will have created a new archive and started populating it. We
+  // need to release handles to this archive now as the subsequent call to move will need
+  // to delete it, and requires free access to do so.
+  releaseHandlesToProjectArchive();
+
   mAuxiliaryStorage = std::move( aStorage );
   mArchive = std::move( archive );
+
   mFile.setFileName( fileName );
   mCachedHomePath.clear();
   mProjectScope.reset();
@@ -1759,6 +2199,8 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   if ( !areaUnitString.isEmpty() )
     setAreaUnits( QgsUnitTypes::decodeAreaUnit( areaUnitString ) );
 
+  setScaleMethod( qgsEnumKeyToValue( readEntry( QStringLiteral( "Measurement" ), QStringLiteral( "/ScaleMethod" ), QString() ), Qgis::ScaleCalculationMethod::HorizontalMiddle ) );
+
   QgsReadWriteContext context;
   context.setPathResolver( pathResolver() );
   context.setProjectTranslator( this );
@@ -1806,6 +2248,18 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   }
   mCrs = projectCrs;
 
+  //vertical CRS
+  {
+    QgsCoordinateReferenceSystem verticalCrs;
+    const QDomNode verticalCrsNode = doc->documentElement().namedItem( QStringLiteral( "verticalCrs" ) );
+    if ( !verticalCrsNode.isNull() )
+    {
+      verticalCrs.readXml( verticalCrsNode );
+    }
+    mVerticalCrs = verticalCrs;
+  }
+  rebuildCrs3D();
+
   QStringList datumErrors;
   if ( !mTransformContext.readXml( doc->documentElement(), context, datumErrors ) && !datumErrors.empty() )
   {
@@ -1839,6 +2293,11 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   {
     QgsMessageLog::logMessage( tr( "Project Variables Invalid" ), tr( "The project contains invalid variable settings." ) );
   }
+
+  // Register expression functions stored in the project.
+  // They might be using project variables and might be
+  // in turn being used by other components (e.g., layouts).
+  loadFunctionsFromProject();
 
   QDomElement element = doc->documentElement().firstChildElement( QStringLiteral( "projectMetadata" ) );
 
@@ -1888,7 +2347,7 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   }
   else
   {
-    QgsLayerTreeUtils::readOldLegend( mRootGroup, doc->documentElement().firstChildElement( QStringLiteral( "legend" ) ) );
+    QgsLayerTreeUtils::readOldLegend( mRootGroup.get(), doc->documentElement().firstChildElement( QStringLiteral( "legend" ) ) );
   }
 
   mLayerTreeRegistryBridge->setEnabled( false );
@@ -1896,17 +2355,19 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   // get the map layers
   profile.switchTask( tr( "Reading map layers" ) );
 
+  loadProjectFlags( doc.get() );
+
   QList<QDomNode> brokenNodes;
   const bool clean = _getMapLayers( *doc, brokenNodes, flags );
 
   // review the integrity of the retrieved map layers
   if ( !clean && !( flags & Qgis::ProjectReadFlag::DontResolveLayers ) )
   {
-    QgsDebugMsg( QStringLiteral( "Unable to get map layers from project file." ) );
+    QgsDebugError( QStringLiteral( "Unable to get map layers from project file." ) );
 
     if ( !brokenNodes.isEmpty() )
     {
-      QgsDebugMsg( "there are " + QString::number( brokenNodes.size() ) + " broken layers" );
+      QgsDebugError( "there are " + QString::number( brokenNodes.size() ) + " broken layers" );
     }
 
     // we let a custom handler decide what to do with missing layers
@@ -1919,7 +2380,7 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
 
   // load embedded groups and layers
   profile.switchTask( tr( "Loading embedded layers" ) );
-  loadEmbeddedNodes( mRootGroup, flags );
+  loadEmbeddedNodes( mRootGroup.get(), flags );
 
   // Resolve references to other layers
   // Needs to be done here once all dependent layers are loaded
@@ -1929,6 +2390,7 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   {
     it.value()->resolveReferences( this );
   }
+  mMainAnnotationLayer->resolveReferences( this );
 
   mLayerTreeRegistryBridge->setEnabled( true );
 
@@ -1936,7 +2398,13 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   profile.switchTask( tr( "Resolving references" ) );
   mRootGroup->resolveReferences( this );
 
-  loadProjectFlags( doc.get() );
+  // we need to migrate old fashion designed QgsSymbolLayerReference to new ones
+  if ( QgsProjectVersion( 3, 28, 0 ) > mSaveVersion )
+  {
+    Q_NOWARN_DEPRECATED_PUSH
+    QgsProjectFileTransform::fixOldSymbolLayerReferences( mapLayers() );
+    Q_NOWARN_DEPRECATED_POP
+  }
 
   if ( !layerTreeElem.isNull() )
   {
@@ -2031,7 +2499,7 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   if ( !( flags & Qgis::ProjectReadFlag::DontStoreOriginalStyles ) )
   {
     profile.switchTask( tr( "Storing original layer properties" ) );
-    QgsLayerTreeUtils::storeOriginalLayersProperties( mRootGroup, doc.get() );
+    QgsLayerTreeUtils::storeOriginalLayersProperties( mRootGroup.get(), doc.get() );
   }
 
   mRootGroup->removeCustomProperty( QStringLiteral( "loading" ) );
@@ -2043,10 +2511,23 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
 
   profile.switchTask( tr( "Loading label settings" ) );
   mLabelingEngineSettings->readSettingsFromProject( this );
+  {
+    const QDomElement labelEngineSettingsElement = doc->documentElement().firstChildElement( QStringLiteral( "labelEngineSettings" ) );
+    mLabelingEngineSettings->readXml( labelEngineSettingsElement, context );
+  }
+  mLabelingEngineSettings->resolveReferences( this );
+
   emit labelingEngineSettingsChanged();
 
   profile.switchTask( tr( "Loading annotations" ) );
-  mAnnotationManager->readXml( doc->documentElement(), context );
+  if ( flags & Qgis::ProjectReadFlag::DontUpgradeAnnotations )
+  {
+    mAnnotationManager->readXml( doc->documentElement(), context );
+  }
+  else
+  {
+    mAnnotationManager->readXmlAndUpgradeToAnnotationLayerItems( doc->documentElement(), context, mMainAnnotationLayer, mTransformContext );
+  }
   if ( !( flags & Qgis::ProjectReadFlag::DontLoadLayouts ) )
   {
     profile.switchTask( tr( "Loading layouts" ) );
@@ -2061,6 +2542,9 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
 
   profile.switchTask( tr( "Loading bookmarks" ) );
   mBookmarkManager->readXml( doc->documentElement(), *doc );
+
+  profile.switchTask( tr( "Loading sensors" ) );
+  mSensorManager->readXml( doc->documentElement(), *doc );
 
   // reassign change dependencies now that all layers are loaded
   QMap<QString, QgsMapLayer *> existingMaps = mapLayers();
@@ -2100,7 +2584,10 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   profile.switchTask( tr( "Loading style properties" ) );
   const QDomElement styleSettingsElement = doc->documentElement().firstChildElement( QStringLiteral( "ProjectStyleSettings" ) );
   if ( !styleSettingsElement.isNull() )
+  {
+    mStyleSettings->removeProjectStyle();
     mStyleSettings->readXml( styleSettingsElement, context, flags );
+  }
 
   // restore time settings
   profile.switchTask( tr( "Loading temporal settings" ) );
@@ -2134,6 +2621,10 @@ bool QgsProject::readProjectFile( const QString &filename, Qgis::ProjectReadFlag
   emit customVariablesChanged();
   profile.switchTask( tr( "Updating CRS" ) );
   emit crsChanged();
+  if ( verticalCrs() != oldVerticalCrs )
+    emit verticalCrsChanged();
+  if ( mCrs3D != oldCrs3D )
+    emit crs3DChanged();
   emit ellipsoidChanged( ellipsoid() );
 
   // read the project: used by map canvas and legend
@@ -2331,8 +2822,13 @@ void QgsProject::setAvoidIntersectionsLayers( const QList<QgsVectorLayer *> &lay
 
   QStringList list;
   list.reserve( layers.size() );
+
   for ( QgsVectorLayer *layer : layers )
-    list << layer->id();
+  {
+    if ( layer->geometryType() == Qgis::GeometryType::Polygon )
+      list << layer->id();
+  }
+
   writeEntry( QStringLiteral( "Digitizing" ), QStringLiteral( "/AvoidIntersectionsList" ), list );
   emit avoidIntersectionsLayersChanged();
 }
@@ -2351,16 +2847,21 @@ QgsExpressionContext QgsProject::createExpressionContext() const
 
 QgsExpressionContextScope *QgsProject::createExpressionContextScope() const
 {
-  // this method is called quite extensively using QgsProject::instance()
+  // this method is called quite extensively using QgsProject::instance() skip-keyword-check
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL
 
   // MUCH cheaper to clone than build
   if ( mProjectScope )
   {
-    std::unique_ptr< QgsExpressionContextScope > projectScope = std::make_unique< QgsExpressionContextScope >( *mProjectScope );
-    // we can't cache these
+    auto projectScope = std::make_unique< QgsExpressionContextScope >( *mProjectScope );
+
+    // we can't cache these variables
     projectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_distance_units" ), QgsUnitTypes::toString( distanceUnits() ), true, true ) );
     projectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_area_units" ), QgsUnitTypes::toString( areaUnits() ), true, true ) );
+
+    // neither this function
+    projectScope->addFunction( QStringLiteral( "sensor_data" ), new GetSensorData( sensorManager()->sensorsData() ) );
+
     return projectScope.release();
   }
 
@@ -2390,17 +2891,25 @@ QgsExpressionContextScope *QgsProject::createExpressionContextScope() const
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_basename" ), projectBasename, true, true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_home" ), QDir::toNativeSeparators( homePath() ), true, true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_last_saved" ), mSaveDateTime.isNull() ? QVariant() : QVariant( mSaveDateTime ), true, true ) );
+
   const QgsCoordinateReferenceSystem projectCrs = crs();
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs" ), projectCrs.authid(), true, true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_definition" ), projectCrs.toProj(), true, true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_description" ), projectCrs.description(), true, true ) );
-  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_ellipsoid" ), ellipsoid(), true, true ) );
-  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "_project_transform_context" ), QVariant::fromValue<QgsCoordinateTransformContext>( transformContext() ), true, true ) );
-  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_units" ), QgsUnitTypes::toString( projectCrs.mapUnits() ), true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_acronym" ), projectCrs.projectionAcronym(), true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_ellipsoid" ), projectCrs.ellipsoidAcronym(), true ) );
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_proj4" ), projectCrs.toProj(), true ) );
-  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_wkt" ), projectCrs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ), true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_crs_wkt" ), projectCrs.toWkt( Qgis::CrsWktVariant::Preferred ), true ) );
+
+  const QgsCoordinateReferenceSystem projectVerticalCrs = QgsProject::verticalCrs();
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_vertical_crs" ), projectVerticalCrs.authid(), true, true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_vertical_crs_definition" ), projectVerticalCrs.toProj(), true, true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_vertical_crs_description" ), projectVerticalCrs.description(), true, true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_vertical_crs_wkt" ), projectVerticalCrs.toWkt( Qgis::CrsWktVariant::Preferred ), true ) );
+
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_ellipsoid" ), ellipsoid(), true, true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "_project_transform_context" ), QVariant::fromValue<QgsCoordinateTransformContext>( transformContext() ), true, true ) );
+  mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_units" ), QgsUnitTypes::toString( projectCrs.mapUnits() ), true ) );
 
   // metadata
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "project_author" ), metadata().author(), true, true ) );
@@ -2432,6 +2941,7 @@ QgsExpressionContextScope *QgsProject::createExpressionContextScope() const
   mProjectScope->addVariable( QgsExpressionContextScope::StaticVariable( QStringLiteral( "layers" ), layers, true ) );
 
   mProjectScope->addFunction( QStringLiteral( "project_color" ), new GetNamedProjectColor( this ) );
+  mProjectScope->addFunction( QStringLiteral( "project_color_object" ), new GetNamedProjectColorObject( this ) );
 
   return createExpressionContextScope();
 }
@@ -2448,7 +2958,15 @@ void QgsProject::onMapLayersAdded( const QList<QgsMapLayer *> &layers )
     if ( ! layer->isValid() )
       return;
 
-    connect( layer, &QgsMapLayer::configChanged, this, [ = ] { setDirty(); } );
+    if ( QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( layer ) )
+    {
+      vlayer->setReadExtentFromXml( mFlags & Qgis::ProjectFlag::TrustStoredLayerStatistics );
+      if ( vlayer->dataProvider() )
+        vlayer->dataProvider()->setProviderProperty( QgsVectorDataProvider::EvaluateDefaultValues,
+            ( bool )( mFlags & Qgis::ProjectFlag::EvaluateDefaultValuesOnProviderSide ) );
+    }
+
+    connect( layer, &QgsMapLayer::configChanged, this, [this] { setDirty(); } );
 
     // check if we have to update connections for layers with dependencies
     for ( QMap<QString, QgsMapLayer *>::const_iterator it = existingMaps.cbegin(); it != existingMaps.cend(); ++it )
@@ -2474,6 +2992,15 @@ void QgsProject::onMapLayersRemoved( const QList<QgsMapLayer *> &layers )
 
   if ( !mBlockSnappingUpdates && mSnappingConfig.removeLayers( layers ) )
     emit snappingConfigChanged( mSnappingConfig );
+
+  for ( QgsMapLayer *layer : layers )
+  {
+    QgsVectorLayer *vlayer = qobject_cast<QgsVectorLayer *>( layer );
+    if ( ! vlayer )
+      continue;
+
+    mEditBufferGroup.removeLayer( vlayer );
+  }
 }
 
 void QgsProject::cleanTransactionGroups( bool force )
@@ -2719,7 +3246,7 @@ bool QgsProject::writeProjectFile( const QString &filename )
   const QDomDocumentType documentType =
     QDomImplementation().createDocumentType( QStringLiteral( "qgis" ), QStringLiteral( "http://mrcc.com/qgis.dtd" ),
         QStringLiteral( "SYSTEM" ) );
-  std::unique_ptr<QDomDocument> doc( new QDomDocument( documentType ) );
+  auto doc = std::make_unique<QDomDocument>( documentType );
 
   QDomElement qgisNode = doc->createElement( QStringLiteral( "qgis" ) );
   qgisNode.setAttribute( QStringLiteral( "projectname" ), title() );
@@ -2765,9 +3292,16 @@ bool QgsProject::writeProjectFile( const QString &filename )
   titleNode.appendChild( titleText );
 
   // write project CRS
-  QDomElement srsNode = doc->createElement( QStringLiteral( "projectCrs" ) );
-  mCrs.writeXml( srsNode, *doc );
-  qgisNode.appendChild( srsNode );
+  {
+    QDomElement srsNode = doc->createElement( QStringLiteral( "projectCrs" ) );
+    mCrs.writeXml( srsNode, *doc );
+    qgisNode.appendChild( srsNode );
+  }
+  {
+    QDomElement verticalSrsNode = doc->createElement( QStringLiteral( "verticalCrs" ) );
+    mVerticalCrs.writeXml( verticalSrsNode, *doc );
+    qgisNode.appendChild( verticalSrsNode );
+  }
 
   QDomElement elevationShadingNode = doc->createElement( QStringLiteral( "elevation-shading-renderer" ) );
   mElevationShadingRenderer.writeXml( elevationShadingNode, context );
@@ -2829,7 +3363,7 @@ bool QgsProject::writeProjectFile( const QString &filename )
           }
           else
           {
-            QgsDebugMsg( QStringLiteral( "Could not restore layer properties for layer %1" ).arg( ml->id() ) );
+            QgsDebugError( QStringLiteral( "Could not restore layer properties for layer %1" ).arg( ml->id() ) );
           }
         }
 
@@ -2867,6 +3401,11 @@ bool QgsProject::writeProjectFile( const QString &filename )
   qgisNode.appendChild( layerOrderNode );
 
   mLabelingEngineSettings->writeSettingsToProject( this );
+  {
+    QDomElement labelEngineSettingsElement = doc->createElement( QStringLiteral( "labelEngineSettings" ) );
+    mLabelingEngineSettings->writeXml( *doc, labelEngineSettingsElement, context );
+    qgisNode.appendChild( labelEngineSettingsElement );
+  }
 
   writeEntry( QStringLiteral( "Gui" ), QStringLiteral( "/CanvasColorRedPart" ), mBackgroundColor.red() );
   writeEntry( QStringLiteral( "Gui" ), QStringLiteral( "/CanvasColorGreenPart" ), mBackgroundColor.green() );
@@ -2879,6 +3418,7 @@ bool QgsProject::writeProjectFile( const QString &filename )
 
   writeEntry( QStringLiteral( "Measurement" ), QStringLiteral( "/DistanceUnits" ), QgsUnitTypes::encodeUnit( mDistanceUnits ) );
   writeEntry( QStringLiteral( "Measurement" ), QStringLiteral( "/AreaUnits" ), QgsUnitTypes::encodeUnit( mAreaUnits ) );
+  writeEntry( QStringLiteral( "Measurement" ), QStringLiteral( "/ScaleMethod" ), qgsEnumValueToKey( mScaleMethod ) );
 
   // now add the optional extra properties
 #if 0
@@ -2923,6 +3463,11 @@ bool QgsProject::writeProjectFile( const QString &filename )
   {
     const QDomElement bookmarkElem = mBookmarkManager->writeXml( *doc );
     qgisNode.appendChild( bookmarkElem );
+  }
+
+  {
+    const QDomElement sensorElem = mSensorManager->writeXml( *doc );
+    qgisNode.appendChild( sensorElem );
   }
 
   {
@@ -3116,7 +3661,7 @@ QStringList QgsProject::readListEntry( const QString &scope,
   {
     value = property->value();
 
-    const bool valid = QVariant::StringList == value.type();
+    const bool valid = QMetaType::Type::QStringList == value.userType();
     if ( ok )
       *ok = valid;
 
@@ -3147,7 +3692,7 @@ QString QgsProject::readEntry( const QString &scope,
   {
     value = property->value();
 
-    const bool valid = value.canConvert( QVariant::String );
+    const bool valid = value.canConvert( QMetaType::Type::QString );
     if ( ok )
       *ok = valid;
 
@@ -3174,7 +3719,7 @@ int QgsProject::readNumEntry( const QString &scope, const QString &key, int def,
     value = property->value();
   }
 
-  const bool valid = value.canConvert( QVariant::Int );
+  const bool valid = value.canConvert( QMetaType::Type::Int );
 
   if ( ok )
   {
@@ -3200,7 +3745,7 @@ double QgsProject::readDoubleEntry( const QString &scope, const QString &key,
   {
     const QVariant value = property->value();
 
-    const bool valid = value.canConvert( QVariant::Double );
+    const bool valid = value.canConvert( QMetaType::Type::Double );
     if ( ok )
       *ok = valid;
 
@@ -3224,7 +3769,7 @@ bool QgsProject::readBoolEntry( const QString &scope, const QString &key, bool d
   {
     const QVariant value = property->value();
 
-    const bool valid = value.canConvert( QVariant::Bool );
+    const bool valid = value.canConvert( QMetaType::Type::Bool );
     if ( ok )
       *ok = valid;
 
@@ -3364,8 +3909,7 @@ void QgsProject::setBadLayerHandler( QgsProjectBadLayerHandler *handler )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  delete mBadLayerHandler;
-  mBadLayerHandler = handler;
+  mBadLayerHandler.reset( handler );
 }
 
 QString QgsProject::layerIsEmbedded( const QString &id ) const
@@ -3426,10 +3970,25 @@ bool QgsProject::createEmbeddedLayer( const QString &layerId, const QString &pro
   const QDomElement propertiesElem = sProjectDocument.documentElement().firstChildElement( QStringLiteral( "properties" ) );
   if ( !propertiesElem.isNull() )
   {
-    const QDomElement absElem = propertiesElem.firstChildElement( QStringLiteral( "Paths" ) ).firstChildElement( QStringLiteral( "Absolute" ) );
-    if ( !absElem.isNull() )
+    QDomElement e = propertiesElem.firstChildElement( QStringLiteral( "Paths" ) );
+    if ( e.isNull() )
     {
-      useAbsolutePaths = absElem.text().compare( QLatin1String( "true" ), Qt::CaseInsensitive ) == 0;
+      e = propertiesElem.firstChildElement( QStringLiteral( "properties" ) );
+      while ( !e.isNull() && e.attribute( QStringLiteral( "name" ) ) != QStringLiteral( "Paths" ) )
+        e = e.nextSiblingElement( QStringLiteral( "properties" ) );
+
+      e = e.firstChildElement( QStringLiteral( "properties" ) );
+      while ( !e.isNull() && e.attribute( QStringLiteral( "name" ) ) != QStringLiteral( "Absolute" ) )
+        e = e.nextSiblingElement( QStringLiteral( "properties" ) );
+    }
+    else
+    {
+      e = e.firstChildElement( QStringLiteral( "Absolute" ) );
+    }
+
+    if ( !e.isNull() )
+    {
+      useAbsolutePaths = e.text().compare( QLatin1String( "true" ), Qt::CaseInsensitive ) == 0;
     }
   }
 
@@ -3606,7 +4165,7 @@ bool QgsProject::topologicalEditing() const
   return readNumEntry( QStringLiteral( "Digitizing" ), QStringLiteral( "/TopologicalEditing" ), 0 );
 }
 
-void QgsProject::setDistanceUnits( QgsUnitTypes::DistanceUnit unit )
+void QgsProject::setDistanceUnits( Qgis::DistanceUnit unit )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
@@ -3618,7 +4177,7 @@ void QgsProject::setDistanceUnits( QgsUnitTypes::DistanceUnit unit )
   emit distanceUnitsChanged();
 }
 
-void QgsProject::setAreaUnits( QgsUnitTypes::AreaUnit unit )
+void QgsProject::setAreaUnits( Qgis::AreaUnit unit )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
@@ -3628,6 +4187,18 @@ void QgsProject::setAreaUnits( QgsUnitTypes::AreaUnit unit )
   mAreaUnits = unit;
 
   emit areaUnitsChanged();
+}
+
+void QgsProject::setScaleMethod( Qgis::ScaleCalculationMethod method )
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS
+
+  if ( mScaleMethod == method )
+    return;
+
+  mScaleMethod = method;
+
+  emit scaleMethodChanged();
 }
 
 QString QgsProject::homePath() const
@@ -3651,8 +4222,19 @@ QString QgsProject::homePath() const
   }
   else if ( !fileName().isEmpty() )
   {
-    mCachedHomePath = pfi.path();
 
+    // If it's not stored in the file system, try to get the path from the storage
+    if ( QgsProjectStorage *storage = projectStorage() )
+    {
+      const QString storagePath { storage->filePath( fileName() ) };
+      if ( ! storagePath.isEmpty() && QFileInfo::exists( storagePath ) )
+      {
+        mCachedHomePath = QFileInfo( storagePath ).path();
+        return mCachedHomePath;
+      }
+    }
+
+    mCachedHomePath = pfi.path();
     return mCachedHomePath;
   }
 
@@ -3686,7 +4268,7 @@ QgsRelationManager *QgsProject::relationManager() const
   // because relation aggregate functions are not thread safe
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL
 
-  return mRelationManager;
+  return mRelationManager.get();
 }
 
 const QgsLayoutManager *QgsProject::layoutManager() const
@@ -3729,6 +4311,20 @@ QgsBookmarkManager *QgsProject::bookmarkManager()
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
   return mBookmarkManager;
+}
+
+const QgsSensorManager *QgsProject::sensorManager() const
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL
+
+  return mSensorManager;
+}
+
+QgsSensorManager *QgsProject::sensorManager()
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS
+
+  return mSensorManager;
 }
 
 const QgsProjectViewSettings *QgsProject::viewSettings() const
@@ -3820,7 +4416,7 @@ QgsLayerTree *QgsProject::layerTreeRoot() const
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  return mRootGroup;
+  return mRootGroup.get();
 }
 
 QgsMapThemeCollection *QgsProject::mapThemeCollection()
@@ -3919,9 +4515,9 @@ void QgsProject::setAutoTransaction( bool autoTransaction )
     return;
 
   if ( autoTransaction )
-    mTransactionMode = Qgis::TransactionMode::AutomaticGroups;
+    setTransactionMode( Qgis::TransactionMode::AutomaticGroups );
   else
-    mTransactionMode = Qgis::TransactionMode::Disabled;
+    setTransactionMode( Qgis::TransactionMode::Disabled );
 
   updateTransactionGroups();
 }
@@ -3953,6 +4549,7 @@ bool QgsProject::setTransactionMode( Qgis::TransactionMode transactionMode )
 
   mTransactionMode = transactionMode;
   updateTransactionGroups();
+  emit transactionModeChanged();
   return true;
 }
 
@@ -4006,9 +4603,9 @@ QList<QgsMapLayer *> QgsProject::mapLayersByShortName( const QString &shortName 
   const auto constMapLayers { mLayerStore->mapLayers() };
   for ( const auto &l : constMapLayers )
   {
-    if ( ! l->shortName().isEmpty() )
+    if ( ! l->serverProperties()->shortName().isEmpty() )
     {
-      if ( l->shortName() == shortName )
+      if ( l->serverProperties()->shortName() == shortName )
         layers << l;
     }
     else if ( l->name() == shortName )
@@ -4024,7 +4621,7 @@ bool QgsProject::unzip( const QString &filename, Qgis::ProjectReadFlags flags )
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
   clearError();
-  std::unique_ptr<QgsProjectArchive> archive( new QgsProjectArchive() );
+  auto archive = std::make_unique<QgsProjectArchive>();
 
   // unzip the archive
   if ( !archive->unzip( filename ) )
@@ -4041,6 +4638,7 @@ bool QgsProject::unzip( const QString &filename, Qgis::ProjectReadFlags flags )
   }
 
   // Keep the archive
+  releaseHandlesToProjectArchive();
   mArchive = std::move( archive );
 
   // load auxiliary storage
@@ -4075,7 +4673,7 @@ bool QgsProject::zip( const QString &filename )
   clearError();
 
   // save the current project in a temporary .qgs file
-  std::unique_ptr<QgsProjectArchive> archive( new QgsProjectArchive() );
+  auto archive = std::make_unique<QgsProjectArchive>();
   const QString baseName = QFileInfo( filename ).baseName();
   const QString qgsFileName = QStringLiteral( "%1.qgs" ).arg( baseName );
   QFile qgsFile( QDir( archive->dir() ).filePath( qgsFileName ) );
@@ -4109,6 +4707,7 @@ bool QgsProject::zip( const QString &filename )
     // fixes the current archive and keep the previous version of qgd
     if ( !mArchive->exists() )
     {
+      releaseHandlesToProjectArchive();
       mArchive.reset( new QgsProjectArchive() );
       mArchive->unzip( mFile.fileName() );
       static_cast<QgsProjectArchive *>( mArchive.get() )->clearProjectFile();
@@ -4187,7 +4786,7 @@ QList<QgsMapLayer *> QgsProject::addMapLayers(
   {
     for ( QgsMapLayer *mlayer : myResultList )
     {
-      if ( mlayer->type() != QgsMapLayerType::VectorLayer )
+      if ( mlayer->type() != Qgis::LayerType::Vector )
         continue;
 
       QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( mlayer );
@@ -4219,7 +4818,7 @@ void QgsProject::removeAuxiliaryLayer( const QgsMapLayer *ml )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  if ( ! ml || ml->type() != QgsMapLayerType::VectorLayer )
+  if ( ! ml || ml->type() != Qgis::LayerType::Vector )
     return;
 
   const QgsVectorLayer *vl = qobject_cast<const QgsVectorLayer *>( ml );
@@ -4353,7 +4952,7 @@ QgsCoordinateReferenceSystem QgsProject::defaultCrsForNewLayers() const
   else
   {
     // global crs
-    const QString layerDefaultCrs = mSettings.value( QStringLiteral( "/Projections/layerDefaultCrs" ), geoEpsgCrsAuthId() ).toString();
+    const QString layerDefaultCrs = mSettings.value( QStringLiteral( "/Projections/layerDefaultCrs" ), QStringLiteral( "EPSG:4326" ) ).toString();
     defaultCrs = QgsCoordinateReferenceSystem::fromOgcWmsCrs( layerDefaultCrs );
   }
 
@@ -4382,7 +4981,7 @@ bool QgsProject::saveAuxiliaryStorage( const QString &filename )
   bool empty = true;
   for ( auto it = layers.constBegin(); it != layers.constEnd(); ++it )
   {
-    if ( it.value()->type() != QgsMapLayerType::VectorLayer )
+    if ( it.value()->type() != Qgis::LayerType::Vector )
       continue;
 
     QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( it.value() );
@@ -4412,7 +5011,7 @@ QgsPropertiesDefinition &QgsProject::dataDefinedServerPropertyDefinitions()
   static QgsPropertiesDefinition sPropertyDefinitions
   {
     {
-      QgsProject::DataDefinedServerProperty::WMSOnlineResource,
+      static_cast< int >( QgsProject::DataDefinedServerProperty::WMSOnlineResource ),
       QgsPropertyDefinition( "WMSOnlineResource", QObject::tr( "WMS Online Resource" ), QgsPropertyDefinition::String )
     },
   };
@@ -4562,7 +5161,7 @@ void QgsProject::setProjectColors( const QgsNamedColorList &colors )
   QgsNamedColorList::const_iterator colorIt = colors.constBegin();
   for ( ; colorIt != colors.constEnd(); ++colorIt )
   {
-    const QString color = QgsSymbolLayerUtils::encodeColor( ( *colorIt ).first );
+    const QString color = QgsColorUtils::colorToString( ( *colorIt ).first );
     const QString label = ( *colorIt ).second;
     customColors.append( color );
     customColorLabels.append( label );
@@ -4735,12 +5334,38 @@ void QgsProject::loadProjectFlags( const QDomDocument *doc )
   setFlags( flags );
 }
 
-/// @cond PRIVATE
-GetNamedProjectColor::GetNamedProjectColor( const QgsProject *project )
-  : QgsScopedExpressionFunction( QStringLiteral( "project_color" ), 1, QStringLiteral( "Color" ) )
+bool QgsProject::loadFunctionsFromProject( bool force )
 {
-  if ( !project )
-    return;
+  if ( QgsPythonRunner::isValid() )
+  {
+    const Qgis::PythonEmbeddedMode pythonEmbeddedMode = QgsSettings().enumValue( QStringLiteral( "qgis/enablePythonEmbedded" ), Qgis::PythonEmbeddedMode::Ask );
+
+    if ( force || pythonEmbeddedMode == Qgis::PythonEmbeddedMode::SessionOnly || pythonEmbeddedMode == Qgis::PythonEmbeddedMode::Always )
+    {
+      const QString projectFunctions = readEntry( QStringLiteral( "ExpressionFunctions" ), QStringLiteral( "/pythonCode" ), QString() );
+      if ( !projectFunctions.isEmpty() )
+      {
+        QgsPythonRunner::run( projectFunctions );
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void QgsProject::cleanFunctionsFromProject()
+{
+  if ( QgsPythonRunner::isValid() )
+  {
+    QgsPythonRunner::run( "qgis.utils.clean_project_expression_functions()" );
+  }
+}
+
+/// @cond PRIVATE
+
+QHash< QString, QColor > loadColorsFromProject( const QgsProject *project )
+{
+  QHash< QString, QColor > colors;
 
   //build up color list from project. Do this in advance for speed
   QStringList colorStrings = project->readListEntry( QStringLiteral( "Palette" ), QStringLiteral( "/Colors" ) );
@@ -4751,16 +5376,28 @@ GetNamedProjectColor::GetNamedProjectColor( const QgsProject *project )
   for ( QStringList::iterator it = colorStrings.begin();
         it != colorStrings.end(); ++it )
   {
-    const QColor color = QgsSymbolLayerUtils::decodeColor( *it );
+    const QColor color = QgsColorUtils::colorFromString( *it );
     QString label;
     if ( colorLabels.length() > colorIndex )
     {
       label = colorLabels.at( colorIndex );
     }
 
-    mColors.insert( label.toLower(), color );
+    colors.insert( label.toLower(), color );
     colorIndex++;
   }
+
+  return colors;
+}
+
+
+GetNamedProjectColor::GetNamedProjectColor( const QgsProject *project )
+  : QgsScopedExpressionFunction( QStringLiteral( "project_color" ), 1, QStringLiteral( "Color" ) )
+{
+  if ( !project )
+    return;
+
+  mColors = loadColorsFromProject( project );
 }
 
 GetNamedProjectColor::GetNamedProjectColor( const QHash<QString, QColor> &colors )
@@ -4783,5 +5420,67 @@ QVariant GetNamedProjectColor::func( const QVariantList &values, const QgsExpres
 QgsScopedExpressionFunction *GetNamedProjectColor::clone() const
 {
   return new GetNamedProjectColor( mColors );
+}
+
+GetNamedProjectColorObject::GetNamedProjectColorObject( const QgsProject *project )
+  : QgsScopedExpressionFunction( QStringLiteral( "project_color_object" ), 1, QStringLiteral( "Color" ) )
+{
+  if ( !project )
+    return;
+
+  mColors = loadColorsFromProject( project );
+}
+
+GetNamedProjectColorObject::GetNamedProjectColorObject( const QHash<QString, QColor> &colors )
+  : QgsScopedExpressionFunction( QStringLiteral( "project_color_object" ), 1, QStringLiteral( "Color" ) )
+  , mColors( colors )
+{
+}
+
+QVariant GetNamedProjectColorObject::func( const QVariantList &values, const QgsExpressionContext *, QgsExpression *, const QgsExpressionNodeFunction * )
+{
+  const QString colorName = values.at( 0 ).toString().toLower();
+  if ( mColors.contains( colorName ) )
+  {
+    return mColors.value( colorName );
+  }
+  else
+    return QVariant();
+}
+
+QgsScopedExpressionFunction *GetNamedProjectColorObject::clone() const
+{
+  return new GetNamedProjectColorObject( mColors );
+}
+
+// ----------------
+
+GetSensorData::GetSensorData( const QMap<QString, QgsAbstractSensor::SensorData> &sensorData )
+  : QgsScopedExpressionFunction( QStringLiteral( "sensor_data" ),
+                                 QgsExpressionFunction::ParameterList() << QgsExpressionFunction::Parameter( QStringLiteral( "name" ) ) << QgsExpressionFunction::Parameter( QStringLiteral( "expiration" ), true, 0 ),
+                                 QStringLiteral( "Sensors" ) )
+  , mSensorData( sensorData )
+{
+}
+
+QVariant GetSensorData::func( const QVariantList &values, const QgsExpressionContext *, QgsExpression *, const QgsExpressionNodeFunction * )
+{
+  const QString sensorName = values.at( 0 ).toString();
+  const int expiration = values.at( 1 ).toInt();
+  const qint64 timestamp = QDateTime::currentMSecsSinceEpoch();
+  if ( mSensorData.contains( sensorName ) )
+  {
+    if ( expiration <= 0 || ( timestamp - mSensorData[sensorName].lastTimestamp.toMSecsSinceEpoch() ) < expiration )
+    {
+      return mSensorData[sensorName].lastValue;
+    }
+  }
+
+  return QVariant();
+}
+
+QgsScopedExpressionFunction *GetSensorData::clone() const
+{
+  return new GetSensorData( mSensorData );
 }
 ///@endcond

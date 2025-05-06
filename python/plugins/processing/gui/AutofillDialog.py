@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     AutofillDialog.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 import warnings
@@ -31,8 +29,7 @@ pluginPath = os.path.split(os.path.dirname(__file__))[0]
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'DlgAutofill.ui'))
+    WIDGET, BASE = uic.loadUiType(os.path.join(pluginPath, "ui", "DlgAutofill.ui"))
 
 
 class AutofillDialog(BASE, WIDGET):
@@ -41,7 +38,7 @@ class AutofillDialog(BASE, WIDGET):
     FILL_WITH_PARAMETER = 2
 
     def __init__(self, alg):
-        super(AutofillDialog, self).__init__(None)
+        super().__init__(None)
         self.setupUi(self)
         self.mode = None
         self.param_name = None

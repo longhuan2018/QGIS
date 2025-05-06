@@ -27,7 +27,7 @@ QString QgsPointToLayerAlgorithm::name() const
 void QgsPointToLayerAlgorithm::initAlgorithm( const QVariantMap & )
 {
   addParameter( new QgsProcessingParameterPoint( QStringLiteral( "INPUT" ), QObject::tr( "Point" ) ) );
-  addParameter( new QgsProcessingParameterFeatureSink( QStringLiteral( "OUTPUT" ), QObject::tr( "Point" ), QgsProcessing::TypeVectorPoint ) );
+  addParameter( new QgsProcessingParameterFeatureSink( QStringLiteral( "OUTPUT" ), QObject::tr( "Point" ), Qgis::ProcessingSourceType::VectorPoint ) );
 }
 
 QString QgsPointToLayerAlgorithm::shortHelpString() const
@@ -48,10 +48,10 @@ QVariantMap QgsPointToLayerAlgorithm::processAlgorithm( const QVariantMap &param
   const QgsGeometry geom = QgsGeometry::fromPointXY( parameterAsPoint( parameters, QStringLiteral( "INPUT" ), context ) );
 
   QgsFields fields;
-  fields.append( QgsField( QStringLiteral( "id" ), QVariant::Int ) );
+  fields.append( QgsField( QStringLiteral( "id" ), QMetaType::Type::Int ) );
 
   QString dest;
-  std::unique_ptr< QgsFeatureSink > sink( parameterAsSink( parameters, QStringLiteral( "OUTPUT" ), context, dest, fields, QgsWkbTypes::Point, crs ) );
+  std::unique_ptr<QgsFeatureSink> sink( parameterAsSink( parameters, QStringLiteral( "OUTPUT" ), context, dest, fields, Qgis::WkbType::Point, crs ) );
   if ( !sink )
     throw QgsProcessingException( invalidSinkError( parameters, QStringLiteral( "OUTPUT" ) ) );
 
@@ -61,6 +61,8 @@ QVariantMap QgsPointToLayerAlgorithm::processAlgorithm( const QVariantMap &param
   if ( !sink->addFeature( f, QgsFeatureSink::FastInsert ) )
     throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
 
+  sink->finalize();
+
   feedback->setProgress( 100 );
 
   QVariantMap outputs;
@@ -69,4 +71,3 @@ QVariantMap QgsPointToLayerAlgorithm::processAlgorithm( const QVariantMap &param
 }
 
 ///@endcond
-

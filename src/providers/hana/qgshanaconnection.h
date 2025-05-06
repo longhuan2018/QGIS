@@ -18,33 +18,31 @@
 #define QGSHANACONNECTION_H
 
 #include "qgscoordinatereferencesystem.h"
+#include "qgshanadatatypes.h"
 #include "qgsdatasourceuri.h"
 #include "qgshanatablemodel.h"
 #include "qgshanaresultset.h"
-#include "qgslogger.h"
 #include "qgsvectordataprovider.h"
 
 #include "odbc/Forwards.h"
 
 struct AttributeField
 {
-  QString schemaName;
-  QString tableName;
-  QString name;
-  short type = 0;
-  int srid = -1;
-  QString typeName;
-  int size = 0;
-  int precision = 0;
-  bool isAutoIncrement = false;
-  bool isNullable = false;
-  bool isSigned = false;
-  bool isUnique = false;
-  QString comment;
+    QString schemaName;
+    QString tableName;
+    QString name;
+    QgsHanaDataType type = QgsHanaDataType::Unknown;
+    int srid = -1;
+    QString typeName;
+    int size = 0;
+    int precision = 0;
+    bool isAutoIncrement = false;
+    bool isNullable = false;
+    bool isSigned = false;
+    bool isUnique = false;
+    QString comment;
 
-  bool isGeometry() const { return type == 29812; /* ST_GEOMETRY, ST_POINT */ }
-
-  QgsField toQgsField() const;
+    QgsField toQgsField() const;
 };
 
 using AttributeFields = QVector<AttributeField>;
@@ -73,25 +71,28 @@ class QgsHanaConnection : public QObject
 
     QList<QgsVectorDataProvider::NativeType> getNativeTypes();
     const QString &getDatabaseVersion();
+    const QString &getDatabaseCloudVersion();
     const QString &getUserName();
     QgsCoordinateReferenceSystem getCrs( int srid );
     QVector<QgsHanaLayerProperty> getLayers(
       const QString &schemaName,
       bool allowGeometrylessTables,
       bool userTablesOnly = true,
-      const std::function<bool( const QgsHanaLayerProperty &layer )> &layerFilter = nullptr );
+      const std::function<bool( const QgsHanaLayerProperty &layer )> &layerFilter = nullptr
+    );
     QVector<QgsHanaLayerProperty> getLayersFull(
       const QString &schemaName,
       bool allowGeometrylessTables,
       bool userTablesOnly = true,
-      const std::function<bool( const QgsHanaLayerProperty &layer )> &layerFilter = nullptr );
+      const std::function<bool( const QgsHanaLayerProperty &layer )> &layerFilter = nullptr
+    );
     void readLayerInfo( QgsHanaLayerProperty &layerProperty );
     void readQueryFields( const QString &schemaName, const QString &sql, const std::function<void( const AttributeField &field )> &callback );
     void readTableFields( const QString &schemaName, const QString &tableName, const std::function<void( const AttributeField &field )> &callback );
     QVector<QgsHanaSchemaProperty> getSchemas( const QString &ownerName );
     QStringList getLayerPrimaryKey( const QString &schemaName, const QString &tableName );
-    QgsWkbTypes::Type getColumnGeometryType( const QString &querySource, const QString &columnName );
-    QgsWkbTypes::Type getColumnGeometryType( const QString &schemaName, const QString &tableName, const QString &columnName );
+    Qgis::WkbType getColumnGeometryType( const QString &querySource, const QString &columnName );
+    Qgis::WkbType getColumnGeometryType( const QString &schemaName, const QString &tableName, const QString &columnName );
     QString getColumnDataType( const QString &schemaName, const QString &tableName, const QString &columnName );
     int getColumnSrid( const QString &schemaName, const QString &tableName, const QString &columnName );
     int getColumnSrid( const QString &sql, const QString &columnName );
@@ -115,7 +116,8 @@ class QgsHanaConnection : public QObject
     NS_ODBC::ConnectionRef mConnection;
     const QgsDataSourceUri mUri;
     QString mDatabaseVersion;
+    QString mDatabaseCloudVersion;
     QString mUserName;
 };
 
-#endif  // QGSHANACONNECTION_H
+#endif // QGSHANACONNECTION_H

@@ -30,18 +30,16 @@ class QgsSettingsEntryBase;
 /**
  * \ingroup core
  * \class QgsSettingsEntryGroup
- * \brief Creates a group of setting which have a common definition of base key
+ * \brief Creates a group of settings which have a common definition of base key.
  *
  * \since QGIS 3.26
- * \deprecated since QGIS 3.30 use QgsSettingsTreeNode instead
+ * \deprecated QGIS 3.30. Use QgsSettingsTreeNode instead.
  */
 class CORE_DEPRECATED_EXPORT QgsSettingsEntryGroup SIP_DEPRECATED
 {
   public:
     //! Constructor
-    QgsSettingsEntryGroup( QList<const QgsSettingsEntryBase *> settings )
-      : QgsSettingsEntryGroup( settings, true )
-    {}
+    QgsSettingsEntryGroup( QList<const QgsSettingsEntryBase *> settings );
 #ifdef SIP_RUN
     % MethodCode
     sipCpp = new QgsSettingsEntryGroup( *a0, false );

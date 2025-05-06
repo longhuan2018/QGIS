@@ -15,8 +15,6 @@ email                : hugo dot mercier at oslandia dot com
  ***************************************************************************/
 
 #include "qgsvirtuallayerdefinition.h"
-#include "qgsvectorlayer.h"
-#include "qgsvectordataprovider.h"
 #include "fromencodedcomponenthelper.h"
 
 #include <QUrl>
@@ -37,7 +35,7 @@ QgsVirtualLayerDefinition QgsVirtualLayerDefinition::fromUrl( const QUrl &url )
   def.setFilePath( url.toLocalFile() );
 
   // regexp for column name
-  const QString columnNameRx( QStringLiteral( "[a-zA-Z_\x80-\xFF][a-zA-Z0-9_\x80-\xFF]*" ) );
+  const QString columnNameRx( QStringLiteral( "[a-zA-Z_\\x80-\\xFF][a-zA-Z0-9_\\x80-\\xFF]*" ) );
 
   QgsFields fields;
 
@@ -115,10 +113,10 @@ QgsVirtualLayerDefinition QgsVirtualLayerDefinition::fromUrl( const QUrl &url )
         if ( match.capturedTexts().size() > 2 )
         {
           // not used by the spatialite provider for now ...
-          QgsWkbTypes::Type wkbType = QgsWkbTypes::parseType( match.captured( 2 ) );
-          if ( wkbType == QgsWkbTypes::Unknown )
+          Qgis::WkbType wkbType = QgsWkbTypes::parseType( match.captured( 2 ) );
+          if ( wkbType == Qgis::WkbType::Unknown )
           {
-            wkbType = static_cast<QgsWkbTypes::Type>( match.captured( 2 ).toLong() );
+            wkbType = static_cast<Qgis::WkbType>( match.captured( 2 ).toLong() );
           }
           def.setGeometryWkbType( wkbType );
           def.setGeometrySrid( match.captured( 3 ).toLong() );
@@ -127,7 +125,7 @@ QgsVirtualLayerDefinition QgsVirtualLayerDefinition::fromUrl( const QUrl &url )
     }
     else if ( key == QLatin1String( "nogeometry" ) )
     {
-      def.setGeometryWkbType( QgsWkbTypes::NoGeometry );
+      def.setGeometryWkbType( Qgis::WkbType::NoGeometry );
     }
     else if ( key == QLatin1String( "uid" ) )
     {
@@ -149,15 +147,15 @@ QgsVirtualLayerDefinition QgsVirtualLayerDefinition::fromUrl( const QUrl &url )
         const QString fieldType( match.captured( 2 ) );
         if ( fieldType == QLatin1String( "int" ) )
         {
-          fields.append( QgsField( fieldName, QVariant::LongLong, fieldType ) );
+          fields.append( QgsField( fieldName, QMetaType::Type::LongLong, fieldType ) );
         }
         else if ( fieldType == QLatin1String( "real" ) )
         {
-          fields.append( QgsField( fieldName, QVariant::Double, fieldType ) );
+          fields.append( QgsField( fieldName, QMetaType::Type::Double, fieldType ) );
         }
         if ( fieldType == QLatin1String( "text" ) )
         {
-          fields.append( QgsField( fieldName, QVariant::String, fieldType ) );
+          fields.append( QgsField( fieldName, QMetaType::Type::QString, fieldType ) );
         }
       }
     }
@@ -207,12 +205,12 @@ QUrl QgsVirtualLayerDefinition::toUrl() const
   if ( !uid().isEmpty() )
     urlQuery.addQueryItem( QStringLiteral( "uid" ), uid() );
 
-  if ( geometryWkbType() == QgsWkbTypes::NoGeometry )
+  if ( geometryWkbType() == Qgis::WkbType::NoGeometry )
     urlQuery.addQueryItem( QStringLiteral( "nogeometry" ), QString() );
   else if ( !geometryField().isEmpty() )
   {
     if ( hasDefinedGeometry() )
-      urlQuery.addQueryItem( QStringLiteral( "geometry" ), QStringLiteral( "%1:%2:%3" ).arg( geometryField() ). arg( geometryWkbType() ).arg( geometrySrid() ).toUtf8() );
+      urlQuery.addQueryItem( QStringLiteral( "geometry" ), QStringLiteral( "%1:%2:%3" ).arg( geometryField() ). arg( qgsEnumValueToKey( geometryWkbType() ) ).arg( geometrySrid() ).toUtf8() );
     else
       urlQuery.addQueryItem( QStringLiteral( "geometry" ), geometryField() );
   }
@@ -220,14 +218,14 @@ QUrl QgsVirtualLayerDefinition::toUrl() const
   const auto constFields = fields();
   for ( const QgsField &f : constFields )
   {
-    if ( f.type() == QVariant::Int
-         || f.type() == QVariant::UInt
-         || f.type() == QVariant::Bool
-         || f.type() == QVariant::LongLong )
+    if ( f.type() == QMetaType::Type::Int
+         || f.type() == QMetaType::Type::UInt
+         || f.type() == QMetaType::Type::Bool
+         || f.type() == QMetaType::Type::LongLong )
       urlQuery.addQueryItem( QStringLiteral( "field" ), f.name() + ":int" );
-    else if ( f.type() == QVariant::Double )
+    else if ( f.type() == QMetaType::Type::Double )
       urlQuery.addQueryItem( QStringLiteral( "field" ), f.name() + ":real" );
-    else if ( f.type() == QVariant::String )
+    else if ( f.type() == QMetaType::Type::QString )
       urlQuery.addQueryItem( QStringLiteral( "field" ), f.name() + ":text" );
   }
 

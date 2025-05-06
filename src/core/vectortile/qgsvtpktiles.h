@@ -41,9 +41,7 @@ class CORE_EXPORT QgsVtpkTiles
     explicit QgsVtpkTiles( const QString &filename );
 
 #ifndef SIP_RUN
-    //! QgsVtpkTiles cannot be copied
     QgsVtpkTiles( const QgsVtpkTiles &other ) = delete;
-    //! QgsVtpkTiles cannot be copied
     QgsVtpkTiles &operator=( const QgsVtpkTiles &other ) = delete;
 #endif
     ~QgsVtpkTiles();
@@ -82,6 +80,15 @@ class CORE_EXPORT QgsVtpkTiles
     QgsLayerMetadata layerMetadata() const;
 
     /**
+     * Returns the root tilemap content, if it exists.
+     *
+     * This method returns the contents of the "tilemap/root.json" file.
+     *
+     * \since QGIS 3.32
+     */
+    QVariantMap rootTileMap() const;
+
+    /**
      * Returns the vector tile matrix set representing the tiles.
      */
     QgsVectorTileMatrixSet matrixSet() const;
@@ -98,13 +105,17 @@ class CORE_EXPORT QgsVtpkTiles
 
     /**
      * Returns the raw tile data for the matching tile.
+     *
+     * Returns a null byte array if the requested tile does not exist.
+     *
+     * Will return an empty byte array (as opposed to a null byte array) if the tile
+     * exists but has a zero size.
      */
     QByteArray tileData( int z, int x, int y );
 
   private:
 
 #ifdef SIP_RUN
-    //! QgsVtpkTiles cannot be copied
     QgsVtpkTiles( const QgsVtpkTiles &other );
 #endif
 
@@ -112,6 +123,9 @@ class CORE_EXPORT QgsVtpkTiles
     struct zip *mZip = nullptr;
     mutable QVariantMap mMetadata;
     mutable QgsVectorTileMatrixSet mMatrixSet;
+    mutable QString mTileMapPath;
+    mutable bool mHasReadTileMap = false;
+    mutable QVariantMap mRootTileMap;
     mutable int mPacketSize = -1;
 };
 

@@ -25,15 +25,15 @@
 #include "qgsrasterlayer.h"
 
 
-class TestQgsGdalUtils: public QObject
+class TestQgsGdalUtils : public QObject
 {
     Q_OBJECT
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init();// will be called before each testfunction is executed.
-    void cleanup();// will be called after every testfunction.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
     void supportsRasterCreate();
     void testCreateSingleBandMemoryDataset();
     void testCreateMultiBandMemoryDataset();
@@ -46,7 +46,6 @@ class TestQgsGdalUtils: public QObject
     void testMultilayerExtensions();
 
   private:
-
     double identify( GDALDatasetH dataset, int band, int px, int py );
 };
 
@@ -64,12 +63,10 @@ void TestQgsGdalUtils::cleanupTestCase()
 
 void TestQgsGdalUtils::init()
 {
-
 }
 
 void TestQgsGdalUtils::cleanup()
 {
-
 }
 
 void TestQgsGdalUtils::supportsRasterCreate()
@@ -87,8 +84,8 @@ void TestQgsGdalUtils::supportsRasterCreate()
   QVERIFY( !QgsGdalUtils::supportsRasterCreate( GDALGetDriverByName( "ESRI Shapefile" ) ) );
 }
 
-#define EPSG_4326_WKT \
-  "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]]," \
+#define EPSG_4326_WKT                                                                                                      \
+  "GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],"          \
   "AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.0174532925199433," \
   "AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST],AUTHORITY[\"EPSG\",\"4326\"]]"
 
@@ -101,7 +98,7 @@ void TestQgsGdalUtils::testCreateSingleBandMemoryDataset()
   QCOMPARE( GDALGetRasterXSize( ds1.get() ), 40 );
   QCOMPARE( GDALGetRasterYSize( ds1.get() ), 20 );
 
-  QCOMPARE( GDALGetProjectionRef( ds1.get() ),  R"""(GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]])""" );
+  QCOMPARE( GDALGetProjectionRef( ds1.get() ), R"""(GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]])""" );
   double geoTransform[6];
   double geoTransformExpected[] = { 1, 0.5, 0, 11, 0, -0.5 };
   QCOMPARE( GDALGetGeoTransform( ds1.get(), geoTransform ), CE_None );
@@ -119,7 +116,7 @@ void TestQgsGdalUtils::testCreateMultiBandMemoryDataset()
   QCOMPARE( GDALGetRasterXSize( ds1.get() ), 40 );
   QCOMPARE( GDALGetRasterYSize( ds1.get() ), 20 );
 
-  QCOMPARE( GDALGetProjectionRef( ds1.get() ),  R"""(GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]])""" );
+  QCOMPARE( GDALGetProjectionRef( ds1.get() ), R"""(GEOGCS["WGS 84",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AXIS["Latitude",NORTH],AXIS["Longitude",EAST],AUTHORITY["EPSG","4326"]])""" );
   double geoTransform[6];
   double geoTransformExpected[] = { 1, 0.5, 0, 11, 0, -0.5 };
   QCOMPARE( GDALGetGeoTransform( ds1.get(), geoTransform ), CE_None );
@@ -153,17 +150,17 @@ void TestQgsGdalUtils::testCreateSingleBandTiffDataset()
 
   QCOMPARE( GDALGetRasterDataType( GDALGetRasterBand( ds1.get(), 1 ) ), GDT_Float32 );
 
-  ds1.reset();  // makes sure the file is fully written
+  ds1.reset(); // makes sure the file is fully written
 
   QVERIFY( QFile::exists( filename ) );
 
-  std::unique_ptr<QgsRasterLayer> layer( new QgsRasterLayer( filename, "test", "gdal" ) );
+  auto layer = std::make_unique<QgsRasterLayer>( filename, "test", "gdal" );
   QVERIFY( layer->isValid() );
   QCOMPARE( layer->extent(), QgsRectangle( 1, 1, 21, 11 ) );
   QCOMPARE( layer->width(), 40 );
   QCOMPARE( layer->height(), 20 );
 
-  layer.reset();  // let's clean up before removing the file
+  layer.reset(); // let's clean up before removing the file
   QFile::remove( filename );
 }
 
@@ -181,7 +178,7 @@ void TestQgsGdalUtils::testResampleSingleBandRaster()
   QgsGdalUtils::resampleSingleBandRaster( srcDS.get(), dstDS.get(), GRA_NearestNeighbour, nullptr );
   dstDS.reset();
 
-  std::unique_ptr<QgsRasterLayer> layer( new QgsRasterLayer( outputFilename, "test", "gdal" ) );
+  auto layer = std::make_unique<QgsRasterLayer>( outputFilename, "test", "gdal" );
   QVERIFY( layer );
   std::unique_ptr<QgsRasterBlock> block( layer->dataProvider()->block( 1, outputExtent, 2, 2 ) );
   QVERIFY( block );
@@ -288,11 +285,11 @@ void TestQgsGdalUtils::testPathIsCheapToOpen()
 
 void TestQgsGdalUtils::testVrtMatchesLayerType()
 {
-  QVERIFY( QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/raster/hub13263.vrt", QgsMapLayerType::RasterLayer ) );
-  QVERIFY( !QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/raster/hub13263.vrt", QgsMapLayerType::VectorLayer ) );
+  QVERIFY( QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/raster/hub13263.vrt", Qgis::LayerType::Raster ) );
+  QVERIFY( !QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/raster/hub13263.vrt", Qgis::LayerType::Vector ) );
 
-  QVERIFY( !QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/vector_vrt.vrt", QgsMapLayerType::RasterLayer ) );
-  QVERIFY( QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/vector_vrt.vrt", QgsMapLayerType::VectorLayer ) );
+  QVERIFY( !QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/vector_vrt.vrt", Qgis::LayerType::Raster ) );
+  QVERIFY( QgsGdalUtils::vrtMatchesLayerType( QStringLiteral( TEST_DATA_DIR ) + "/vector_vrt.vrt", Qgis::LayerType::Vector ) );
 }
 
 void TestQgsGdalUtils::testMultilayerExtensions()
@@ -318,8 +315,7 @@ double TestQgsGdalUtils::identify( GDALDatasetH dataset, int band, int px, int p
   GDALRasterBandH hBand = GDALGetRasterBand( dataset, band );
 
   float *pafScanline = ( float * ) CPLMalloc( sizeof( float ) );
-  const CPLErr err = GDALRasterIO( hBand, GF_Read, px, py, 1, 1,
-                                   pafScanline, 1, 1, GDT_Float32, 0, 0 );
+  const CPLErr err = GDALRasterIO( hBand, GF_Read, px, py, 1, 1, pafScanline, 1, 1, GDT_Float32, 0, 0 );
   const double value = err == CE_None ? pafScanline[0] : std::numeric_limits<double>::quiet_NaN();
   CPLFree( pafScanline );
 

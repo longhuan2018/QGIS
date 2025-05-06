@@ -25,20 +25,20 @@
 #include <QToolButton>
 #include <QWidgetAction>
 #include <QCheckBox>
+#include <QTreeView>
 
 #include "qgisapp.h"
 #include "qgsapplication.h"
 #include "qgsdoublespinbox.h"
-#include "qgsfloatingwidget.h"
 #include "qgslayertreegroup.h"
 #include "qgslayertree.h"
-#include "qgslayertreeview.h"
 #include "qgsmapcanvas.h"
 #include "qgsmaplayer.h"
 #include "qgsproject.h"
 #include "qgssnappingconfig.h"
 #include "qgssnappinglayertreemodel.h"
 #include "qgssnappingwidget.h"
+#include "moc_qgssnappingwidget.cpp"
 #include "qgsunittypes.h"
 #include "qgssettingsregistrycore.h"
 #include "qgsscalewidget.h"
@@ -86,7 +86,7 @@ QgsSnappingWidget::QgsSnappingWidget( QgsProject *project, QgsMapCanvas *canvas,
   connect( model, &QgsSnappingLayerTreeModel::rowsInserted, this, &QgsSnappingWidget::onSnappingTreeLayersChanged );
   connect( model, &QgsSnappingLayerTreeModel::modelReset, this, &QgsSnappingWidget::onSnappingTreeLayersChanged );
   connect( model, &QgsSnappingLayerTreeModel::rowsRemoved, this, &QgsSnappingWidget::onSnappingTreeLayersChanged );
-  connect( mProject, &QObject::destroyed, this, [ = ] {mLayerTreeView->setModel( nullptr );} );
+  connect( mProject, &QObject::destroyed, this, [=] { mLayerTreeView->setModel( nullptr ); } );
   // model->setFlags( 0 );
   mLayerTreeView->setModel( model );
   mLayerTreeView->resizeColumnToContents( 0 );
@@ -200,21 +200,19 @@ QgsSnappingWidget::QgsSnappingWidget( QgsProject *project, QgsMapCanvas *canvas,
   mToleranceSpinBox->setMaximum( 99999999.990000 );
   mToleranceSpinBox->setToolTip( tr( "Snapping Tolerance in Defined Units" ) );
   mToleranceSpinBox->setObjectName( QStringLiteral( "SnappingToleranceSpinBox" ) );
-  connect( mToleranceSpinBox, qOverload< double >( &QgsDoubleSpinBox::valueChanged ), this, &QgsSnappingWidget::changeTolerance );
+  connect( mToleranceSpinBox, qOverload<double>( &QgsDoubleSpinBox::valueChanged ), this, &QgsSnappingWidget::changeTolerance );
 
   // units
   mUnitsComboBox = new QComboBox();
-  mUnitsComboBox->addItem( tr( "px" ), QgsTolerance::Pixels );
+  mUnitsComboBox->addItem( tr( "px" ), QVariant::fromValue( Qgis::MapToolUnit::Pixels ) );
   // Get canvas units
   const QString mapCanvasDistanceUnits { QgsUnitTypes::toString( mCanvas->mapSettings().mapUnits() ) };
-  mUnitsComboBox->addItem( mapCanvasDistanceUnits, QgsTolerance::ProjectUnits );
+  mUnitsComboBox->addItem( mapCanvasDistanceUnits, QVariant::fromValue( Qgis::MapToolUnit::Project ) );
   mUnitsComboBox->setToolTip( tr( "Snapping Unit Type: Pixels (px) or Project/Map Units (%1)" ).arg( mapCanvasDistanceUnits ) );
   mUnitsComboBox->setObjectName( QStringLiteral( "SnappingUnitComboBox" ) );
-  connect( mUnitsComboBox, qOverload<int>( &QComboBox::currentIndexChanged ),
-           this, &QgsSnappingWidget::changeUnit );
+  connect( mUnitsComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, &QgsSnappingWidget::changeUnit );
 
-  connect( mCanvas, &QgsMapCanvas::destinationCrsChanged, this, [ = ]
-  {
+  connect( mCanvas, &QgsMapCanvas::destinationCrsChanged, this, [=] {
     // Update map units from canvas
     const QString mapCanvasDistanceUnits { QgsUnitTypes::toString( mCanvas->mapSettings().mapUnits() ) };
     mUnitsComboBox->setItemText( 1, mapCanvasDistanceUnits );
@@ -447,9 +445,9 @@ void QgsSnappingWidget::projectSnapSettingsChanged()
       mTypeButton->setDefaultAction( action );
   }
 
-  if ( static_cast<QgsTolerance::UnitType>( mUnitsComboBox->currentData().toInt() ) != config.units() )
+  if ( static_cast<Qgis::MapToolUnit>( mUnitsComboBox->currentData().toInt() ) != config.units() )
   {
-    mUnitsComboBox->setCurrentIndex( mUnitsComboBox->findData( config.units() ) );
+    mUnitsComboBox->setCurrentIndex( mUnitsComboBox->findData( QVariant::fromValue( config.units() ) ) );
   }
 
   if ( mToleranceSpinBox->value() != config.tolerance() )
@@ -491,7 +489,6 @@ void QgsSnappingWidget::projectSnapSettingsChanged()
   }
 
   toggleSnappingWidgets( config.enabled() );
-
 }
 
 void QgsSnappingWidget::projectAvoidIntersectionModeChanged()
@@ -581,7 +578,7 @@ void QgsSnappingWidget::changeMaxScale( double maxScale )
 
 void QgsSnappingWidget::changeUnit( int idx )
 {
-  QgsTolerance::UnitType unit = static_cast<QgsTolerance::UnitType>( mUnitsComboBox->itemData( idx ).toInt() );
+  Qgis::MapToolUnit unit = mUnitsComboBox->itemData( idx ).value<Qgis::MapToolUnit>();
   mConfig.setUnits( unit );
   mProject->setSnappingConfig( mConfig );
 
@@ -621,9 +618,7 @@ void QgsSnappingWidget::onSnappingTreeLayersChanged()
 
 void QgsSnappingWidget::avoidIntersectionsModeButtonTriggered( QAction *action )
 {
-  if ( action != mAllowIntersectionsAction &&
-       action != mAvoidIntersectionsCurrentLayerAction &&
-       action != mAvoidIntersectionsLayersAction )
+  if ( action != mAllowIntersectionsAction && action != mAvoidIntersectionsCurrentLayerAction && action != mAvoidIntersectionsLayersAction )
   {
     return;
   }
@@ -648,9 +643,7 @@ void QgsSnappingWidget::avoidIntersectionsModeButtonTriggered( QAction *action )
 
 void QgsSnappingWidget::modeButtonTriggered( QAction *action )
 {
-  if ( action != mAllLayersAction &&
-       action != mActiveLayerAction &&
-       action != mAdvancedModeAction )
+  if ( action != mAllLayersAction && action != mActiveLayerAction && action != mAdvancedModeAction )
   {
     return;
   }
@@ -712,7 +705,7 @@ void QgsSnappingWidget::snappingScaleModeTriggered( QAction *action )
 
   if ( action == mDefaultSnappingScaleAct )
   {
-    mode =  QgsSnappingConfig::Disabled;
+    mode = QgsSnappingConfig::Disabled;
   }
   else if ( action == mGlobalSnappingScaleAct )
   {
@@ -733,15 +726,15 @@ void QgsSnappingWidget::snappingScaleModeTriggered( QAction *action )
 
 void QgsSnappingWidget::updateToleranceDecimals()
 {
-  if ( mConfig.units() == QgsTolerance::Pixels )
+  if ( mConfig.units() == Qgis::MapToolUnit::Pixels )
   {
     mToleranceSpinBox->setDecimals( 0 );
   }
   else
   {
-    QgsUnitTypes::DistanceUnit mapUnit = mCanvas->mapUnits();
-    QgsUnitTypes::DistanceUnitType type = QgsUnitTypes::unitType( mapUnit );
-    if ( type == QgsUnitTypes::Standard )
+    Qgis::DistanceUnit mapUnit = mCanvas->mapUnits();
+    Qgis::DistanceUnitType type = QgsUnitTypes::unitType( mapUnit );
+    if ( type == Qgis::DistanceUnitType::Standard )
     {
       mToleranceSpinBox->setDecimals( 2 );
     }
@@ -796,7 +789,7 @@ void QgsSnappingWidget::setConfig( const QgsSnappingConfig &config )
 
 bool QgsSnappingWidget::eventFilter( QObject *watched, QEvent *event )
 {
-  if ( watched == mLayerTreeView  && event->type() == QEvent::Show )
+  if ( watched == mLayerTreeView && event->type() == QEvent::Show )
   {
     if ( mRequireLayerTreeViewUpdate )
     {
@@ -817,7 +810,7 @@ void QgsSnappingWidget::cleanGroup( QgsLayerTreeNode *node )
   const auto constChildren = node->children();
   for ( QgsLayerTreeNode *child : constChildren )
   {
-    if ( QgsLayerTree::isLayer( child ) && ( !QgsLayerTree::toLayer( child )->layer() || QgsLayerTree::toLayer( child )->layer()->type() != QgsMapLayerType::VectorLayer ) )
+    if ( QgsLayerTree::isLayer( child ) && ( !QgsLayerTree::toLayer( child )->layer() || QgsLayerTree::toLayer( child )->layer()->type() != Qgis::LayerType::Vector ) )
     {
       toRemove << child;
       continue;

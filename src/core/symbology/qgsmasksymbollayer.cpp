@@ -14,24 +14,19 @@
  ***************************************************************************/
 
 #include "qgsmasksymbollayer.h"
-#include "qgssymbollayerutils.h"
-#include "qgsproject.h"
-#include "qgsvectorlayer.h"
 #include "qgspainteffect.h"
 #include "qgspainterswapper.h"
 #include "qgsmarkersymbol.h"
-#include "qgsmarkersymbollayer.h"
 #include "qgssymbollayerreference.h"
-#include "qgsmaskpaintdevice.h"
 
 QgsMaskMarkerSymbolLayer::QgsMaskMarkerSymbolLayer()
 {
-  mSymbol.reset( static_cast<QgsMarkerSymbol *>( QgsMarkerSymbol::createSimple( QVariantMap() ) ) );
+  mSymbol = QgsMarkerSymbol::createSimple( QVariantMap() );
 }
 
 QgsMaskMarkerSymbolLayer::~QgsMaskMarkerSymbolLayer() = default;
 
-bool QgsMaskMarkerSymbolLayer::enabled() const
+bool QgsMaskMarkerSymbolLayer::enabled() const // cppcheck-suppress duplInheritedMember
 {
   return !mMaskedSymbolLayers.isEmpty();
 }
@@ -51,7 +46,7 @@ QgsSymbolLayer *QgsMaskMarkerSymbolLayer::create( const QVariantMap &props )
 {
   QgsMaskMarkerSymbolLayer *l = new QgsMaskMarkerSymbolLayer();
 
-  l->setSubSymbol( QgsMarkerSymbol::createSimple( props ) );
+  l->setSubSymbol( QgsMarkerSymbol::createSimple( props ).release() );
 
   if ( props.contains( QStringLiteral( "mask_symbollayers" ) ) )
   {
@@ -141,6 +136,11 @@ void QgsMaskMarkerSymbolLayer::setMasks( const QList<QgsSymbolLayerReference> &m
   mMaskedSymbolLayers = maskedLayers;
 }
 
+void QgsMaskMarkerSymbolLayer::clearMasks()
+{
+  mMaskedSymbolLayers.clear();
+}
+
 QRectF QgsMaskMarkerSymbolLayer::bounds( QPointF point, QgsSymbolRenderContext &context )
 {
   return mSymbol->bounds( point, context.renderContext() );
@@ -148,11 +148,11 @@ QRectF QgsMaskMarkerSymbolLayer::bounds( QPointF point, QgsSymbolRenderContext &
 
 bool QgsMaskMarkerSymbolLayer::usesMapUnits() const
 {
-  return mSizeUnit == QgsUnitTypes::RenderMapUnits || mSizeUnit == QgsUnitTypes::RenderMetersInMapUnits
+  return mSizeUnit == Qgis::RenderUnit::MapUnits || mSizeUnit == Qgis::RenderUnit::MetersInMapUnits
          || ( mSymbol && mSymbol->usesMapUnits() );
 }
 
-void QgsMaskMarkerSymbolLayer::setOutputUnit( QgsUnitTypes::RenderUnit unit )
+void QgsMaskMarkerSymbolLayer::setOutputUnit( Qgis::RenderUnit unit )
 {
   QgsMarkerSymbolLayer::setOutputUnit( unit );
   if ( mSymbol )

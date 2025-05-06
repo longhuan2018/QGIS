@@ -37,9 +37,6 @@
 #include "qgsproject.h"
 #include "qgsexpressioncontextutils.h"
 
-#include "qgslogger.h"
-#include "qgsserverlogger.h"
-
 #include <QRegularExpression>
 #include <QRegularExpressionMatch>
 
@@ -48,14 +45,11 @@ namespace QgsWfs
 {
   namespace
   {
-    void addTransactionResult( QDomDocument &responseDoc, QDomElement &resultsElem,
-                               const QString &locator, const QString &message );
+    void addTransactionResult( QDomDocument &responseDoc, QDomElement &resultsElem, const QString &locator, const QString &message );
   }
 
 
-  void writeTransaction( QgsServerInterface *serverIface, const QgsProject *project,
-                         const QString &version, const QgsServerRequest &request,
-                         QgsServerResponse &response )
+  void writeTransaction( QgsServerInterface *serverIface, const QgsProject *project, const QString &version, const QgsServerRequest &request, QgsServerResponse &response )
 
   {
     QDomDocument doc = createTransactionDocument( serverIface, project, version, request );
@@ -64,8 +58,7 @@ namespace QgsWfs
     response.write( doc.toByteArray() );
   }
 
-  QDomDocument createTransactionDocument( QgsServerInterface *serverIface, const QgsProject *project,
-                                          const QString &version, const QgsServerRequest &request )
+  QDomDocument createTransactionDocument( QgsServerInterface *serverIface, const QgsProject *project, const QString &version, const QgsServerRequest &request )
   {
     Q_UNUSED( version )
 
@@ -97,7 +90,7 @@ namespace QgsWfs
     // Create the response document
     QDomDocument resp;
     //wfs:TransactionRespone element
-    QDomElement respElem = resp.createElement( QStringLiteral( "TransactionResponse" )/*wfs:TransactionResponse*/ );
+    QDomElement respElem = resp.createElement( QStringLiteral( "TransactionResponse" ) /*wfs:TransactionResponse*/ );
     respElem.setAttribute( QStringLiteral( "xmlns" ), WFS_NAMESPACE );
     respElem.setAttribute( QStringLiteral( "xmlns:xsi" ), QStringLiteral( "http://www.w3.org/2001/XMLSchema-instance" ) );
     respElem.setAttribute( QStringLiteral( "xsi:schemaLocation" ), WFS_NAMESPACE + " http://schemas.opengis.net/wfs/1.1.0/wfs.xsd" );
@@ -222,7 +215,7 @@ namespace QgsWfs
   void performTransaction( transactionRequest &aRequest, QgsServerInterface *serverIface, const QgsProject *project )
   {
 #ifndef HAVE_SERVER_PYTHON_PLUGINS
-    ( void )serverIface;
+    ( void ) serverIface;
 #endif
     // store typeName
     QStringList typeNameList;
@@ -256,7 +249,7 @@ namespace QgsWfs
 
     //scoped pointer to restore all original layer filters (subsetStrings) when pointer goes out of scope
     //there's LOTS of potential exit paths here, so we avoid having to restore the filters manually
-    std::unique_ptr< QgsOWSServerFilterRestorer > filterRestorer( new QgsOWSServerFilterRestorer() );
+    auto filterRestorer = std::make_unique<QgsOWSServerFilterRestorer>();
 
     // get layers
     QStringList wfsLayerIds = QgsServerProjectUtils::wfsLayerIds( *project );
@@ -271,7 +264,7 @@ namespace QgsWfs
       {
         continue;
       }
-      if ( layer->type() != QgsMapLayerType::VectorLayer )
+      if ( layer->type() != Qgis::LayerType::Vector )
       {
         continue;
       }
@@ -298,9 +291,11 @@ namespace QgsWfs
       }
 
       // get provider capabilities
-      int cap = provider->capabilities();
-      if ( !( cap & QgsVectorDataProvider::ChangeAttributeValues ) && !( cap & QgsVectorDataProvider::ChangeGeometries )
-           && !( cap & QgsVectorDataProvider::DeleteFeatures ) && !( cap & QgsVectorDataProvider::AddFeatures ) )
+      Qgis::VectorProviderCapabilities cap = provider->capabilities();
+
+      const bool canUpdateAnything { cap.testFlag( Qgis::VectorProviderCapability::ChangeAttributeValues ) || ( vlayer->isSpatial() && cap.testFlag( Qgis::VectorProviderCapability::ChangeGeometries ) ) };
+
+      if ( !canUpdateAnything && !( cap & Qgis::VectorProviderCapability::DeleteFeatures ) && !( cap & Qgis::VectorProviderCapability::AddFeatures ) )
       {
         throw QgsRequestNotWellFormedException( QStringLiteral( "No capabilities to do WFS changes on layer '%1'" ).arg( name ) );
       }
@@ -363,8 +358,8 @@ namespace QgsWfs
       QgsVectorDataProvider *provider = vlayer->dataProvider();
 
       // verifying specific capabilities
-      int cap = provider->capabilities();
-      if ( !( cap & QgsVectorDataProvider::ChangeAttributeValues ) || !( cap & QgsVectorDataProvider::ChangeGeometries ) )
+      Qgis::VectorProviderCapabilities cap = provider->capabilities();
+      if ( !( cap.testFlag( Qgis::VectorProviderCapability::ChangeAttributeValues ) || ( vlayer->isSpatial() && cap.testFlag( Qgis::VectorProviderCapability::ChangeGeometries ) ) ) )
       {
         action.error = true;
         action.errorMsg = QStringLiteral( "No capabilities to do WFS updates on layer '%1'" ).arg( typeName );
@@ -421,7 +416,7 @@ namespace QgsWfs
           break;
         }
 #endif
-        QMap< QString, QString >::const_iterator it = propertyMap.constBegin();
+        QMap<QString, QString>::const_iterator it = propertyMap.constBegin();
         for ( ; it != propertyMap.constEnd(); ++it )
         {
           fieldName = it.key();
@@ -442,9 +437,9 @@ namespace QgsWfs
               break;
             }
           }
-          else  // Not NULL
+          else // Not NULL
           {
-            if ( field.type() == QVariant::Type::Int )
+            if ( field.type() == QMetaType::Type::Int )
             {
               value = it.value().toInt( &conversionSuccess );
               if ( !conversionSuccess )
@@ -455,7 +450,7 @@ namespace QgsWfs
                 break;
               }
             }
-            else if ( field.type() == QVariant::Type::Double )
+            else if ( field.type() == QMetaType::Type::Double )
             {
               value = it.value().toDouble( &conversionSuccess );
               if ( !conversionSuccess )
@@ -466,7 +461,7 @@ namespace QgsWfs
                 break;
               }
             }
-            else if ( field.type() == QVariant::Type::LongLong )
+            else if ( field.type() == QMetaType::Type::LongLong )
             {
               value = it.value().toLongLong( &conversionSuccess );
               if ( !conversionSuccess )
@@ -542,7 +537,6 @@ namespace QgsWfs
       // all the changes are OK!
       action.totalUpdated = totalUpdated;
       action.error = false;
-
     }
 
     // perform deletes
@@ -581,8 +575,8 @@ namespace QgsWfs
       QgsVectorDataProvider *provider = vlayer->dataProvider();
 
       // verifying specific capabilities
-      int cap = provider->capabilities();
-      if ( !( cap & QgsVectorDataProvider::DeleteFeatures ) )
+      Qgis::VectorProviderCapabilities cap = provider->capabilities();
+      if ( !( cap & Qgis::VectorProviderCapability::DeleteFeatures ) )
       {
         action.error = true;
         action.errorMsg = QStringLiteral( "No capabilities to do WFS deletes on layer '%1'" ).arg( typeName );
@@ -699,8 +693,8 @@ namespace QgsWfs
       QgsVectorDataProvider *provider = vlayer->dataProvider();
 
       // verifying specific capabilities
-      int cap = provider->capabilities();
-      if ( !( cap & QgsVectorDataProvider::AddFeatures ) )
+      Qgis::VectorProviderCapabilities cap = provider->capabilities();
+      if ( !( cap & Qgis::VectorProviderCapability::AddFeatures ) )
       {
         action.error = true;
         action.errorMsg = QStringLiteral( "No capabilities to do WFS inserts on layer '%1'" ).arg( typeName );
@@ -758,7 +752,7 @@ namespace QgsWfs
       {
         action.error = true;
         action.errorMsg = QStringLiteral( "Insert features failed on layer '%1'" ).arg( typeName );
-        if ( provider ->hasErrors() )
+        if ( provider->hasErrors() )
         {
           provider->clearErrors();
         }
@@ -830,9 +824,9 @@ namespace QgsWfs
 
             QgsMessageLog::logMessage( QStringLiteral( "attr: name=%1 idx=%2 value=%3" ).arg( attrName ).arg( fieldMapIt.value() ).arg( attrValue ) );
 
-            if ( attrType == QVariant::Int )
+            if ( attrType == QMetaType::Type::Int )
               feat.setAttribute( fieldMapIt.value(), attrValue.toInt( &conversionSuccess ) );
-            else if ( attrType == QVariant::Double )
+            else if ( attrType == QMetaType::Type::Double )
               feat.setAttribute( fieldMapIt.value(), attrValue.toDouble( &conversionSuccess ) );
             else
               feat.setAttribute( fieldMapIt.value(), attrValue );
@@ -875,11 +869,8 @@ namespace QgsWfs
     // Verifying parameters mutually exclusive
     if ( ( parameters.contains( QStringLiteral( "FEATUREID" ) )
            && ( parameters.contains( QStringLiteral( "FILTER" ) ) || parameters.contains( QStringLiteral( "BBOX" ) ) ) )
-         || ( parameters.contains( QStringLiteral( "FILTER" ) )
-              && ( parameters.contains( QStringLiteral( "FEATUREID" ) ) || parameters.contains( QStringLiteral( "BBOX" ) ) ) )
-         || ( parameters.contains( QStringLiteral( "BBOX" ) )
-              && ( parameters.contains( QStringLiteral( "FEATUREID" ) ) || parameters.contains( QStringLiteral( "FILTER" ) ) ) )
-       )
+         || ( parameters.contains( QStringLiteral( "FILTER" ) ) && ( parameters.contains( QStringLiteral( "FEATUREID" ) ) || parameters.contains( QStringLiteral( "BBOX" ) ) ) )
+         || ( parameters.contains( QStringLiteral( "BBOX" ) ) && ( parameters.contains( QStringLiteral( "FEATUREID" ) ) || parameters.contains( QStringLiteral( "FILTER" ) ) ) ) )
     {
       throw QgsRequestNotWellFormedException( QStringLiteral( "FEATUREID FILTER and BBOX parameters are mutually exclusive" ) );
     }
@@ -1007,7 +998,7 @@ namespace QgsWfs
             {
               if ( filter->needsGeometry() )
               {
-                action.featureRequest.setFlags( QgsFeatureRequest::NoFlags );
+                action.featureRequest.setFlags( Qgis::FeatureRequestFlag::NoFlags );
               }
               action.featureRequest.setFilterExpression( filter->expression() );
             }
@@ -1288,8 +1279,7 @@ namespace QgsWfs
   namespace
   {
 
-    void addTransactionResult( QDomDocument &responseDoc, QDomElement &resultsElem,
-                               const QString &locator, const QString &message )
+    void addTransactionResult( QDomDocument &responseDoc, QDomElement &resultsElem, const QString &locator, const QString &message )
     {
       QDomElement trElem = responseDoc.createElement( QStringLiteral( "Action" ) );
       resultsElem.appendChild( trElem );
@@ -1307,6 +1297,6 @@ namespace QgsWfs
       }
     }
 
-  }
+  } // namespace
 
 } // namespace QgsWfs

@@ -18,32 +18,31 @@
 #include "qgslayoutitemgroup.h"
 #include "qgslayout.h"
 #include "qgslayoutitemshape.h"
-#include "qgsmultirenderchecker.h"
 #include "qgsapplication.h"
 #include "qgslogger.h"
 #include "qgsproject.h"
-#include "qgsfillsymbollayer.h"
 #include "qgslayoutundostack.h"
 
 #include <QObject>
 #include <QtTest/QSignalSpy>
 #include "qgstest.h"
 
-class TestQgsLayoutItemGroup : public QObject
+class TestQgsLayoutItemGroup : public QgsTest
 {
     Q_OBJECT
 
   public:
-    TestQgsLayoutItemGroup() = default;
+    TestQgsLayoutItemGroup()
+      : QgsTest( QStringLiteral( "Layout Group Item" ) ) {}
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init();// will be called before each testfunction is executed.
-    void cleanup();// will be called after every testfunction.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
     void createGroupDirect();
     void createGroup(); //test grouping items
-    void ungroup(); //test ungrouping items
+    void ungroup();     //test ungrouping items
     void deleteGroup(); //test deleting group works
     void groupVisibility();
     void moveGroup();
@@ -53,20 +52,17 @@ class TestQgsLayoutItemGroup : public QObject
     void undoRedo(); //test that group/ungroup undo/redo commands don't crash
 
   private:
-
     void dumpUndoStack( const QUndoStack &, QString prefix = QString() ) const;
-
 };
 
 // private
 void TestQgsLayoutItemGroup::dumpUndoStack( const QUndoStack &us, QString prefix ) const
 {
-  if ( ! prefix.isEmpty() ) prefix += QLatin1String( ": " );
+  if ( !prefix.isEmpty() )
+    prefix += QLatin1String( ": " );
   for ( int i = 0; i < us.count(); ++i )
   {
-    QgsDebugMsg( QStringLiteral( "%4US %1: %2%3" )
-                 .arg( i ). arg( i >= us.index() ? "-" : "",
-                                 us.text( i ), prefix ) );
+    QgsDebugMsgLevel( QStringLiteral( "%4US %1: %2%3" ).arg( i ).arg( i >= us.index() ? "-" : "", us.text( i ), prefix ), 1 );
   }
 }
 
@@ -83,12 +79,10 @@ void TestQgsLayoutItemGroup::cleanupTestCase()
 
 void TestQgsLayoutItemGroup::init()
 {
-
 }
 
 void TestQgsLayoutItemGroup::cleanup()
 {
-
 }
 
 void TestQgsLayoutItemGroup::createGroupDirect()
@@ -139,7 +133,7 @@ void TestQgsLayoutItemGroup::createGroupDirect()
   QVERIFY( l.items().contains( item2 ) );
 
   // manually delete an item
-  const QPointer< QgsLayoutItemShape > pItem( item ); // for testing deletion
+  const QPointer<QgsLayoutItemShape> pItem( item ); // for testing deletion
   l.removeLayoutItem( item );
   QgsApplication::sendPostedEvents( nullptr, QEvent::DeferredDelete );
   QVERIFY( !pItem );
@@ -149,7 +143,7 @@ void TestQgsLayoutItemGroup::createGroupDirect()
   QCOMPARE( group->items().count(), 1 );
   QVERIFY( group->items().contains( item2 ) );
 
-  const QPointer< QgsLayoutItemShape > pItem2( item2 ); // for testing deletion
+  const QPointer<QgsLayoutItemShape> pItem2( item2 ); // for testing deletion
   // remove items
   group->removeItems();
   QgsApplication::sendPostedEvents( nullptr, QEvent::DeferredDelete );
@@ -216,7 +210,7 @@ void TestQgsLayoutItemGroup::ungroup()
   QVERIFY( groups.contains( group ) );
   QCOMPARE( group->layout(), &l );
 
-  const QPointer< QgsLayoutItemGroup > pGroup( group ); // for testing deletion
+  const QPointer<QgsLayoutItemGroup> pGroup( group ); // for testing deletion
   //ungroup group
   QList<QgsLayoutItem *> ungroupedItems;
   ungroupedItems = l.ungroupItems( group );
@@ -251,17 +245,17 @@ void TestQgsLayoutItemGroup::deleteGroup()
   QgsLayout l( &proj );
 
   QgsLayoutItemShape *item = new QgsLayoutItemShape( &l );
-  const QPointer< QgsLayoutItemShape > pItem( item ); // for testing deletion
+  const QPointer<QgsLayoutItemShape> pItem( item ); // for testing deletion
   l.addLayoutItem( item );
   QgsLayoutItemShape *item2 = new QgsLayoutItemShape( &l );
-  const QPointer< QgsLayoutItemShape > pItem2( item2 ); // for testing deletion
+  const QPointer<QgsLayoutItemShape> pItem2( item2 ); // for testing deletion
   l.addLayoutItem( item2 );
 
   //group items
   QList<QgsLayoutItem *> groupItems;
   groupItems << item << item2;
   QgsLayoutItemGroup *group = l.groupItems( groupItems );
-  const QPointer< QgsLayoutItemGroup > pGroup( group ); // for testing deletion
+  const QPointer<QgsLayoutItemGroup> pGroup( group ); // for testing deletion
 
   QList<QgsLayoutItem *> items;
   l.layoutItems( items );
@@ -332,11 +326,11 @@ void TestQgsLayoutItemGroup::moveGroup()
 
   QgsLayoutItemShape *item = new QgsLayoutItemShape( &l );
   l.addLayoutItem( item );
-  item->attemptMove( QgsLayoutPoint( 0.05, 0.09, QgsUnitTypes::LayoutMeters ) );
+  item->attemptMove( QgsLayoutPoint( 0.05, 0.09, Qgis::LayoutUnit::Meters ) );
 
   QgsLayoutItemShape *item2 = new QgsLayoutItemShape( &l );
   l.addLayoutItem( item2 );
-  item2->attemptMove( QgsLayoutPoint( 2, 3, QgsUnitTypes::LayoutInches ) );
+  item2->attemptMove( QgsLayoutPoint( 2, 3, Qgis::LayoutUnit::Inches ) );
 
   //group items
   QList<QgsLayoutItem *> groupItems;
@@ -345,18 +339,18 @@ void TestQgsLayoutItemGroup::moveGroup()
 
   QCOMPARE( group->positionWithUnits().x(), 50.8 );
   QCOMPARE( group->positionWithUnits().y(), 76.2 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
 
-  group->attemptMove( QgsLayoutPoint( 20.8, 36.2, QgsUnitTypes::LayoutMillimeters ) );
+  group->attemptMove( QgsLayoutPoint( 20.8, 36.2, Qgis::LayoutUnit::Millimeters ) );
   QCOMPARE( group->positionWithUnits().x(), 20.8 );
   QCOMPARE( group->positionWithUnits().y(), 36.2 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( item->positionWithUnits().x(), 0.02 );
   QCOMPARE( item->positionWithUnits().y(), 0.05 );
-  QCOMPARE( item->positionWithUnits().units(), QgsUnitTypes::LayoutMeters );
+  QCOMPARE( item->positionWithUnits().units(), Qgis::LayoutUnit::Meters );
   QGSCOMPARENEAR( item2->positionWithUnits().x(), 0.818898, 0.0001 );
   QGSCOMPARENEAR( item2->positionWithUnits().y(), 1.425197, 0.0001 );
-  QCOMPARE( item2->positionWithUnits().units(), QgsUnitTypes::LayoutInches );
+  QCOMPARE( item2->positionWithUnits().units(), Qgis::LayoutUnit::Inches );
 }
 
 void TestQgsLayoutItemGroup::moveGroupReferencePos()
@@ -393,7 +387,7 @@ void TestQgsLayoutItemGroup::moveGroupReferencePos()
 
   QCOMPARE( group->positionWithUnits().x(), 5.0 );
   QCOMPARE( group->positionWithUnits().y(), 9.0 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( group->sizeWithUnits().width(), 16.0 );
   QCOMPARE( group->sizeWithUnits().height(), 13.0 );
   QCOMPARE( group->scenePos().x(), 5.0 );
@@ -429,13 +423,13 @@ void TestQgsLayoutItemGroup::resizeGroup()
 
   QgsLayoutItemShape *item = new QgsLayoutItemShape( &l );
   l.addLayoutItem( item );
-  item->attemptMove( QgsLayoutPoint( 0.05, 0.09, QgsUnitTypes::LayoutMeters ) );
-  item->attemptResize( QgsLayoutSize( 0.1, 0.15, QgsUnitTypes::LayoutMeters ) );
+  item->attemptMove( QgsLayoutPoint( 0.05, 0.09, Qgis::LayoutUnit::Meters ) );
+  item->attemptResize( QgsLayoutSize( 0.1, 0.15, Qgis::LayoutUnit::Meters ) );
 
   QgsLayoutItemShape *item2 = new QgsLayoutItemShape( &l );
   l.addLayoutItem( item2 );
-  item2->attemptMove( QgsLayoutPoint( 2, 3, QgsUnitTypes::LayoutInches ) );
-  item2->attemptResize( QgsLayoutSize( 4, 6, QgsUnitTypes::LayoutInches ) );
+  item2->attemptMove( QgsLayoutPoint( 2, 3, Qgis::LayoutUnit::Inches ) );
+  item2->attemptResize( QgsLayoutSize( 4, 6, Qgis::LayoutUnit::Inches ) );
 
   //group items
   QList<QgsLayoutItem *> groupItems;
@@ -444,30 +438,30 @@ void TestQgsLayoutItemGroup::resizeGroup()
 
   QCOMPARE( group->positionWithUnits().x(), 50.0 );
   QCOMPARE( group->positionWithUnits().y(), 76.2 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( group->sizeWithUnits().width(), 102.4 );
-  QCOMPARE( group->sizeWithUnits().height(),  163.8 );
-  QCOMPARE( group->sizeWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->sizeWithUnits().height(), 163.8 );
+  QCOMPARE( group->sizeWithUnits().units(), Qgis::LayoutUnit::Millimeters );
 
-  group->attemptResize( QgsLayoutSize( 50.8, 76.2, QgsUnitTypes::LayoutMillimeters ) );
+  group->attemptResize( QgsLayoutSize( 50.8, 76.2, Qgis::LayoutUnit::Millimeters ) );
   QCOMPARE( group->positionWithUnits().x(), 50.0 );
   QCOMPARE( group->positionWithUnits().y(), 76.2 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( group->sizeWithUnits().width(), 50.8 );
-  QCOMPARE( group->sizeWithUnits().height(),  76.2 );
-  QCOMPARE( group->sizeWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->sizeWithUnits().height(), 76.2 );
+  QCOMPARE( group->sizeWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( item->positionWithUnits().x(), 0.05 );
   QGSCOMPARENEAR( item->positionWithUnits().y(), 0.0826198, 0.00001 );
-  QCOMPARE( item->positionWithUnits().units(), QgsUnitTypes::LayoutMeters );
+  QCOMPARE( item->positionWithUnits().units(), Qgis::LayoutUnit::Meters );
   QGSCOMPARENEAR( item->sizeWithUnits().width(), 0.0496094, 0.0001 );
   QGSCOMPARENEAR( item->sizeWithUnits().height(), 0.069780, 0.0001 );
-  QCOMPARE( item->sizeWithUnits().units(), QgsUnitTypes::LayoutMeters );
+  QCOMPARE( item->sizeWithUnits().units(), Qgis::LayoutUnit::Meters );
   QGSCOMPARENEAR( item2->positionWithUnits().x(), 1.984129, 0.0001 );
   QGSCOMPARENEAR( item2->positionWithUnits().y(), 3.000000, 0.0001 );
-  QCOMPARE( item2->positionWithUnits().units(), QgsUnitTypes::LayoutInches );
+  QCOMPARE( item2->positionWithUnits().units(), Qgis::LayoutUnit::Inches );
   QGSCOMPARENEAR( item2->sizeWithUnits().width(), 1.98438, 0.0001 );
-  QGSCOMPARENEAR( item2->sizeWithUnits().height(),  2.791209, 0.0001 );
-  QCOMPARE( item2->sizeWithUnits().units(), QgsUnitTypes::LayoutInches );
+  QGSCOMPARENEAR( item2->sizeWithUnits().height(), 2.791209, 0.0001 );
+  QCOMPARE( item2->sizeWithUnits().units(), Qgis::LayoutUnit::Inches );
 }
 
 void TestQgsLayoutItemGroup::resizeGroupReferencePos()
@@ -504,7 +498,7 @@ void TestQgsLayoutItemGroup::resizeGroupReferencePos()
 
   QCOMPARE( group->positionWithUnits().x(), 5.0 );
   QCOMPARE( group->positionWithUnits().y(), 9.0 );
-  QCOMPARE( group->positionWithUnits().units(), QgsUnitTypes::LayoutMillimeters );
+  QCOMPARE( group->positionWithUnits().units(), Qgis::LayoutUnit::Millimeters );
   QCOMPARE( group->sizeWithUnits().width(), 16.0 );
   QCOMPARE( group->sizeWithUnits().height(), 13.0 );
   QCOMPARE( group->scenePos().x(), 5.0 );
@@ -553,52 +547,52 @@ void TestQgsLayoutItemGroup::undoRedo()
   QgsLayoutItemShape *item1 = nullptr;
   QgsLayoutItemShape *item2 = nullptr;
 
-// int shapesAdded = 0;
-// int groupsAdded = 0;
-// int itemsRemoved = 0;
+  // int shapesAdded = 0;
+  // int groupsAdded = 0;
+  // int itemsRemoved = 0;
 
   qRegisterMetaType<QgsLayoutItemShape *>();
-//  QSignalSpy spyPolygonAdded( &l, &QgsLayout::itemAdded );
-// QCOMPARE( spyPolygonAdded.count(), 0 );
+  //  QSignalSpy spyPolygonAdded( &l, &QgsLayout::itemAdded );
+  // QCOMPARE( spyPolygonAdded.count(), 0 );
 
   qRegisterMetaType<QgsLayoutItemGroup *>();
-//  QSignalSpy spyGroupAdded( &l, &QgsLayout::composerItemGroupAdded );
-//  QCOMPARE( spyGroupAdded.count(), 0 );
+  //  QSignalSpy spyGroupAdded( &l, &QgsLayout::composerItemGroupAdded );
+  //  QCOMPARE( spyGroupAdded.count(), 0 );
 
   qRegisterMetaType<QgsLayoutItem *>();
-//  QSignalSpy spyItemRemoved( &l, &QgsLayout::itemRemoved );
-//  QCOMPARE( spyItemRemoved.count(), 0 );
+  //  QSignalSpy spyItemRemoved( &l, &QgsLayout::itemRemoved );
+  //  QCOMPARE( spyItemRemoved.count(), 0 );
 
   //test for crash when undo/redoing with groups
   // Set initial condition
   QUndoStack *us = l.undoStack()->stack();
-  QgsDebugMsg( QStringLiteral( "clearing" ) );
+  QgsDebugMsgLevel( QStringLiteral( "clearing" ), 1 );
   us->clear();
-  QgsDebugMsg( QStringLiteral( "clearing completed" ) );
+  QgsDebugMsgLevel( QStringLiteral( "clearing completed" ), 1 );
   QList<QgsLayoutItem *> items;
   l.layoutItems( items );
   QCOMPARE( items.size(), 0 );
-  QgsDebugMsg( QStringLiteral( "clear stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "clear stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
 
   //create some items
   item1 = new QgsLayoutItemShape( &l );
-  item1->attemptMove( QgsLayoutPoint( 0.05, 0.09, QgsUnitTypes::LayoutMeters ) );
-  QPointer< QgsLayoutItem > pItem1( item1 );
+  item1->attemptMove( QgsLayoutPoint( 0.05, 0.09, Qgis::LayoutUnit::Meters ) );
+  QPointer<QgsLayoutItem> pItem1( item1 );
   const QString item1Uuid = item1->uuid();
-  item1->attemptResize( QgsLayoutSize( 0.1, 0.15, QgsUnitTypes::LayoutMeters ) );
+  item1->attemptResize( QgsLayoutSize( 0.1, 0.15, Qgis::LayoutUnit::Meters ) );
 
   l.addLayoutItem( item1 );
-//  QCOMPARE( spyPolygonAdded.count(), ++shapesAdded );
+  //  QCOMPARE( spyPolygonAdded.count(), ++shapesAdded );
   item2 = new QgsLayoutItemShape( &l );
-  QPointer< QgsLayoutItem > pItem2( item2 );
+  QPointer<QgsLayoutItem> pItem2( item2 );
   const QString item2Uuid = item2->uuid();
-  item2->attemptMove( QgsLayoutPoint( 2, 3, QgsUnitTypes::LayoutMillimeters ) );
-  item2->attemptResize( QgsLayoutSize( 4, 6, QgsUnitTypes::LayoutMillimeters ) );
+  item2->attemptMove( QgsLayoutPoint( 2, 3, Qgis::LayoutUnit::Millimeters ) );
+  item2->attemptResize( QgsLayoutSize( 4, 6, Qgis::LayoutUnit::Millimeters ) );
   l.addLayoutItem( item2 );
-//  QCOMPARE( spyPolygonAdded.count(), ++shapesAdded );
+  //  QCOMPARE( spyPolygonAdded.count(), ++shapesAdded );
   l.layoutItems( items );
   QCOMPARE( items.size(), 2 ); // 2 shapes
-  QgsDebugMsg( QStringLiteral( "addedItems stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "addedItems stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
   QCOMPARE( item1->pos(), QPointF( 50, 90 ) );
   QCOMPARE( item2->pos(), QPointF( 2, 3 ) );
   //dumpUndoStack(*us, "after initial items addition");
@@ -608,9 +602,9 @@ void TestQgsLayoutItemGroup::undoRedo()
   items << item1 << item2;
   QgsLayoutItemGroup *group = l.groupItems( items );
   const QString groupUuid = group->uuid();
-// QCOMPARE( spyPolygonAdded.count(), shapesAdded );
-//  QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
-//  QCOMPARE( spyItemRemoved.count(), itemsRemoved );
+  // QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  //  QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
+  //  QCOMPARE( spyItemRemoved.count(), itemsRemoved );
   QCOMPARE( group->items().size(), 2 );
   l.layoutItems( items );
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
@@ -620,32 +614,32 @@ void TestQgsLayoutItemGroup::undoRedo()
   //dumpUndoStack(*us, "after initial items addition");
 
   //move group
-  QgsDebugMsg( QStringLiteral( "moving group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "moving group" ), 1 );
   group->attemptMove( QgsLayoutPoint( 10.0, 20.0 ) );
-// QCOMPARE( spyPolygonAdded.count(), shapesAdded );
-// QCOMPARE( spyGroupAdded.count(), groupsAdded );
-// QCOMPARE( spyItemRemoved.count(), itemsRemoved );
-  QgsDebugMsg( QStringLiteral( "groupItems stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  // QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  // QCOMPARE( spyGroupAdded.count(), groupsAdded );
+  // QCOMPARE( spyItemRemoved.count(), itemsRemoved );
+  QgsDebugMsgLevel( QStringLiteral( "groupItems stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
   QCOMPARE( group->items().size(), 2 );
   l.layoutItems( items );
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
   QCOMPARE( item1->pos(), QPointF( 58, 107 ) );
-  QCOMPARE( item2->pos(),  QPointF( 10, 20 ) );
-  QCOMPARE( group->pos(),  QPointF( 10, 20 ) );
+  QCOMPARE( item2->pos(), QPointF( 10, 20 ) );
+  QCOMPARE( group->pos(), QPointF( 10, 20 ) );
 
   //ungroup
-  QPointer< QgsLayoutItemGroup > pGroup( group ); // for testing deletion
-  QgsDebugMsg( QStringLiteral( "ungrouping" ) );
+  QPointer<QgsLayoutItemGroup> pGroup( group ); // for testing deletion
+  QgsDebugMsgLevel( QStringLiteral( "ungrouping" ), 1 );
   l.ungroupItems( group );
   QgsApplication::sendPostedEvents( nullptr, QEvent::DeferredDelete );
 
-//  QCOMPARE( spyPolygonAdded.count(), shapesAdded );
-//  QCOMPARE( spyGroupAdded.count(), groupsAdded );
-//  QCOMPARE( spyItemRemoved.count(), ++itemsRemoved );
+  //  QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  //  QCOMPARE( spyGroupAdded.count(), groupsAdded );
+  //  QCOMPARE( spyItemRemoved.count(), ++itemsRemoved );
   l.layoutItems( items );
   QCOMPARE( items.size(), 2 ); // 2 shapes
   QCOMPARE( item1->pos(), QPointF( 58, 107 ) );
-  QCOMPARE( item2->pos(),  QPointF( 10, 20 ) );
+  QCOMPARE( item2->pos(), QPointF( 10, 20 ) );
   QVERIFY( !pGroup );
   //dumpUndoStack(*us, "after ungroup");
   // US 0: Items grouped
@@ -653,11 +647,11 @@ void TestQgsLayoutItemGroup::undoRedo()
   // US 2: Remove item group
 
   //undo (groups again) -- crashed here before #11371 got fixed
-  QgsDebugMsg( QStringLiteral( "undo ungrouping" ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo ungrouping" ), 1 );
   us->undo();
-//  QCOMPARE( spyPolygonAdded.count(), shapesAdded );
-// QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
-// QCOMPARE( spyItemRemoved.count(), itemsRemoved );
+  //  QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  // QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
+  // QCOMPARE( spyItemRemoved.count(), itemsRemoved );
   QVERIFY( item1->isGroupMember() );
   QVERIFY( item2->isGroupMember() );
   QCOMPARE( item1->parentGroup(), item2->parentGroup() );
@@ -669,18 +663,18 @@ void TestQgsLayoutItemGroup::undoRedo()
   l.layoutItems( items );
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
   QCOMPARE( item1->pos(), QPointF( 58, 107 ) );
-  QCOMPARE( item2->pos(),  QPointF( 10, 20 ) );
+  QCOMPARE( item2->pos(), QPointF( 10, 20 ) );
 
-  QCOMPARE( group->pos(),  QPointF( 10, 20 ) );
+  QCOMPARE( group->pos(), QPointF( 10, 20 ) );
   //dumpUndoStack(*us, "after undo ungroup");
   // US 0: Items grouped
   // US 1: move group
   // US 2: -Remove item group
 
   //remove group
-  QgsDebugMsg( QStringLiteral( "remove group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "remove group" ), 1 );
   l.removeLayoutItem( group );
-// QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  // QCOMPARE( spyPolygonAdded.count(), shapesAdded );
   //QCOMPARE( spyGroupAdded.count(), groupsAdded );
   //itemsRemoved += 3; // the group and the two items
   //QCOMPARE( spyItemRemoved.count(), itemsRemoved );
@@ -692,47 +686,47 @@ void TestQgsLayoutItemGroup::undoRedo()
 
   l.layoutItems( items );
   QCOMPARE( items.size(), 0 ); // nothing
-  QgsDebugMsg( QStringLiteral( "remove stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "remove stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
   //dumpUndoStack(*us, "after remove group");
   // US 0: Items grouped
   // US 1: move group
   // US 2: Remove item group
 
   //undo remove group
-  QgsDebugMsg( QStringLiteral( "undo remove group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo remove group" ), 1 );
   us->undo();
   //shapesAdded += 2;
   //QCOMPARE( spyPolygonAdded.count(), shapesAdded );
   //QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
   //QCOMPARE( spyItemRemoved.count(), itemsRemoved );
   l.layoutItems( items );
-  group = dynamic_cast< QgsLayoutItemGroup * >( l.itemByUuid( groupUuid ) );
+  group = dynamic_cast<QgsLayoutItemGroup *>( l.itemByUuid( groupUuid ) );
   QVERIFY( group );
 
   QCOMPARE( group->items().size(), 2 );
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
-  item1 = dynamic_cast< QgsLayoutItemShape * >( l.itemByUuid( item1Uuid ) );
+  item1 = dynamic_cast<QgsLayoutItemShape *>( l.itemByUuid( item1Uuid ) );
   QCOMPARE( item1->parentGroup(), group );
-  item2 = dynamic_cast< QgsLayoutItemShape * >( l.itemByUuid( item2Uuid ) );
+  item2 = dynamic_cast<QgsLayoutItemShape *>( l.itemByUuid( item2Uuid ) );
   QCOMPARE( item2->parentGroup(), group );
-  QgsDebugMsg( QStringLiteral( "undo stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
   //dumpUndoStack(*us, "after undo remove group");
   // US 0: Items grouped
   // US 1: move group
   // US 2: -Remove item group
 
   //undo move group
-  QgsDebugMsg( QStringLiteral( "undo move group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo move group" ), 1 );
   us->undo();
-// QCOMPARE( spyPolygonAdded.count(), shapesAdded );
-// QCOMPARE( spyGroupAdded.count(), groupsAdded );
-// QCOMPARE( spyItemRemoved.count(), itemsRemoved );
+  // QCOMPARE( spyPolygonAdded.count(), shapesAdded );
+  // QCOMPARE( spyGroupAdded.count(), groupsAdded );
+  // QCOMPARE( spyItemRemoved.count(), itemsRemoved );
   QCOMPARE( group->items().size(), 2 );
   l.layoutItems( items );
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
   QCOMPARE( item1->isGroupMember(), true );
   QCOMPARE( item2->isGroupMember(), true );
-  QCOMPARE( item1->pos(),  QPointF( 50, 90 ) );
+  QCOMPARE( item1->pos(), QPointF( 50, 90 ) );
   QCOMPARE( item2->pos(), QPointF( 2, 3 ) );
   QCOMPARE( group->pos(), QPointF( 2, 3 ) );
   //dumpUndoStack(*us, "after undo move group");
@@ -743,7 +737,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   //undo group
   pGroup = group;
 
-  QgsDebugMsg( QStringLiteral( "undo group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo group" ), 1 );
   us->undo();
   //QCOMPARE( spyPolygonAdded.count(), shapesAdded );
   //QCOMPARE( spyGroupAdded.count(), groupsAdded );
@@ -763,7 +757,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   // US 2: -Remove item group
 
   //redo group
-  QgsDebugMsg( QStringLiteral( "redo group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "redo group" ), 1 );
   us->redo();
   //QCOMPARE( spyPolygonAdded.count(), shapesAdded );
   //QCOMPARE( spyGroupAdded.count(), ++groupsAdded );
@@ -772,7 +766,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   QCOMPARE( items.size(), 3 ); // 2 shapes, 1 group
   QCOMPARE( item1->isGroupMember(), true );
   QCOMPARE( item2->isGroupMember(), true );
-  group = dynamic_cast< QgsLayoutItemGroup * >( l.itemByUuid( groupUuid ) );
+  group = dynamic_cast<QgsLayoutItemGroup *>( l.itemByUuid( groupUuid ) );
   QCOMPARE( group->pos(), QPointF( 2, 3 ) );
   //dumpUndoStack(*us, "after redo group");
   // US 0: Items grouped
@@ -780,7 +774,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   // US 2: -Remove item group
 
   //redo move group
-  QgsDebugMsg( QStringLiteral( "redo move group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "redo move group" ), 1 );
   us->redo();
   //QCOMPARE( spyPolygonAdded.count(), shapesAdded );
   //QCOMPARE( spyGroupAdded.count(), groupsAdded );
@@ -801,7 +795,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   // US 2: -Remove item group
 
   //redo remove group
-  QgsDebugMsg( QStringLiteral( "redo remove group" ) );
+  QgsDebugMsgLevel( QStringLiteral( "redo remove group" ), 1 );
   pGroup = group;
   pItem1 = item1;
   pItem2 = item2;
@@ -817,7 +811,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   QVERIFY( !pItem1 );
   QVERIFY( !pItem2 );
 
-  QgsDebugMsg( QStringLiteral( "undo stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "undo stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
   //dumpUndoStack(*us, "after redo remove group");
   // US 0: Items grouped
   // US 1: move group
@@ -826,7 +820,7 @@ void TestQgsLayoutItemGroup::undoRedo()
   //unwind the whole stack
   us->clear();
 
-  QgsDebugMsg( QStringLiteral( "clear stack count:%1 index:%2" ) .arg( us->count() ) .arg( us->index() ) );
+  QgsDebugMsgLevel( QStringLiteral( "clear stack count:%1 index:%2" ).arg( us->count() ).arg( us->index() ), 1 );
 }
 
 QGSTEST_MAIN( TestQgsLayoutItemGroup )

@@ -15,9 +15,9 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshapeellipsecenter2points.h"
+#include "moc_qgsmaptoolshapeellipsecenter2points.cpp"
 #include "qgsgeometryrubberband.h"
 #include "qgslinestring.h"
-#include "qgsmapcanvas.h"
 #include "qgspoint.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
@@ -56,13 +56,12 @@ bool QgsMapToolShapeEllipseCenter2Points::cadCanvasReleaseEvent( QgsMapMouseEven
   const QgsPoint point = mParentTool->mapPoint( *e );
   if ( e->button() == Qt::LeftButton )
   {
-
     if ( mPoints.size() < 2 )
       mPoints.append( point );
 
     if ( !mPoints.isEmpty() && !mTempRubberBand )
     {
-      QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+      Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
       mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
       mTempRubberBand->show();
     }
@@ -88,7 +87,7 @@ void QgsMapToolShapeEllipseCenter2Points::cadCanvasMoveEvent( QgsMapMouseEvent *
     {
       case 1:
       {
-        std::unique_ptr<QgsLineString> line( new QgsLineString() );
+        auto line = std::make_unique<QgsLineString>();
         line->addVertex( mPoints.at( 0 ) );
         line->addVertex( point );
         mTempRubberBand->setGeometry( line.release() );

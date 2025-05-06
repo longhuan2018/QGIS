@@ -14,10 +14,9 @@
  ***************************************************************************/
 
 #include "qgslayertreegrouppropertieswidget.h"
-#include "qgsstyle.h"
+#include "moc_qgslayertreegrouppropertieswidget.cpp"
 #include "qgsapplication.h"
 #include "qgsmaplayer.h"
-#include "qgsgui.h"
 #include "qgspainteffect.h"
 #include "qgsmapcanvas.h"
 #include "qgspainteffectregistry.h"
@@ -35,9 +34,10 @@ QgsLayerTreeGroupPropertiesWidget::QgsLayerTreeGroupPropertiesWidget( QgsMapCanv
 
   mPaintEffect.reset( QgsPaintEffectRegistry::defaultStack() );
   mPaintEffect->setEnabled( false );
+  mEffectWidget->setPaintEffect( mPaintEffect.get() );
 
   connect( mOpacityWidget, &QgsOpacityWidget::opacityChanged, this, &QgsLayerTreeGroupPropertiesWidget::onLayerPropertyChanged );
-  connect( mBlendModeComboBox, qOverload< int >( &QgsBlendModeComboBox::currentIndexChanged ), this, &QgsLayerTreeGroupPropertiesWidget::onLayerPropertyChanged );
+  connect( mBlendModeComboBox, qOverload<int>( &QgsBlendModeComboBox::currentIndexChanged ), this, &QgsLayerTreeGroupPropertiesWidget::onLayerPropertyChanged );
   connect( mEffectWidget, &QgsEffectStackCompactWidget::changed, this, &QgsLayerTreeGroupPropertiesWidget::onLayerPropertyChanged );
   connect( mRenderAsGroupCheckBox, &QGroupBox::toggled, this, &QgsLayerTreeGroupPropertiesWidget::onLayerPropertyChanged );
 
@@ -107,6 +107,7 @@ void QgsLayerTreeGroupPropertiesWidget::apply()
     groupLayer->setPaintEffect( mPaintEffect->clone() );
 
     groupLayer->triggerRepaint();
+    QgsProject::instance()->setDirty( true );
   }
   else if ( mMapLayerConfigWidgetContext.mapCanvas() )
   {
@@ -158,4 +159,3 @@ bool QgsLayerTreeGroupPropertiesWidgetFactory::supportsLayerTreeGroup( QgsLayerT
 {
   return true;
 }
-

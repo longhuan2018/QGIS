@@ -15,8 +15,8 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshaperegularpolygoncenterpoint.h"
+#include "moc_qgsmaptoolshaperegularpolygoncenterpoint.cpp"
 #include "qgsgeometryrubberband.h"
-#include "qgsmapcanvas.h"
 #include "qgspoint.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
@@ -56,7 +56,6 @@ QgsMapToolShapeRegularPolygonCenterPoint::~QgsMapToolShapeRegularPolygonCenterPo
 
 bool QgsMapToolShapeRegularPolygonCenterPoint::cadCanvasReleaseEvent( QgsMapMouseEvent *e, QgsMapToolCapture::CaptureMode mode )
 {
-
   const QgsPoint point = mParentTool->mapPoint( *e );
 
   if ( e->button() == Qt::LeftButton )
@@ -68,7 +67,7 @@ bool QgsMapToolShapeRegularPolygonCenterPoint::cadCanvasReleaseEvent( QgsMapMous
     {
       if ( !mTempRubberBand )
       {
-        QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+        Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
         mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
         mTempRubberBand->show();
 

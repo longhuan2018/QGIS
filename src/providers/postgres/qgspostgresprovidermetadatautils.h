@@ -29,9 +29,8 @@ class QgsFeedback;
 class QgsPostgresProviderMetadataUtils
 {
   public:
-
     static QList<QgsLayerMetadataProviderResult> searchLayerMetadata( const QgsMetadataSearchContext &searchContext, const QString &uri, const QString &searchString, const QgsRectangle &geographicExtent, QgsFeedback *feedback );
-    static bool saveLayerMetadata( const QgsMapLayerType &layerType, const QString &uri, const QgsLayerMetadata &metadata, QString &errorMessage );
+    static bool saveLayerMetadata( const Qgis::LayerType &layerType, const QString &uri, const QgsLayerMetadata &metadata, QString &errorMessage );
 };
 
 #endif // QGSPOSTGRESPROVIDERMETADATAUTILS_H

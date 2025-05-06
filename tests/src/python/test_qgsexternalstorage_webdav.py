@@ -8,29 +8,15 @@ the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
 """
 
-__author__ = 'Julien Cabieces'
-__date__ = '31/03/2021'
-__copyright__ = 'Copyright 2021, The QGIS Project'
+__author__ = "Julien Cabieces"
+__date__ = "31/03/2021"
+__copyright__ = "Copyright 2021, The QGIS Project"
 
-from shutil import rmtree
 import os
-import tempfile
-import time
 
-from utilities import unitTestDataPath, waitServer
+from qgis.testing import unittest
+
 from test_qgsexternalstorage_base import TestPyQgsExternalStorageBase
-
-from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QUrl
-
-from qgis.core import (
-    QgsApplication,
-    QgsAuthMethodConfig,
-    QgsExternalStorageFetchedContent)
-
-from qgis.testing import (
-    start_app,
-    unittest,
-)
 
 
 class TestPyQgsExternalStorageWebDav(TestPyQgsExternalStorageBase, unittest.TestCase):
@@ -43,10 +29,13 @@ class TestPyQgsExternalStorageWebDav(TestPyQgsExternalStorageBase, unittest.Test
         """Run before all tests:"""
 
         super().setUpClass()
+        unittest.TestCase.setUpClass()
 
         cls.url = "http://{}:{}/webdav_tests".format(
-            os.environ.get('QGIS_WEBDAV_HOST', 'localhost'), os.environ.get('QGIS_WEBDAV_PORT', '80'))
+            os.environ.get("QGIS_WEBDAV_HOST", "localhost"),
+            os.environ.get("QGIS_WEBDAV_PORT", "80"),
+        )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

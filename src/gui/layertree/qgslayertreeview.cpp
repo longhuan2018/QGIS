@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgslayertreeview.h"
+#include "moc_qgslayertreeview.cpp"
 
 #include "qgslayertree.h"
 #include "qgslayertreeembeddedwidgetregistry.h"
@@ -23,10 +24,10 @@
 #include "qgslayertreeviewdefaultactions.h"
 #include "qgsmaplayer.h"
 #include "qgsmessagebar.h"
-#include "qgslayertreefilterproxymodel.h"
 
 #include "qgsgui.h"
 
+#include <QApplication>
 #include <QMenu>
 #include <QContextMenuEvent>
 #include <QHeaderView>
@@ -43,8 +44,11 @@
 
 QgsLayerTreeView::QgsLayerTreeView( QWidget *parent )
   : QTreeView( parent )
+  , mBlockDoubleClickTimer( new QTimer( this ) )
 
 {
+  mBlockDoubleClickTimer->setSingleShot( true );
+  mBlockDoubleClickTimer->setInterval( QApplication::doubleClickInterval() );
   setHeaderHidden( true );
 
   setDragEnabled( true );
@@ -67,7 +71,7 @@ QgsLayerTreeView::QgsLayerTreeView( QWidget *parent )
   setItemDelegate( new QgsLayerTreeViewItemDelegate( this ) );
   setStyle( new QgsLayerTreeViewProxyStyle( this ) );
 
-  setLayerMarkWidth( static_cast< int >( QFontMetricsF( font() ).horizontalAdvance( 'l' ) * Qgis::UI_SCALE_FACTOR ) );
+  setLayerMarkWidth( static_cast<int>( QFontMetricsF( font() ).horizontalAdvance( 'l' ) * Qgis::UI_SCALE_FACTOR ) );
 
   connect( this, &QTreeView::collapsed, this, &QgsLayerTreeView::updateExpandedStateToNode );
   connect( this, &QTreeView::expanded, this, &QgsLayerTreeView::updateExpandedStateToNode );
@@ -78,6 +82,7 @@ QgsLayerTreeView::QgsLayerTreeView( QWidget *parent )
 QgsLayerTreeView::~QgsLayerTreeView()
 {
   delete mMenuProvider;
+  delete mBlockDoubleClickTimer;
 }
 
 void QgsLayerTreeView::setModel( QAbstractItemModel *model )
@@ -87,13 +92,12 @@ void QgsLayerTreeView::setModel( QAbstractItemModel *model )
     return;
 
   if ( mMessageBar )
-    connect( treeModel, &QgsLayerTreeModel::messageEmitted, this,
-             [ = ]( const QString & message, Qgis::MessageLevel level = Qgis::MessageLevel::Info, int duration = 5 )
-  {
-    Q_UNUSED( duration )
-    mMessageBar->pushMessage( message, level );
-  }
-         );
+    connect( treeModel, &QgsLayerTreeModel::messageEmitted, this, [=]( const QString &message, Qgis::MessageLevel level = Qgis::MessageLevel::Info, int duration = 5 ) {
+      Q_UNUSED( duration )
+      mMessageBar->pushMessage( message, level );
+    } );
+
+  treeModel->addTargetScreenProperties( QgsScreenProperties( screen() ) );
 
   mProxyModel = new QgsLayerTreeProxyModel( treeModel, this );
 
@@ -105,6 +109,7 @@ void QgsLayerTreeView::setModel( QAbstractItemModel *model )
 #endif
 
   mProxyModel->setShowPrivateLayers( mShowPrivateLayers );
+  mProxyModel->setHideValidLayers( mHideValidLayers );
   QTreeView::setModel( mProxyModel );
 
   connect( treeModel->rootGroup(), &QgsLayerTreeNode::expandedChanged, this, &QgsLayerTreeView::onExpandedChanged );
@@ -144,26 +149,39 @@ QgsMapLayer *QgsLayerTreeView::currentLayer() const
   return layerForIndex( currentIndex() );
 }
 
-void QgsLayerTreeView::setCurrentLayer( QgsMapLayer *layer )
+void QgsLayerTreeView::setCurrentNode( QgsLayerTreeNode *node )
 {
-  if ( !layer )
+  if ( !node )
   {
     setCurrentIndex( QModelIndex() );
     return;
   }
 
-  QgsLayerTreeLayer *nodeLayer = layerTreeModel()->rootGroup()->findLayer( layer->id() );
+  setCurrentIndex( node2index( node ) );
+}
+
+void QgsLayerTreeView::setCurrentLayer( QgsMapLayer *layer )
+{
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layer || !layerModel )
+  {
+    setCurrentIndex( QModelIndex() );
+    return;
+  }
+
+  QgsLayerTreeLayer *nodeLayer = layerModel->rootGroup()->findLayer( layer->id() );
   if ( !nodeLayer )
     return;
 
-  setCurrentIndex( node2index( nodeLayer ) );
+  setCurrentNode( nodeLayer );
 }
 
 void QgsLayerTreeView::setLayerVisible( QgsMapLayer *layer, bool visible )
 {
-  if ( !layer )
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layer || !layerModel )
     return;
-  QgsLayerTreeLayer *nodeLayer = layerTreeModel()->rootGroup()->findLayer( layer->id() );
+  QgsLayerTreeLayer *nodeLayer = layerModel->rootGroup()->findLayer( layer->id() );
   if ( !nodeLayer )
     return;
   nodeLayer->setItemVisibilityChecked( visible );
@@ -179,26 +197,32 @@ void QgsLayerTreeView::contextMenuEvent( QContextMenuEvent *event )
     setCurrentIndex( QModelIndex() );
 
   QMenu *menu = mMenuProvider->createContextMenu();
-  if ( menu && menu->actions().count() != 0 )
-    menu->exec( mapToGlobal( event->pos() ) );
-  delete menu;
+  if ( menu )
+  {
+    emit contextMenuAboutToShow( menu );
+
+    if ( menu->actions().count() != 0 )
+      menu->exec( mapToGlobal( event->pos() ) );
+    delete menu;
+  }
 }
 
 
 void QgsLayerTreeView::modelRowsInserted( const QModelIndex &index, int start, int end )
 {
   QgsLayerTreeNode *parentNode = index2node( index );
-  if ( !parentNode )
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !parentNode || !layerModel )
     return;
 
   // Embedded widgets - replace placeholders in the model by actual widgets
-  if ( layerTreeModel()->testFlag( QgsLayerTreeModel::UseEmbeddedWidgets ) && QgsLayerTree::isLayer( parentNode ) )
+  if ( layerModel->testFlag( QgsLayerTreeModel::UseEmbeddedWidgets ) && QgsLayerTree::isLayer( parentNode ) )
   {
     QgsLayerTreeLayer *nodeLayer = QgsLayerTree::toLayer( parentNode );
     if ( QgsMapLayer *layer = nodeLayer->layer() )
     {
       const int widgetsCount = layer->customProperty( QStringLiteral( "embeddedWidgets/count" ), 0 ).toInt();
-      QList<QgsLayerTreeModelLegendNode *> legendNodes = layerTreeModel()->layerLegendNodes( nodeLayer, true );
+      QList<QgsLayerTreeModelLegendNode *> legendNodes = layerModel->layerLegendNodes( nodeLayer, true );
       for ( int i = 0; i < widgetsCount; ++i )
       {
         const QString providerId = layer->customProperty( QStringLiteral( "embeddedWidgets/%1/id" ).arg( i ) ).toString();
@@ -236,10 +260,10 @@ void QgsLayerTreeView::modelRowsInserted( const QModelIndex &index, int start, i
     if ( expandedNodeKeys.isEmpty() )
       return;
 
-    const auto constLayerLegendNodes = layerTreeModel()->layerLegendNodes( QgsLayerTree::toLayer( parentNode ), true );
+    const auto constLayerLegendNodes = layerModel->layerLegendNodes( QgsLayerTree::toLayer( parentNode ), true );
     for ( QgsLayerTreeModelLegendNode *legendNode : constLayerLegendNodes )
     {
-      const QString ruleKey = legendNode->data( QgsLayerTreeModelLegendNode::RuleKeyRole ).toString();
+      const QString ruleKey = legendNode->data( static_cast<int>( QgsLayerTreeModelLegendNode::CustomRole::RuleKey ) ).toString();
       if ( expandedNodeKeys.contains( ruleKey ) )
         setExpanded( legendNode2index( legendNode ), true );
     }
@@ -247,7 +271,7 @@ void QgsLayerTreeView::modelRowsInserted( const QModelIndex &index, int start, i
   }
 
   QList<QgsLayerTreeNode *> children = parentNode->children();
-  for ( int i = start; i <= end; ++i )
+  for ( int i = start; i <= end && i < children.count(); ++i )
   {
     updateExpandedStateFromNode( children[i] );
   }
@@ -270,7 +294,7 @@ void QgsLayerTreeView::updateExpandedStateToNode( const QModelIndex &index )
   }
   else if ( QgsLayerTreeModelLegendNode *node = index2legendNode( index ) )
   {
-    const QString ruleKey = node->data( QgsLayerTreeModelLegendNode::RuleKeyRole ).toString();
+    const QString ruleKey = node->data( static_cast<int>( QgsLayerTreeModelLegendNode::CustomRole::RuleKey ) ).toString();
     QStringList lst = node->layerNode()->customProperty( QStringLiteral( "expandedLegendNodes" ) ).toStringList();
     const bool expanded = isExpanded( index );
     const bool isInList = lst.contains( ruleKey );
@@ -289,6 +313,10 @@ void QgsLayerTreeView::updateExpandedStateToNode( const QModelIndex &index )
 
 void QgsLayerTreeView::onCurrentChanged()
 {
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+
   QgsMapLayer *layerCurrent = layerForIndex( currentIndex() );
   const QString layerCurrentID = layerCurrent ? layerCurrent->id() : QString();
   if ( mCurrentLayerID == layerCurrentID )
@@ -298,20 +326,20 @@ void QgsLayerTreeView::onCurrentChanged()
   QModelIndex proxyModelNodeLayerIndex;
   if ( layerCurrent )
   {
-    QgsLayerTreeLayer *nodeLayer = layerTreeModel()->rootGroup()->findLayer( layerCurrentID );
+    QgsLayerTreeLayer *nodeLayer = layerModel->rootGroup()->findLayer( layerCurrentID );
     if ( nodeLayer )
       proxyModelNodeLayerIndex = node2index( nodeLayer );
   }
 
-  if ( ! proxyModelNodeLayerIndex.isValid() )
+  if ( !proxyModelNodeLayerIndex.isValid() )
   {
     mCurrentLayerID = QString();
-    layerTreeModel()->setCurrentIndex( QModelIndex() );
+    layerModel->setCurrentIndex( QModelIndex() );
   }
   else
   {
     mCurrentLayerID = layerCurrentID;
-    layerTreeModel()->setCurrentIndex( mProxyModel->mapToSource( proxyModelNodeLayerIndex ) );
+    layerModel->setCurrentIndex( mProxyModel->mapToSource( proxyModelNodeLayerIndex ) );
   }
 
   //checkModel();
@@ -328,15 +356,16 @@ void QgsLayerTreeView::onExpandedChanged( QgsLayerTreeNode *node, bool expanded 
 
 void QgsLayerTreeView::onCustomPropertyChanged( QgsLayerTreeNode *node, const QString &key )
 {
-  if ( key != QLatin1String( "expandedLegendNodes" ) || !QgsLayerTree::isLayer( node ) )
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( key != QLatin1String( "expandedLegendNodes" ) || !QgsLayerTree::isLayer( node ) || !layerModel )
     return;
 
   const QSet<QString> expandedLegendNodes = qgis::listToSet( node->customProperty( QStringLiteral( "expandedLegendNodes" ) ).toStringList() );
 
-  const QList<QgsLayerTreeModelLegendNode *> legendNodes = layerTreeModel()->layerLegendNodes( QgsLayerTree::toLayer( node ), true );
+  const QList<QgsLayerTreeModelLegendNode *> legendNodes = layerModel->layerLegendNodes( QgsLayerTree::toLayer( node ), true );
   for ( QgsLayerTreeModelLegendNode *legendNode : legendNodes )
   {
-    const QString key = legendNode->data( QgsLayerTreeModelLegendNode::RuleKeyRole ).toString();
+    const QString key = legendNode->data( static_cast<int>( QgsLayerTreeModelLegendNode::CustomRole::RuleKey ) ).toString();
     if ( !key.isEmpty() )
       setExpanded( legendNode2index( legendNode ), expandedLegendNodes.contains( key ) );
   }
@@ -344,7 +373,10 @@ void QgsLayerTreeView::onCustomPropertyChanged( QgsLayerTreeNode *node, const QS
 
 void QgsLayerTreeView::onModelReset()
 {
-  updateExpandedStateFromNode( layerTreeModel()->rootGroup() );
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+  updateExpandedStateFromNode( layerModel->rootGroup() );
   //checkModel();
 }
 
@@ -382,7 +414,10 @@ QgsMapLayer *QgsLayerTreeView::layerForIndex( const QModelIndex &index ) const
 
 QgsLayerTreeNode *QgsLayerTreeView::currentNode() const
 {
-  return index2node( selectionModel()->currentIndex() );
+  if ( QItemSelectionModel *selectModel = selectionModel() )
+    return index2node( selectModel->currentIndex() );
+  else
+    return nullptr;
 }
 
 QgsLayerTreeGroup *QgsLayerTreeView::currentGroupNode() const
@@ -397,11 +432,14 @@ QgsLayerTreeGroup *QgsLayerTreeView::currentGroupNode() const
       return QgsLayerTree::toGroup( parent );
   }
 
-  if ( QgsLayerTreeModelLegendNode *legendNode = index2legendNode( selectionModel()->currentIndex() ) )
+  if ( QItemSelectionModel *selectModel = selectionModel() )
   {
-    QgsLayerTreeLayer *parent = legendNode->layerNode();
-    if ( QgsLayerTree::isGroup( parent->parent() ) )
-      return QgsLayerTree::toGroup( parent->parent() );
+    if ( QgsLayerTreeModelLegendNode *legendNode = index2legendNode( selectModel->currentIndex() ) )
+    {
+      QgsLayerTreeLayer *parent = legendNode->layerNode();
+      if ( QgsLayerTree::isGroup( parent->parent() ) )
+        return QgsLayerTree::toGroup( parent->parent() );
+    }
   }
 
   return nullptr;
@@ -409,24 +447,35 @@ QgsLayerTreeGroup *QgsLayerTreeView::currentGroupNode() const
 
 QgsLayerTreeModelLegendNode *QgsLayerTreeView::currentLegendNode() const
 {
-  return index2legendNode( selectionModel()->currentIndex() );
+  if ( QItemSelectionModel *selectModel = selectionModel() )
+    return index2legendNode( selectModel->currentIndex() );
+  else
+    return nullptr;
 }
 
 QList<QgsLayerTreeNode *> QgsLayerTreeView::selectedNodes( bool skipInternal ) const
 {
-  QModelIndexList mapped;
-  const QModelIndexList selected = selectionModel()->selectedIndexes();
-  mapped.reserve( selected.size() );
-  for ( const QModelIndex &index : selected )
-    mapped << mProxyModel->mapToSource( index );
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return QList<QgsLayerTreeNode *>();
 
-  return layerTreeModel()->indexes2nodes( mapped, skipInternal );
+  QModelIndexList mapped;
+  if ( QItemSelectionModel *selectModel = selectionModel() )
+  {
+    const QModelIndexList selected = selectModel->selectedIndexes();
+    mapped.reserve( selected.size() );
+    for ( const QModelIndex &index : selected )
+      mapped << mProxyModel->mapToSource( index );
+  }
+
+  return layerModel->indexes2nodes( mapped, skipInternal );
 }
 
 QList<QgsLayerTreeLayer *> QgsLayerTreeView::selectedLayerNodes() const
 {
   QList<QgsLayerTreeLayer *> layerNodes;
-  const auto constSelectedNodes = selectedNodes();
+  const QList<QgsLayerTreeNode *> constSelectedNodes = selectedNodes();
+  layerNodes.reserve( constSelectedNodes.size() );
   for ( QgsLayerTreeNode *node : constSelectedNodes )
   {
     if ( QgsLayerTree::isLayer( node ) )
@@ -438,7 +487,8 @@ QList<QgsLayerTreeLayer *> QgsLayerTreeView::selectedLayerNodes() const
 QList<QgsMapLayer *> QgsLayerTreeView::selectedLayers() const
 {
   QList<QgsMapLayer *> list;
-  const auto constSelectedLayerNodes = selectedLayerNodes();
+  const QList<QgsLayerTreeLayer *> constSelectedLayerNodes = selectedLayerNodes();
+  list.reserve( constSelectedLayerNodes.size() );
   for ( QgsLayerTreeLayer *node : constSelectedLayerNodes )
   {
     if ( node->layer() )
@@ -447,15 +497,42 @@ QList<QgsMapLayer *> QgsLayerTreeView::selectedLayers() const
   return list;
 }
 
+QList<QgsLayerTreeModelLegendNode *> QgsLayerTreeView::selectedLegendNodes() const
+{
+  QList<QgsLayerTreeModelLegendNode *> res;
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  QItemSelectionModel *selectModel = selectionModel();
+  if ( !layerModel || !selectModel )
+    return res;
+
+  const QModelIndexList selected = selectModel->selectedIndexes();
+  res.reserve( selected.size() );
+  for ( const QModelIndex &index : selected )
+  {
+    const QModelIndex &modelIndex = mProxyModel->mapToSource( index );
+    if ( QgsLayerTreeModelLegendNode *node = layerModel->index2legendNode( modelIndex ) )
+    {
+      res.push_back( node );
+    }
+  }
+
+  return res;
+}
+
 QList<QgsMapLayer *> QgsLayerTreeView::selectedLayersRecursive() const
 {
   QModelIndexList mapped;
-  const QModelIndexList selected = selectionModel()->selectedIndexes();
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  QItemSelectionModel *selectModel = selectionModel();
+  if ( !layerModel || !selectModel )
+    return QList<QgsMapLayer *>();
+
+  const QModelIndexList selected = selectModel->selectedIndexes();
   mapped.reserve( selected.size() );
   for ( const QModelIndex &index : selected )
     mapped << mProxyModel->mapToSource( index );
 
-  const QList<QgsLayerTreeNode *> nodes = layerTreeModel()->indexes2nodes( mapped, false );
+  const QList<QgsLayerTreeNode *> nodes = layerModel->indexes2nodes( mapped, false );
   const QSet<QgsMapLayer *> layersSet = QgsLayerTreeUtils::collectMapLayersRecursive( nodes );
   return qgis::setToList( layersSet );
 }
@@ -465,8 +542,7 @@ void QgsLayerTreeView::addIndicator( QgsLayerTreeNode *node, QgsLayerTreeViewInd
   if ( !mIndicators[node].contains( indicator ) )
   {
     mIndicators[node].append( indicator );
-    connect( indicator, &QgsLayerTreeViewIndicator::changed, this, [ = ]
-    {
+    connect( indicator, &QgsLayerTreeViewIndicator::changed, this, [=] {
       update();
       viewport()->repaint();
     } );
@@ -495,9 +571,12 @@ QStringList QgsLayerTreeView::viewOnlyCustomProperties()
 
 void QgsLayerTreeView::refreshLayerSymbology( const QString &layerId )
 {
-  QgsLayerTreeLayer *nodeLayer = layerTreeModel()->rootGroup()->findLayer( layerId );
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+  QgsLayerTreeLayer *nodeLayer = layerModel->rootGroup()->findLayer( layerId );
   if ( nodeLayer )
-    layerTreeModel()->refreshLayerLegend( nodeLayer );
+    layerModel->refreshLayerLegend( nodeLayer );
 }
 
 
@@ -511,7 +590,7 @@ static void _expandAllLegendNodes( QgsLayerTreeLayer *nodeLayer, bool expanded, 
     const auto constLayerLegendNodes = model->layerLegendNodes( nodeLayer, true );
     for ( QgsLayerTreeModelLegendNode *legendNode : constLayerLegendNodes )
     {
-      const QString parentKey = legendNode->data( QgsLayerTreeModelLegendNode::ParentRuleKeyRole ).toString();
+      const QString parentKey = legendNode->data( static_cast<int>( QgsLayerTreeModelLegendNode::CustomRole::ParentRuleKey ) ).toString();
       if ( !parentKey.isEmpty() && !lst.contains( parentKey ) )
         lst << parentKey;
     }
@@ -537,14 +616,20 @@ static void _expandAllNodes( QgsLayerTreeGroup *parent, bool expanded, QgsLayerT
 void QgsLayerTreeView::expandAllNodes()
 {
   // unfortunately expandAll() does not emit expanded() signals
-  _expandAllNodes( layerTreeModel()->rootGroup(), true, layerTreeModel() );
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+  _expandAllNodes( layerModel->rootGroup(), true, layerModel );
   expandAll();
 }
 
 void QgsLayerTreeView::collapseAllNodes()
 {
   // unfortunately collapseAll() does not emit collapsed() signals
-  _expandAllNodes( layerTreeModel()->rootGroup(), false, layerTreeModel() );
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+  _expandAllNodes( layerModel->rootGroup(), false, layerModel );
   collapseAll();
 }
 
@@ -554,55 +639,84 @@ void QgsLayerTreeView::setMessageBar( QgsMessageBar *messageBar )
     return;
 
   mMessageBar = messageBar;
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
 
   if ( mMessageBar )
-    connect( layerTreeModel(), &QgsLayerTreeModel::messageEmitted, this,
-             [ = ]( const QString & message, Qgis::MessageLevel level = Qgis::MessageLevel::Info, int duration = 5 )
-  {
-    Q_UNUSED( duration )
-    mMessageBar->pushMessage( message, level );
-  }
-         );
+    connect( layerModel, &QgsLayerTreeModel::messageEmitted, this, [=]( const QString &message, Qgis::MessageLevel level = Qgis::MessageLevel::Info, int duration = 5 ) {
+      Q_UNUSED( duration )
+      mMessageBar->pushMessage( message, level );
+    } );
 }
 
 void QgsLayerTreeView::setShowPrivateLayers( bool showPrivate )
 {
+  if ( !mProxyModel )
+    return;
+
   mShowPrivateLayers = showPrivate;
   mProxyModel->setShowPrivateLayers( showPrivate );
 }
 
-bool QgsLayerTreeView::showPrivateLayers()
+void QgsLayerTreeView::setHideValidLayers( bool hideValid )
+{
+  if ( !mProxyModel )
+    return;
+
+  mHideValidLayers = hideValid;
+  mProxyModel->setHideValidLayers( mHideValidLayers );
+}
+
+bool QgsLayerTreeView::showPrivateLayers() const
 {
   return mShowPrivateLayers;
 }
 
+bool QgsLayerTreeView::hideValidLayers() const
+{
+  return mHideValidLayers;
+}
+
+void QgsLayerTreeView::mouseDoubleClickEvent( QMouseEvent *event )
+{
+  if ( mBlockDoubleClickTimer->isActive() )
+    event->accept();
+  else
+    QTreeView::mouseDoubleClickEvent( event );
+}
+
 void QgsLayerTreeView::mouseReleaseEvent( QMouseEvent *event )
 {
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+
   // we need to keep last mouse position in order to know whether to emit an indicator's clicked() signal
   // (the item delegate needs to know which indicator has been clicked)
   mLastReleaseMousePos = event->pos();
 
-  const QgsLayerTreeModel::Flags oldFlags = layerTreeModel()->flags();
+  const QgsLayerTreeModel::Flags oldFlags = layerModel->flags();
   if ( event->modifiers() & Qt::ControlModifier )
-    layerTreeModel()->setFlags( oldFlags | QgsLayerTreeModel::ActionHierarchical );
+    layerModel->setFlags( oldFlags | QgsLayerTreeModel::ActionHierarchical );
   else
-    layerTreeModel()->setFlags( oldFlags & ~QgsLayerTreeModel::ActionHierarchical );
+    layerModel->setFlags( oldFlags & ~QgsLayerTreeModel::ActionHierarchical );
   QTreeView::mouseReleaseEvent( event );
-  layerTreeModel()->setFlags( oldFlags );
+  layerModel->setFlags( oldFlags );
 }
 
 void QgsLayerTreeView::keyPressEvent( QKeyEvent *event )
 {
   if ( event->key() == Qt::Key_Space )
   {
-    const auto constSelectedNodes = selectedNodes();
+    const QList<QgsLayerTreeNode *> constSelectedNodes = selectedNodes();
 
-    if ( ! constSelectedNodes.isEmpty() )
+    if ( !constSelectedNodes.isEmpty() )
     {
       const bool isFirstNodeChecked = constSelectedNodes[0]->itemVisibilityChecked();
       for ( QgsLayerTreeNode *node : constSelectedNodes )
       {
-        node->setItemVisibilityChecked( ! isFirstNodeChecked );
+        node->setItemVisibilityChecked( !isFirstNodeChecked );
       }
 
       // if we call the original keyPress handler, the current item will be checked to the original state yet again
@@ -610,13 +724,16 @@ void QgsLayerTreeView::keyPressEvent( QKeyEvent *event )
     }
   }
 
-  const QgsLayerTreeModel::Flags oldFlags = layerTreeModel()->flags();
+  QgsLayerTreeModel *layerModel = layerTreeModel();
+  if ( !layerModel )
+    return;
+  const QgsLayerTreeModel::Flags oldFlags = layerModel->flags();
   if ( event->modifiers() & Qt::ControlModifier )
-    layerTreeModel()->setFlags( oldFlags | QgsLayerTreeModel::ActionHierarchical );
+    layerModel->setFlags( oldFlags | QgsLayerTreeModel::ActionHierarchical );
   else
-    layerTreeModel()->setFlags( oldFlags & ~QgsLayerTreeModel::ActionHierarchical );
+    layerModel->setFlags( oldFlags & ~QgsLayerTreeModel::ActionHierarchical );
   QTreeView::keyPressEvent( event );
-  layerTreeModel()->setFlags( oldFlags );
+  layerModel->setFlags( oldFlags );
 }
 
 void QgsLayerTreeView::dragEnterEvent( QDragEnterEvent *event )
@@ -666,7 +783,7 @@ void QgsLayerTreeView::dropEvent( QDropEvent *event )
       return;
     }
   }
-  if ( event->keyboardModifiers() & Qt::AltModifier )
+  if ( event->keyboardModifiers() & Qt::AltModifier || event->keyboardModifiers() & Qt::ControlModifier )
   {
     event->accept();
   }
@@ -705,6 +822,7 @@ void QgsLayerTreeView::onDataChanged( const QModelIndex &topLeft, const QModelIn
   if ( roles.contains( Qt::SizeHintRole ) )
     viewport()->update();
 
+  mBlockDoubleClickTimer->start();
   //checkModel();
 }
 
@@ -743,32 +861,44 @@ QgsLayerTreeProxyModel *QgsLayerTreeView::proxyModel() const
 
 QgsLayerTreeNode *QgsLayerTreeView::index2node( const QModelIndex &index ) const
 {
-  return layerTreeModel()->index2node( mProxyModel->mapToSource( index ) );
+  if ( QgsLayerTreeModel *layerModel = layerTreeModel() )
+    return layerModel->index2node( mProxyModel->mapToSource( index ) );
+  return nullptr;
 }
 
 QModelIndex QgsLayerTreeView::node2index( QgsLayerTreeNode *node ) const
 {
-  return mProxyModel->mapFromSource( node2sourceIndex( node ) );
+  if ( mProxyModel )
+    return mProxyModel->mapFromSource( node2sourceIndex( node ) );
+  return QModelIndex();
 }
 
 QModelIndex QgsLayerTreeView::node2sourceIndex( QgsLayerTreeNode *node ) const
 {
-  return layerTreeModel()->node2index( node );
+  if ( QgsLayerTreeModel *layerModel = layerTreeModel() )
+    return layerModel->node2index( node );
+  return QModelIndex();
 }
 
 QgsLayerTreeModelLegendNode *QgsLayerTreeView::index2legendNode( const QModelIndex &index ) const
 {
-  return QgsLayerTreeModel::index2legendNode( mProxyModel->mapToSource( index ) );
+  if ( mProxyModel )
+    return QgsLayerTreeModel::index2legendNode( mProxyModel->mapToSource( index ) );
+  return nullptr;
 }
 
 QModelIndex QgsLayerTreeView::legendNode2index( QgsLayerTreeModelLegendNode *legendNode )
 {
-  return mProxyModel->mapFromSource( legendNode2sourceIndex( legendNode ) );
+  if ( mProxyModel )
+    return mProxyModel->mapFromSource( legendNode2sourceIndex( legendNode ) );
+  return QModelIndex();
 }
 
 QModelIndex QgsLayerTreeView::legendNode2sourceIndex( QgsLayerTreeModelLegendNode *legendNode )
 {
-  return layerTreeModel()->legendNode2index( legendNode );
+  if ( QgsLayerTreeModel *layerModel = layerTreeModel() )
+    return layerModel->legendNode2index( legendNode );
+  return QModelIndex();
 }
 
 QgsLayerTreeProxyModel::QgsLayerTreeProxyModel( QgsLayerTreeModel *treeModel, QObject *parent )
@@ -809,10 +939,13 @@ bool QgsLayerTreeProxyModel::nodeShown( QgsLayerTreeNode *node ) const
       return true;
     if ( !mFilterText.isEmpty() && !layer->name().contains( mFilterText, Qt::CaseInsensitive ) )
       return false;
-    if ( ! mShowPrivateLayers && layer->flags().testFlag( QgsMapLayer::LayerFlag::Private ) )
+    if ( !mShowPrivateLayers && layer->flags().testFlag( QgsMapLayer::LayerFlag::Private ) )
     {
       return false;
     }
+    if ( mHideValidLayers && layer->isValid() )
+      return false;
+
     return true;
   }
 }
@@ -824,6 +957,23 @@ bool QgsLayerTreeProxyModel::showPrivateLayers() const
 
 void QgsLayerTreeProxyModel::setShowPrivateLayers( bool showPrivate )
 {
+  if ( showPrivate == mShowPrivateLayers )
+    return;
+
   mShowPrivateLayers = showPrivate;
+  invalidateFilter();
+}
+
+bool QgsLayerTreeProxyModel::hideValidLayers() const
+{
+  return mHideValidLayers;
+}
+
+void QgsLayerTreeProxyModel::setHideValidLayers( bool hideValid )
+{
+  if ( hideValid == mHideValidLayers )
+    return;
+
+  mHideValidLayers = hideValid;
   invalidateFilter();
 }

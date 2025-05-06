@@ -16,15 +16,12 @@
  ***************************************************************************/
 
 #include "qgsnewmemorylayerdialog.h"
-#include "qgsapplication.h"
+#include "moc_qgsnewmemorylayerdialog.cpp"
 #include "qgis.h"
 #include "qgscoordinatereferencesystem.h"
-#include "qgsproviderregistry.h"
-#include "qgsvectordataprovider.h"
 #include "qgsvectorlayer.h"
 #include "qgsfield.h"
 #include "qgsfields.h"
-#include "qgssettings.h"
 #include "qgsmemoryproviderutils.h"
 #include "qgsgui.h"
 #include "qgsiconutils.h"
@@ -45,7 +42,7 @@ QgsVectorLayer *QgsNewMemoryLayerDialog::runAndCreateLayer( QWidget *parent, con
     return nullptr;
   }
 
-  const QgsWkbTypes::Type geometrytype = dialog.selectedType();
+  const Qgis::WkbType geometrytype = dialog.selectedType();
   const QgsFields fields = dialog.fields();
   const QString name = dialog.layerName().isEmpty() ? tr( "New scratch layer" ) : dialog.layerName();
   QgsVectorLayer *newLayer = QgsMemoryProviderUtils::createMemoryLayer( name, fields, geometrytype, dialog.crs() );
@@ -60,23 +57,25 @@ QgsNewMemoryLayerDialog::QgsNewMemoryLayerDialog( QWidget *parent, Qt::WindowFla
 
   mNameLineEdit->setText( tr( "New scratch layer" ) );
 
-  const QgsWkbTypes::Type geomTypes[] =
-  {
-    QgsWkbTypes::NoGeometry,
-    QgsWkbTypes::Point,
-    QgsWkbTypes::LineString,
-    QgsWkbTypes::CompoundCurve,
-    QgsWkbTypes::Polygon,
-    QgsWkbTypes::CurvePolygon,
-    QgsWkbTypes::MultiPoint,
-    QgsWkbTypes::MultiLineString,
-    QgsWkbTypes::MultiCurve,
-    QgsWkbTypes::MultiPolygon,
-    QgsWkbTypes::MultiSurface,
+  const Qgis::WkbType geomTypes[] = {
+    Qgis::WkbType::NoGeometry,
+    Qgis::WkbType::Point,
+    Qgis::WkbType::LineString,
+    Qgis::WkbType::CompoundCurve,
+    Qgis::WkbType::Polygon,
+    Qgis::WkbType::CurvePolygon,
+    Qgis::WkbType::MultiPoint,
+    Qgis::WkbType::MultiLineString,
+    Qgis::WkbType::MultiCurve,
+    Qgis::WkbType::MultiPolygon,
+    Qgis::WkbType::MultiSurface,
+    Qgis::WkbType::Triangle,
+    Qgis::WkbType::PolyhedralSurface,
+    Qgis::WkbType::TIN,
   };
 
   for ( const auto type : geomTypes )
-    mGeometryTypeBox->addItem( QgsIconUtils::iconForWkbType( type ), QgsWkbTypes::translatedDisplayString( type ), type );
+    mGeometryTypeBox->addItem( QgsIconUtils::iconForWkbType( type ), QgsWkbTypes::translatedDisplayString( type ), static_cast<quint32>( type ) );
   mGeometryTypeBox->setCurrentIndex( -1 );
 
   mGeometryWithZCheckBox->setEnabled( false );
@@ -84,26 +83,29 @@ QgsNewMemoryLayerDialog::QgsNewMemoryLayerDialog( QWidget *parent, Qt::WindowFla
   mCrsSelector->setEnabled( false );
   mCrsSelector->setShowAccuracyWarnings( true );
 
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::String ), QgsVariantUtils::typeToDisplayString( QVariant::String ), "string" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Int ), QgsVariantUtils::typeToDisplayString( QVariant::Int ), "integer" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Double ), QgsVariantUtils::typeToDisplayString( QVariant::Double ), "double" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Bool ), QgsVariantUtils::typeToDisplayString( QVariant::Bool ), "bool" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Date ), QgsVariantUtils::typeToDisplayString( QVariant::Date ), "date" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Time ), QgsVariantUtils::typeToDisplayString( QVariant::Time ), "time" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::DateTime ), QgsVariantUtils::typeToDisplayString( QVariant::DateTime ), "datetime" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::ByteArray ), QgsVariantUtils::typeToDisplayString( QVariant::ByteArray ), "binary" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::StringList ), QgsVariantUtils::typeToDisplayString( QVariant::StringList ), "stringlist" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::List, QVariant::Int ), QgsVariantUtils::typeToDisplayString( QVariant::List, QVariant::Int ), "integerlist" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::List, QVariant::Double ), QgsVariantUtils::typeToDisplayString( QVariant::List, QVariant::Double ), "doublelist" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::List, QVariant::LongLong ), QgsVariantUtils::typeToDisplayString( QVariant::List, QVariant::LongLong ), "integer64list" );
-  mTypeBox->addItem( QgsFields::iconForFieldType( QVariant::Map ), QgsVariantUtils::typeToDisplayString( QVariant::Map ), "map" );
-  mTypeBox_currentIndexChanged( 1 );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QString ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QString ), "string" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::Int ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::Int ), "integer" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::Double ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::Double ), "double" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::Bool ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::Bool ), "bool" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QDate ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QDate ), "date" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QTime ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QTime ), "time" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QDateTime ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QDateTime ), "datetime" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QByteArray ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QByteArray ), "binary" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QStringList ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QStringList ), "stringlist" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QVariantList, QMetaType::Type::Int ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QVariantList, QMetaType::Type::Int ), "integerlist" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QVariantList, QMetaType::Type::Double ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QVariantList, QMetaType::Type::Double ), "doublelist" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QVariantList, QMetaType::Type::LongLong ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QVariantList, QMetaType::Type::LongLong ), "integer64list" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::QVariantMap ), QgsVariantUtils::typeToDisplayString( QMetaType::Type::QVariantMap ), "map" );
+  mTypeBox->addItem( QgsFields::iconForFieldType( QMetaType::Type::User, QMetaType::Type::UnknownType, QStringLiteral( "geometry" ) ), tr( "Geometry" ), "geometry" );
+  mTypeBox_currentIndexChanged( 0 );
 
   mWidth->setValidator( new QIntValidator( 1, 255, this ) );
   mPrecision->setValidator( new QIntValidator( 0, 30, this ) );
 
   mAddAttributeButton->setEnabled( false );
   mRemoveAttributeButton->setEnabled( false );
+  mButtonUp->setEnabled( false );
+  mButtonDown->setEnabled( false );
 
   mOkButton = mButtonBox->button( QDialogButtonBox::Ok );
   mOkButton->setEnabled( false );
@@ -114,6 +116,8 @@ QgsNewMemoryLayerDialog::QgsNewMemoryLayerDialog( QWidget *parent, Qt::WindowFla
   connect( mAttributeView, &QTreeWidget::itemSelectionChanged, this, &QgsNewMemoryLayerDialog::selectionChanged );
   connect( mAddAttributeButton, &QToolButton::clicked, this, &QgsNewMemoryLayerDialog::mAddAttributeButton_clicked );
   connect( mRemoveAttributeButton, &QToolButton::clicked, this, &QgsNewMemoryLayerDialog::mRemoveAttributeButton_clicked );
+  connect( mButtonUp, &QToolButton::clicked, this, &QgsNewMemoryLayerDialog::moveFieldsUp );
+  connect( mButtonDown, &QToolButton::clicked, this, &QgsNewMemoryLayerDialog::moveFieldsDown );
 
   connect( mButtonBox, &QDialogButtonBox::helpRequested, this, &QgsNewMemoryLayerDialog::showHelp );
   connect( mButtonBox, &QDialogButtonBox::accepted, this, &QgsNewMemoryLayerDialog::accept );
@@ -123,13 +127,12 @@ QgsNewMemoryLayerDialog::QgsNewMemoryLayerDialog( QWidget *parent, Qt::WindowFla
   mNameLineEdit->setFocus();
 }
 
-QgsWkbTypes::Type QgsNewMemoryLayerDialog::selectedType() const
+Qgis::WkbType QgsNewMemoryLayerDialog::selectedType() const
 {
-  QgsWkbTypes::Type geomType = QgsWkbTypes::Unknown;
-  geomType = static_cast<QgsWkbTypes::Type>
-             ( mGeometryTypeBox->currentData( Qt::UserRole ).toInt() );
+  Qgis::WkbType geomType = Qgis::WkbType::Unknown;
+  geomType = static_cast<Qgis::WkbType>( mGeometryTypeBox->currentData( Qt::UserRole ).toInt() );
 
-  if ( geomType != QgsWkbTypes::Unknown && geomType != QgsWkbTypes::NoGeometry )
+  if ( geomType != Qgis::WkbType::Unknown && geomType != Qgis::WkbType::NoGeometry )
   {
     if ( mGeometryWithZCheckBox->isChecked() )
       geomType = QgsWkbTypes::addZ( geomType );
@@ -142,10 +145,9 @@ QgsWkbTypes::Type QgsNewMemoryLayerDialog::selectedType() const
 
 void QgsNewMemoryLayerDialog::geometryTypeChanged( int )
 {
-  const QgsWkbTypes::Type geomType = static_cast<QgsWkbTypes::Type>
-                                     ( mGeometryTypeBox->currentData( Qt::UserRole ).toInt() );
+  const Qgis::WkbType geomType = static_cast<Qgis::WkbType>( mGeometryTypeBox->currentData( Qt::UserRole ).toInt() );
 
-  const bool isSpatial = geomType != QgsWkbTypes::NoGeometry;
+  const bool isSpatial = geomType != Qgis::WkbType::NoGeometry;
   mGeometryWithZCheckBox->setEnabled( isSpatial );
   mGeometryWithMCheckBox->setEnabled( isSpatial );
   mCrsSelector->setEnabled( isSpatial );
@@ -154,71 +156,81 @@ void QgsNewMemoryLayerDialog::geometryTypeChanged( int )
   mOkButton->setEnabled( ok );
 }
 
-void QgsNewMemoryLayerDialog::mTypeBox_currentIndexChanged( int index )
+void QgsNewMemoryLayerDialog::mTypeBox_currentIndexChanged( int )
 {
-  switch ( index )
+  const QString fieldType = mTypeBox->currentData().toString();
+  if ( fieldType == QLatin1String( "string" ) )
   {
-    case 0: // Text data
-      if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 255 )
-        mWidth->setText( QStringLiteral( "255" ) );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      mWidth->setValidator( new QIntValidator( 1, 255, this ) );
-      break;
-    case 1: // Whole number
-      if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 10 )
-        mWidth->setText( QStringLiteral( "10" ) );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      mWidth->setValidator( new QIntValidator( 1, 10, this ) );
-      break;
-    case 2: // Decimal number
-      if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 30 )
-        mWidth->setText( QStringLiteral( "30" ) );
-      if ( mPrecision->text().toInt() < 1 || mPrecision->text().toInt() > 30 )
-        mPrecision->setText( QStringLiteral( "6" ) );
-      mPrecision->setEnabled( true );
-      mWidth->setValidator( new QIntValidator( 1, 20, this ) );
-      break;
-    case 3: // Boolean
-      mWidth->clear();
-      mWidth->setEnabled( false );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      break;
-    case 4: // Date
-      mWidth->clear();
-      mWidth->setEnabled( false );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      break;
-    case 5: // Time
-      mWidth->clear();
-      mWidth->setEnabled( false );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      break;
-    case 6: // Datetime
-      mWidth->clear();
-      mWidth->setEnabled( false );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      break;
-    case 7: // Binary
-    case 8: // Stringlist
-    case 9: // Integerlist
-    case 10: // Doublelist
-    case 11: // Integer64list
-    case 12: // Map
-      mWidth->clear();
-      mWidth->setEnabled( false );
-      mPrecision->clear();
-      mPrecision->setEnabled( false );
-      break;
-
-    default:
-      QgsDebugMsg( QStringLiteral( "unexpected index" ) );
-      break;
+    if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 255 )
+      mWidth->setText( QStringLiteral( "255" ) );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+    mWidth->setValidator( new QIntValidator( 1, 255, this ) );
+    mWidth->setEnabled( true );
+  }
+  else if ( fieldType == QLatin1String( "integer" ) )
+  {
+    if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 10 )
+      mWidth->setText( QStringLiteral( "10" ) );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+    mWidth->setValidator( new QIntValidator( 1, 10, this ) );
+    mWidth->setEnabled( true );
+  }
+  else if ( fieldType == QLatin1String( "double" ) )
+  {
+    if ( mWidth->text().toInt() < 1 || mWidth->text().toInt() > 30 )
+      mWidth->setText( QStringLiteral( "30" ) );
+    if ( mPrecision->text().toInt() < 1 || mPrecision->text().toInt() > 30 )
+      mPrecision->setText( QStringLiteral( "6" ) );
+    mPrecision->setEnabled( true );
+    mWidth->setValidator( new QIntValidator( 1, 20, this ) );
+    mWidth->setEnabled( true );
+  }
+  else if ( fieldType == QLatin1String( "bool" ) )
+  {
+    mWidth->clear();
+    mWidth->setEnabled( false );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+  }
+  else if ( fieldType == QLatin1String( "date" ) )
+  {
+    mWidth->clear();
+    mWidth->setEnabled( false );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+  }
+  else if ( fieldType == QLatin1String( "time" ) )
+  {
+    mWidth->clear();
+    mWidth->setEnabled( false );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+  }
+  else if ( fieldType == QLatin1String( "datetime" ) )
+  {
+    mWidth->clear();
+    mWidth->setEnabled( false );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+  }
+  else if ( fieldType == QStringLiteral( "binary" )
+            || fieldType == QStringLiteral( "stringlist" )
+            || fieldType == QStringLiteral( "integerlist" )
+            || fieldType == QStringLiteral( "doublelist" )
+            || fieldType == QStringLiteral( "integer64list" )
+            || fieldType == QStringLiteral( "map" )
+            || fieldType == QLatin1String( "geometry" ) )
+  {
+    mWidth->clear();
+    mWidth->setEnabled( false );
+    mPrecision->clear();
+    mPrecision->setEnabled( false );
+  }
+  else
+  {
+    QgsDebugError( QStringLiteral( "unexpected index" ) );
   }
 }
 
@@ -239,12 +251,14 @@ QString QgsNewMemoryLayerDialog::layerName() const
 
 void QgsNewMemoryLayerDialog::fieldNameChanged( const QString &name )
 {
-  mAddAttributeButton->setDisabled( name.isEmpty() || ! mAttributeView->findItems( name, Qt::MatchExactly ).isEmpty() );
+  mAddAttributeButton->setDisabled( name.isEmpty() || !mAttributeView->findItems( name, Qt::MatchExactly ).isEmpty() );
 }
 
 void QgsNewMemoryLayerDialog::selectionChanged()
 {
   mRemoveAttributeButton->setDisabled( mAttributeView->selectedItems().isEmpty() );
+  mButtonUp->setDisabled( mAttributeView->selectedItems().isEmpty() );
+  mButtonDown->setDisabled( mAttributeView->selectedItems().isEmpty() );
 }
 
 QgsFields QgsNewMemoryLayerDialog::fields() const
@@ -258,46 +272,48 @@ QgsFields QgsNewMemoryLayerDialog::fields() const
     const QString typeName( ( *it )->text( 1 ) );
     const int width = ( *it )->text( 2 ).toInt();
     const int precision = ( *it )->text( 3 ).toInt();
-    QVariant::Type fieldType = QVariant::Invalid;
-    QVariant::Type fieldSubType = QVariant::Invalid;
+    QMetaType::Type fieldType = QMetaType::Type::UnknownType;
+    QMetaType::Type fieldSubType = QMetaType::Type::UnknownType;
     if ( typeName == QLatin1String( "string" ) )
-      fieldType = QVariant::String;
+      fieldType = QMetaType::Type::QString;
     else if ( typeName == QLatin1String( "integer" ) )
-      fieldType = QVariant::Int;
+      fieldType = QMetaType::Type::Int;
     else if ( typeName == QLatin1String( "double" ) )
-      fieldType = QVariant::Double;
+      fieldType = QMetaType::Type::Double;
     else if ( typeName == QLatin1String( "bool" ) )
-      fieldType = QVariant::Bool;
+      fieldType = QMetaType::Type::Bool;
     else if ( typeName == QLatin1String( "date" ) )
-      fieldType = QVariant::Date;
+      fieldType = QMetaType::Type::QDate;
     else if ( typeName == QLatin1String( "time" ) )
-      fieldType = QVariant::Time;
+      fieldType = QMetaType::Type::QTime;
     else if ( typeName == QLatin1String( "datetime" ) )
-      fieldType = QVariant::DateTime;
+      fieldType = QMetaType::Type::QDateTime;
     else if ( typeName == QLatin1String( "binary" ) )
-      fieldType = QVariant::ByteArray;
+      fieldType = QMetaType::Type::QByteArray;
     else if ( typeName == QLatin1String( "stringlist" ) )
     {
-      fieldType = QVariant::StringList;
-      fieldSubType = QVariant::String;
+      fieldType = QMetaType::Type::QStringList;
+      fieldSubType = QMetaType::Type::QString;
     }
     else if ( typeName == QLatin1String( "integerlist" ) )
     {
-      fieldType = QVariant::List;
-      fieldSubType = QVariant::Int;
+      fieldType = QMetaType::Type::QVariantList;
+      fieldSubType = QMetaType::Type::Int;
     }
     else if ( typeName == QLatin1String( "doublelist" ) )
     {
-      fieldType = QVariant::List;
-      fieldSubType = QVariant::Double;
+      fieldType = QMetaType::Type::QVariantList;
+      fieldSubType = QMetaType::Type::Double;
     }
     else if ( typeName == QLatin1String( "integer64list" ) )
     {
-      fieldType = QVariant::List;
-      fieldSubType = QVariant::LongLong;
+      fieldType = QMetaType::Type::QVariantList;
+      fieldSubType = QMetaType::Type::LongLong;
     }
     else if ( typeName == QLatin1String( "map" ) )
-      fieldType = QVariant::Map;
+      fieldType = QMetaType::Type::QVariantMap;
+    else if ( typeName == QLatin1String( "geometry" ) )
+      fieldType = QMetaType::Type::User;
 
     const QgsField field = QgsField( name, fieldType, typeName, width, precision, QString(), fieldSubType );
     fields.append( field );
@@ -314,9 +330,7 @@ void QgsNewMemoryLayerDialog::accept()
     const QString currentFieldName = mFieldNameEdit->text();
     if ( fields().lookupField( currentFieldName ) == -1 )
     {
-      if ( QMessageBox::question( this, tr( "New Temporary Scratch Layer" ),
-                                  tr( "The field “%1” has not been added to the fields list. Are you sure you want to proceed and discard this field?" ).arg( currentFieldName ),
-                                  QMessageBox::Ok | QMessageBox::Cancel ) != QMessageBox::Ok )
+      if ( QMessageBox::question( this, tr( "New Temporary Scratch Layer" ), tr( "The field “%1” has not been added to the fields list. Are you sure you want to proceed and discard this field?" ).arg( currentFieldName ), QMessageBox::Ok | QMessageBox::Cancel ) != QMessageBox::Ok )
       {
         return;
       }
@@ -337,6 +351,11 @@ void QgsNewMemoryLayerDialog::mAddAttributeButton_clicked()
     mAttributeView->addTopLevelItem( new QTreeWidgetItem( QStringList() << fieldName << fieldType << width << precision ) );
 
     mFieldNameEdit->clear();
+
+    if ( !mFieldNameEdit->hasFocus() )
+    {
+      mFieldNameEdit->setFocus();
+    }
   }
 }
 
@@ -348,4 +367,24 @@ void QgsNewMemoryLayerDialog::mRemoveAttributeButton_clicked()
 void QgsNewMemoryLayerDialog::showHelp()
 {
   QgsHelp::openHelp( QStringLiteral( "managing_data_source/create_layers.html#creating-a-new-temporary-scratch-layer" ) );
+}
+
+void QgsNewMemoryLayerDialog::moveFieldsUp()
+{
+  int currentRow = mAttributeView->currentIndex().row();
+  if ( currentRow == 0 )
+    return;
+
+  mAttributeView->insertTopLevelItem( currentRow - 1, mAttributeView->takeTopLevelItem( currentRow ) );
+  mAttributeView->setCurrentIndex( mAttributeView->model()->index( currentRow - 1, 0 ) );
+}
+
+void QgsNewMemoryLayerDialog::moveFieldsDown()
+{
+  int currentRow = mAttributeView->currentIndex().row();
+  if ( currentRow == mAttributeView->topLevelItemCount() - 1 )
+    return;
+
+  mAttributeView->insertTopLevelItem( currentRow + 1, mAttributeView->takeTopLevelItem( currentRow ) );
+  mAttributeView->setCurrentIndex( mAttributeView->model()->index( currentRow + 1, 0 ) );
 }

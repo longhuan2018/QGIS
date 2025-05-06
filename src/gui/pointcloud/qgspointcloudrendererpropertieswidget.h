@@ -40,7 +40,6 @@ class GUI_EXPORT QgsPointCloudRendererPropertiesWidget : public QgsMapLayerConfi
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsPointCloudRendererPropertiesWidget, associated with the specified \a layer and \a style database.
      */
@@ -51,8 +50,8 @@ class GUI_EXPORT QgsPointCloudRendererPropertiesWidget : public QgsMapLayerConfi
      */
     void setContext( const QgsSymbolWidgetContext &context );
 
-    void syncToLayer( QgsMapLayer *layer ) override;
-    void setDockMode( bool dockMode ) override;
+    void syncToLayer( QgsMapLayer *layer ) final;
+    void setDockMode( bool dockMode ) final;
 
   public slots:
 
@@ -65,6 +64,7 @@ class GUI_EXPORT QgsPointCloudRendererPropertiesWidget : public QgsMapLayerConfi
     void emitWidgetChanged();
 
   private:
+    static void initRendererWidgetFunctions();
 
     QgsPointCloudLayer *mLayer = nullptr;
     QgsStyle *mStyle = nullptr;
@@ -75,7 +75,6 @@ class GUI_EXPORT QgsPointCloudRendererPropertiesWidget : public QgsMapLayerConfi
     QgsMessageBar *mMessageBar = nullptr;
 
     bool mBlockChangedSignal = false;
-
 };
 
 

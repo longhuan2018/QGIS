@@ -29,8 +29,9 @@
  */
 class GUI_EXPORT QgsProcessingHistoryProvider : public QgsAbstractHistoryProvider
 {
-  public:
+    Q_OBJECT
 
+  public:
     QgsProcessingHistoryProvider();
 
     QString id() const override;
@@ -42,14 +43,35 @@ class GUI_EXPORT QgsProcessingHistoryProvider : public QgsAbstractHistoryProvide
      */
     void portOldLog();
 
+    QgsHistoryEntryNode *createNodeForEntry( const QgsHistoryEntry &entry, const QgsHistoryWidgetContext &context ) override SIP_FACTORY;
+    void updateNodeForEntry( QgsHistoryEntryNode *node, const QgsHistoryEntry &entry, const QgsHistoryWidgetContext &context ) override;
+
+  signals:
+
+    /**
+     * Emitted when the provider needs to execute python \a commands in the Processing context.
+     *
+     * \since QGIS 3.32
+     */
+    void executePython( const QString &commands );
+
+    /**
+     * Emitted when the provider needs to create a Processing test with the given python \a command.
+     *
+     * \since QGIS 3.32
+     */
+    void createTest( const QString &command );
+
   private:
+    //! Executes some python commands
+    void emitExecute( const QString &commands );
+
+    void emitCreateTest( const QString &command );
 
     //! Returns the path to the old log file
     QString oldLogPath() const;
 
+    friend class ProcessingHistoryBaseNode;
 };
 
 #endif //QGSHISTORYPROVIDER_H
-
-
-

@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsmessageoutput.h"
+#include "moc_qgsmessageoutput.cpp"
 #include "qgslogger.h"
 #include "qgsmessagelog.h"
 
@@ -66,7 +67,8 @@ void QgsMessageOutputConsole::showMessage( bool )
   {
     mMessage.replace( QLatin1String( "<br>" ), QLatin1String( "\n" ) );
     mMessage.replace( QLatin1String( "&nbsp;" ), QLatin1String( " " ) );
-    mMessage.replace( QRegularExpression( "</?[^>]+>" ), QString() );
+    const thread_local QRegularExpression tagRX( QStringLiteral( "</?[^>]+>" ) );
+    mMessage.replace( tagRX, QString() );
   }
   QgsMessageLog::logMessage( mMessage, mTitle.isNull() ? QObject::tr( "Console" ) : mTitle );
   emit destroyed();

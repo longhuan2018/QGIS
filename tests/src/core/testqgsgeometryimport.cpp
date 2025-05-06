@@ -25,7 +25,7 @@
 
 #include <QObject>
 
-class TestQgsGeometryImport: public QObject
+class TestQgsGeometryImport : public QObject
 {
     Q_OBJECT
 
@@ -82,7 +82,7 @@ void TestQgsGeometryImport::pointWkt()
 
   const QgsGeometry geom = QgsGeometry::fromWkt( wktString );
 
-  QCOMPARE( geom.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( geom.wkbType(), Qgis::WkbType::Point );
   const QgsPointXY point = geom.asPoint();
 
   QGSCOMPARENEAR( point.x(), x, 4 * std::numeric_limits<double>::epsilon() );
@@ -106,13 +106,13 @@ void TestQgsGeometryImport::pointWkb()
   const char byteOrder = QgsApplication::endian();
   unsigned char *geomPtr = new unsigned char[21];
   QgsWkbPtr wkb( geomPtr, 21 );
-  wkb << byteOrder << QgsWkbTypes::Point << x << y;
+  wkb << byteOrder << Qgis::WkbType::Point << x << y;
 
   QgsGeometry geom;
   geom.fromWkb( geomPtr, 21 );
   const QgsPointXY point = geom.asPoint();
 
-  QCOMPARE( geom.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( geom.wkbType(), Qgis::WkbType::Point );
   QGSCOMPARENEAR( point.x(), x, 4 * std::numeric_limits<double>::epsilon() );
   QGSCOMPARENEAR( point.y(), y, 4 * std::numeric_limits<double>::epsilon() );
 }
@@ -136,7 +136,7 @@ void TestQgsGeometryImport::pointGeos()
   GEOSGeometry *geosPt = GEOSGeom_createPoint_r( geos, coord );
 
   const QgsGeometry geom = QgsGeos::geometryFromGeos( geosPt );
-  QVERIFY( geom.wkbType() == QgsWkbTypes::Point );
+  QVERIFY( geom.wkbType() == Qgis::WkbType::Point );
 
   const QgsPointXY geomPt = geom.asPoint();
 
@@ -161,7 +161,7 @@ void TestQgsGeometryImport::linestringWkt()
   QFETCH( QVariantList, line );
 
   const QgsGeometry geom = QgsGeometry::fromWkt( wktString );
-  QCOMPARE( geom.wkbType(), QgsWkbTypes::LineString );
+  QCOMPARE( geom.wkbType(), Qgis::WkbType::LineString );
 
   const QgsPolylineXY polyLine = geom.asPolyline();
   QVERIFY( compareLineStrings( polyLine, line ) );
@@ -183,7 +183,7 @@ void TestQgsGeometryImport::linestringWkb()
   const int wkbSize = 1 + 2 * sizeof( int ) + line.size() * 2 * sizeof( double );
   unsigned char *geomPtr = new unsigned char[wkbSize];
   QgsWkbPtr wkb( geomPtr, wkbSize );
-  wkb << byteOrder << QgsWkbTypes::LineString << line.size();
+  wkb << byteOrder << Qgis::WkbType::LineString << line.size();
 
   for ( int i = 0; i < line.size(); ++i )
   {
@@ -194,7 +194,7 @@ void TestQgsGeometryImport::linestringWkb()
   QgsGeometry geom;
   geom.fromWkb( geomPtr, wkbSize );
 
-  QVERIFY( geom.wkbType() == QgsWkbTypes::LineString );
+  QVERIFY( geom.wkbType() == Qgis::WkbType::LineString );
   const QgsPolylineXY polyline = geom.asPolyline();
   QVERIFY( compareLineStrings( polyline, line ) );
 }
@@ -221,7 +221,7 @@ void TestQgsGeometryImport::linestringGeos()
   }
   GEOSGeometry *geosLine = GEOSGeom_createLineString_r( geos, coord );
   const QgsGeometry geom = QgsGeos::geometryFromGeos( geosLine );
-  QVERIFY( geom.wkbType() == QgsWkbTypes::LineString );
+  QVERIFY( geom.wkbType() == Qgis::WkbType::LineString );
 
   const QgsPolylineXY polyline = geom.asPolyline();
   QVERIFY( compareLineStrings( polyline, line ) );
@@ -253,18 +253,18 @@ void TestQgsGeometryImport::delimiters_data()
 {
   QTest::addColumn<QString>( "input" );
   QTest::addColumn<QString>( "expected" );
-  QTest::newRow( "tab delimiter" ) <<  QStringLiteral( "POINT (180398\t5459331)" ) << QStringLiteral( "Point (180398 5459331)" );
-  QTest::newRow( "newline" ) <<  QStringLiteral( "POINT\n(1\n3)" ) << QStringLiteral( "Point (1 3)" );
-  QTest::newRow( "tab and newline" ) <<  QStringLiteral( "POINT\t\n(1\t\n3)" ) << QStringLiteral( "Point (1 3)" );
-  QTest::newRow( "tab, newline and space" ) <<  QStringLiteral( "POINT\n (1\t\n 3)" ) << QStringLiteral( "Point (1 3)" );
+  QTest::newRow( "tab delimiter" ) << QStringLiteral( "POINT (180398\t5459331)" ) << QStringLiteral( "Point (180398 5459331)" );
+  QTest::newRow( "newline" ) << QStringLiteral( "POINT\n(1\n3)" ) << QStringLiteral( "Point (1 3)" );
+  QTest::newRow( "tab and newline" ) << QStringLiteral( "POINT\t\n(1\t\n3)" ) << QStringLiteral( "Point (1 3)" );
+  QTest::newRow( "tab, newline and space" ) << QStringLiteral( "POINT\n (1\t\n 3)" ) << QStringLiteral( "Point (1 3)" );
 
-  QTest::newRow( "tab delimiter" ) <<  QStringLiteral( "LINESTRING\t(30\t10,\t10\t30,\t40\t40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
-  QTest::newRow( "newline delimiter" ) <<  QStringLiteral( "LINESTRING\n(30\n10,\n10\n30,\n40\n40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
-  QTest::newRow( "mixed delimiter" ) <<  QStringLiteral( "LINESTRING\n(30\t10, 10\t30,\n40\t40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
+  QTest::newRow( "tab delimiter" ) << QStringLiteral( "LINESTRING\t(30\t10,\t10\t30,\t40\t40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
+  QTest::newRow( "newline delimiter" ) << QStringLiteral( "LINESTRING\n(30\n10,\n10\n30,\n40\n40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
+  QTest::newRow( "mixed delimiter" ) << QStringLiteral( "LINESTRING\n(30\t10, 10\t30,\n40\t40)" ) << QStringLiteral( "LineString (30 10, 10 30, 40 40)" );
 
-  QTest::newRow( "tab delimiter" ) <<  QStringLiteral( "Polygon\t(\t(30\t10,\t10\t30,\t40\t40,30\t10)\t)" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
-  QTest::newRow( "newline delimiter" ) <<  QStringLiteral( "\nPolygon\n(\n(30\n10,\n10\n30,\n40\n40,30\n10)\n)\n" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
-  QTest::newRow( "mixed delimiter" ) <<  QStringLiteral( " Polygon (\t(30\n10,\t10\n30,\t40 40,30\n10)\t)\n" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
+  QTest::newRow( "tab delimiter" ) << QStringLiteral( "Polygon\t(\t(30\t10,\t10\t30,\t40\t40,30\t10)\t)" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
+  QTest::newRow( "newline delimiter" ) << QStringLiteral( "\nPolygon\n(\n(30\n10,\n10\n30,\n40\n40,30\n10)\n)\n" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
+  QTest::newRow( "mixed delimiter" ) << QStringLiteral( " Polygon (\t(30\n10,\t10\n30,\t40 40,30\n10)\t)\n" ) << QStringLiteral( "Polygon ((30 10, 10 30, 40 40, 30 10))" );
 }
 
 void TestQgsGeometryImport::delimiters()

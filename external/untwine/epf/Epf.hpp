@@ -13,27 +13,21 @@
 
 #pragma once
 
-#include <map>
 #include <vector>
 
-#include <pdal/PointLayout.hpp>
-#include <pdal/SpatialReference.hpp>
-
-#include "EpfTypes.hpp"
 #include "Grid.hpp"
-#include "../untwine/ProgressWriter.hpp"
-#include "../untwine/ThreadPool.hpp"
+#include "untwine/ProgressWriter.hpp"
+#include "untwine/ThreadPool.hpp"
 
 namespace untwine
 {
 
-struct Options;
+struct FileInfo;
 class ProgressWriter;
 
 namespace epf
 {
 
-struct FileInfo;
 class Writer;
 
 class Epf
@@ -42,18 +36,13 @@ public:
     Epf(BaseInfo& common);
     ~Epf();
 
-    void run(ProgressWriter& progress);
+    void run(ProgressWriter& progress, std::vector<FileInfo>& fileInfos);
 
 private:
-    PointCount createFileInfo(const StringList& input, StringList dimNames,
-        std::vector<FileInfo>& fileInfos);
-    void fillMetadata(const pdal::PointLayoutPtr layout);
-
     BaseInfo& m_b;
     Grid m_grid;
     std::unique_ptr<Writer> m_writer;
     ThreadPool m_pool;
-    FileInfo m_srsFileInfo;
 };
 
 } // namespace epf

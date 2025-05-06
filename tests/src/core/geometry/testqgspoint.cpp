@@ -23,7 +23,7 @@
 #include "qgscoordinatetransform.h"
 #include "testgeometryutils.h"
 
-class TestQgsPoint: public QObject
+class TestQgsPoint : public QObject
 {
     Q_OBJECT
   private slots:
@@ -63,6 +63,7 @@ class TestQgsPoint: public QObject
     void inclination();
     void boundary();
     void boundingBox();
+    void boundingBox3D();
     void boundingBoxIntersects();
     void filterVertices();
     void transformVertices();
@@ -75,6 +76,7 @@ class TestQgsPoint: public QObject
     void toFromWkb();
     void toFromWkt();
     void exportImport();
+    void cast();
 };
 
 void TestQgsPoint::constructorv2()
@@ -83,21 +85,21 @@ void TestQgsPoint::constructorv2()
   QString error;
 
   QVERIFY( pt.isEmpty() );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QCOMPARE( pt.asWkt(), QStringLiteral( "Point EMPTY" ) );
   QVERIFY( pt.isValid( error ) );
 
   pt.setX( 1.0 );
 
   QVERIFY( pt.isEmpty() );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QCOMPARE( pt.asWkt(), QStringLiteral( "Point EMPTY" ) );
   QVERIFY( pt.isValid( error ) );
 
   pt.setY( 2.0 );
 
   QVERIFY( !pt.isEmpty() );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QCOMPARE( pt.asWkt(), QStringLiteral( "Point (1 2)" ) );
 }
 
@@ -110,7 +112,7 @@ void TestQgsPoint::constructor()
   QVERIFY( !pt1.isEmpty() );
   QVERIFY( !pt1.is3D() );
   QVERIFY( !pt1.isMeasure() );
-  QCOMPARE( pt1.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt1.wkbType(), Qgis::WkbType::Point );
   QCOMPARE( pt1.wktTypeStr(), QString( "Point" ) );
 
   QgsPointXY ptXY;
@@ -121,7 +123,7 @@ void TestQgsPoint::constructor()
   QVERIFY( pt2.isEmpty() );
   QVERIFY( !pt2.is3D() );
   QVERIFY( !pt2.isMeasure() );
-  QCOMPARE( pt2.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt2.wkbType(), Qgis::WkbType::Point );
 
   QgsPoint pt3( QgsPointXY( 3.0, 4.0 ) );
 
@@ -130,7 +132,7 @@ void TestQgsPoint::constructor()
   QVERIFY( !pt3.isEmpty() );
   QVERIFY( !pt3.is3D() );
   QVERIFY( !pt3.isMeasure() );
-  QCOMPARE( pt3.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt3.wkbType(), Qgis::WkbType::Point );
 
   QgsPoint pt4( QPointF( 7.0, 9.0 ) );
 
@@ -139,18 +141,18 @@ void TestQgsPoint::constructor()
   QVERIFY( !pt4.isEmpty() );
   QVERIFY( !pt4.is3D() );
   QVERIFY( !pt4.isMeasure() );
-  QCOMPARE( pt4.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt4.wkbType(), Qgis::WkbType::Point );
 
-  QgsPoint pt5( QgsWkbTypes::Point, 11.0, 13.0 );
+  QgsPoint pt5( Qgis::WkbType::Point, 11.0, 13.0 );
 
   QCOMPARE( pt5.x(), 11.0 );
   QCOMPARE( pt5.y(), 13.0 );
   QVERIFY( !pt5.isEmpty() );
   QVERIFY( !pt5.is3D() );
   QVERIFY( !pt5.isMeasure() );
-  QCOMPARE( pt5.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt5.wkbType(), Qgis::WkbType::Point );
 
-  QgsPoint pt6( QgsWkbTypes::Point );
+  QgsPoint pt6( Qgis::WkbType::Point );
 
   QVERIFY( !pt6.is3D() );
   QVERIFY( !pt6.isMeasure() );
@@ -158,7 +160,7 @@ void TestQgsPoint::constructor()
 
 void TestQgsPoint::constructorZ()
 {
-  QgsPoint pt1( QgsWkbTypes::PointZ, 11.0, 13.0, 15.0 );
+  QgsPoint pt1( Qgis::WkbType::PointZ, 11.0, 13.0, 15.0 );
 
   QCOMPARE( pt1.x(), 11.0 );
   QCOMPARE( pt1.y(), 13.0 );
@@ -166,18 +168,18 @@ void TestQgsPoint::constructorZ()
   QVERIFY( !pt1.isEmpty() );
   QVERIFY( pt1.is3D() );
   QVERIFY( !pt1.isMeasure() );
-  QCOMPARE( pt1.wkbType(), QgsWkbTypes::PointZ );
-  QCOMPARE( pt1.wktTypeStr(), QString( "PointZ" ) );
+  QCOMPARE( pt1.wkbType(), Qgis::WkbType::PointZ );
+  QCOMPARE( pt1.wktTypeStr(), QString( "Point Z" ) );
 
-  QgsPoint pt2( QgsWkbTypes::PointZ, 11.0, 13.0, 17.0, 18.0 );
+  QgsPoint pt2( Qgis::WkbType::PointZ, 11.0, 13.0, 17.0, 18.0 );
 
   QCOMPARE( pt2.x(), 11.0 );
   QCOMPARE( pt2.y(), 13.0 );
   QVERIFY( std::isnan( pt2.m() ) );
   QCOMPARE( pt2.z(), 17.0 );
-  QCOMPARE( pt2.wkbType(), QgsWkbTypes::PointZ );
+  QCOMPARE( pt2.wkbType(), Qgis::WkbType::PointZ );
 
-  QgsPoint pt3( QgsWkbTypes::PointZ );
+  QgsPoint pt3( Qgis::WkbType::PointZ );
 
   QVERIFY( pt3.is3D() );
   QVERIFY( !pt3.isMeasure() );
@@ -185,7 +187,7 @@ void TestQgsPoint::constructorZ()
 
 void TestQgsPoint::constructorM()
 {
-  QgsPoint pt1( QgsWkbTypes::PointM, 11.0, 13.0, 0.0, 17.0 );
+  QgsPoint pt1( Qgis::WkbType::PointM, 11.0, 13.0, 0.0, 17.0 );
 
   QCOMPARE( pt1.x(), 11.0 );
   QCOMPARE( pt1.y(), 13.0 );
@@ -193,27 +195,26 @@ void TestQgsPoint::constructorM()
   QVERIFY( !pt1.isEmpty() );
   QVERIFY( !pt1.is3D() );
   QVERIFY( pt1.isMeasure() );
-  QCOMPARE( pt1.wkbType(), QgsWkbTypes::PointM );
-  QCOMPARE( pt1.wktTypeStr(), QString( "PointM" ) );
+  QCOMPARE( pt1.wkbType(), Qgis::WkbType::PointM );
+  QCOMPARE( pt1.wktTypeStr(), QString( "Point M" ) );
 
-  QgsPoint pt2( QgsWkbTypes::PointM, 11.0, 13.0, 15.0, 17.0 );
+  QgsPoint pt2( Qgis::WkbType::PointM, 11.0, 13.0, 15.0, 17.0 );
 
   QCOMPARE( pt2.x(), 11.0 );
   QCOMPARE( pt2.y(), 13.0 );
   QVERIFY( std::isnan( pt2.z() ) );
   QCOMPARE( pt2.m(), 17.0 );
-  QCOMPARE( pt2.wkbType(), QgsWkbTypes::PointM );
+  QCOMPARE( pt2.wkbType(), Qgis::WkbType::PointM );
 
-  QgsPoint pt3( QgsWkbTypes::PointM );
+  QgsPoint pt3( Qgis::WkbType::PointM );
 
   QVERIFY( !pt3.is3D() );
   QVERIFY( pt3.isMeasure() );
-
 }
 
 void TestQgsPoint::constructorZM()
 {
-  QgsPoint pt1( QgsWkbTypes::PointZM, 11.0, 13.0, 0.0, 17.0 );
+  QgsPoint pt1( Qgis::WkbType::PointZM, 11.0, 13.0, 0.0, 17.0 );
 
   QCOMPARE( pt1.x(), 11.0 );
   QCOMPARE( pt1.y(), 13.0 );
@@ -221,24 +222,24 @@ void TestQgsPoint::constructorZM()
   QVERIFY( !pt1.isEmpty() );
   QVERIFY( pt1.is3D() );
   QVERIFY( pt1.isMeasure() );
-  QCOMPARE( pt1.wkbType(), QgsWkbTypes::PointZM );
-  QCOMPARE( pt1.wktTypeStr(), QString( "PointZM" ) );
+  QCOMPARE( pt1.wkbType(), Qgis::WkbType::PointZM );
+  QCOMPARE( pt1.wktTypeStr(), QString( "Point ZM" ) );
 
-  QgsPoint pt2( QgsWkbTypes::PointZM );
+  QgsPoint pt2( Qgis::WkbType::PointZM );
 
   QVERIFY( pt2.is3D() );
   QVERIFY( pt2.isMeasure() );
 
 #if 0 //should trigger an assert
   //try creating a point with a nonsense WKB type
-  QgsPoint pt3( QgsWkbTypes::PolygonZM, 11.0, 13.0, 9.0, 17.0 );
-  QCOMPARE( pt3.wkbType(), QgsWkbTypes::Unknown );
+  QgsPoint pt3( Qgis::WkbType::PolygonZM, 11.0, 13.0, 9.0, 17.0 );
+  QCOMPARE( pt3.wkbType(), Qgis::WkbType::Unknown );
 #endif
 }
 
 void TestQgsPoint::constructor25D()
 {
-  QgsPoint pt( QgsWkbTypes::Point25D, 21.0, 23.0, 25.0 );
+  QgsPoint pt( Qgis::WkbType::Point25D, 21.0, 23.0, 25.0 );
 
   QCOMPARE( pt.x(), 21.0 );
   QCOMPARE( pt.y(), 23.0 );
@@ -246,7 +247,7 @@ void TestQgsPoint::constructor25D()
   QVERIFY( !pt.isEmpty() );
   QVERIFY( pt.is3D() );
   QVERIFY( !pt.isMeasure() );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point25D );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point25D );
 }
 
 void TestQgsPoint::clear()
@@ -254,22 +255,22 @@ void TestQgsPoint::clear()
   QgsPoint pt( 5.0, 6.0 );
 
   pt.clear();
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QVERIFY( std::isnan( pt.x() ) );
   QVERIFY( std::isnan( pt.y() ) );
 }
 
 void TestQgsPoint::clone()
 {
-  QgsPoint pt( QgsWkbTypes::PointZM, 9.0, 3.0, 13.0, 23.0 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 9.0, 3.0, 13.0, 23.0 );
 
-  std::unique_ptr< QgsPoint >clone( pt.clone() );
+  std::unique_ptr<QgsPoint> clone( pt.clone() );
   QVERIFY( pt == *clone );
 }
 
 void TestQgsPoint::assignment()
 {
-  QgsPoint pt1( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, -4.0 );
+  QgsPoint pt1( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, -4.0 );
   QgsPoint pt2( 6.0, 7.0 );
 
   pt2 = pt1;
@@ -336,51 +337,36 @@ void TestQgsPoint::equality()
   QVERIFY( pt2 == pt1 );
 
 
-  QVERIFY( QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) ==
-           QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::PointZ, 2 / 3.0, 1 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::PointZ, 2 / 3.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::Point, 1 / 3.0, 1 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::Point, 1 / 3.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 2 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 2 / 3.0 ) == QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) ) );
 
-  QVERIFY( QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 1 / 3.0 ) ==
-           QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 1 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 1 / 3.0 ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 1 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::PointZM, 3.0, 4.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZM, 3.0, 4.0, 1 / 3.0 ) ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 2 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 2 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 1 / 3.0 ) ) );
 
-  QVERIFY( QgsPoint( QgsWkbTypes::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) ==
-           QgsPoint( QgsWkbTypes::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 0.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 0.0, 1 / 3.0 ) ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::PointM, 3.0, 4.0, 0.0, 2 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::PointM, 3.0, 4.0, 0.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointM, 3.0, 4.0, 0.0, 2 / 3.0 ) ) );
 
-  QVERIFY( QgsPoint( QgsWkbTypes::PointZM, 3.0, 4.0, 2 / 3.0, 1 / 3.0 ) ==
-           QgsPoint( QgsWkbTypes::PointZM, 3.0, 4.0, 2 / 3.0, 1 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::PointZM, 3.0, 4.0, 2 / 3.0, 1 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZM, 3.0, 4.0, 2 / 3.0, 1 / 3.0 ) );
 
-  QVERIFY( QgsPoint( QgsWkbTypes::Point25D, 3.0, 4.0, 2 / 3.0 ) ==
-           QgsPoint( QgsWkbTypes::Point25D, 3.0, 4.0, 2 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::Point25D, 3.0, 4.0, 2 / 3.0 ) == QgsPoint( Qgis::WkbType::Point25D, 3.0, 4.0, 2 / 3.0 ) );
 
-  QVERIFY( !( QgsPoint( QgsWkbTypes::Point25D, 3.0, 4.0, 2 / 3.0 ) ==
-              QgsPoint( QgsWkbTypes::PointZ, 3.0, 4.0, 2 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::Point25D, 3.0, 4.0, 2 / 3.0 ) == QgsPoint( Qgis::WkbType::PointZ, 3.0, 4.0, 2 / 3.0 ) ) );
 
   //test inequality operator
-  QVERIFY( !( QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) !=
-              QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) ) );
+  QVERIFY( !( QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) != QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) ) );
 
-  QVERIFY( QgsPoint( QgsWkbTypes::Point, 2 / 3.0, 1 / 3.0 ) !=
-           QgsPoint( QgsWkbTypes::PointZ, 2 / 3.0, 1 / 3.0 ) );
+  QVERIFY( QgsPoint( Qgis::WkbType::Point, 2 / 3.0, 1 / 3.0 ) != QgsPoint( Qgis::WkbType::PointZ, 2 / 3.0, 1 / 3.0 ) );
 
   QgsLineString ls;
   QVERIFY( pt1 != ls );
@@ -395,7 +381,7 @@ void TestQgsPoint::operators()
   QCOMPARE( pt2 - pt1, QgsVector( 2, 3 ) );
   QCOMPARE( pt1 - pt2, QgsVector( -2, -3 ) );
 
-//  pt1 = QgsPoint( 1, 2 ); ???
+  //  pt1 = QgsPoint( 1, 2 ); ???
   QCOMPARE( pt1 + QgsVector( 3, 5 ), QgsPoint( 4, 7 ) );
 
   pt1 += QgsVector( 3, 5 );
@@ -412,62 +398,61 @@ void TestQgsPoint::addDimension()
   //addZValue
   QgsPoint pt( 1.0, 2.0 );
   QVERIFY( pt.addZValue( 5.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZ, 1.0, 2.0, 5.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZ, 1.0, 2.0, 5.0 ) );
   QVERIFY( !pt.addZValue( 6.0 ) );
 
   //addMValue
   pt = QgsPoint( 1.0, 2.0 );
   QVERIFY( pt.addMValue( 5.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointM, 1.0, 2.0, 0.0, 5.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointM, 1.0, 2.0, 0.0, 5.0 ) );
   QVERIFY( !pt.addMValue( 6.0 ) );
 }
 
 void TestQgsPoint::dropDimension()
 {
   //dropZ
-  QgsPoint pt( QgsWkbTypes::PointZ, 1.0, 2.0, 3.0 );
+  QgsPoint pt( Qgis::WkbType::PointZ, 1.0, 2.0, 3.0 );
   QVERIFY( pt.dropZValue() );
   QCOMPARE( pt, QgsPoint( 1.0, 2.0 ) );
   QVERIFY( !pt.dropZValue() );
 
-  pt = QgsPoint( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 );
+  pt = QgsPoint( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 );
   QVERIFY( pt.dropZValue() );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointM, 1.0, 2.0, 0.0, 4.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointM, 1.0, 2.0, 0.0, 4.0 ) );
   QVERIFY( !pt.dropZValue() );
 
-  pt = QgsPoint( QgsWkbTypes::Point25D, 1.0, 2.0, 3.0 );
+  pt = QgsPoint( Qgis::WkbType::Point25D, 1.0, 2.0, 3.0 );
   QVERIFY( pt.dropZValue() );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::Point, 1.0, 2.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::Point, 1.0, 2.0 ) );
   QVERIFY( !pt.dropZValue() );
 
   //dropM
-  pt = QgsPoint( QgsWkbTypes::PointM, 1.0, 2.0, 0.0, 3.0 );
+  pt = QgsPoint( Qgis::WkbType::PointM, 1.0, 2.0, 0.0, 3.0 );
   QVERIFY( pt.dropMValue() );
   QCOMPARE( pt, QgsPoint( 1.0, 2.0 ) );
   QVERIFY( !pt.dropMValue() );
 
-  pt = QgsPoint( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 );
+  pt = QgsPoint( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 );
   QVERIFY( pt.dropMValue() );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZ, 1.0, 2.0, 3.0, 0.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZ, 1.0, 2.0, 3.0, 0.0 ) );
   QVERIFY( !pt.dropMValue() );
-
 }
 
 void TestQgsPoint::swapXy()
 {
-  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, QgsWkbTypes::PointZM );
+  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, Qgis::WkbType::PointZM );
   pt.swapXy();
 
   QCOMPARE( pt.x(), 2.2 );
   QCOMPARE( pt.y(), 1.1 );
   QCOMPARE( pt.z(), 3.3 );
   QCOMPARE( pt.m(), 4.4 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
 }
 
 void TestQgsPoint::settersGetters()
 {
-  QgsPoint ptZM( QgsWkbTypes::PointZM );
+  QgsPoint ptZM( Qgis::WkbType::PointZM );
   QgsPoint pt;
 
   //x
@@ -496,7 +481,7 @@ void TestQgsPoint::settersGetters()
   QCOMPARE( ptZM.z(), 13.0 );
 
   pt.setZ( 5.0 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QVERIFY( std::isnan( pt.z() ) );
 
   //m
@@ -508,7 +493,7 @@ void TestQgsPoint::settersGetters()
   QCOMPARE( ptZM.m(), 23.0 );
 
   pt.setM( 9.0 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QVERIFY( std::isnan( pt.m() ) );
 
   //other checks
@@ -595,7 +580,7 @@ void TestQgsPoint::vertexIterator()
 
 void TestQgsPoint::coordinateSequence()
 {
-  QgsPoint pt( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 );
   QgsCoordinateSequence coord = pt.coordinateSequence();
 
   QCOMPARE( coord.count(), 1 );
@@ -608,10 +593,10 @@ void TestQgsPoint::insertDeleteVertex()
 {
   //low level editing
   //insertVertex should have no effect
-  QgsPoint pt( QgsWkbTypes::PointZM, 3.0, 4.0, 6.0, 7.0 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 3.0, 4.0, 6.0, 7.0 );
 
   pt.insertVertex( QgsVertexId( 1, 2, 3 ), QgsPoint( 6.0, 7.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 3.0, 4.0, 6.0, 7.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 3.0, 4.0, 6.0, 7.0 ) );
 
   //deleteVertex - should do nothing, but not crash
   pt = QgsPoint( 2.0, 3.0 );
@@ -621,36 +606,30 @@ void TestQgsPoint::insertDeleteVertex()
 
 void TestQgsPoint::moveVertex()
 {
-  QgsPoint pt( QgsWkbTypes::PointZM, 3.0, 4.0, 6.0, 7.0 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 3.0, 4.0, 6.0, 7.0 );
 
-  pt.moveVertex( QgsVertexId( 0, 0, 0 ),
-                 QgsPoint( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
 
   //invalid vertex id, should not crash
-  pt.moveVertex( QgsVertexId( 1, 2, 3 ),
-                 QgsPoint( QgsWkbTypes::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
+  pt.moveVertex( QgsVertexId( 1, 2, 3 ), QgsPoint( Qgis::WkbType::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
 
   //move PointZM using Point
-  pt.moveVertex( QgsVertexId( 0, 0, 0 ),
-                 QgsPoint( QgsWkbTypes::Point, 11.0, 12.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 11.0, 12.0, 1.0, 2.0 ) );
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( Qgis::WkbType::Point, 11.0, 12.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 11.0, 12.0, 1.0, 2.0 ) );
 
   //move PointZM using PointZ
-  pt.moveVertex( QgsVertexId( 0, 0, 0 ),
-                 QgsPoint( QgsWkbTypes::PointZ, 21.0, 22.0, 23.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 21.0, 22.0, 23.0, 2.0 ) );
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 21.0, 22.0, 23.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 21.0, 22.0, 23.0, 2.0 ) );
 
   //move PointZM using PointM
-  pt.moveVertex( QgsVertexId( 0, 0, 0 ),
-                 QgsPoint( QgsWkbTypes::PointM, 31.0, 32.0, 0.0, 43.0 ) );
-  QCOMPARE( pt, QgsPoint( QgsWkbTypes::PointZM, 31.0, 32.0, 23.0, 43.0 ) );
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( Qgis::WkbType::PointM, 31.0, 32.0, 0.0, 43.0 ) );
+  QCOMPARE( pt, QgsPoint( Qgis::WkbType::PointZM, 31.0, 32.0, 23.0, 43.0 ) );
 
   //move Point using PointZM (z/m should be ignored)
   pt = QgsPoint( 3.0, 4.0 );
-  pt.moveVertex( QgsVertexId( 0, 0, 0 ),
-                 QgsPoint( QgsWkbTypes::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( Qgis::WkbType::PointZM, 2.0, 3.0, 1.0, 2.0 ) );
   QCOMPARE( pt, QgsPoint( 2.0, 3.0 ) );
 }
 
@@ -659,7 +638,7 @@ void TestQgsPoint::vertexAngle()
   QgsPoint pt( 3.0, 4.0 );
 
   //undefined, but check that it doesn't crash
-  ( void )pt.vertexAngle( QgsVertexId() );
+  ( void ) pt.vertexAngle( QgsVertexId() );
 }
 
 void TestQgsPoint::removeDuplicateNodes()
@@ -677,65 +656,65 @@ void TestQgsPoint::project()
   QgsPoint pt( 1, 2 );
 
   QCOMPARE( pt.project( 1, 0 ), QgsPoint( 1, 3 ) );
-  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2 ) );
+  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2 ) );
   QCOMPARE( pt.project( 1.5, 90 ), QgsPoint( 2.5, 2 ) );
-  QCOMPARE( pt.project( 1.5, 90, 90 ), QgsPoint( 2.5, 2 ) ); // stay QgsWkbTypes::Point
+  QCOMPARE( pt.project( 1.5, 90, 90 ), QgsPoint( 2.5, 2 ) ); // stay Qgis::WkbType::Point
   QCOMPARE( pt.project( 2, 180 ), QgsPoint( 1, 0 ) );
   QCOMPARE( pt.project( 5, 270 ), QgsPoint( -4, 2 ) );
   QCOMPARE( pt.project( 6, 360 ), QgsPoint( 1, 8 ) );
   QCOMPARE( pt.project( 5, 450 ), QgsPoint( 6, 2 ) );
-  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( 6, 2 ) );  // stay QgsWkbTypes::Point
+  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( 6, 2 ) ); // stay Qgis::WkbType::Point
   QCOMPARE( pt.project( -1, 0 ), QgsPoint( 1, 1 ) );
   QCOMPARE( pt.project( 1.5, -90 ), QgsPoint( -0.5, 2 ) );
 
   // PointZ
   pt.addZValue( 0 );
 
-  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, 1 ) );
-  QCOMPARE( pt.project( 2, 180, 180 ), QgsPoint( QgsWkbTypes::PointZ,  1, 2, -2 ) );
-  QCOMPARE( pt.project( 5, 270, 270 ), QgsPoint( QgsWkbTypes::PointZ,  6, 2, 0 ) );
-  QCOMPARE( pt.project( 6, 360, 360 ), QgsPoint( QgsWkbTypes::PointZ,  1, 2, 6 ) );
-  QCOMPARE( pt.project( -1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, -1 ) );
-  QCOMPARE( pt.project( 1.5, -90, -90 ), QgsPoint( QgsWkbTypes::PointZ, 2.5, 2, 0 ) );
+  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 1 ) );
+  QCOMPARE( pt.project( 2, 180, 180 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, -2 ) );
+  QCOMPARE( pt.project( 5, 270, 270 ), QgsPoint( Qgis::WkbType::PointZ, 6, 2, 0 ) );
+  QCOMPARE( pt.project( 6, 360, 360 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 6 ) );
+  QCOMPARE( pt.project( -1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, -1 ) );
+  QCOMPARE( pt.project( 1.5, -90, -90 ), QgsPoint( Qgis::WkbType::PointZ, 2.5, 2, 0 ) );
 
   // PointM
   pt.dropZValue();
   pt.addMValue( 5.0 );
 
-  QCOMPARE( pt.project( 1, 0 ), QgsPoint( QgsWkbTypes::PointM, 1, 3, 0, 5 ) );
-  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( QgsWkbTypes::PointM, 6, 2, 0, 5 ) );
+  QCOMPARE( pt.project( 1, 0 ), QgsPoint( Qgis::WkbType::PointM, 1, 3, 0, 5 ) );
+  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( Qgis::WkbType::PointM, 6, 2, 0, 5 ) );
 
   // PointZM
   pt.addZValue( 0 );
-  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZM, 1, 2, 1, 5 ) );
+  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZM, 1, 2, 1, 5 ) );
 
   // 3D
-  pt = QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 );
+  pt = QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 );
 
-  QCOMPARE( pt.project( 1, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 3, 2 ) );
-  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, 3 ) );
-  QCOMPARE( pt.project( 1.5, 90 ), QgsPoint( QgsWkbTypes::PointZ, 2.5, 2, 2 ) );
-  QCOMPARE( pt.project( 1.5, 90, 90 ), QgsPoint( QgsWkbTypes::PointZ, 2.5, 2, 2 ) );
-  QCOMPARE( pt.project( 2, 180 ), QgsPoint( QgsWkbTypes::PointZ, 1, 0, 2 ) );
-  QCOMPARE( pt.project( 2, 180, 180 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, 0 ) );
-  QCOMPARE( pt.project( 5, 270 ), QgsPoint( QgsWkbTypes::PointZ, -4, 2, 2 ) );
-  QCOMPARE( pt.project( 5, 270, 270 ), QgsPoint( QgsWkbTypes::PointZ, 6, 2, 2 ) );
-  QCOMPARE( pt.project( 6, 360 ), QgsPoint( QgsWkbTypes::PointZ, 1, 8, 2 ) );
-  QCOMPARE( pt.project( 6, 360, 360 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, 8 ) );
-  QCOMPARE( pt.project( 5, 450 ), QgsPoint( QgsWkbTypes::PointZ, 6, 2, 2 ) );
-  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( QgsWkbTypes::PointZ, 6, 2, 2 ) );
-  QCOMPARE( pt.project( -1, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2 ) );
-  QCOMPARE( pt.project( -1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZ, 1, 2, 1 ) );
-  QCOMPARE( pt.project( 1.5, -90 ), QgsPoint( QgsWkbTypes::PointZ, -0.5, 2, 2 ) );
-  QCOMPARE( pt.project( 1.5, -90, -90 ), QgsPoint( QgsWkbTypes::PointZ, 2.5, 2, 2 ) );
+  QCOMPARE( pt.project( 1, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 3, 2 ) );
+  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 3 ) );
+  QCOMPARE( pt.project( 1.5, 90 ), QgsPoint( Qgis::WkbType::PointZ, 2.5, 2, 2 ) );
+  QCOMPARE( pt.project( 1.5, 90, 90 ), QgsPoint( Qgis::WkbType::PointZ, 2.5, 2, 2 ) );
+  QCOMPARE( pt.project( 2, 180 ), QgsPoint( Qgis::WkbType::PointZ, 1, 0, 2 ) );
+  QCOMPARE( pt.project( 2, 180, 180 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 0 ) );
+  QCOMPARE( pt.project( 5, 270 ), QgsPoint( Qgis::WkbType::PointZ, -4, 2, 2 ) );
+  QCOMPARE( pt.project( 5, 270, 270 ), QgsPoint( Qgis::WkbType::PointZ, 6, 2, 2 ) );
+  QCOMPARE( pt.project( 6, 360 ), QgsPoint( Qgis::WkbType::PointZ, 1, 8, 2 ) );
+  QCOMPARE( pt.project( 6, 360, 360 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 8 ) );
+  QCOMPARE( pt.project( 5, 450 ), QgsPoint( Qgis::WkbType::PointZ, 6, 2, 2 ) );
+  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( Qgis::WkbType::PointZ, 6, 2, 2 ) );
+  QCOMPARE( pt.project( -1, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2 ) );
+  QCOMPARE( pt.project( -1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZ, 1, 2, 1 ) );
+  QCOMPARE( pt.project( 1.5, -90 ), QgsPoint( Qgis::WkbType::PointZ, -0.5, 2, 2 ) );
+  QCOMPARE( pt.project( 1.5, -90, -90 ), QgsPoint( Qgis::WkbType::PointZ, 2.5, 2, 2 ) );
 
   // PointM
   pt.addMValue( 5.0 );
 
-  QCOMPARE( pt.project( 1, 0 ), QgsPoint( QgsWkbTypes::PointZM, 1, 3, 2, 5 ) );
-  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( QgsWkbTypes::PointZM, 1, 2, 3, 5 ) );
-  QCOMPARE( pt.project( 5, 450 ), QgsPoint( QgsWkbTypes::PointZM, 6, 2, 2, 5 ) );
-  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( QgsWkbTypes::PointZM, 6, 2, 2, 5 ) );
+  QCOMPARE( pt.project( 1, 0 ), QgsPoint( Qgis::WkbType::PointZM, 1, 3, 2, 5 ) );
+  QCOMPARE( pt.project( 1, 0, 0 ), QgsPoint( Qgis::WkbType::PointZM, 1, 2, 3, 5 ) );
+  QCOMPARE( pt.project( 5, 450 ), QgsPoint( Qgis::WkbType::PointZM, 6, 2, 2, 5 ) );
+  QCOMPARE( pt.project( 5, 450, 450 ), QgsPoint( Qgis::WkbType::PointZM, 6, 2, 2, 5 ) );
 }
 
 void TestQgsPoint::closestSegment()
@@ -772,7 +751,7 @@ void TestQgsPoint::measures()
   QCOMPARE( pt.centroid(), pt );
   QVERIFY( !pt.hasCurvedSegments() );
 
-  std::unique_ptr< QgsPoint >segmented( static_cast< QgsPoint *>( pt.segmentize() ) );
+  std::unique_ptr<QgsPoint> segmented( static_cast<QgsPoint *>( pt.segmentize() ) );
   QCOMPARE( *segmented, pt );
 }
 
@@ -805,22 +784,22 @@ void TestQgsPoint::distance3D()
 {
   QCOMPARE( QgsPoint( 0, 0 ).distanceSquared3D( QgsPoint( 1, 1 ) ), 2.0 );
   QVERIFY( std::isnan( QgsPoint( 0, 0 ).distanceSquared3D( 1, 1, 0 ) ) );
-  QVERIFY( std::isnan( QgsPoint( 0, 0 ).distanceSquared3D( QgsPoint( QgsWkbTypes::PointZ, 2, 2, 2, 0 ) ) ) );
+  QVERIFY( std::isnan( QgsPoint( 0, 0 ).distanceSquared3D( QgsPoint( Qgis::WkbType::PointZ, 2, 2, 2, 0 ) ) ) );
   QVERIFY( std::isnan( QgsPoint( 0, 0 ).distanceSquared3D( 2, 2, 2 ) ) );
-  QVERIFY( std::isnan( QgsPoint( QgsWkbTypes::PointZ, 2, 2, 2, 0 ).distanceSquared3D( QgsPoint( 1, 1 ) ) ) );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 2, 2, 2, 0 ).distanceSquared3D( 1, 1, 0 ), 6.0 );
-  QVERIFY( std::isnan( QgsPoint( QgsWkbTypes::PointZ, -2, -2, -2, 0 ).distanceSquared3D( QgsPoint( 0, 0 ) ) ) );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, -2, -2, -2, 0 ).distanceSquared3D( 0, 0, 0 ), 12.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, -2, -2, -2, 0 ).distanceSquared3D( QgsPoint( QgsWkbTypes::PointZ, 2, 2, 2, 0 ) ), 48.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, -2, -2, -2, 0 ).distanceSquared3D( 2, 2, 2 ), 48.0 );
+  QVERIFY( std::isnan( QgsPoint( Qgis::WkbType::PointZ, 2, 2, 2, 0 ).distanceSquared3D( QgsPoint( 1, 1 ) ) ) );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 2, 2, 2, 0 ).distanceSquared3D( 1, 1, 0 ), 6.0 );
+  QVERIFY( std::isnan( QgsPoint( Qgis::WkbType::PointZ, -2, -2, -2, 0 ).distanceSquared3D( QgsPoint( 0, 0 ) ) ) );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, -2, -2, -2, 0 ).distanceSquared3D( 0, 0, 0 ), 12.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, -2, -2, -2, 0 ).distanceSquared3D( QgsPoint( Qgis::WkbType::PointZ, 2, 2, 2, 0 ) ), 48.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, -2, -2, -2, 0 ).distanceSquared3D( 2, 2, 2 ), 48.0 );
 
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ).distance3D( QgsPoint( QgsWkbTypes::PointZ, 1, 3, 2, 0 ) ), 2.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ).distance3D( 1, 3, 2 ), 2.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ).distance3D( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 4, 0 ) ), 2.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ).distance3D( 1, 1, 4 ), 2.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, -2, 0 ).distance3D( QgsPoint( QgsWkbTypes::PointZ, 1, 1, -4, 0 ) ), 2.0 );
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, -2, 0 ).distance3D( 1, 1, -4 ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ).distance3D( QgsPoint( Qgis::WkbType::PointZ, 1, 3, 2, 0 ) ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ).distance3D( 1, 3, 2 ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ).distance3D( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 4, 0 ) ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ).distance3D( 1, 1, 4 ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, -2, 0 ).distance3D( QgsPoint( Qgis::WkbType::PointZ, 1, 1, -4, 0 ) ), 2.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, -2, 0 ).distance3D( 1, 1, -4 ), 2.0 );
 }
 
 void TestQgsPoint::segmentLength()
@@ -846,35 +825,25 @@ void TestQgsPoint::azimuth()
 
 void TestQgsPoint::inclination()
 {
-  QCOMPARE( QgsPoint( 1, 2 ).inclination(
-              QgsPoint( 1, 2 ) ), 90.0 );
+  QCOMPARE( QgsPoint( 1, 2 ).inclination( QgsPoint( 1, 2 ) ), 90.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 1, 2, 0 ) ), 90.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 1, 2, 0 ) ), 90.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 90 ) ), 90.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 90 ) ), 90.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, -90 ) ), 90.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, -90 ) ), 90.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 0 ) ), 0.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 0 ) ), 0.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 180 ) ), 180.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 180 ) ), 180.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, -180 ) ), 180.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, -180 ) ), 180.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 720 ) ), 0.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 720 ) ), 0.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 45 ) ), 45.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 45 ) ), 45.0 );
 
-  QCOMPARE( QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).inclination(
-              QgsPoint( QgsWkbTypes::PointZ, 1, 2, 2 ).project( 5, 90, 135 ) ), 135.0 );
+  QCOMPARE( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).inclination( QgsPoint( Qgis::WkbType::PointZ, 1, 2, 2 ).project( 5, 90, 135 ) ), 135.0 );
 }
 
 void TestQgsPoint::boundary()
@@ -909,33 +878,79 @@ void TestQgsPoint::boundingBox()
   QCOMPARE( pt.boundingBox(), QgsRectangle( 21.0, 23.0, 21.0, 23.0 ) );
 }
 
+void TestQgsPoint::boundingBox3D()
+{
+  QgsPoint pt( 1.0, 2.0, 3.0 );
+
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 1.0, 2.0, 3.0, 1.0, 2.0, 3.0 ) );
+
+  //modify points and test that bounding box is updated accordingly
+  pt.setX( 4.0 );
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 2.0, 3.0, 4.0, 2.0, 3.0 ) );
+
+  pt.setY( 6.0 );
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 6.0, 3.0, 4.0, 6.0, 3.0 ) );
+
+  pt.setZ( -2.0 );
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 6.0, -2.0, 4.0, 6.0, -2.0 ) );
+
+  pt.rx() = 4.0;
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 6.0, -2.0, 4.0, 6.0, -2.0 ) );
+
+  pt.ry() = 9.0;
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 9.0, -2.0, 4.0, 9.0, -2.0 ) );
+
+  pt.rz() = 7.0;
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 4.0, 9.0, 7.0, 4.0, 9.0, 7.0 ) );
+
+  pt.moveVertex( QgsVertexId( 0, 0, 0 ), QgsPoint( 11.0, 13.0, 15.0 ) );
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 11.0, 13.0, 15.0, 11.0, 13.0, 15.0 ) );
+
+  pt = QgsPoint( 21.0, 23.0, 25.0 );
+  QCOMPARE( pt.boundingBox3D(), QgsBox3D( 21.0, 23.0, 25.0, 21.0, 23.0, 25.0 ) );
+}
+
 void TestQgsPoint::boundingBoxIntersects()
 {
+  // 2d
   QVERIFY( QgsPoint( 1, 2 ).boundingBoxIntersects(
-             QgsRectangle( 0, 0.5, 1.5, 3 ) ) );
+    QgsRectangle( 0, 0.5, 1.5, 3 )
+  ) );
   QVERIFY( !QgsPoint( 1, 2 ).boundingBoxIntersects(
-             QgsRectangle( 3, 0.5, 3.5, 3 ) ) );
+    QgsRectangle( 3, 0.5, 3.5, 3 )
+  ) );
   QVERIFY( !QgsPoint().boundingBoxIntersects(
-             QgsRectangle( 0, 0.5, 3.5, 3 ) ) );
+    QgsRectangle( 0, 0.5, 3.5, 3 )
+  ) );
+
+  // 3d
+  QVERIFY( QgsPoint( 1, 2, 3 ).boundingBoxIntersects(
+    QgsBox3D( 0, 0.5, 1.5, 3, 2.5, 4.2 )
+  ) );
+  QVERIFY( !QgsPoint( 1, 2, 3 ).boundingBoxIntersects(
+    QgsBox3D( 3, 0.5, 1.5, 3.5, 2.5, 4.5 )
+  ) );
+  QVERIFY( !QgsPoint().boundingBoxIntersects(
+    QgsBox3D( 0, 0.5, 1.5, 3.5, 2.5, 4.5 )
+  ) );
 }
 
 void TestQgsPoint::filterVertices()
 {
-  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, QgsWkbTypes::PointZM );
-  pt.filterVertices( []( const QgsPoint & )-> bool { return false; } );
+  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, Qgis::WkbType::PointZM );
+  pt.filterVertices( []( const QgsPoint & ) -> bool { return false; } );
   QCOMPARE( pt.x(), 1.1 );
   QCOMPARE( pt.y(), 2.2 );
   QCOMPARE( pt.z(), 3.3 );
   QCOMPARE( pt.m(), 4.4 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
 }
 
 void TestQgsPoint::transformVertices()
 {
-  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, QgsWkbTypes::PointZM );
+  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, Qgis::WkbType::PointZM );
 
-  pt.transformVertices( []( const QgsPoint & pt )-> QgsPoint
-  {
+  pt.transformVertices( []( const QgsPoint &pt ) -> QgsPoint {
     return QgsPoint( pt.x() + 2, pt.y() + 3, pt.z() + 1, pt.m() + 8 );
   } );
 
@@ -943,11 +958,10 @@ void TestQgsPoint::transformVertices()
   QCOMPARE( pt.y(), 5.2 );
   QCOMPARE( pt.z(), 4.3 );
   QCOMPARE( pt.m(), 12.4 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
 
   // no dimensionality change allowed
-  pt.transformVertices( []( const QgsPoint & pt )-> QgsPoint
-  {
+  pt.transformVertices( []( const QgsPoint &pt ) -> QgsPoint {
     return QgsPoint( pt.x() + 2, pt.y() + 3 );
   } );
 
@@ -955,11 +969,10 @@ void TestQgsPoint::transformVertices()
   QCOMPARE( pt.y(), 8.2 );
   QVERIFY( std::isnan( pt.z() ) );
   QVERIFY( std::isnan( pt.m() ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
 
   pt = QgsPoint( 2, 3 );
-  pt.transformVertices( []( const QgsPoint & pt )-> QgsPoint
-  {
+  pt.transformVertices( []( const QgsPoint &pt ) -> QgsPoint {
     return QgsPoint( pt.x() + 2, pt.y() + 3, 7, 8 );
   } );
 
@@ -967,12 +980,12 @@ void TestQgsPoint::transformVertices()
   QCOMPARE( pt.y(), 6.0 );
   QVERIFY( std::isnan( pt.z() ) );
   QVERIFY( std::isnan( pt.m() ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
 }
 
 void TestQgsPoint::transformWithClass()
 {
-  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, QgsWkbTypes::PointZM );
+  QgsPoint pt( 1.1, 2.2, 3.3, 4.4, Qgis::WkbType::PointZM );
 
   QVERIFY( !pt.transform( nullptr ) );
 
@@ -983,7 +996,7 @@ void TestQgsPoint::transformWithClass()
   QCOMPARE( pt.y(), 16.2 );
   QCOMPARE( pt.z(), 8.3 );
   QCOMPARE( pt.m(), 3.4 );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
 
   TestFailTransformer failTransformer;
   QVERIFY( !pt.transform( &failTransformer ) );
@@ -995,7 +1008,7 @@ void TestQgsPoint::crsTransform()
   QgsCoordinateReferenceSystem destSrs( QStringLiteral( "EPSG:4202" ) ); // want a transform with ellipsoid change
   QgsCoordinateTransform tr( sourceSrs, destSrs, QgsProject::instance() );
 
-  QgsPoint pt( QgsWkbTypes::PointZM, 6374985, -3626584, 1, 2 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 6374985, -3626584, 1, 2 );
   pt.transform( tr, Qgis::TransformDirection::Forward );
 
   QGSCOMPARENEAR( pt.x(), 175.771, 0.001 );
@@ -1023,55 +1036,55 @@ void TestQgsPoint::crsTransform()
 void TestQgsPoint::qTransform()
 {
   QTransform qtr = QTransform::fromScale( 2, 3 );
-  QgsPoint pt( QgsWkbTypes::PointZM, 10, 20, 30, 40 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 10, 20, 30, 40 );
 
   pt.transform( qtr );
-  QVERIFY( pt == QgsPoint( QgsWkbTypes::PointZM, 20, 60, 30, 40 ) );
+  QVERIFY( pt == QgsPoint( Qgis::WkbType::PointZM, 20, 60, 30, 40 ) );
 
   pt.transform( QTransform::fromScale( 1, 1 ), 11, 2, 3, 4 );
-  QVERIFY( pt == QgsPoint( QgsWkbTypes::PointZM, 20, 60, 71, 163 ) );
+  QVERIFY( pt == QgsPoint( Qgis::WkbType::PointZM, 20, 60, 71, 163 ) );
 }
 
 void TestQgsPoint::convertTo()
 {
   QgsPoint pt( 1.0, 2.0 );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::Point ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QVERIFY( pt.convertTo( Qgis::WkbType::Point ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::PointZ ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZ );
+  QVERIFY( pt.convertTo( Qgis::WkbType::PointZ ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZ );
 
   pt.setZ( 5.0 );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::Point25D ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point25D );
+  QVERIFY( pt.convertTo( Qgis::WkbType::Point25D ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point25D );
   QCOMPARE( pt.z(), 5.0 );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::PointZM ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointZM );
+  QVERIFY( pt.convertTo( Qgis::WkbType::PointZM ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointZM );
   QCOMPARE( pt.z(), 5.0 );
 
   pt.setM( 9.0 );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::PointM ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::PointM );
+  QVERIFY( pt.convertTo( Qgis::WkbType::PointM ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::PointM );
   QVERIFY( std::isnan( pt.z() ) );
   QCOMPARE( pt.m(), 9.0 );
 
-  QVERIFY( pt.convertTo( QgsWkbTypes::Point ) );
-  QCOMPARE( pt.wkbType(), QgsWkbTypes::Point );
+  QVERIFY( pt.convertTo( Qgis::WkbType::Point ) );
+  QCOMPARE( pt.wkbType(), Qgis::WkbType::Point );
   QVERIFY( std::isnan( pt.z() ) );
   QVERIFY( std::isnan( pt.m() ) );
 
-  QVERIFY( !pt.convertTo( QgsWkbTypes::Polygon ) );
+  QVERIFY( !pt.convertTo( Qgis::WkbType::Polygon ) );
 }
 
 void TestQgsPoint::toCurveType()
 {
-  QgsPoint pt( QgsWkbTypes::PointZM, 9.0, 3.0, 13.0, 23.0 );
+  QgsPoint pt( Qgis::WkbType::PointZM, 9.0, 3.0, 13.0, 23.0 );
 
-  std::unique_ptr< QgsPoint >clone( pt.toCurveType() );
+  std::unique_ptr<QgsPoint> clone( pt.toCurveType() );
   QVERIFY( pt == *clone );
 }
 
@@ -1086,7 +1099,7 @@ void TestQgsPoint::toQPointF()
 
 void TestQgsPoint::toFromWkb()
 {
-  QgsPoint pt1( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, -4.0 );
+  QgsPoint pt1( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, -4.0 );
 
   QByteArray wkb = pt1.asWkb();
   QCOMPARE( wkb.size(), pt1.wkbSize() );
@@ -1102,7 +1115,7 @@ void TestQgsPoint::toFromWkb()
   QgsConstWkbPtr nullPtr( nullptr, 0 );
 
   QVERIFY( !pt2.fromWkb( nullPtr ) );
-  QCOMPARE( pt2.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt2.wkbType(), Qgis::WkbType::Point );
 
   QgsLineString ls;
   pt2 = QgsPoint( 1, 2 );
@@ -1112,12 +1125,12 @@ void TestQgsPoint::toFromWkb()
 
   QgsConstWkbPtr wkbLinePtr( wkbLine );
   QVERIFY( !pt2.fromWkb( wkbLinePtr ) );
-  QCOMPARE( pt2.wkbType(), QgsWkbTypes::Point );
+  QCOMPARE( pt2.wkbType(), Qgis::WkbType::Point );
 }
 
 void TestQgsPoint::toFromWkt()
 {
-  QgsPoint pt1( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, -4.0 );
+  QgsPoint pt1( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, -4.0 );
 
   QString wkt = pt1.asWkt();
   QVERIFY( !wkt.isEmpty() );
@@ -1128,10 +1141,10 @@ void TestQgsPoint::toFromWkt()
   QVERIFY( pt2 == pt1 );
 
   QVERIFY( pt2.fromWkt( QStringLiteral( "Point(1 2 3)" ) ) );
-  QVERIFY( pt2 == QgsPoint( QgsWkbTypes::PointZ, 1.0, 2.0, 3.0 ) );
+  QVERIFY( pt2 == QgsPoint( Qgis::WkbType::PointZ, 1.0, 2.0, 3.0 ) );
 
   QVERIFY( pt2.fromWkt( QStringLiteral( "Point(1 2 3 4)" ) ) );
-  QVERIFY( pt2 == QgsPoint( QgsWkbTypes::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
+  QVERIFY( pt2 == QgsPoint( Qgis::WkbType::PointZM, 1.0, 2.0, 3.0, 4.0 ) );
 
   //bad WKT
   QVERIFY( !pt2.fromWkt( "Polygon()" ) );
@@ -1210,9 +1223,23 @@ void TestQgsPoint::exportImport()
   QCOMPARE( exportPointFloat.asKml( 3 ), expectedKmlPrec3 );
 }
 
+void TestQgsPoint::cast()
+{
+  QVERIFY( !QgsPoint::cast( static_cast< const QgsAbstractGeometry *>( nullptr ) ) );
+
+  QgsPoint mc1;
+  QVERIFY( QgsPoint::cast( &mc1 ) );
+
+  QgsPoint mc2;
+  mc2.fromWkt( QStringLiteral( "PointZ(1 2 3)" ) );
+  QVERIFY( QgsPoint::cast( &mc2 ) );
+
+  mc2.fromWkt( QStringLiteral( "PointM(1 2 3)" ) );
+  QVERIFY( QgsPoint::cast( &mc2 ) );
+
+  mc2.fromWkt( QStringLiteral( "PointZM(1 2 3 4)" ) );
+  QVERIFY( QgsPoint::cast( &mc2 ) );
+}
+
 QGSTEST_MAIN( TestQgsPoint )
 #include "testqgspoint.moc"
-
-
-
-

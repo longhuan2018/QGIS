@@ -20,7 +20,7 @@
 #include "qgis_core.h"
 #include "qgspainteffect.h"
 #include "qgis_sip.h"
-#include "qgsunittypes.h"
+#include "qgis.h"
 #include "qgsmapunitscale.h"
 
 #include <QPainter>
@@ -31,7 +31,6 @@
  * \brief A paint effect which blurs a source picture, using a number of different blur
  * methods.
  *
- * \since QGIS 2.9
  */
 
 class CORE_EXPORT QgsBlurEffect : public QgsPaintEffect SIP_NODEFAULTCTORS
@@ -53,9 +52,6 @@ class CORE_EXPORT QgsBlurEffect : public QgsPaintEffect SIP_NODEFAULTCTORS
      */
     static QgsPaintEffect *create( const QVariantMap &map ) SIP_FACTORY;
 
-    /**
-     * Constructor for QgsBlurEffect.
-     */
     QgsBlurEffect() = default;
 
     QString type() const override { return QStringLiteral( "blur" ); }
@@ -93,7 +89,7 @@ class CORE_EXPORT QgsBlurEffect : public QgsPaintEffect SIP_NODEFAULTCTORS
      * \see setBlurMapUnitScale
      * \since QGIS 3.4.9
      */
-    void setBlurUnit( const QgsUnitTypes::RenderUnit unit ) { mBlurUnit = unit; }
+    void setBlurUnit( const Qgis::RenderUnit unit ) { mBlurUnit = unit; }
 
     /**
      * Returns the units used for the blur level (radius).
@@ -103,7 +99,7 @@ class CORE_EXPORT QgsBlurEffect : public QgsPaintEffect SIP_NODEFAULTCTORS
      * \see blurMapUnitScale
      * \since QGIS 3.4.9
      */
-    QgsUnitTypes::RenderUnit blurUnit() const { return mBlurUnit; }
+    Qgis::RenderUnit blurUnit() const { return mBlurUnit; }
 
     /**
      * Sets the map unit scale used for the blur strength (radius).
@@ -179,7 +175,7 @@ class CORE_EXPORT QgsBlurEffect : public QgsPaintEffect SIP_NODEFAULTCTORS
   private:
 
     double mBlurLevel = 2.645;
-    QgsUnitTypes::RenderUnit mBlurUnit = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit mBlurUnit = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale mBlurMapUnitScale;
     BlurMethod mBlurMethod = StackBlur;
     double mOpacity = 1.0;

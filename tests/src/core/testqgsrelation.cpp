@@ -28,13 +28,13 @@
  * \ingroup UnitTests
  * This is a unit test for the QgsRelation changing style
  */
-class TestQgsRelation: public QObject
+class TestQgsRelation : public QObject
 {
     Q_OBJECT
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
     void testValidRelationAfterChangingStyle();
 };
 
@@ -67,7 +67,7 @@ void TestQgsRelation::testValidRelationAfterChangingStyle()
 
   QVERIFY( p->read( projectPath ) );
 
-  const auto layers { p->mapLayers().values( ) };
+  const auto layers { p->mapLayers().values() };
   for ( const auto &l : std::as_const( layers ) )
   {
     QVERIFY( l->isValid() );
@@ -83,7 +83,7 @@ void TestQgsRelation::testValidRelationAfterChangingStyle()
   auto tabs { static_cast<QgsAttributeEditorContainer *>( referencedLayer->editFormConfig().tabs()[0] )->children() };
   for ( const auto &tab : tabs )
   {
-    if ( tab->type() == QgsAttributeEditorElement::AeTypeRelation )
+    if ( tab->type() == Qgis::AttributeEditorType::Relation )
     {
       valid = static_cast<QgsAttributeEditorRelation *>( tab )->relation().isValid();
     }
@@ -98,14 +98,13 @@ void TestQgsRelation::testValidRelationAfterChangingStyle()
   tabs = static_cast<QgsAttributeEditorContainer *>( referencedLayer->editFormConfig().tabs()[0] )->children();
   for ( const auto &tab : std::as_const( tabs ) )
   {
-    if ( tab->type() == QgsAttributeEditorElement::AeTypeRelation )
+    if ( tab->type() == Qgis::AttributeEditorType::Relation )
     {
       valid = static_cast<QgsAttributeEditorRelation *>( tab )->relation().isValid();
     }
   }
 
   QVERIFY( valid );
-
 }
 
 QGSTEST_MAIN( TestQgsRelation )

@@ -14,15 +14,16 @@
  ***************************************************************************/
 
 #include "qgsdecorationtitledialog.h"
+#include "moc_qgsdecorationtitledialog.cpp"
 #include "qgsdecorationtitle.h"
 
 #include "qgisapp.h"
-#include "qgsexpression.h"
 #include "qgsexpressionbuilderdialog.h"
 #include "qgsexpressioncontext.h"
 #include "qgshelp.h"
 #include "qgsmapcanvas.h"
 #include "qgsgui.h"
+#include "qgsexpressionfinder.h"
 
 #include <QColorDialog>
 #include <QColor>
@@ -73,8 +74,7 @@ QgsDecorationTitleDialog::QgsDecorationTitleDialog( QgsDecorationTitle &deco, QW
   cboPlacement->addItem( tr( "Bottom Left" ), QgsDecorationItem::BottomLeft );
   cboPlacement->addItem( tr( "Bottom Center" ), QgsDecorationItem::BottomCenter );
   cboPlacement->addItem( tr( "Bottom Right" ), QgsDecorationItem::BottomRight );
-  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [ = ]( int )
-  {
+  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=]( int ) {
     spnHorizontal->setMinimum( cboPlacement->currentData() == QgsDecorationItem::TopCenter || cboPlacement->currentData() == QgsDecorationItem::BottomCenter ? -100 : 0 );
   } );
   cboPlacement->setCurrentIndex( cboPlacement->findData( mDeco.placement() ) );
@@ -82,7 +82,12 @@ QgsDecorationTitleDialog::QgsDecorationTitleDialog( QgsDecorationTitle &deco, QW
   spnHorizontal->setClearValue( 0 );
   spnHorizontal->setValue( mDeco.mMarginHorizontal );
   spnVertical->setValue( mDeco.mMarginVertical );
-  wgtUnitSelection->setUnits( QgsUnitTypes::RenderUnitList() << QgsUnitTypes::RenderMillimeters << QgsUnitTypes::RenderPercentage << QgsUnitTypes::RenderPixels );
+  wgtUnitSelection->setUnits(
+    { Qgis::RenderUnit::Millimeters,
+      Qgis::RenderUnit::Percentage,
+      Qgis::RenderUnit::Pixels
+    }
+  );
   wgtUnitSelection->setUnit( mDeco.mMarginUnit );
 
   // font settings
@@ -104,20 +109,13 @@ void QgsDecorationTitleDialog::buttonBox_rejected()
 
 void QgsDecorationTitleDialog::mInsertExpressionButton_clicked()
 {
-  QString selText = txtTitleText->textCursor().selectedText();
-
-  // edit the selected expression if there's one
-  if ( selText.startsWith( QLatin1String( "[%" ) ) && selText.endsWith( QLatin1String( "%]" ) ) )
-    selText = selText.mid( 2, selText.size() - 4 );
-
-  selText = selText.replace( QChar( 0x2029 ), QChar( '\n' ) );
-
-  QgsExpressionBuilderDialog exprDlg( nullptr, selText, this, QStringLiteral( "generic" ), QgisApp::instance()->mapCanvas()->mapSettings().expressionContext() );
+  QString expression = QgsExpressionFinder::findAndSelectActiveExpression( txtTitleText );
+  QgsExpressionBuilderDialog exprDlg( nullptr, expression, this, QStringLiteral( "generic" ), QgisApp::instance()->mapCanvas()->mapSettings().expressionContext() );
 
   exprDlg.setWindowTitle( QObject::tr( "Insert Expression" ) );
   if ( exprDlg.exec() == QDialog::Accepted )
   {
-    const QString expression = exprDlg.expressionText();
+    expression = exprDlg.expressionText().trimmed();
     if ( !expression.isEmpty() )
     {
       txtTitleText->insertPlainText( "[%" + expression + "%]" );
@@ -130,7 +128,7 @@ void QgsDecorationTitleDialog::apply()
   mDeco.setTextFormat( mButtonFontStyle->textFormat() );
   mDeco.mLabelText = txtTitleText->toPlainText();
   mDeco.mBackgroundColor = pbnBackgroundColor->color();
-  mDeco.setPlacement( static_cast< QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
+  mDeco.setPlacement( static_cast<QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
   mDeco.mMarginUnit = wgtUnitSelection->unit();
   mDeco.mMarginHorizontal = spnHorizontal->value();
   mDeco.mMarginVertical = spnVertical->value();
@@ -140,5 +138,5 @@ void QgsDecorationTitleDialog::apply()
 
 void QgsDecorationTitleDialog::showHelp()
 {
-  QgsHelp::openHelp( QStringLiteral( "introduction/general_tools.html#title_label_decoration" ) );
+  QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#titlelabel-decoration" ) );
 }

@@ -14,29 +14,30 @@
  ***************************************************************************/
 
 #include "qgsgpslogger.h"
+#include "moc_qgsgpslogger.cpp"
 #include "qgsgpsconnection.h"
 #include "gmath.h"
 #include "qgsgeometry.h"
 #include "qgslinestring.h"
 #include "qgspolygon.h"
+#include "qgssettingsentryimpl.h"
+#include "qgssettingsentryenumflag.h"
+#include "qgssettingstree.h"
 
 #include <QTimer>
 #include <QTimeZone>
 
-#include "qgssettingsentryimpl.h"
 
-const QgsSettingsEntryDouble *QgsGpsLogger::settingsDistanceThreshold = new QgsSettingsEntryDouble( QStringLiteral( "distanceThreshold" ), QgsSettings::sTreeGps, 0 );
-const QgsSettingsEntryBool *QgsGpsLogger::settingsApplyLeapSeconds = new QgsSettingsEntryBool( QStringLiteral( "applyLeapSeconds" ), QgsSettings::sTreeGps, true );
-const QgsSettingsEntryString *QgsGpsLogger::settingsTimestampTimeZone = new QgsSettingsEntryString( QStringLiteral( "timestampTimeZone" ), QgsSettings::sTreeGps, QString() );
-const QgsSettingsEntryInteger *QgsGpsLogger::settingsTimeStampFormat = new QgsSettingsEntryInteger( QStringLiteral( "timeStampFormat" ), QgsSettings::sTreeGps, Qt::LocalTime );
-const QgsSettingsEntryInteger *QgsGpsLogger::settingsLeapSecondsCorrection = new QgsSettingsEntryInteger( QStringLiteral( "leapSecondsCorrection" ), QgsSettings::sTreeGps, 18 );
-const QgsSettingsEntryInteger *QgsGpsLogger::settingsAcquisitionInterval = new QgsSettingsEntryInteger( QStringLiteral( "acquisitionInterval" ), QgsSettings::sTreeGps, 0 );
+const QgsSettingsEntryDouble *QgsGpsLogger::settingsDistanceThreshold = new QgsSettingsEntryDouble( QStringLiteral( "distanceThreshold" ), QgsSettingsTree::sTreeGps, 0 );
+const QgsSettingsEntryBool *QgsGpsLogger::settingsApplyLeapSeconds = new QgsSettingsEntryBool( QStringLiteral( "applyLeapSeconds" ), QgsSettingsTree::sTreeGps, true );
+const QgsSettingsEntryString *QgsGpsLogger::settingsTimestampTimeZone = new QgsSettingsEntryString( QStringLiteral( "timestampTimeZone" ), QgsSettingsTree::sTreeGps, QString() );
+const QgsSettingsEntryInteger *QgsGpsLogger::settingsTimeStampFormat = new QgsSettingsEntryInteger( QStringLiteral( "timeStampFormat" ), QgsSettingsTree::sTreeGps, Qt::LocalTime );
+const QgsSettingsEntryInteger *QgsGpsLogger::settingsLeapSecondsCorrection = new QgsSettingsEntryInteger( QStringLiteral( "leapSecondsCorrection" ), QgsSettingsTree::sTreeGps, 18 );
+const QgsSettingsEntryInteger *QgsGpsLogger::settingsAcquisitionInterval = new QgsSettingsEntryInteger( QStringLiteral( "acquisitionInterval" ), QgsSettingsTree::sTreeGps, 0 );
 
+const QgsSettingsEntryEnumFlag<Qgis::GpsInformationComponent> *QgsGpsLogger::settingsGpsMValueComponent = new QgsSettingsEntryEnumFlag<Qgis::GpsInformationComponent>( QStringLiteral( "m-value-attribute" ), QgsSettingsTree::sTreeGps, Qgis::GpsInformationComponent::Timestamp, QStringLiteral( "Which GPS attribute should be stored in geometry m values" ) ) SIP_SKIP;
 
-
-const QgsSettingsEntryEnumFlag<Qgis::GpsInformationComponent> *QgsGpsLogger::settingsGpsMValueComponent = new QgsSettingsEntryEnumFlag<Qgis::GpsInformationComponent>( QStringLiteral( "m-value-attribute" ), QgsSettings::sTreeGps, Qgis::GpsInformationComponent::Timestamp, QStringLiteral( "Which GPS attribute should be stored in geometry m values" ) ) SIP_SKIP;
-
-const QgsSettingsEntryBool *QgsGpsLogger::settingsGpsStoreAttributeInMValues = new QgsSettingsEntryBool( QStringLiteral( "store-attribute-in-m-values" ), QgsSettings::sTreeGps, false, QStringLiteral( "Whether GPS attributes should be stored in geometry m values" ) ) SIP_SKIP;
+const QgsSettingsEntryBool *QgsGpsLogger::settingsGpsStoreAttributeInMValues = new QgsSettingsEntryBool( QStringLiteral( "store-attribute-in-m-values" ), QgsSettingsTree::sTreeGps, false, QStringLiteral( "Whether GPS attributes should be stored in geometry m values" ) ) SIP_SKIP;
 
 QgsGpsLogger::QgsGpsLogger( QgsGpsConnection *connection, QObject *parent )
   : QObject( parent )
@@ -109,16 +110,16 @@ QVector<QgsPoint> QgsGpsLogger::currentTrack() const
   return mCaptureListWgs84;
 }
 
-QgsGeometry QgsGpsLogger::currentGeometry( QgsWkbTypes::Type type, QString &error ) const
+QgsGeometry QgsGpsLogger::currentGeometry( Qgis::WkbType type, QString &error ) const
 {
-  const QgsWkbTypes::GeometryType geometryType = QgsWkbTypes::geometryType( type );
+  const Qgis::GeometryType geometryType = QgsWkbTypes::geometryType( type );
   const QVector< QgsPoint > captureListWgs84 = currentTrack();
-  if ( geometryType == QgsWkbTypes::LineGeometry && captureListWgs84.size() < 2 )
+  if ( geometryType == Qgis::GeometryType::Line && captureListWgs84.size() < 2 )
   {
     error = tr( "Creating a line feature requires a track with at least two vertices." );
     return QgsGeometry();
   }
-  else if ( geometryType == QgsWkbTypes::PolygonGeometry && captureListWgs84.size() < 3 )
+  else if ( geometryType == Qgis::GeometryType::Polygon && captureListWgs84.size() < 3 )
   {
     error = tr( "Creating a polygon feature requires a track with at least three vertices." );
     return QgsGeometry();
@@ -128,7 +129,7 @@ QgsGeometry QgsGpsLogger::currentGeometry( QgsWkbTypes::Type type, QString &erro
   const bool isMeasure = QgsWkbTypes::hasM( type );
   switch ( geometryType )
   {
-    case QgsWkbTypes::PointGeometry:
+    case Qgis::GeometryType::Point:
     {
       const QgsPointXY pointXYWgs84 = lastPosition();
 
@@ -147,27 +148,27 @@ QgsGeometry QgsGpsLogger::currentGeometry( QgsWkbTypes::Type type, QString &erro
       return g;
     }
 
-    case QgsWkbTypes::LineGeometry:
-    case QgsWkbTypes::PolygonGeometry:
+    case Qgis::GeometryType::Line:
+    case Qgis::GeometryType::Polygon:
     {
       QgsGeometry g;
 
-      std::unique_ptr<QgsLineString> ringWgs84( new QgsLineString( captureListWgs84 ) );
+      auto ringWgs84 = std::make_unique<QgsLineString>( captureListWgs84 );
       if ( !is3D )
         ringWgs84->dropZValue();
       if ( !isMeasure )
         ringWgs84->dropMValue();
 
-      if ( geometryType == QgsWkbTypes::LineGeometry )
+      if ( geometryType == Qgis::GeometryType::Line )
       {
         g = QgsGeometry( ringWgs84.release() );
         if ( QgsWkbTypes::isMultiType( type ) )
           g.convertToMultiType();
       }
-      else if ( geometryType == QgsWkbTypes::PolygonGeometry )
+      else if ( geometryType == Qgis::GeometryType::Polygon )
       {
         ringWgs84->close();
-        std::unique_ptr<QgsPolygon> polygon( new QgsPolygon() );
+        auto polygon = std::make_unique<QgsPolygon>();
         polygon->setExteriorRing( ringWgs84.release() );
 
         g = QgsGeometry( polygon.release() );
@@ -178,8 +179,8 @@ QgsGeometry QgsGpsLogger::currentGeometry( QgsWkbTypes::Type type, QString &erro
       return g;
     }
 
-    case QgsWkbTypes::NullGeometry:
-    case QgsWkbTypes::UnknownGeometry:
+    case Qgis::GeometryType::Null:
+    case Qgis::GeometryType::Unknown:
       break;
   }
   return QgsGeometry();
@@ -233,9 +234,6 @@ void QgsGpsLogger::updateGpsSettings()
   }
   else
   {
-    // legacy settings
-    QgsSettings settings;
-
     acquisitionInterval = QgsGpsLogger::settingsAcquisitionInterval->value();
     mDistanceThreshold = QgsGpsLogger::settingsDistanceThreshold->value();
     mApplyLeapSettings = QgsGpsLogger::settingsApplyLeapSeconds->value();
@@ -270,7 +268,16 @@ double QgsGpsLogger::totalTrackLength() const
 {
   QVector<QgsPointXY> points;
   QgsGeometry::convertPointList( mCaptureListWgs84, points );
-  return mDistanceCalculator.measureLine( points );
+  try
+  {
+    return mDistanceCalculator.measureLine( points );
+  }
+  catch ( QgsCsException & )
+  {
+    // TODO report errors to user
+    QgsDebugError( QStringLiteral( "An error occurred while calculating length" ) );
+    return 0;
+  }
 }
 
 double QgsGpsLogger::trackDistanceFromStart() const
@@ -278,7 +285,16 @@ double QgsGpsLogger::trackDistanceFromStart() const
   if ( mCaptureListWgs84.empty() )
     return 0;
 
-  return mDistanceCalculator.measureLine( { QgsPointXY( mCaptureListWgs84.constFirst() ), QgsPointXY( mCaptureListWgs84.constLast() )} );
+  try
+  {
+    return mDistanceCalculator.measureLine( { QgsPointXY( mCaptureListWgs84.constFirst() ), QgsPointXY( mCaptureListWgs84.constLast() )} );
+  }
+  catch ( QgsCsException & )
+  {
+    // TODO report errors to user
+    QgsDebugError( QStringLiteral( "An error occurred while calculating length" ) );
+    return 0;
+  }
 }
 
 QVariant QgsGpsLogger::componentValue( Qgis::GpsInformationComponent component ) const
@@ -316,7 +332,17 @@ QVariant QgsGpsLogger::componentValue( Qgis::GpsInformationComponent component )
       return lastTimestamp();
 
     case Qgis::GpsInformationComponent::TrackDistanceSinceLastPoint:
-      return mPreviousTrackPoint.isEmpty() ? QVariant() : distanceArea().measureLine( mPreviousTrackPoint, lastPosition() );
+      try
+      {
+        return mPreviousTrackPoint.isEmpty() ? QVariant() : distanceArea().measureLine( mPreviousTrackPoint, lastPosition() );
+      }
+      catch ( QgsCsException & )
+      {
+        // TODO report errors to user
+        QgsDebugError( QStringLiteral( "An error occurred while calculating length" ) );
+        return 0;
+      }
+
     case Qgis::GpsInformationComponent::TrackTimeSinceLastPoint:
       return mPreviousTrackPointTime.isValid() ? static_cast< double >( mPreviousTrackPointTime.msecsTo( lastTimestamp() ) ) / 1000 : QVariant();
   }

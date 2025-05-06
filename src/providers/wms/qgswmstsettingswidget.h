@@ -31,15 +31,13 @@ class QgsWmstSettingsWidget : public QgsMapLayerConfigWidget, private Ui::QgsWms
   public:
     QgsWmstSettingsWidget( QgsMapLayer *layer, QgsMapCanvas *canvas, QWidget *parent = nullptr );
 
-    void syncToLayer( QgsMapLayer *layer ) override;
+    void syncToLayer( QgsMapLayer *layer ) final;
     void apply() override;
   private slots:
     void temporalPropertiesChange();
 
   private:
-
     QgsRasterLayer *mRasterLayer = nullptr;
-
 };
 
 class QgsWmstSettingsConfigWidgetFactory : public QgsMapLayerConfigWidgetFactory
@@ -49,7 +47,6 @@ class QgsWmstSettingsConfigWidgetFactory : public QgsMapLayerConfigWidgetFactory
     bool supportsLayer( QgsMapLayer *layer ) const override;
     ParentPage parentPage() const override;
     QgsMapLayerConfigWidget *createWidget( QgsMapLayer *layer, QgsMapCanvas *canvas, bool dockWidget = true, QWidget *parent = nullptr ) const override;
-
 };
 
 #endif // QGSWMSTSETTINGSWIDGET_H

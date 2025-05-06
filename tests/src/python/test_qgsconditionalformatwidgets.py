@@ -5,41 +5,41 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
 """
-__author__ = 'Nyall Dawson'
-__date__ = '2019-09-25'
-__copyright__ = 'Copyright 2019, The QGIS Project'
 
-from qgis.core import (QgsConditionalStyle,
-                       QgsMarkerSymbol)
-from qgis.gui import QgsEditConditionalFormatRuleWidget
-from qgis.testing import (start_app,
-                          unittest,
-                          )
-from utilities import unitTestDataPath, getTestFont
+__author__ = "Nyall Dawson"
+__date__ = "2019-09-25"
+__copyright__ = "Copyright 2019, The QGIS Project"
+
 from qgis.PyQt.QtGui import QColor
+from qgis.core import QgsConditionalStyle, QgsMarkerSymbol
+from qgis.gui import QgsEditConditionalFormatRuleWidget
+import unittest
+from qgis.testing import start_app, QgisTestCase
+
+from utilities import getTestFont, unitTestDataPath
 
 start_app()
 TEST_DATA_DIR = unitTestDataPath()
 
 
-class TestPyQgsConditionalFormatWidgets(unittest.TestCase):
+class TestPyQgsConditionalFormatWidgets(QgisTestCase):
 
     def testEditorWidget(self):
         c = QgsConditionalStyle()
-        c.setName('')
+        c.setName("")
 
         w = QgsEditConditionalFormatRuleWidget()
         w.loadStyle(c)
         self.assertEqual(w.currentStyle(), c)
-        w.setRule('my rule')
-        self.assertEqual(w.currentStyle().rule(), 'my rule')
+        w.setRule("my rule")
+        self.assertEqual(w.currentStyle().rule(), "my rule")
 
-        c.setName('n')
+        c.setName("n")
         w = QgsEditConditionalFormatRuleWidget()
         w.loadStyle(c)
         self.assertEqual(w.currentStyle(), c)
 
-        c.setRule('1=1')
+        c.setRule("1=1")
         w = QgsEditConditionalFormatRuleWidget()
         w.loadStyle(c)
         self.assertEqual(w.currentStyle(), c)
@@ -90,5 +90,5 @@ class TestPyQgsConditionalFormatWidgets(unittest.TestCase):
         self.assertEqual(w.currentStyle().font().underline(), True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

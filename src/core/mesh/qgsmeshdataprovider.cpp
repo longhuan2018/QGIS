@@ -17,11 +17,12 @@
 
 #include "qgis.h"
 #include "qgsmeshdataprovider.h"
+#include "moc_qgsmeshdataprovider.cpp"
 #include "qgsmeshdataprovidertemporalcapabilities.h"
 #include "qgsthreadingutils.h"
 
 QgsMeshDataProvider::QgsMeshDataProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options,
-    QgsDataProvider::ReadFlags flags )
+    Qgis::DataProviderReadFlags flags )
   : QgsDataProvider( uri, options, flags )
 {
 }
@@ -40,11 +41,11 @@ const QgsMeshDataProviderTemporalCapabilities *QgsMeshDataProvider::temporalCapa
   return mTemporalCapabilities.get();
 }
 
-void QgsMeshDataProvider::setTemporalUnit( QgsUnitTypes::TemporalUnit unit )
+void QgsMeshDataProvider::setTemporalUnit( Qgis::TemporalUnit unit )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  const QgsUnitTypes::TemporalUnit oldUnit = mTemporalCapabilities->temporalUnit();
+  const Qgis::TemporalUnit oldUnit = mTemporalCapabilities->temporalUnit();
   mTemporalCapabilities->setTemporalUnit( unit );
   if ( oldUnit != unit )
     reloadData();

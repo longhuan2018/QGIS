@@ -46,7 +46,6 @@ class QgsGrassPlugin : public QObject, public QgisPlugin
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for a plugin. The QgisInterface pointer is passed by
      * QGIS when it attempts to instantiate the plugin.
@@ -154,7 +153,7 @@ class QgsGrassPlugin : public QObject, public QgisPlugin
     //! GRASS tools
     QgsGrassTools *mTools = nullptr;
     //! Pointer to QgsGrassNewMapset
-    QgsGrassNewMapset *mNewMapset = nullptr;
+    QPointer<QgsGrassNewMapset> mNewMapset;
 
     QgsCoordinateReferenceSystem mCrs;
     QgsCoordinateTransform mCoordinateTransform;
@@ -183,7 +182,7 @@ class QgsGrassPlugin : public QObject, public QgisPlugin
     // Names of layer styles before editing started
     QMap<QgsVectorLayer *, QString> mOldStyles;
     // Original layer form suppress
-    QMap<QgsVectorLayer *, QgsEditFormConfig::FeatureFormSuppress> mFormSuppress;
+    QMap<QgsVectorLayer *, Qgis::AttributeFormSuppression> mFormSuppress;
 };
 
 #endif // QGSGRASSPLUGIN_H

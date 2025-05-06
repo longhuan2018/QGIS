@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     ProviderActions.py
@@ -17,37 +15,37 @@
 ***************************************************************************
 """
 
-__author__ = 'Nyall Dawson'
-__date__ = 'April 2017'
-__copyright__ = '(C) 2017, Nyall Dason'
+__author__ = "Nyall Dawson"
+__date__ = "April 2017"
+__copyright__ = "(C) 2017, Nyall Dason"
 
 
-class ProviderActions(object):
+class ProviderActions:
     actions = {}
 
     @staticmethod
     def registerProviderActions(provider, actions):
-        """ Adds actions for a provider """
+        """Adds actions for a provider"""
         ProviderActions.actions[provider.id()] = actions
 
     @staticmethod
     def deregisterProviderActions(provider):
-        """ Removes actions for a provider """
+        """Removes actions for a provider"""
         if provider.id() in ProviderActions.actions:
             del ProviderActions.actions[provider.id()]
 
 
-class ProviderContextMenuActions(object):
+class ProviderContextMenuActions:
     # All the registered context menu actions for the toolbox
     actions = []
 
     @staticmethod
     def registerProviderContextMenuActions(actions):
-        """ Adds context menu actions for a provider """
+        """Adds context menu actions for a provider"""
         ProviderContextMenuActions.actions.extend(actions)
 
     @staticmethod
     def deregisterProviderContextMenuActions(actions):
-        """ Removes context menu actions for a provider """
+        """Removes context menu actions for a provider"""
         for act in actions:
             ProviderContextMenuActions.actions.remove(act)

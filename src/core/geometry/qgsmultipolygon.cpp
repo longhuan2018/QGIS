@@ -14,9 +14,7 @@ email                : marco.hugentobler at sourcepole dot com
  ***************************************************************************/
 
 #include "qgsmultipolygon.h"
-#include "qgsapplication.h"
 #include "qgsgeometryutils.h"
-#include "qgssurface.h"
 #include "qgslinestring.h"
 #include "qgspolygon.h"
 #include "qgscurvepolygon.h"
@@ -27,7 +25,35 @@ email                : marco.hugentobler at sourcepole dot com
 
 QgsMultiPolygon::QgsMultiPolygon()
 {
-  mWkbType = QgsWkbTypes::MultiPolygon;
+  mWkbType = Qgis::WkbType::MultiPolygon;
+}
+
+QgsMultiPolygon::QgsMultiPolygon( const QList<QgsPolygon> &polygons )
+{
+  if ( polygons.empty() )
+    return;
+
+  mGeometries.reserve( polygons.size() );
+  for ( const QgsPolygon &poly : polygons )
+  {
+    mGeometries.append( poly.clone() );
+  }
+
+  setZMTypeFromSubGeometry( &polygons.at( 0 ), Qgis::WkbType::MultiPolygon );
+}
+
+QgsMultiPolygon::QgsMultiPolygon( const QList<QgsPolygon *> &polygons )
+{
+  if ( polygons.empty() )
+    return;
+
+  mGeometries.reserve( polygons.size() );
+  for ( QgsPolygon *poly : polygons )
+  {
+    mGeometries.append( poly );
+  }
+
+  setZMTypeFromSubGeometry( polygons.at( 0 ), Qgis::WkbType::MultiPolygon );
 }
 
 QgsPolygon *QgsMultiPolygon::polygonN( int index )
@@ -48,7 +74,7 @@ QString QgsMultiPolygon::geometryType() const
 void QgsMultiPolygon::clear()
 {
   QgsMultiSurface::clear();
-  mWkbType = QgsWkbTypes::MultiPolygon;
+  mWkbType = Qgis::WkbType::MultiPolygon;
 }
 
 QgsMultiPolygon *QgsMultiPolygon::createEmptyWithSameType() const
@@ -152,7 +178,7 @@ bool QgsMultiPolygon::addGeometry( QgsAbstractGeometry *g )
 
   if ( mGeometries.empty() )
   {
-    setZMTypeFromSubGeometry( g, QgsWkbTypes::MultiPolygon );
+    setZMTypeFromSubGeometry( g, Qgis::WkbType::MultiPolygon );
   }
   if ( is3D() && !g->is3D() )
     g->addZValue();
@@ -163,7 +189,40 @@ bool QgsMultiPolygon::addGeometry( QgsAbstractGeometry *g )
   else if ( !isMeasure() && g->isMeasure() )
     g->dropMValue();
 
-  return QgsGeometryCollection::addGeometry( g ); // clazy:exclude=skipped-base-method
+  return QgsGeometryCollection::addGeometry( g ); // NOLINT(bugprone-parent-virtual-call) clazy:exclude=skipped-base-method
+}
+
+bool QgsMultiPolygon::addGeometries( const QVector<QgsAbstractGeometry *> &geometries )
+{
+  for ( QgsAbstractGeometry *g : geometries )
+  {
+    if ( !qgsgeometry_cast<QgsPolygon *>( g ) )
+    {
+      qDeleteAll( geometries );
+      return false;
+    }
+  }
+
+  if ( mGeometries.empty() && !geometries.empty() )
+  {
+    setZMTypeFromSubGeometry( geometries.at( 0 ), Qgis::WkbType::MultiPolygon );
+  }
+  mGeometries.reserve( mGeometries.size() + geometries.size() );
+  for ( QgsAbstractGeometry *g : geometries )
+  {
+    if ( is3D() && !g->is3D() )
+      g->addZValue();
+    else if ( !is3D() && g->is3D() )
+      g->dropZValue();
+    if ( isMeasure() && !g->isMeasure() )
+      g->addMValue();
+    else if ( !isMeasure() && g->isMeasure() )
+      g->dropMValue();
+    mGeometries.append( g );
+  }
+
+  clearCache();
+  return true;
 }
 
 bool QgsMultiPolygon::insertGeometry( QgsAbstractGeometry *g, int index )
@@ -175,6 +234,17 @@ bool QgsMultiPolygon::insertGeometry( QgsAbstractGeometry *g, int index )
   }
 
   return QgsMultiSurface::insertGeometry( g, index );
+}
+
+QgsMultiPolygon *QgsMultiPolygon::simplifyByDistance( double tolerance ) const
+{
+  auto res = std::make_unique< QgsMultiPolygon >();
+  res->reserve( mGeometries.size() );
+  for ( int i = 0; i < mGeometries.size(); ++i )
+  {
+    res->addGeometry( mGeometries.at( i )->simplifyByDistance( tolerance ) );
+  }
+  return res.release();
 }
 
 QgsMultiSurface *QgsMultiPolygon::toCurveType() const
@@ -190,7 +260,7 @@ QgsMultiSurface *QgsMultiPolygon::toCurveType() const
 
 QgsAbstractGeometry *QgsMultiPolygon::boundary() const
 {
-  std::unique_ptr< QgsMultiLineString > multiLine( new QgsMultiLineString() );
+  auto multiLine = std::make_unique<QgsMultiLineString>();
   multiLine->reserve( mGeometries.size() );
   for ( int i = 0; i < mGeometries.size(); ++i )
   {

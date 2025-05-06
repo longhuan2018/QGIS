@@ -178,12 +178,15 @@ if [ ${RUN_SQLSERVER:-"NO"} == "YES" ]; then
   # Restore SQL Server test data
   ##############################
 
+  echo "Wait a moment before loading SQL Server database."
+  sleep 15
+
   echo "Importing SQL Server test data..."
 
   export SQLUSER=sa
   export SQLHOST=mssql
   export SQLPORT=1433
-  export SQLPASSWORD='<YourStrong!Passw0rd>'
+  export SQLPASSWORD=QGIStestSQLServer1234
   export SQLDATABASE=qgis_test
 
   export PATH=$PATH:/opt/mssql-tools/bin
@@ -196,12 +199,14 @@ if [ ${RUN_SQLSERVER:-"NO"} == "YES" ]; then
 
   cat <<EOT > /etc/odbc.ini
 [ODBC Data Sources]
-testsqlserver = ODBC Driver 17 for SQL Server
+testsqlserver = ODBC Driver 18 for SQL Server
 
 [testsqlserver]
-Driver       = ODBC Driver 17 for SQL Server
+Driver       = ODBC Driver 18 for SQL Server
 Description  = Test SQL Server
 Server       = mssql
+Encrypt      = no
+AllowSelfSignedServerCert=1
 EOT
 
   echo "::endgroup::"
@@ -265,10 +270,10 @@ fi
 ###########
 # Run tests
 ###########
-EXCLUDE_TESTS=$(cat ${SRCDIR}/.ci/test_blocklist_qt${QT_VERSION}.txt | sed -r '/^(#.*?)?$/d' | paste -sd '|' -)
+EXCLUDE_TESTS="^$(cat ${SRCDIR}/.ci/test_blocklist_qt${QT_VERSION}.txt | sed -r '/^(#.*?)?$/d' | paste -sd '~' | sed -r 's/~/\$|^/g' -)\$"
 if ! [[ ${RUN_FLAKY_TESTS} == true ]]; then
   echo "Flaky tests are skipped!"
-  EXCLUDE_TESTS=${EXCLUDE_TESTS}"|"$(cat ${SRCDIR}/.ci/test_flaky.txt | sed -r '/^(#.*?)?$/d' | paste -sd '|' -)
+  EXCLUDE_TESTS=${EXCLUDE_TESTS}"|^"$(cat ${SRCDIR}/.ci/test_flaky.txt | sed -r '/^(#.*?)?$/d' | paste -sd '~' | sed -r 's/~/\$|^/g' -)"$"
 else
   echo "Flaky tests are run!"
 fi
@@ -277,6 +282,8 @@ echo "List of skipped tests: $EXCLUDE_TESTS"
 echo "::group::Print disk space before running tests"
 df -h
 echo "::endgroup::"
+
+export QTWEBENGINE_DISABLE_SANDBOX=1
 
 python3 ${SRCDIR}/.ci/ctest2ci.py xvfb-run ctest -V $CTEST_OPTIONS -E "${EXCLUDE_TESTS}" -S ${SRCDIR}/.ci/config_test.ctest --output-on-failure
 

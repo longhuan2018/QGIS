@@ -16,10 +16,10 @@
  ***************************************************************************/
 
 #include "qgsmessagelogviewer.h"
+#include "moc_qgsmessagelogviewer.cpp"
 #include "qgsmessagelog.h"
 #include "qgssettings.h"
 #include "qgsapplication.h"
-#include "qgsdockwidget.h"
 
 #include <QFile>
 #include <QDateTime>
@@ -37,8 +37,7 @@ QgsMessageLogViewer::QgsMessageLogViewer( QWidget *parent, Qt::WindowFlags fl )
 {
   setupUi( this );
 
-  connect( QgsApplication::messageLog(), static_cast<void ( QgsMessageLog::* )( const QString &, const QString &, Qgis::MessageLevel )>( &QgsMessageLog::messageReceived ),
-           this, static_cast<void ( QgsMessageLogViewer::* )( const QString &, const QString &, Qgis::MessageLevel )>( &QgsMessageLogViewer::logMessage ) );
+  connect( QgsApplication::messageLog(), static_cast<void ( QgsMessageLog::* )( const QString &, const QString &, Qgis::MessageLevel )>( &QgsMessageLog::messageReceived ), this, static_cast<void ( QgsMessageLogViewer::* )( const QString &, const QString &, Qgis::MessageLevel )>( &QgsMessageLogViewer::logMessage ) );
 
   connect( tabWidget, &QTabWidget::tabCloseRequested, this, &QgsMessageLogViewer::closeTab );
 
@@ -59,17 +58,14 @@ void QgsMessageLogViewer::showContextMenuForTabBar( QPoint point )
   const int tabIndex = tabWidget->tabBar()->tabAt( point );
 
   QAction *actionCloseTab = new QAction( tr( "Close Tab" ), mTabBarContextMenu );
-  connect( actionCloseTab, &QAction::triggered, this, [this, tabIndex]
-  {
+  connect( actionCloseTab, &QAction::triggered, this, [this, tabIndex] {
     closeTab( tabIndex );
-  }
-         );
+  } );
   mTabBarContextMenu->addAction( actionCloseTab );
 
   QAction *actionCloseOtherTabs = new QAction( tr( "Close Other Tabs" ), mTabBarContextMenu );
   actionCloseOtherTabs->setEnabled( tabWidget->tabBar()->count() > 1 );
-  connect( actionCloseOtherTabs, &QAction::triggered, this, [this, tabIndex]
-  {
+  connect( actionCloseOtherTabs, &QAction::triggered, this, [this, tabIndex] {
     int i;
     for ( i = tabWidget->tabBar()->count() - 1; i >= 0; i-- )
     {
@@ -78,21 +74,18 @@ void QgsMessageLogViewer::showContextMenuForTabBar( QPoint point )
         closeTab( i );
       }
     }
-  }
-         );
+  } );
   mTabBarContextMenu->addAction( actionCloseOtherTabs );
 
   QAction *actionCloseAllTabs = new QAction( tr( "Close All Tabs" ), mTabBarContextMenu );
   actionCloseAllTabs->setEnabled( tabWidget->tabBar()->count() > 0 );
-  connect( actionCloseAllTabs, &QAction::triggered, this, [this]
-  {
+  connect( actionCloseAllTabs, &QAction::triggered, this, [this] {
     int i;
     for ( i = tabWidget->tabBar()->count() - 1; i >= 0; i-- )
     {
       closeTab( i );
     }
-  }
-         );
+  } );
   mTabBarContextMenu->addAction( actionCloseAllTabs );
 
   mTabBarContextMenu->exec( tabWidget->tabBar()->mapToGlobal( point ) );
@@ -120,7 +113,8 @@ void QgsMessageLogViewer::logMessage( const QString &message, const QString &tag
     cleanedTag = tr( "General" );
 
   int i;
-  for ( i = 0; i < tabWidget->count() && tabWidget->tabText( i ).remove( QChar( '&' ) ) != cleanedTag; i++ );
+  for ( i = 0; i < tabWidget->count() && tabWidget->tabText( i ).remove( QChar( '&' ) ) != cleanedTag; i++ )
+    ;
 
   QPlainTextEdit *w = nullptr;
   if ( i < tabWidget->count() )
@@ -168,8 +162,8 @@ void QgsMessageLogViewer::logMessage( const QString &message, const QString &tag
   const QColor color = QColor( !colorName.isEmpty() ? colorName : defaultColorName );
 
   const QString prefix = QStringLiteral( "<font color=\"%1\">%2 &nbsp;&nbsp;&nbsp; %3 &nbsp;&nbsp;&nbsp;</font>" )
-                         .arg( color.name(), QDateTime::currentDateTime().toString( Qt::ISODate ), levelString );
-  QString cleanedMessage = message;
+                           .arg( color.name(), QDateTime::currentDateTime().toString( Qt::ISODate ), levelString );
+  QString cleanedMessage = message.toHtmlEscaped();
   if ( mMessageLoggedCount == MESSAGE_COUNT_LIMIT )
     cleanedMessage = tr( "Message log truncated" );
 
@@ -198,9 +192,8 @@ bool QgsMessageLogViewer::eventFilter( QObject *object, QEvent *event )
     {
       if ( QPlainTextEdit *te = qobject_cast<QPlainTextEdit *>( object->parent() ) )
       {
-        QMouseEvent *me = static_cast< QMouseEvent *>( event );
-        mClickedAnchor = ( me->button() & Qt::LeftButton ) ? te->anchorAt( me->pos() ) :
-                         QString();
+        QMouseEvent *me = static_cast<QMouseEvent *>( event );
+        mClickedAnchor = ( me->button() & Qt::LeftButton ) ? te->anchorAt( me->pos() ) : QString();
         if ( !mClickedAnchor.isEmpty() )
           return true;
       }
@@ -211,9 +204,8 @@ bool QgsMessageLogViewer::eventFilter( QObject *object, QEvent *event )
     {
       if ( QPlainTextEdit *te = qobject_cast<QPlainTextEdit *>( object->parent() ) )
       {
-        QMouseEvent *me = static_cast< QMouseEvent *>( event );
-        const QString clickedAnchor = ( me->button() & Qt::LeftButton ) ? te->anchorAt( me->pos() ) :
-                                      QString();
+        QMouseEvent *me = static_cast<QMouseEvent *>( event );
+        const QString clickedAnchor = ( me->button() & Qt::LeftButton ) ? te->anchorAt( me->pos() ) : QString();
         if ( !clickedAnchor.isEmpty() && clickedAnchor == mClickedAnchor )
         {
           QDesktopServices::openUrl( mClickedAnchor );

@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsgpsdconnection.h"
+#include "moc_qgsgpsdconnection.cpp"
 #include "qgslogger.h"
 
 #include <QTcpSocket>
@@ -42,7 +43,7 @@ void QgsGpsdConnection::error( QAbstractSocket::SocketError socketError )
 {
 #ifdef QGISDEBUG
   QTcpSocket *socket = qobject_cast< QTcpSocket * >( mSource.get() );
-  QgsDebugMsg( QStringLiteral( "error: %1 %2" ).arg( socketError ).arg( socket->errorString() ) );
+  QgsDebugError( QStringLiteral( "error: %1 %2" ).arg( socketError ).arg( socket->errorString() ) );
 #else
   Q_UNUSED( socketError )
 #endif

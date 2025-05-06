@@ -29,21 +29,15 @@
 class ANALYSIS_EXPORT QgsGeometryContainedCheckError : public QgsGeometryCheckError
 {
   public:
-    QgsGeometryContainedCheckError( const QgsGeometryCheck *check,
-                                    const QgsGeometryCheckerUtils::LayerFeature &layerFeature,
-                                    const QgsPointXY &errorLocation,
-                                    const QgsGeometryCheckerUtils::LayerFeature &containingFeature
-                                  )
+    QgsGeometryContainedCheckError( const QgsGeometryCheck *check, const QgsGeometryCheckerUtils::LayerFeature &layerFeature, const QgsPointXY &errorLocation, const QgsGeometryCheckerUtils::LayerFeature &containingFeature )
       : QgsGeometryCheckError( check, layerFeature, errorLocation, QgsVertexId(), containingFeature.id(), ValueOther )
       , mContainingFeature( qMakePair( containingFeature.layer()->id(), containingFeature.feature().id() ) )
-    { }
+    {}
     const QPair<QString, QgsFeatureId> &containingFeature() const { return mContainingFeature; }
 
     bool isEqual( QgsGeometryCheckError *other ) const override
     {
-      return other->check() == check() &&
-             other->featureId() == featureId() &&
-             static_cast<QgsGeometryContainedCheckError *>( other )->containingFeature() == containingFeature();
+      return other->check() == check() && other->featureId() == featureId() && static_cast<QgsGeometryContainedCheckError *>( other )->containingFeature() == containingFeature();
     }
 
   private:
@@ -58,11 +52,15 @@ class ANALYSIS_EXPORT QgsGeometryContainedCheck : public QgsGeometryCheck
 {
     Q_DECLARE_TR_FUNCTIONS( QgsGeometryContainedCheck )
   public:
-    enum ResolutionMethod { Delete, NoChange };
+    enum ResolutionMethod
+    {
+      Delete,
+      NoChange
+    };
 
     explicit QgsGeometryContainedCheck( QgsGeometryCheckContext *context, const QVariantMap &configuration )
       : QgsGeometryCheck( context, configuration ) {}
-    QList<QgsWkbTypes::GeometryType> compatibleGeometryTypes() const override { return factoryCompatibleGeometryTypes(); }
+    QList<Qgis::GeometryType> compatibleGeometryTypes() const override { return factoryCompatibleGeometryTypes(); }
     void collectErrors( const QMap<QString, QgsFeaturePool *> &featurePools, QList<QgsGeometryCheckError *> &errors, QStringList &messages, QgsFeedback *feedback, const LayerFeatureIds &ids = LayerFeatureIds() ) const override;
     void fixError( const QMap<QString, QgsFeaturePool *> &featurePools, QgsGeometryCheckError *error, int method, const QMap<QString, int> &mergeAttributeIndices, Changes &changes ) const override;
     Q_DECL_DEPRECATED QStringList resolutionMethods() const override;
@@ -70,7 +68,7 @@ class ANALYSIS_EXPORT QgsGeometryContainedCheck : public QgsGeometryCheck
     QString description() const override { return factoryDescription(); }
     QgsGeometryCheck::CheckType checkType() const override { return factoryCheckType(); }
 
-    static QList<QgsWkbTypes::GeometryType> factoryCompatibleGeometryTypes() {return {QgsWkbTypes::PointGeometry, QgsWkbTypes::LineGeometry, QgsWkbTypes::PolygonGeometry}; }
+    static QList<Qgis::GeometryType> factoryCompatibleGeometryTypes() { return { Qgis::GeometryType::Point, Qgis::GeometryType::Line, Qgis::GeometryType::Polygon }; }
     static bool factoryIsCompatible( QgsVectorLayer *layer ) SIP_SKIP { return factoryCompatibleGeometryTypes().contains( layer->geometryType() ); }
     static QString factoryDescription() { return tr( "Within" ); }
     static QString factoryId() { return QStringLiteral( "QgsGeometryContainedCheck" ); }

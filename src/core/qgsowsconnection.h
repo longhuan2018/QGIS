@@ -24,23 +24,29 @@
 
 #include "qgis_core.h"
 #include "qgsdatasourceuri.h"
-#include "qgssettingsentryimpl.h"
-#include "qgssettingsentryenumflag.h"
+#include "qgssettingstree.h"
 
 #include <QStringList>
 #include <QPushButton>
 
 
+class QgsSettingsEntryBool;
+class QgsSettingsEntryDouble;
+class QgsSettingsEntryInteger;
+class QgsSettingsEntryString;
+class QgsSettingsEntryVariantMap;
+template<class T> class QgsSettingsEntryEnumFlag;
+
 
 /**
  * \ingroup core
- * \brief Connections settingss for XYZ
+ * \brief Connections settings for XYZ
  * \since QGIS 3.30
  */
 class CORE_EXPORT QgsXyzConnectionSettings SIP_SKIP
 {
   public:
-    static inline QgsSettingsTreeNamedListNode *sTreeXyzConnections = QgsSettings::sTreeConnections->createNamedListNode( QStringLiteral( "xyz" ), QgsSettingsTreeNode::Option::NamedListSelectedItemSetting );
+    static inline QgsSettingsTreeNamedListNode *sTreeXyzConnections = QgsSettingsTree::sTreeConnections->createNamedListNode( QStringLiteral( "xyz" ), Qgis::SettingsTreeNodeOption::NamedListSelectedItemSetting );
 
     static const QgsSettingsEntryString *settingsUrl;
     static const QgsSettingsEntryVariantMap *settingsHeaders;
@@ -58,13 +64,13 @@ class CORE_EXPORT QgsXyzConnectionSettings SIP_SKIP
 
 /**
  * \ingroup core
- * \brief Connections settingss for Arcgis
+ * \brief Connections settings for Arcgis
  * \since QGIS 3.30
  */
 class CORE_EXPORT QgsArcGisConnectionSettings SIP_SKIP
 {
   public:
-    static inline QgsSettingsTreeNamedListNode *sTreeConnectionArcgis = QgsSettings::sTreeConnections->createNamedListNode( QStringLiteral( "arcgisfeatureserver" ), QgsSettingsTreeNamedListNode::Option::NamedListSelectedItemSetting );
+    static inline QgsSettingsTreeNamedListNode *sTreeConnectionArcgis = QgsSettingsTree::sTreeConnections->createNamedListNode( QStringLiteral( "arcgisfeatureserver" ), Qgis::SettingsTreeNodeOption::NamedListSelectedItemSetting );
 
     static const QgsSettingsEntryString *settingsUrl;
     static const QgsSettingsEntryString *settingsAuthcfg;
@@ -73,12 +79,13 @@ class CORE_EXPORT QgsArcGisConnectionSettings SIP_SKIP
     static const QgsSettingsEntryVariantMap *settingsHeaders;
     static const QgsSettingsEntryString *settingsContentEndpoint;
     static const QgsSettingsEntryString *settingsCommunityEndpoint;
+    static const QgsSettingsEntryString *settingsUrlPrefix;
 };
 
 
 /**
  * \ingroup core
- * \brief Connections management
+ * \brief Connections management for OWS connections.
  */
 class CORE_EXPORT QgsOwsConnection : public QObject
 {
@@ -87,8 +94,8 @@ class CORE_EXPORT QgsOwsConnection : public QObject
   public:
 
 #ifndef SIP_RUN
-    static inline QgsSettingsTreeNamedListNode *sTtreeOwsServices = QgsSettings::sTreeConnections->createNamedListNode( QStringLiteral( "ows" ) );
-    static inline QgsSettingsTreeNamedListNode *sTreeOwsConnections = sTtreeOwsServices->createNamedListNode( QStringLiteral( "connections" ) );
+    static inline QgsSettingsTreeNamedListNode *sTtreeOwsServices = QgsSettingsTree::sTreeConnections->createNamedListNode( QStringLiteral( "ows" ) );
+    static inline QgsSettingsTreeNamedListNode *sTreeOwsConnections = sTtreeOwsServices->createNamedListNode( QStringLiteral( "connections" ), Qgis::SettingsTreeNodeOption::NamedListSelectedItemSetting );
 
     static const QgsSettingsEntryString *settingsUrl;
     static const QgsSettingsEntryVariantMap *settingsHeaders;
@@ -101,13 +108,16 @@ class CORE_EXPORT QgsOwsConnection : public QObject
     static const QgsSettingsEntryEnumFlag<Qgis::TilePixelRatio> *settingsTilePixelRatio;
     static const QgsSettingsEntryString *settingsMaxNumFeatures;
     static const QgsSettingsEntryString *settingsPagesize;
-    static const QgsSettingsEntryBool *settingsPagingEnabled;
+    static const QgsSettingsEntryString *settingsPagingEnabled;
+    static const QgsSettingsEntryString *settingsWfsFeatureMode;
     static const QgsSettingsEntryBool *settingsPreferCoordinatesForWfsT11;
     static const QgsSettingsEntryBool *settingsIgnoreAxisOrientation;
     static const QgsSettingsEntryBool *settingsInvertAxisOrientation;
     static const QgsSettingsEntryString *settingsUsername;
     static const QgsSettingsEntryString *settingsPassword;
     static const QgsSettingsEntryString *settingsAuthCfg;
+    static const QgsSettingsEntryInteger *settingsFeatureCount;
+    static const QgsSettingsEntryEnumFlag<Qgis::HttpMethod> *settingsPreferredHttpMethod;
 
 #endif
 
@@ -120,19 +130,16 @@ class CORE_EXPORT QgsOwsConnection : public QObject
 
     /**
      * Returns the connection name.
-     * \since QGIS 3.0
      */
     QString connectionName() const;
 
     /**
      * Returns connection info string.
-     * \since QGIS 3.0
      */
     QString connectionInfo() const;
 
     /**
      * Returns a string representing the service type, e.g. "WMS".
-     * \since QGIS 3.0
      */
     QString service() const;
 
@@ -144,8 +151,7 @@ class CORE_EXPORT QgsOwsConnection : public QObject
     /**
      * Adds uri parameters relating to the settings for a WMS or WCS connection to a QgsDataSourceUri \a uri.
      * Connection settings are taken from the specified QSettings \a settingsKey.
-     * \since QGIS 3.0
-     * \deprecated since QGIS 3.26 use addWmsWcsConnectionSettings with service and connection name parameters
+     * \deprecated QGIS 3.26. Use addWmsWcsConnectionSettings with service and connection name parameters.
      */
     Q_DECL_DEPRECATED static QgsDataSourceUri &addWmsWcsConnectionSettings( QgsDataSourceUri &uri, const QString &settingsKey ) SIP_DEPRECATED;
 
@@ -159,8 +165,7 @@ class CORE_EXPORT QgsOwsConnection : public QObject
     /**
      * Adds uri parameters relating to the settings for a WFS connection to a QgsDataSourceUri \a uri.
      * Connection settings are taken from the specified QSettings \a settingsKey.
-     * \since QGIS 3.0
-     * \deprecated since QGIS 3.26 use addWfsConnectionSettings with service and connection name parameters
+     * \deprecated QGIS 3.26. Use addWfsConnectionSettings with service and connection name parameters.
      */
     Q_DECL_DEPRECATED static QgsDataSourceUri &addWfsConnectionSettings( QgsDataSourceUri &uri, const QString &settingsKey ) SIP_DEPRECATED;
 

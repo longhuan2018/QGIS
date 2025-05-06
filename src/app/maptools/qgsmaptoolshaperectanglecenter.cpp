@@ -15,10 +15,8 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshaperectanglecenter.h"
+#include "moc_qgsmaptoolshaperectanglecenter.cpp"
 #include "qgsgeometryrubberband.h"
-#include "qgsgeometryutils.h"
-#include "qgsmapcanvas.h"
-#include "qgslinestring.h"
 #include "qgspoint.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
@@ -65,7 +63,7 @@ bool QgsMapToolShapeRectangleCenter::cadCanvasReleaseEvent( QgsMapMouseEvent *e,
 
     if ( !mTempRubberBand )
     {
-      QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+      Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
       mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
       mTempRubberBand->show();
     }
@@ -92,13 +90,11 @@ void QgsMapToolShapeRectangleCenter::cadCanvasMoveEvent( QgsMapMouseEvent *e, Qg
     {
       case 1:
       {
-
         const double dist = mPoints.at( 0 ).distance( point );
         const double angle = mPoints.at( 0 ).azimuth( point );
 
         mRectangle = QgsQuadrilateral::rectangleFromExtent( mPoints.at( 0 ).project( -dist, angle ), mPoints.at( 0 ).project( dist, angle ) );
         mTempRubberBand->setGeometry( mRectangle.toPolygon() );
-
       }
       break;
       default:

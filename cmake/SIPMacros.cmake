@@ -60,9 +60,20 @@ MACRO(GENERATE_SIP_PYTHON_MODULE_CODE MODULE_NAME MODULE_SIP SIP_FILES CPP_FILES
   FOREACH (_sip_file ${SIP_FILES})
     GET_FILENAME_COMPONENT(_sip_file_path ${_sip_file} PATH)
     GET_FILENAME_COMPONENT(_sip_file_name_we ${_sip_file} NAME_WE)
-    FILE(RELATIVE_PATH _sip_file_relpath ${CMAKE_CURRENT_SOURCE_DIR} "${_sip_file_path}/${_sip_file_name_we}")
+    FILE(RELATIVE_PATH _sip_file_relpath ${BINDING_FILES_ROOT_DIR} "${_sip_file_path}/${_sip_file_name_we}")
     SET(_out_sip_file "${CMAKE_CURRENT_BINARY_DIR}/${_sip_file_relpath}.sip")
     CONFIGURE_FILE(${_sip_file} ${_out_sip_file})
+
+    # Deprecated annotation supports message only since version 6.9.0
+    # if(${SIP_VERSION_STR} VERSION_LESS 6.9.0)
+
+    # For now disabling SIP deprecated because it crashes the application
+    file(READ ${_out_sip_file} _content)
+    string(REGEX REPLACE "([/,])Deprecated=\"[^\"]*\"([/,])" "\\1Deprecated\\2" _content "${_content}")
+    file(GENERATE OUTPUT ${_out_sip_file} CONTENT "${_content}")
+
+    # endif()
+
   ENDFOREACH (_sip_file)
 
   SET(_message "-DMESSAGE=Generating CPP code for module ${MODULE_NAME}")
@@ -89,6 +100,8 @@ MACRO(GENERATE_SIP_PYTHON_MODULE_CODE MODULE_NAME MODULE_SIP SIP_FILES CPP_FILES
 
   IF(MSVC)
     ADD_DEFINITIONS( /bigobj )
+  ELSEIF(MINGW)
+    ADD_DEFINITIONS( "-Wa,-mbig-obj" )
   ENDIF(MSVC)
 
   IF (SIP_BUILD_EXECUTABLE)
@@ -180,13 +193,8 @@ MACRO(BUILD_SIP_PYTHON_MODULE MODULE_NAME SIP_FILES EXTRA_OBJECTS)
   ENDIF (${SIP_VERSION_STR} VERSION_LESS 5.0.0)
 
   SET_TARGET_PROPERTIES(${_logical_name} PROPERTIES CXX_VISIBILITY_PRESET default)
-  IF (NOT APPLE)
-    TARGET_LINK_LIBRARIES(${_logical_name} ${Python_LIBRARIES})
-  ENDIF (NOT APPLE)
+  TARGET_LINK_LIBRARIES(${_logical_name} Python::Python)
   TARGET_LINK_LIBRARIES(${_logical_name} ${EXTRA_LINK_LIBRARIES})
-  IF (APPLE)
-    SET_TARGET_PROPERTIES(${_logical_name} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
-  ENDIF (APPLE)
   SET_TARGET_PROPERTIES(${_logical_name} PROPERTIES PREFIX "" OUTPUT_NAME ${_child_module_name})
 
   IF (WIN32)

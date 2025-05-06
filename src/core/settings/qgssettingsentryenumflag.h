@@ -20,6 +20,7 @@
 
 #include "qgis.h"
 #include "qgssettingsentry.h"
+#include "qgslogger.h"
 
 /**
  * \class QgsSettingsEntryEnumFlag
@@ -27,11 +28,11 @@
  *
  * \brief A template class for enum and flag settings entry.
  *
- * \note This template class has a dedicated handling in sipify.pl
+ * \note This template class has a dedicated handling in sipify.py
  * \since QGIS 3.20
  */
 template <typename T>
-class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
+class QgsSettingsEntryEnumFlag : public QgsSettingsEntryBaseTemplate<T>
 {
   public:
 
@@ -49,16 +50,16 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
      * \since QGIS 3.30
      */
     QgsSettingsEntryEnumFlag( const QString &name, QgsSettingsTreeNode *parent, T defaultValue, const QString &description = QString(), Qgis::SettingsOptions options = Qgis::SettingsOptions() )
-      : QgsSettingsEntryByValue<T>( name,
-                                    parent,
-                                    QMetaEnum::fromType<T>().isFlag() ? qgsFlagValueToKeys( defaultValue ) : qgsEnumValueToKey( defaultValue ),
-                                    description,
-                                    options )
+      : QgsSettingsEntryBaseTemplate<T>( name,
+                                         parent,
+                                         QMetaEnum::fromType<T>().isFlag() ? qgsFlagValueToKeys( defaultValue ) : qgsEnumValueToKey( defaultValue ),
+                                         description,
+                                         options )
     {
       mMetaEnum = QMetaEnum::fromType<T>();
       Q_ASSERT( mMetaEnum.isValid() );
       if ( !mMetaEnum.isValid() )
-        QgsDebugMsg( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
+        QgsDebugError( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
     }
 
     /**
@@ -74,19 +75,19 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
      * \note for Python bindings, a custom implementation is achieved in Python directly
      */
     QgsSettingsEntryEnumFlag( const QString &key, const QString &section, T defaultValue, const QString &description = QString(), Qgis::SettingsOptions options = Qgis::SettingsOptions() )
-      : QgsSettingsEntryByValue<T>( key,
-                                    section,
-                                    QVariant::fromValue( defaultValue ),
-                                    description,
-                                    options )
+      : QgsSettingsEntryBaseTemplate<T>( key,
+                                         section,
+                                         QMetaEnum::fromType<T>().isFlag() ? qgsFlagValueToKeys( defaultValue ) : qgsEnumValueToKey( defaultValue ),
+                                         description,
+                                         options )
     {
       mMetaEnum = QMetaEnum::fromType<T>();
       Q_ASSERT( mMetaEnum.isValid() );
       if ( !mMetaEnum.isValid() )
-        QgsDebugMsg( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
+        QgsDebugError( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
     }
 
-    QVariant convertToVariant( T value ) const override
+    QVariant convertToVariant( const T &value ) const override
     {
       if ( mMetaEnum.isFlag() )
         return qgsFlagValueToKeys( value );
@@ -102,7 +103,7 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
     {
       if ( !mMetaEnum.isValid() )
       {
-        QgsDebugMsg( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
+        QgsDebugError( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key() ) );
         return T();
       }
 
@@ -115,7 +116,7 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
 
       if ( !ok )
       {
-        QgsDebugMsg( QStringLiteral( "Invalid enum/flag key/s '%1' for settings key '%2'" ).arg( value.toString(), this->key() ) );
+        QgsDebugError( QStringLiteral( "Invalid enum/flag key/s '%1' for settings key '%2'" ).arg( value.toString(), this->key() ) );
         return T();
       }
 
@@ -128,11 +129,11 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
      * The \a value to set.
      * The \a dynamicKeyParts argument specifies the list of dynamic parts of the settings key.
      */
-    bool setValuePrivate( T value, const QStringList &dynamicKeyPartList ) const override
+    bool setValuePrivate( const T &value, const QStringList &dynamicKeyPartList ) const override
     {
       if ( !mMetaEnum.isValid() )
       {
-        QgsDebugMsg( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key( dynamicKeyPartList ) ) );
+        QgsDebugError( QStringLiteral( "Invalid metaenum. Enum/Flag probably misses Q_ENUM/Q_FLAG declaration. Settings key: '%1'" ).arg( this->key( dynamicKeyPartList ) ) );
         return false;
       }
 
@@ -152,7 +153,7 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
       }
 
       if ( ok )
-        return this->setVariantValuePrivate( variantValue, dynamicKeyPartList );
+        return this->setVariantValue( variantValue, dynamicKeyPartList );
       else
         return false;
     }
@@ -160,6 +161,11 @@ class QgsSettingsEntryEnumFlag : public QgsSettingsEntryByValue<T>
     virtual Qgis::SettingsType settingsType() const override
     {
       return Qgis::SettingsType::EnumFlag;
+    }
+
+    virtual QString typeId() const override
+    {
+      return QStringLiteral( "%1-%2" ).arg( this->QgsSettingsEntryBase::typeId(), QMetaEnum::fromType<T>().name() );
     }
 
   private:

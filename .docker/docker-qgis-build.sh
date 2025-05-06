@@ -5,6 +5,8 @@ set -e
 CTEST_SOURCE_DIR=${CTEST_SOURCE_DIR-/root/QGIS}
 CTEST_BUILD_DIR=${CTEST_BUILD_DIR-/root/QGIS/build}
 
+export LANG="C.UTF-8"
+
 ##############
 # Setup ccache
 ##############
@@ -15,6 +17,9 @@ ccache -M 2.0G
 # Temporarily uncomment to debug ccache issues
 # export CCACHE_LOGFILE=/tmp/cache.debug
 ccache -z
+
+# To make ccache work properly with precompiled headers
+ccache --set-config sloppiness=pch_defines,time_macros,include_file_mtime,include_file_ctime
 
 ##############################
 # Variables for output styling
@@ -33,15 +38,10 @@ pushd ${CTEST_BUILD_DIR} > /dev/null
 echo "${bold}Running cmake...${endbold}"
 echo "::group::cmake"
 
-if [[ -f "/usr/lib64/ccache/clang" ]]; then
-  export CC=/usr/lib64/ccache/clang
-  export CXX=/usr/lib64/ccache/clang++
-else
-  export CC=/usr/lib/ccache/clang
-  export CXX=/usr/lib/ccache/clang++
-fi
-
 BUILD_TYPE=Release
+
+export CC=/usr/bin/clang
+export CXX=/usr/bin/clang++
 
 if [[ "${WITH_CLAZY}" = "ON" ]]; then
   # In release mode, all variables in QgsDebugMsg would be considered unused
@@ -58,15 +58,6 @@ fi
 
 CMAKE_EXTRA_ARGS=()
 
-if [[ ${BUILD_WITH_QT6} = "ON" ]]; then
-  CMAKE_EXTRA_ARGS+=(
-   "-DQSCINTILLA_INCLUDE_DIR=/usr/include/qt6"
-   "-DQSCINTILLA_LIBRARY=/usr/lib64/libqscintilla2_qt6.so"
-   "-DQWT_INCLUDE_DIR=/usr/local/qwt-6.2.0/include/"
-   "-DQWT_LIBRARY=/usr/local/qwt-6.2.0/lib/libqwt.so.6"
-  )
-fi
-
 if [[ "${WITH_COMPILE_COMMANDS}" == "ON" ]]; then
   CMAKE_EXTRA_ARGS+=(
     "-DCMAKE_EXPORT_COMPILE_COMMANDS=ON"
@@ -79,10 +70,16 @@ if [[ ${WITH_GRASS7} == "ON" || ${WITH_GRASS8} == "ON" ]]; then
   )
 fi
 
+if [[ ${BUILD_WITH_QT6} = "ON" ]]; then
+  CMAKE_EXTRA_ARGS+=(
+    "-DUSE_ALTERNATE_LINKER=mold"
+  )
+fi
+
 cmake \
  -GNinja \
  -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
- -DUSE_CCACHE=OFF \
+ -DUSE_CCACHE=ON \
  -DBUILD_WITH_QT6=${BUILD_WITH_QT6} \
  -DWITH_DESKTOP=ON \
  -DWITH_ANALYSIS=ON \
@@ -92,14 +89,16 @@ cmake \
  -DWITH_STAGED_PLUGINS=ON \
  -DWITH_GRASS7=${WITH_GRASS7} \
  -DWITH_GRASS8=${WITH_GRASS8} \
- -DSUPPRESS_QT_WARNINGS=ON \
+ -DWITH_GRASS_PLUGIN=${WITH_GRASS8} \
  -DENABLE_TESTS=ON \
  -DENABLE_MODELTEST=${WITH_QT5} \
  -DENABLE_PGTEST=${WITH_QT5} \
  -DENABLE_SAGA_TESTS=${WITH_QT5} \
  -DENABLE_MSSQLTEST=${WITH_QT5} \
+ -DENABLE_MSSQLTEST_CPP=${WITH_QT5} \
  -DENABLE_HANATEST=${WITH_QT5} \
  -DENABLE_ORACLETEST=${WITH_QT5} \
+ -DENABLE_UNITY_BUILDS=${ENABLE_UNITY_BUILDS} \
  -DPUSH_TO_CDASH=${PUSH_TO_CDASH} \
  -DWITH_HANA=ON \
  -DWITH_QGIS_PROCESS=ON \
@@ -107,16 +106,17 @@ cmake \
  -DWITH_QWTPOLAR=OFF \
  -DWITH_APIDOC=OFF \
  -DWITH_ASTYLE=OFF \
- -DWITH_BINDINGS=${WITH_QT5} \
+ -DWITH_BINDINGS=ON \
  -DWITH_SERVER=ON \
  -DWITH_SERVER_LANDINGPAGE_WEBAPP=${WITH_QT5} \
- -DWITH_ORACLE=${WITH_QT5} \
+ -DWITH_ORACLE=ON \
  -DWITH_PDAL=ON \
  -DWITH_QTSERIALPORT=ON \
  -DWITH_QTWEBKIT=${WITH_QT5} \
- -DWITH_OAUTH2_PLUGIN=${WITH_QT5} \
- -DORACLE_INCLUDEDIR=/instantclient_19_9/sdk/include/ \
- -DORACLE_LIBDIR=/instantclient_19_9/ \
+ -DWITH_QTWEBENGINE=${WITH_QTWEBENGINE} \
+ -DWITH_PDF4QT=${WITH_PDF4QT} \
+ -DORACLE_INCLUDEDIR=/instantclient_21_16/sdk/include/ \
+ -DORACLE_LIBDIR=/instantclient_21_16/ \
  -DDISABLE_DEPRECATED=ON \
  -DPYTHON_TEST_WRAPPER="timeout -sSIGSEGV 55s" \
  -DCXX_EXTRA_FLAGS="${CLANG_WARNINGS}" \

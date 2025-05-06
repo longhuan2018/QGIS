@@ -17,18 +17,19 @@
 
 #include "qgis.h"
 #include "qgspdalprovider.h"
+#include "moc_qgspdalprovider.cpp"
 #include "qgsruntimeprofiler.h"
 #include "qgsapplication.h"
 #include "qgslogger.h"
-#include "qgsmessagelog.h"
 #include "qgsjsonutils.h"
-#include "json.hpp"
+#include <nlohmann/json.hpp>
 #include "qgspdalindexingtask.h"
 #include "qgseptpointcloudindex.h"
 #include "qgstaskmanager.h"
 #include "qgsprovidersublayerdetails.h"
 #include "qgsproviderutils.h"
 #include "qgsthreadingutils.h"
+#include "qgscopcpointcloudindex.h"
 
 #include <pdal/Options.hpp>
 #include <pdal/StageFactory.hpp>
@@ -46,17 +47,22 @@ QQueue<QgsPdalProvider *> QgsPdalProvider::sIndexingQueue;
 QgsPdalProvider::QgsPdalProvider(
   const QString &uri,
   const QgsDataProvider::ProviderOptions &options,
-  QgsDataProvider::ReadFlags flags, bool generateCopc )
+  Qgis::DataProviderReadFlags flags
+)
   : QgsPointCloudDataProvider( uri, options, flags )
   , mIndex( nullptr )
-  , mGenerateCopc( generateCopc )
 {
-  std::unique_ptr< QgsScopedRuntimeProfile > profile;
+  std::unique_ptr<QgsScopedRuntimeProfile> profile;
   if ( QgsApplication::profiler()->groupIsActive( QStringLiteral( "projectload" ) ) )
-    profile = std::make_unique< QgsScopedRuntimeProfile >( tr( "Open data source" ), QStringLiteral( "projectload" ) );
+    profile = std::make_unique<QgsScopedRuntimeProfile>( tr( "Open data source" ), QStringLiteral( "projectload" ) );
 
   mIsValid = load( uri );
-  loadIndex( );
+  loadIndex();
+}
+
+Qgis::DataProviderFlags QgsPdalProvider::flags() const
+{
+  return Qgis::DataProviderFlag::FastExtent2D;
 }
 
 QgsPdalProvider::~QgsPdalProvider() = default;
@@ -79,7 +85,17 @@ QgsPointCloudAttributeCollection QgsPdalProvider::attributes() const
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  return mIndex ? mIndex->attributes() : QgsPointCloudAttributeCollection();
+  if ( mIndex )
+  {
+    return mIndex.attributes();
+  }
+
+  if ( mDummyAttributes.count() > 0 )
+  {
+    return mDummyAttributes;
+  }
+
+  return QgsPointCloudAttributeCollection();
 }
 
 static QString _outEptDir( const QString &filename )
@@ -102,7 +118,7 @@ void QgsPdalProvider::generateIndex()
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  if ( mRunningIndexingTask || ( mIndex && mIndex->isValid() ) )
+  if ( mRunningIndexingTask || ( mIndex && mIndex.isValid() ) )
     return;
 
   if ( anyIndexingTaskExists() )
@@ -111,20 +127,15 @@ void QgsPdalProvider::generateIndex()
     return;
   }
 
-  QString outputPath;
+  const QString outputPath = _outCopcFile( dataSourceUri() );
 
-  if ( mGenerateCopc )
-    outputPath = _outCopcFile( dataSourceUri() );
-  else
-    outputPath = _outEptDir( dataSourceUri() );
-
-  QgsPdalIndexingTask *generationTask = new QgsPdalIndexingTask( dataSourceUri(), outputPath, mGenerateCopc ? QgsPdalIndexingTask::OutputFormat::Copc : QgsPdalIndexingTask::OutputFormat::Ept, QFileInfo( dataSourceUri() ).fileName() );
+  QgsPdalIndexingTask *generationTask = new QgsPdalIndexingTask( dataSourceUri(), outputPath, QFileInfo( dataSourceUri() ).fileName() );
 
   connect( generationTask, &QgsPdalIndexingTask::taskTerminated, this, &QgsPdalProvider::onGenerateIndexFailed );
   connect( generationTask, &QgsPdalIndexingTask::taskCompleted, this, &QgsPdalProvider::onGenerateIndexFinished );
 
   mRunningIndexingTask = generationTask;
-  QgsDebugMsgLevel( "Ept Generation Task Created", 2 );
+  QgsDebugMsgLevel( "COPC Generation Task Created", 2 );
   emit indexGenerationStateChanged( PointCloudIndexGenerationState::Indexing );
   QgsApplication::taskManager()->addTask( generationTask );
 }
@@ -133,7 +144,7 @@ QgsPointCloudDataProvider::PointCloudIndexGenerationState QgsPdalProvider::index
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  if ( mIndex && mIndex->isValid() )
+  if ( mIndex && mIndex.isValid() )
     return PointCloudIndexGenerationState::Indexed;
   else if ( mRunningIndexingTask )
     return PointCloudIndexGenerationState::Indexing;
@@ -141,36 +152,36 @@ QgsPointCloudDataProvider::PointCloudIndexGenerationState QgsPdalProvider::index
     return PointCloudIndexGenerationState::NotIndexed;
 }
 
-void QgsPdalProvider::loadIndex( )
+void QgsPdalProvider::loadIndex()
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  if ( mIndex && mIndex->isValid() )
+  if ( mIndex && mIndex.isValid() )
     return;
   // Try to load copc index
-  if ( !mIndex || !mIndex->isValid() )
+  if ( !mIndex || !mIndex.isValid() )
   {
     const QString outputFile = _outCopcFile( dataSourceUri() );
     const QFileInfo fi( outputFile );
     if ( fi.isFile() )
     {
-      mIndex.reset( new QgsCopcPointCloudIndex );
-      mIndex->load( outputFile );
+      mIndex = QgsPointCloudIndex( new QgsCopcPointCloudIndex );
+      mIndex.load( outputFile );
     }
   }
   // Try to load ept index
-  if ( !mIndex || !mIndex->isValid() )
+  if ( !mIndex || !mIndex.isValid() )
   {
     const QString outputDir = _outEptDir( dataSourceUri() );
     const QString outEptJson = QStringLiteral( "%1/ept.json" ).arg( outputDir );
     const QFileInfo fi( outEptJson );
     if ( fi.isFile() )
     {
-      mIndex.reset( new QgsEptPointCloudIndex );
-      mIndex->load( outEptJson );
+      mIndex = QgsPointCloudIndex( new QgsEptPointCloudIndex );
+      mIndex.load( outEptJson );
     }
   }
-  if ( !mIndex || !mIndex->isValid() )
+  if ( !mIndex || !mIndex.isValid() )
   {
     QgsDebugMsgLevel( QStringLiteral( "pdalprovider: neither copc or ept index for dataset %1 is not correctly loaded" ).arg( dataSourceUri() ), 2 );
   }
@@ -215,11 +226,11 @@ bool QgsPdalProvider::anyIndexingTaskExists()
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  const QList< QgsTask * > tasks = QgsApplication::taskManager()->activeTasks();
+  const QList<QgsTask *> tasks = QgsApplication::taskManager()->activeTasks();
   for ( const QgsTask *task : tasks )
   {
-    const QgsPdalIndexingTask *eptTask = qobject_cast<const QgsPdalIndexingTask *>( task );
-    if ( eptTask )
+    const QgsPdalIndexingTask *indexingTask = qobject_cast<const QgsPdalIndexingTask *>( task );
+    if ( indexingTask )
     {
       return true;
     }
@@ -262,11 +273,11 @@ QString QgsPdalProvider::description() const
   return QStringLiteral( "Point Clouds PDAL" );
 }
 
-QgsPointCloudIndex *QgsPdalProvider::index() const
+QgsPointCloudIndex QgsPdalProvider::index() const
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  return mIndex.get();
+  return mIndex;
 }
 
 bool QgsPdalProvider::load( const QString &uri )
@@ -282,9 +293,11 @@ bool QgsPdalProvider::load( const QString &uri )
 
     if ( pdal::Reader *reader = dynamic_cast<pdal::Reader *>( stageFactory.createStage( driver ) ) )
     {
-      pdal::Options options;
-      options.add( pdal::Option( "filename", uri.toStdString() ) );
-      reader->setOptions( options );
+      {
+        pdal::Options options;
+        options.add( pdal::Option( "filename", uri.toStdString() ) );
+        reader->setOptions( std::move( options ) );
+      }
       pdal::PointTable table;
       reader->prepare( table );
 
@@ -302,12 +315,17 @@ bool QgsPdalProvider::load( const QString &uri )
       mExtent = QgsRectangle( xmin, ymin, xmax, ymax );
 
       mPointCount = quickInfo.m_pointCount;
-      if ( mPointCount == 0 )
-        throw pdal::pdal_error( "File contains no points" );
 
       // projection
       const QString wkt = QString::fromStdString( quickInfo.m_srs.getWKT() );
       mCrs = QgsCoordinateReferenceSystem::fromWkt( wkt );
+
+      // attribute names
+      for ( auto &dim : quickInfo.m_dimNames )
+      {
+        mDummyAttributes.push_back( QgsPointCloudAttribute( QString::fromStdString( dim ), QgsPointCloudAttribute::DataType::Float ) );
+      }
+
       return quickInfo.valid();
     }
     else
@@ -318,14 +336,14 @@ bool QgsPdalProvider::load( const QString &uri )
   catch ( json::exception &error )
   {
     const QString errorString = QStringLiteral( "Error parsing table metadata: %1" ).arg( error.what() );
-    QgsDebugMsg( errorString );
+    QgsDebugError( errorString );
     appendError( errorString );
     return false;
   }
   catch ( pdal::pdal_error &error )
   {
     const QString errorString = QString::fromStdString( error.what() );
-    QgsDebugMsg( errorString );
+    QgsDebugError( errorString );
     appendError( errorString );
     return false;
   }
@@ -334,8 +352,8 @@ bool QgsPdalProvider::load( const QString &uri )
 QString QgsPdalProviderMetadata::sFilterString;
 QStringList QgsPdalProviderMetadata::sExtensions;
 
-QgsPdalProviderMetadata::QgsPdalProviderMetadata():
-  QgsProviderMetadata( PROVIDER_KEY, PROVIDER_DESCRIPTION )
+QgsPdalProviderMetadata::QgsPdalProviderMetadata()
+  : QgsProviderMetadata( PROVIDER_KEY, PROVIDER_DESCRIPTION )
 {
 }
 
@@ -344,7 +362,7 @@ QIcon QgsPdalProviderMetadata::icon() const
   return QgsApplication::getThemeIcon( QStringLiteral( "mIconPointCloudLayer.svg" ) );
 }
 
-QgsPdalProvider *QgsPdalProviderMetadata::createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, QgsDataProvider::ReadFlags flags )
+QgsPdalProvider *QgsPdalProviderMetadata::createProvider( const QString &uri, const QgsDataProvider::ProviderOptions &options, Qgis::DataProviderReadFlags flags )
 {
   return new QgsPdalProvider( uri, options, flags );
 }
@@ -379,15 +397,15 @@ int QgsPdalProviderMetadata::priorityForUri( const QString &uri ) const
   return 0;
 }
 
-QList<QgsMapLayerType> QgsPdalProviderMetadata::validLayerTypesForUri( const QString &uri ) const
+QList<Qgis::LayerType> QgsPdalProviderMetadata::validLayerTypesForUri( const QString &uri ) const
 {
   const QVariantMap parts = decodeUri( uri );
   QString filePath = parts.value( QStringLiteral( "path" ) ).toString();
   const QFileInfo fi( filePath );
   if ( sExtensions.contains( fi.suffix(), Qt::CaseInsensitive ) )
-    return QList<QgsMapLayerType>() << QgsMapLayerType::PointCloudLayer;
+    return QList<Qgis::LayerType>() << Qgis::LayerType::PointCloud;
 
-  return QList<QgsMapLayerType>();
+  return QList<Qgis::LayerType>();
 }
 
 QList<QgsProviderSublayerDetails> QgsPdalProviderMetadata::querySublayers( const QString &uri, Qgis::SublayerQueryFlags, QgsFeedback * ) const
@@ -401,9 +419,9 @@ QList<QgsProviderSublayerDetails> QgsPdalProviderMetadata::querySublayers( const
     QgsProviderSublayerDetails details;
     details.setUri( uri );
     details.setProviderKey( QStringLiteral( "pdal" ) );
-    details.setType( QgsMapLayerType::PointCloudLayer );
+    details.setType( Qgis::LayerType::PointCloud );
     details.setName( QgsProviderUtils::suggestLayerNameFromFilePath( uri ) );
-    return {details};
+    return { details };
   }
   else
   {
@@ -411,17 +429,19 @@ QList<QgsProviderSublayerDetails> QgsPdalProviderMetadata::querySublayers( const
   }
 }
 
-QString QgsPdalProviderMetadata::filters( QgsProviderMetadata::FilterType type )
+QString QgsPdalProviderMetadata::filters( Qgis::FileFilterType type )
 {
   switch ( type )
   {
-    case QgsProviderMetadata::FilterType::FilterVector:
-    case QgsProviderMetadata::FilterType::FilterRaster:
-    case QgsProviderMetadata::FilterType::FilterMesh:
-    case QgsProviderMetadata::FilterType::FilterMeshDataset:
+    case Qgis::FileFilterType::Vector:
+    case Qgis::FileFilterType::Raster:
+    case Qgis::FileFilterType::Mesh:
+    case Qgis::FileFilterType::MeshDataset:
+    case Qgis::FileFilterType::VectorTile:
+    case Qgis::FileFilterType::TiledScene:
       return QString();
 
-    case QgsProviderMetadata::FilterType::FilterPointCloud:
+    case Qgis::FileFilterType::PointCloud:
       buildSupportedPointCloudFileFilterAndExtensions();
 
       return sFilterString;
@@ -434,9 +454,9 @@ QgsProviderMetadata::ProviderCapabilities QgsPdalProviderMetadata::providerCapab
   return FileBasedUris;
 }
 
-QList<QgsMapLayerType> QgsPdalProviderMetadata::supportedLayerTypes() const
+QList<Qgis::LayerType> QgsPdalProviderMetadata::supportedLayerTypes() const
 {
-  return { QgsMapLayerType::PointCloudLayer };
+  return { Qgis::LayerType::PointCloud };
 }
 
 QString QgsPdalProviderMetadata::encodeUri( const QVariantMap &parts ) const
@@ -449,8 +469,7 @@ void QgsPdalProviderMetadata::buildSupportedPointCloudFileFilterAndExtensions()
 {
   // get supported extensions
   static std::once_flag initialized;
-  std::call_once( initialized, [ = ]
-  {
+  std::call_once( initialized, [=] {
     const pdal::StageFactory f;
     pdal::PluginManager<pdal::Stage>::loadAll();
     const pdal::StringList stages = pdal::PluginManager<pdal::Stage>::names();
@@ -462,20 +481,37 @@ void QgsPdalProviderMetadata::buildSupportedPointCloudFileFilterAndExtensions()
     const QStringList allowedReaders {
       QStringLiteral( "readers.las" ),
       QStringLiteral( "readers.e57" ),
-      QStringLiteral( "readers.bpf" ) };
+      QStringLiteral( "readers.bpf" )
+    };
+
+    // the readers.text exposes extensions (csv, txt) which are generally not
+    // point cloud files. Add these extensions to the filters but do not expose
+    // them to the list of supported extensions to prevent unexpected behaviors
+    // such as trying to load a  tabular csv file being from a drag and
+    // drop action. The windows which want to handle the "readers.text" reader
+    // need to explicitly call the provider.
+    // see for example qgspointcloudsourceselect.cpp.
+    const QStringList specificReaders { QStringLiteral( "readers.text" ) };
+
+    const QStringList readers = allowedReaders + specificReaders;
+    QStringList filterExtensions;
     for ( const auto &stage : stages )
     {
-      if ( ! allowedReaders.contains( QString::fromStdString( stage ) ) )
+      if ( !readers.contains( QString::fromStdString( stage ) ) )
         continue;
 
       const pdal::StringList readerExtensions = extensions.extensions( stage );
       for ( const auto &extension : readerExtensions )
       {
-        sExtensions.append( QString::fromStdString( extension ) );
+        if ( allowedReaders.contains( QString::fromStdString( stage ) ) )
+          sExtensions.append( QString::fromStdString( extension ) );
+
+        filterExtensions.append( QString::fromStdString( extension ) );
       }
     }
+    filterExtensions.sort();
     sExtensions.sort();
-    const QString extensionsString = QStringLiteral( "*." ).append( sExtensions.join( QLatin1String( " *." ) ) );
+    const QString extensionsString = QStringLiteral( "*." ).append( filterExtensions.join( QLatin1String( " *." ) ) );
     sFilterString = tr( "PDAL Point Clouds" ) + QString( " (%1 %2)" ).arg( extensionsString, extensionsString.toUpper() );
   } );
 }

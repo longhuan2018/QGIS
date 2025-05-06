@@ -31,7 +31,7 @@
 class QWidget;
 class QStandardItem;
 
-class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttributeTypeDialog, QgsExpressionContextGenerator
+class GUI_EXPORT QgsAttributeTypeDialog : public QWidget, private Ui::QgsAttributeTypeDialog, QgsExpressionContextGenerator
 {
     Q_OBJECT
 
@@ -49,7 +49,15 @@ class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttribut
 
     const QString editorWidgetText();
 
-    void setEditorWidgetType( const QString &type );
+    /**
+     * Sets the \a type in the widget combobox. Widget config is remembered,
+     * allowing users to switch between types without losing configs, unless
+     * \a forceWidgetRefresh is passed as true.
+     *
+     * \param type Editor widget type to be set
+     * \param forceWidgetRefresh Always sets the config, ensuring a widget refresh
+     */
+    void setEditorWidgetType( const QString &type, bool forceWidgetRefresh = false );
 
     const QVariantMap editorWidgetConfig();
 
@@ -177,26 +185,22 @@ class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttribut
     /**
      * Setter for constraint expression description
      * \param desc the expression description
-     * \since QGIS 2.16
      */
     void setConstraintExpressionDescription( const QString &desc );
 
     /**
      * Getter for constraint expression description
      * \returns the expression description
-     * \since QGIS 2.16
      */
     QString constraintExpressionDescription();
 
     /**
      * Getter for the constraint expression
-     * \since QGIS 2.16
      */
     QString constraintExpression() const;
 
     /**
      * Setter for the constraint expression
-     * \since QGIS 2.16
      */
     void setConstraintExpression( const QString &str );
 
@@ -231,6 +235,59 @@ class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttribut
     bool applyDefaultValueOnUpdate() const;
     void setApplyDefaultValueOnUpdate( bool applyDefaultValueOnUpdate );
 
+    /**
+     * Returns the field's split policy.
+     *
+     * \see setSplitPolicy()
+     *
+     * \since QGIS 3.32
+     */
+    Qgis::FieldDomainSplitPolicy splitPolicy() const;
+
+    /**
+     * Sets the field's split policy.
+     *
+     * \see splitPolicy()
+     *
+     * \since QGIS 3.32
+     */
+    void setSplitPolicy( Qgis::FieldDomainSplitPolicy policy );
+
+    /**
+     * Returns the field's duplicate policy.
+     *
+     * \see setDuplicatePolicy()
+     *
+     * \since QGIS 3.38
+     */
+    Qgis::FieldDuplicatePolicy duplicatePolicy() const;
+
+    /**
+     * Sets the field's duplicate policy.
+     *
+     * \see duplicatePolicy()
+     *
+     * \since QGIS 3.38
+     */
+    void setDuplicatePolicy( Qgis::FieldDuplicatePolicy policy );
+
+    /**
+     * Returns the field's merge policy.
+     *
+     * \see setMergePolicy()
+     *
+     * \since QGIS 3.44
+     */
+    Qgis::FieldDomainMergePolicy mergePolicy() const;
+
+    /**
+     * Sets the field's merge policy.
+     *
+     * \see mergePolicy()
+     *
+     * \since QGIS 3.44
+     */
+    void setMergePolicy( Qgis::FieldDomainMergePolicy policy );
 
   private slots:
 
@@ -242,6 +299,12 @@ class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttribut
 
     void defaultExpressionChanged();
 
+    void updateSplitPolicyLabel();
+
+    void updateDuplicatePolicyLabel();
+
+    void updateMergePolicyLabel();
+
   private:
     QgsVectorLayer *mLayer = nullptr;
     int mFieldIdx;
@@ -249,7 +312,7 @@ class GUI_EXPORT QgsAttributeTypeDialog: public QWidget, private Ui::QgsAttribut
     QVariantMap mWidgetConfig;
 
     //! Cached configuration dialog (lazy loaded)
-    QMap< QString, QgsEditorConfigWidget * > mEditorConfigWidgets;
+    QMap<QString, QgsEditorConfigWidget *> mEditorConfigWidgets;
 
     QStandardItem *currentItem() const;
 

@@ -28,7 +28,7 @@ class QgsSnappingConfig;
 
 /**
  * \ingroup core
- * \brief This class has all the configuration of snapping and can return answers to snapping queries.
+ * \brief Contains configuration of snapping and can return answers to snapping queries.
  *
  * Internally, it keeps a cache of QgsPointLocator instances for multiple layers.
  *
@@ -45,7 +45,6 @@ class QgsSnappingConfig;
  * When working with map canvas, it may be useful to use derived class QgsMapCanvasSnappingUtils
  * which keeps the configuration in sync with map canvas (e.g. current view, active layer).
  *
- * \since QGIS 2.8
  */
 class CORE_EXPORT QgsSnappingUtils : public QObject
 {
@@ -128,8 +127,8 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
        * \code{.py}
        * snapper = QgsMapCanvasSnappingUtils(mapCanvas)
        *
-       * snapping_layer1 = QgsSnappingUtils.LayerConfig(layer1, QgsPointLocator.Vertex, 10, QgsTolerance.Pixels)
-       * snapping_layer2 = QgsSnappingUtils.LayerConfig(layer2, QgsPointLocator.Vertex and QgsPointLocator.Edge, 10, QgsTolerance.Pixels)
+       * snapping_layer1 = QgsSnappingUtils.LayerConfig(layer1, QgsPointLocator.Vertex, 10, Qgis::MapToolUnit::Pixels)
+       * snapping_layer2 = QgsSnappingUtils.LayerConfig(layer2, QgsPointLocator.Vertex and QgsPointLocator.Edge, 10, Qgis::MapToolUnit::Pixels)
        *
        * snapper.setLayers([snapping_layer1, snapping_layer2])
        * \endcode
@@ -139,7 +138,7 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
        * \param tol The tolerance radius in which the snapping will trigger
        * \param u   The unit in which the tolerance is specified
        */
-      LayerConfig( QgsVectorLayer *l, QgsPointLocator::Types t, double tol, QgsTolerance::UnitType u )
+      LayerConfig( QgsVectorLayer *l, QgsPointLocator::Types t, double tol, Qgis::MapToolUnit u )
         : layer( l )
         , type( t )
         , tolerance( tol )
@@ -163,7 +162,7 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
       //! The range around snapping targets in which snapping should occur.
       double tolerance;
       //! The units in which the tolerance is specified.
-      QgsTolerance::UnitType unit;
+      Qgis::MapToolUnit unit;
     };
 
     //! Query layers used for snapping
@@ -171,7 +170,6 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
 
     /**
      * Gets extra information about the instance
-     * \since QGIS 2.14
      */
     QString dump();
 
@@ -241,7 +239,6 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
     /**
      * Toggles the state of snapping
      *
-     * \since QGIS 3.0
      */
     void toggleEnabled();
 
@@ -324,6 +321,8 @@ class CORE_EXPORT QgsSnappingUtils : public QObject
 
     //! Disable or not the snapping on all features. By default is always TRUE except for non visible features on map canvas.
     bool mEnableSnappingForInvisibleFeature = true;
+
+    friend class TestQgsSnappingUtils;
 };
 
 

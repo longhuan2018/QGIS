@@ -14,7 +14,6 @@
 #include <random>
 
 #include "../untwine/GridKey.hpp"
-#include "../untwine/Las.hpp"
 
 #include <pdal/PDALUtils.hpp>
 #include <pdal/StageFactory.hpp>
@@ -28,6 +27,8 @@
 
 #include "Processor.hpp"
 #include "PyramidManager.hpp"
+
+#include <stringconv.hpp>  // untwine/os
 
 namespace untwine
 {
@@ -51,14 +52,12 @@ void Processor::run()
     }
     catch (const std::exception& ex)
     {
-        std::cerr << "Exception: " << ex.what() << "\n";
         m_manager.queueWithError(m_vi.octant(), ex.what());
         return;
     }
     catch (...)
     {
         std::string msg = std::string("Unexpected error processing ") + m_vi.key().toString() + ".";
-        std::cerr << "Exception: " << msg << "\n";
         m_manager.queueWithError(m_vi.octant(), msg);
         return;
     }
@@ -246,7 +245,7 @@ void Processor::writeBinOutput(Index& index)
     // pass.
     std::string filename = m_vi.key().toString() + ".bin";
     std::string fullFilename = m_b.opts.tempDir + "/" + filename;
-    std::ofstream out(toNative(fullFilename), std::ios::binary | std::ios::trunc);
+    std::ofstream out(os::toNative(fullFilename), std::ios::binary | std::ios::trunc);
     if (!out)
         throw FatalError("Couldn't open '" + fullFilename + "' for output.");
     for (size_t i = 0; i < index.size(); ++i)
@@ -330,7 +329,6 @@ Processor::writeOctantCompressed(const OctantInfo& o, Index& index, IndexIter po
     // there's no reason why it should change. We should modify things to use a single
     // layout.
 
-    Dimension::IdList lasDims = pdrfDims(m_b.pointFormatId);
     DimInfoList dims = m_b.dimInfo;
     m_extraDims.clear();
     for (FileDimInfo& fdi : dims)
@@ -341,12 +339,12 @@ Processor::writeOctantCompressed(const OctantInfo& o, Index& index, IndexIter po
             // For single file output we need the counts by return number.
             if (fdi.dim == pdal::Dimension::Id::Classification)
                 stats.push_back({fdi.dim, Stats(fdi.name, Stats::EnumType::Enumerate, false)});
-            else if (fdi.dim == pdal::Dimension::Id::ReturnNumber && m_b.opts.singleFile)
+            else if (fdi.dim == pdal::Dimension::Id::ReturnNumber)
                 stats.push_back({fdi.dim, Stats(fdi.name, Stats::EnumType::Enumerate, false)});
             else
                 stats.push_back({fdi.dim, Stats(fdi.name, Stats::EnumType::NoEnum, false)});
         }
-        if (!Utils::contains(lasDims, fdi.dim))
+        if (fdi.extraDim)
             m_extraDims.push_back(DimType(fdi.dim, fdi.type));
     }
     table.finalize();
@@ -433,62 +431,9 @@ void Processor::flushCompressed(pdal::PointViewPtr view, const OctantInfo& oi, I
         }
     }
 
-    if (m_b.opts.singleFile)
-    {
-        createChunk(oi.key(), view);
-    }
-    else
-    {
-        std::string filename = m_b.opts.outputName + "/ept-data/" + oi.key().toString() + ".laz";
-        writeEptFile(filename, view);
-    }
+    createChunk(oi.key(), view);
 }
 
-void Processor::writeEptFile(const std::string& filename, pdal::PointViewPtr view)
-{
-    using namespace pdal;
-
-    StageFactory factory;
-
-    BufferReader r;
-    r.addView(view);
-
-    Stage *prev = &r;
-
-    if (view->layout()->hasDim(Dimension::Id::GpsTime))
-    {
-        Stage *f = factory.createStage("filters.sort");
-        pdal::Options fopts;
-        fopts.add("dimension", "gpstime");
-        f->setOptions(fopts);
-        f->setInput(*prev);
-        prev = f;
-    }
-
-    Stage *w = factory.createStage("writers.las");
-    pdal::Options wopts;
-    wopts.add("extra_dims", "all");
-    wopts.add("software_id", "Entwine 1.0");
-    wopts.add("compression", "laszip");
-    wopts.add("filename", filename);
-    wopts.add("offset_x", m_b.offset[0]);
-    wopts.add("offset_y", m_b.offset[1]);
-    wopts.add("offset_z", m_b.offset[2]);
-    wopts.add("scale_x", m_b.scale[0]);
-    wopts.add("scale_y", m_b.scale[1]);
-    wopts.add("scale_z", m_b.scale[2]);
-    wopts.add("minor_version", 4);
-    wopts.add("dataformat_id", m_b.pointFormatId);
-    if (m_b.opts.a_srs.size())
-        wopts.add("a_srs", m_b.opts.a_srs);
-    if (m_b.opts.metadata)
-        wopts.add("pdal_metadata", m_b.opts.metadata);
-    w->setOptions(wopts);
-    w->setInput(*prev);
-
-    w->prepare(view->table());
-    w->execute(view->table());
-}
 
 void Processor::sortChunk(pdal::PointViewPtr view)
 {
@@ -530,30 +475,29 @@ void Processor::createChunk(const VoxelKey& key, pdal::PointViewPtr view)
     for (PointId idx = 0; idx < view->size(); ++idx)
     {
         PointRef point(*view, idx);
-        fillPointBuf(point, buf);
+        fillPointBuf(point, buf, layout->findDim(UntwineBitsDimName));
         compressor.compress(buf.data());
     }
     std::vector<unsigned char> chunk = compressor.done();
 
     uint64_t location = m_manager.newChunk(key, chunk.size(), (uint32_t)view->size());
 
-    std::ofstream out(toNative(m_b.opts.outputName),
+    std::ofstream out(os::toNative(m_b.opts.outputName),
         std::ios::out | std::ios::in | std::ios::binary);
     out.seekp(std::ofstream::pos_type(location));
     out.write(reinterpret_cast<const char *>(chunk.data()), chunk.size());
     out.close();
     if (!out)
-        throw FatalError("Failure writing to '" + m_b.opts.outputName + "'.");
+        throw FatalError("Failure writing to file '" + m_b.opts.outputName + "'.");
 }
 
-void Processor::fillPointBuf(pdal::PointRef& point, std::vector<char>& buf)
+void Processor::fillPointBuf(pdal::PointRef& point, std::vector<char>& buf,
+    pdal::Dimension::Id bitsDim)
 {
     using namespace pdal;
 
     LeInserter ostream(buf.data(), buf.size());
 
-    // We only write PDRF 6, 7, or 8.
-    bool has14PointFormat = true;
     bool hasTime = true; //  m_lasHeader.hasTime();
     bool hasColor = m_b.pointFormatId == 7 || m_b.pointFormatId == 8;
     bool hasInfrared = m_b.pointFormatId == 8;
@@ -580,60 +524,26 @@ void Processor::fillPointBuf(pdal::PointRef& point, std::vector<char>& buf)
         return i;
     };
 
-    double x = (point.getFieldAs<double>(Id::X) - m_b.offset[0]) / m_b.scale[0];
-    double y = (point.getFieldAs<double>(Id::Y) - m_b.offset[1]) / m_b.scale[1];
-    double z = (point.getFieldAs<double>(Id::Z) - m_b.offset[2]) / m_b.scale[2];
+    double x = point.getFieldAs<double>(Id::X);
+    int32_t xi = converter((x - m_b.xform.offset.x) / m_b.xform.scale.x, Id::X);
+    double y = point.getFieldAs<double>(Id::Y);
+    int32_t yi = converter((y - m_b.xform.offset.y) / m_b.xform.scale.y, Id::Y);
+    double z = point.getFieldAs<double>(Id::Z);
+    int32_t zi = converter((z - m_b.xform.offset.z) / m_b.xform.scale.z, Id::Z);
 
-    ostream << converter(x, Id::X);
-    ostream << converter(y, Id::Y);
-    ostream << converter(z, Id::Z);
+    ostream << xi << yi << zi;
 
     ostream << point.getFieldAs<uint16_t>(Id::Intensity);
-
-    uint8_t scanChannel = point.getFieldAs<uint8_t>(Id::ScanChannel);
-    uint8_t scanDirectionFlag = point.getFieldAs<uint8_t>(Id::ScanDirectionFlag);
-    uint8_t edgeOfFlightLine = point.getFieldAs<uint8_t>(Id::EdgeOfFlightLine);
-    uint8_t classification = point.getFieldAs<uint8_t>(Id::Classification);
-
-    if (has14PointFormat)
-    {
-        uint8_t bits = returnNumber | (numberOfReturns << 4);
-        ostream << bits;
-
-        uint8_t classFlags;
-        if (point.hasDim(Id::ClassFlags))
-            classFlags = point.getFieldAs<uint8_t>(Id::ClassFlags);
-        else
-            classFlags = classification >> 5;
-        bits = (classFlags & 0x0F) |
-            ((scanChannel & 0x03) << 4) |
-            ((scanDirectionFlag & 0x01) << 6) |
-            ((edgeOfFlightLine & 0x01) << 7);
-        ostream << bits;
-    }
-    else
-    {
-        uint8_t bits = returnNumber | (numberOfReturns << 3) |
-            (scanDirectionFlag << 6) | (edgeOfFlightLine << 7);
-        ostream << bits;
-    }
-
-    ostream << classification;
+    ostream << (uint8_t)(returnNumber | (numberOfReturns << 4));
+    ostream << point.getFieldAs<uint8_t>(bitsDim);
+    ostream << point.getFieldAs<uint8_t>(Id::Classification);
 
     uint8_t userData = point.getFieldAs<uint8_t>(Id::UserData);
-    if (has14PointFormat)
-    {
-         // Guaranteed to fit if scan angle rank isn't wonky.
-        int16_t scanAngleRank =
-            static_cast<int16_t>(std::round(
-                point.getFieldAs<float>(Id::ScanAngleRank) / .006f));
-        ostream << userData << scanAngleRank;
-    }
-    else
-    {
-        int8_t scanAngleRank = point.getFieldAs<int8_t>(Id::ScanAngleRank);
-        ostream << scanAngleRank << userData;
-    }
+     // Guaranteed to fit if scan angle rank isn't wonky.
+    int16_t scanAngleRank =
+        static_cast<int16_t>(std::round(
+            point.getFieldAs<float>(Id::ScanAngleRank) / .006f));
+    ostream << userData << scanAngleRank;
 
     ostream << point.getFieldAs<uint16_t>(Id::PointSourceId);
 

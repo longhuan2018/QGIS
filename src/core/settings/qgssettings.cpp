@@ -21,9 +21,13 @@
 #include <QDir>
 
 #include "qgssettings.h"
+#include "moc_qgssettings.cpp"
 #include "qgsvariantutils.h"
+#include "qgssettingsproxy.h"
 
 Q_GLOBAL_STATIC( QString, sGlobalSettingsPath )
+
+thread_local QgsSettings *sQgsSettingsThreadSettings = nullptr;
 
 bool QgsSettings::setGlobalSettingsPath( const QString &path )
 {
@@ -39,7 +43,7 @@ void QgsSettings::init()
 {
   if ( ! sGlobalSettingsPath()->isEmpty() )
   {
-    mGlobalSettings = new QSettings( *sGlobalSettingsPath(), QSettings::IniFormat );
+    mGlobalSettings = std::make_unique<QSettings>( *sGlobalSettingsPath(), QSettings::IniFormat );
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     mGlobalSettings->setIniCodec( "UTF-8" );
 #endif
@@ -47,64 +51,40 @@ void QgsSettings::init()
 }
 
 
-QgsSettingsTreeNode *QgsSettings::treeRoot()
-{
-  // this must be defined in cpp code so we are sure only one instance is around
-  static QgsSettingsTreeNode *sTreeRoot = QgsSettingsTreeNode::createRootNode();
-  return sTreeRoot;
-}
-
-QgsSettingsTreeNode *QgsSettings::createPluginTreeNode( const QString &pluginName )
-{
-  QgsSettingsTreeNode *te = sTreePlugins->childNode( pluginName );
-  if ( te )
-    return te;
-  else
-    return sTreePlugins->createChildNode( pluginName );
-}
-
-void QgsSettings::unregisterPluginTreeNode( const QString &pluginName )
-{
-  QgsSettingsTreeNode *pluginTreeNode = sTreePlugins->childNode( pluginName );
-  delete pluginTreeNode;
-}
-
 QgsSettings::QgsSettings( const QString &organization, const QString &application, QObject *parent )
 {
-  mUserSettings = new QSettings( organization, application, parent );
+  mUserSettings = std::make_unique<QSettings>( organization, application, parent );
   init();
 }
 
 QgsSettings::QgsSettings( QSettings::Scope scope, const QString &organization,
                           const QString &application, QObject *parent )
 {
-  mUserSettings = new QSettings( scope, organization, application, parent );
+  mUserSettings = std::make_unique<QSettings>( scope, organization, application, parent );
   init();
 }
 
 QgsSettings::QgsSettings( QSettings::Format format, QSettings::Scope scope,
                           const QString &organization, const QString &application, QObject *parent )
 {
-  mUserSettings = new QSettings( format, scope, organization, application, parent );
+  mUserSettings = std::make_unique<QSettings>( format, scope, organization, application, parent );
   init();
 }
 
 QgsSettings::QgsSettings( const QString &fileName, QSettings::Format format, QObject *parent )
 {
-  mUserSettings = new QSettings( fileName, format, parent );
+  mUserSettings = std::make_unique<QSettings>( fileName, format, parent );
   init();
 }
 
 QgsSettings::QgsSettings( QObject *parent )
 {
-  mUserSettings = new QSettings( parent );
+  mUserSettings = std::make_unique<QSettings>( parent );
   init();
 }
 
 QgsSettings::~QgsSettings()
 {
-  delete mUserSettings;
-  delete mGlobalSettings;
 }
 
 
@@ -351,4 +331,24 @@ QString QgsSettings::sanitizeKey( const QString &key ) const
 void QgsSettings::clear()
 {
   mUserSettings->clear();
+}
+
+
+void QgsSettings::holdFlush()
+{
+  if ( sQgsSettingsThreadSettings )
+    return;
+
+  sQgsSettingsThreadSettings = new QgsSettings();
+}
+
+void QgsSettings::releaseFlush()
+{
+  delete sQgsSettingsThreadSettings;
+  sQgsSettingsThreadSettings = nullptr;
+}
+
+QgsSettingsProxy QgsSettings::get()
+{
+  return QgsSettingsProxy( sQgsSettingsThreadSettings );
 }

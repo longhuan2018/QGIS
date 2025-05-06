@@ -20,6 +20,7 @@
 #include "qgslogger.h"
 #include "qgsrasterlayer.h"
 #include "qgsvectorlayer.h"
+#include "qgsmaplayerfactory.h"
 #include "qgsmeshlayer.h"
 
 #include <QRegularExpression>
@@ -71,39 +72,26 @@ QgsMimeDataUtils::Uri::Uri( QgsMapLayer *layer )
   , layerId( layer->id() )
   , pId( QString::number( QCoreApplication::applicationPid() ) )
 {
+  layerType = QgsMapLayerFactory::typeToString( layer->type() );
   switch ( layer->type() )
   {
-    case QgsMapLayerType::VectorLayer:
+    case Qgis::LayerType::Vector:
     {
-      layerType = QStringLiteral( "vector" );
       wkbType = qobject_cast< QgsVectorLayer *>( layer )->wkbType();
       break;
     }
-    case QgsMapLayerType::RasterLayer:
+    case Qgis::LayerType::Raster:
+    case Qgis::LayerType::Mesh:
+    case Qgis::LayerType::PointCloud:
+    case Qgis::LayerType::VectorTile:
+    case Qgis::LayerType::TiledScene:
     {
-      layerType = QStringLiteral( "raster" );
       break;
     }
 
-    case QgsMapLayerType::MeshLayer:
-    {
-      layerType = QStringLiteral( "mesh" );
-      break;
-    }
-    case QgsMapLayerType::PointCloudLayer:
-    {
-      layerType = QStringLiteral( "pointcloud" );
-      break;
-    }
-    case QgsMapLayerType::VectorTileLayer:
-    {
-      layerType = QStringLiteral( "vector-tile" );
-      break;
-    }
-
-    case QgsMapLayerType::PluginLayer:
-    case QgsMapLayerType::GroupLayer:
-    case QgsMapLayerType::AnnotationLayer:
+    case Qgis::LayerType::Plugin:
+    case Qgis::LayerType::Group:
+    case Qgis::LayerType::Annotation:
     {
       // plugin layers do not have a standard way of storing their URI...
       return;
@@ -138,7 +126,7 @@ QgsVectorLayer *QgsMimeDataUtils::Uri::vectorLayer( bool &owner, QString &error 
 
   if ( !layerId.isEmpty() && QgsMimeDataUtils::hasOriginatedFromCurrentAppInstance( *this ) )
   {
-    if ( QgsVectorLayer *vectorLayer = QgsProject::instance()->mapLayer<QgsVectorLayer *>( layerId ) )
+    if ( QgsVectorLayer *vectorLayer = QgsProject::instance()->mapLayer<QgsVectorLayer *>( layerId ) ) // skip-keyword-check
     {
       return vectorLayer;
     }
@@ -150,7 +138,7 @@ QgsVectorLayer *QgsMimeDataUtils::Uri::vectorLayer( bool &owner, QString &error 
   }
 
   owner = true;
-  const QgsVectorLayer::LayerOptions options { QgsProject::instance()->transformContext() };
+  const QgsVectorLayer::LayerOptions options { QgsProject::instance()->transformContext() }; // skip-keyword-check
   return new QgsVectorLayer( uri, name, providerKey, options );
 }
 
@@ -166,7 +154,7 @@ QgsRasterLayer *QgsMimeDataUtils::Uri::rasterLayer( bool &owner, QString &error 
 
   if ( !layerId.isEmpty() && QgsMimeDataUtils::hasOriginatedFromCurrentAppInstance( *this ) )
   {
-    if ( QgsRasterLayer *rasterLayer = QgsProject::instance()->mapLayer<QgsRasterLayer *>( layerId ) )
+    if ( QgsRasterLayer *rasterLayer = QgsProject::instance()->mapLayer<QgsRasterLayer *>( layerId ) ) // skip-keyword-check
     {
       return rasterLayer;
     }
@@ -188,7 +176,7 @@ QgsMeshLayer *QgsMimeDataUtils::Uri::meshLayer( bool &owner, QString &error ) co
 
   if ( !layerId.isEmpty() && QgsMimeDataUtils::hasOriginatedFromCurrentAppInstance( *this ) )
   {
-    if ( QgsMeshLayer *meshLayer = QgsProject::instance()->mapLayer<QgsMeshLayer *>( layerId ) )
+    if ( QgsMeshLayer *meshLayer = QgsProject::instance()->mapLayer<QgsMeshLayer *>( layerId ) ) // skip-keyword-check
     {
       return meshLayer;
     }
@@ -202,7 +190,7 @@ QgsMapLayer *QgsMimeDataUtils::Uri::mapLayer() const
 {
   if ( !layerId.isEmpty() && QgsMimeDataUtils::hasOriginatedFromCurrentAppInstance( *this ) )
   {
-    return QgsProject::instance()->mapLayer( layerId );
+    return QgsProject::instance()->mapLayer( layerId ); // skip-keyword-check
   }
   return nullptr;
 }
@@ -254,7 +242,7 @@ static void _addLayerTreeNodeToUriList( QgsLayerTreeNode *node, QgsMimeDataUtils
     if ( !layer )
       return;
 
-    if ( layer->type() == QgsMapLayerType::PluginLayer )
+    if ( layer->type() == Qgis::LayerType::Plugin )
       return; // plugin layers do not have a standard way of storing their URI...
 
     uris << QgsMimeDataUtils::Uri( layer );
@@ -283,7 +271,7 @@ QString QgsMimeDataUtils::encode( const QStringList &items )
 {
   QString encoded;
   // Do not escape colon twice
-  const QRegularExpression re( QStringLiteral( "(?<!\\\\):" ) );
+  const thread_local QRegularExpression re( QStringLiteral( "(?<!\\\\):" ) );
   const auto constItems = items;
   for ( const QString &item : constItems )
   {

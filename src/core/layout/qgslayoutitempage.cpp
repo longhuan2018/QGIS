@@ -15,13 +15,14 @@
  ***************************************************************************/
 
 #include "qgslayoutitempage.h"
+#include "moc_qgslayoutitempage.cpp"
 #include "qgslayout.h"
 #include "qgslayoututils.h"
 #include "qgspagesizeregistry.h"
 #include "qgssymbollayerutils.h"
 #include "qgslayoutitemundocommand.h"
 #include "qgslayoutpagecollection.h"
-#include "qgslayoutundostack.h"
+#include "qgslayoutrendercontext.h"
 #include "qgsstyle.h"
 #include "qgsstyleentityvisitor.h"
 #include "qgsfillsymbol.h"
@@ -36,10 +37,10 @@ QgsLayoutItemPage::QgsLayoutItemPage( QgsLayout *layout )
   setFlag( QGraphicsItem::ItemIsMovable, false );
   setZValue( QgsLayout::ZPage );
 
-  connect( this, &QgsLayoutItem::sizePositionChanged, this, [ = ]
+  connect( this, &QgsLayoutItem::sizePositionChanged, this, [this]
   {
-    mBoundingRect = QRectF();
     prepareGeometryChange();
+    mBoundingRect = QRectF();
   } );
 
   const QFont font;
@@ -108,7 +109,7 @@ QPageLayout QgsLayoutItemPage::pageLayout() const
   QPageLayout pageLayout;
   pageLayout.setMargins( {0, 0, 0, 0} );
   pageLayout.setMode( QPageLayout::FullPageMode );
-  const QSizeF size = layout()->renderContext().measurementConverter().convert( pageSize(), QgsUnitTypes::LayoutMillimeters ).toQSizeF();
+  const QSizeF size = layout()->renderContext().measurementConverter().convert( pageSize(), Qgis::LayoutUnit::Millimeters ).toQSizeF();
 
   if ( pageSize().width() > pageSize().height() )
   {
@@ -191,7 +192,7 @@ void QgsLayoutItemPage::createDefaultPageStyleSymbol()
   properties.insert( QStringLiteral( "style" ), QStringLiteral( "solid" ) );
   properties.insert( QStringLiteral( "style_border" ), QStringLiteral( "no" ) );
   properties.insert( QStringLiteral( "joinstyle" ), QStringLiteral( "miter" ) );
-  mPageStyleSymbol.reset( QgsFillSymbol::createSimple( properties ) );
+  mPageStyleSymbol = QgsFillSymbol::createSimple( properties );
 }
 
 
@@ -253,7 +254,7 @@ void QgsLayoutItemPage::draw( QgsLayoutItemRenderContext &context )
     return;
   }
 
-  const double scale = context.renderContext().convertToPainterUnits( 1, QgsUnitTypes::RenderMillimeters );
+  const double scale = context.renderContext().convertToPainterUnits( 1, Qgis::RenderUnit::Millimeters );
 
   const QgsExpressionContext expressionContext = createExpressionContext();
   context.renderContext().setExpressionContext( expressionContext );
@@ -328,7 +329,7 @@ bool QgsLayoutItemPage::readPropertiesFromElement( const QDomElement &element, c
   const QDomElement symbolElem = element.firstChildElement( QStringLiteral( "symbol" ) );
   if ( !symbolElem.isNull() )
   {
-    mPageStyleSymbol.reset( QgsSymbolLayerUtils::loadSymbol<QgsFillSymbol>( symbolElem, context ) );
+    mPageStyleSymbol = QgsSymbolLayerUtils::loadSymbol<QgsFillSymbol>( symbolElem, context );
   }
   else
   {

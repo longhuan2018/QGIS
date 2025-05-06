@@ -48,7 +48,7 @@ QgsFcgiServerRequest::QgsFcgiServerRequest()
   QUrl baseUrl;
   if ( uri.endsWith( extraPath ) )
   {
-    baseUrl.setUrl( uri.left( uri.length() -  extraPath.length() ) );
+    baseUrl.setUrl( uri.left( uri.length() - extraPath.length() ) );
   }
   else
   {
@@ -60,7 +60,7 @@ QgsFcgiServerRequest::QgsFcgiServerRequest()
   // OGC parameters are passed with the query string, which is normally part of
   // the REQUEST_URI, we override the query string url in case it is defined
   // independently of REQUEST_URI
-  if ( ! qs.isEmpty() )
+  if ( !qs.isEmpty() )
   {
     url.setQuery( qs );
   }
@@ -112,7 +112,8 @@ QgsFcgiServerRequest::QgsFcgiServerRequest()
   {
     const QString headerName = QgsStringUtils::capitalize(
                                  QString( headerKey ).replace( QLatin1Char( '_' ), QLatin1Char( ' ' ) ), Qgis::Capitalization::TitleCase
-                               ).replace( QLatin1Char( ' ' ), QLatin1Char( '-' ) );
+    )
+                                 .replace( QLatin1Char( ' ' ), QLatin1Char( '-' ) );
     const char *result = getenv( QStringLiteral( "HTTP_%1" ).arg( headerKey ).toStdString().c_str() );
     if ( result && strlen( result ) > 0 )
     {
@@ -155,8 +156,8 @@ void QgsFcgiServerRequest::fillUrl( QUrl &url ) const
   if ( url.scheme().isEmpty() )
   {
     QString( getenv( "HTTPS" ) ).compare( QLatin1String( "on" ), Qt::CaseInsensitive ) == 0
-    ? url.setScheme( QStringLiteral( "https" ) )
-    : url.setScheme( QStringLiteral( "http" ) );
+      ? url.setScheme( QStringLiteral( "https" ) )
+      : url.setScheme( QStringLiteral( "http" ) );
   }
 }
 
@@ -173,35 +174,46 @@ void QgsFcgiServerRequest::readData()
   if ( lengthstr )
   {
     bool success = false;
-    int length = QString( lengthstr ).toInt( &success );
-    // Note: REQUEST_BODY is not part of CGI standard, and it is not
-    // normally passed by any CGI web server and it is implemented only
-    // to allow unit tests to inject a request body and simulate a POST
-    // request
-    const char *request_body  = getenv( "REQUEST_BODY" );
-    if ( success && request_body )
+    const int length = QString( lengthstr ).toInt( &success );
+    if ( !success || length < 0 )
     {
-      QString body( request_body );
-      body.truncate( length );
-      mData.append( body.toUtf8() );
-      length = 0;
-    }
-#ifdef QGISDEBUG
-    qDebug() << "fcgi: reading " << lengthstr << " bytes from " << ( request_body ? "REQUEST_BODY" : "stdin" );
-#endif
-    if ( success )
-    {
-      // XXX This not efficient at all  !!
-      for ( int i = 0; i < length; ++i )
-      {
-        mData.append( getchar() );
-      }
+      QgsMessageLog::logMessage( "fcgi: Invalid CONTENT_LENGTH", QStringLiteral( "Server" ), Qgis::MessageLevel::Critical );
+      mHasError = true;
     }
     else
     {
-      QgsMessageLog::logMessage( "fcgi: Failed to parse CONTENT_LENGTH",
-                                 QStringLiteral( "Server" ), Qgis::MessageLevel::Critical );
-      mHasError = true;
+      // Note: REQUEST_BODY is not part of CGI standard, and it is not
+      // normally passed by any CGI web server and it is implemented only
+      // to allow unit tests to inject a request body and simulate a POST
+      // request
+      const char *requestBody = getenv( "REQUEST_BODY" );
+
+#ifdef QGISDEBUG
+      qDebug() << "fcgi: reading " << lengthstr << " bytes from " << ( requestBody ? "REQUEST_BODY" : "stdin" );
+#endif
+
+      if ( requestBody )
+      {
+        const size_t requestBodyLength = strlen( requestBody );
+        const int actualLength = static_cast<int>( std::min<size_t>( length, requestBodyLength ) );
+        if ( static_cast<size_t>( actualLength ) < requestBodyLength )
+        {
+          QgsMessageLog::logMessage( "fcgi: CONTENT_LENGTH is larger than actual length of REQUEST_BODY", QStringLiteral( "Server" ), Qgis::MessageLevel::Critical );
+          mHasError = true;
+        }
+        mData = QByteArray::fromRawData( requestBody, actualLength );
+      }
+      else
+      {
+        mData.resize( length );
+        const int actualLength = static_cast<int>( fread( mData.data(), 1, length, stdin ) );
+        if ( actualLength < length )
+        {
+          mData.resize( actualLength );
+          QgsMessageLog::logMessage( "fcgi: CONTENT_LENGTH is larger than actual length of stdin", QStringLiteral( "Server" ), Qgis::MessageLevel::Critical );
+          mHasError = true;
+        }
+      }
     }
   }
   else
@@ -214,8 +226,7 @@ void QgsFcgiServerRequest::printRequestInfos( const QUrl &url ) const
 {
   QgsMessageLog::logMessage( QStringLiteral( "******************** New request ***************" ), QStringLiteral( "Server" ), Qgis::MessageLevel::Info );
 
-  const QStringList envVars
-  {
+  const QStringList envVars {
     QStringLiteral( "SERVER_NAME" ),
     QStringLiteral( "REQUEST_URI" ),
     QStringLiteral( "SCRIPT_NAME" ),
@@ -272,8 +283,7 @@ QString QgsFcgiServerRequest::header( const QString &name ) const
   // https://tools.ietf.org/html/rfc3875#section-4.1.18
   if ( result.isEmpty() )
   {
-    result = qgetenv( QStringLiteral( "HTTP_%1" ).arg(
-                        name.toUpper().replace( QLatin1Char( '-' ), QLatin1Char( '_' ) ) ).toStdString().c_str() );
+    result = qgetenv( QStringLiteral( "HTTP_%1" ).arg( name.toUpper().replace( QLatin1Char( '-' ), QLatin1Char( '_' ) ) ).toStdString().c_str() );
   }
   return result;
 }

@@ -26,10 +26,9 @@
 /**
  * \ingroup server
  * \class QgsFcgiServerRequest
- * \brief Class defining fcgi request
- * \since QGIS 3.0
+ * \brief Defines fcgi requests.
  */
-class SERVER_EXPORT QgsFcgiServerRequest: public QgsServerRequest
+class SERVER_EXPORT QgsFcgiServerRequest : public QgsServerRequest
 {
   public:
     QgsFcgiServerRequest();
@@ -61,7 +60,7 @@ class SERVER_EXPORT QgsFcgiServerRequest: public QgsServerRequest
     void fillUrl( QUrl &url ) const;
 
     QByteArray mData;
-    bool       mHasError = false;
+    bool mHasError = false;
 };
 
 #endif

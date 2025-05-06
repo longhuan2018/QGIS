@@ -26,17 +26,17 @@ CREATE EXTENSION IF NOT EXISTS citext;
 --- Create qgis_test schema
 DROP SCHEMA IF EXISTS qgis_test CASCADE;
 CREATE SCHEMA qgis_test;
-GRANT ALL ON SCHEMA qgis_test TO public;
-ALTER DEFAULT PRIVILEGES IN SCHEMA qgis_test GRANT ALL ON TABLES TO public;
-ALTER DEFAULT PRIVILEGES IN SCHEMA qgis_test GRANT ALL ON SEQUENCES TO public;
+GRANT ALL ON SCHEMA qgis_test TO qgis_test_group;
+ALTER DEFAULT PRIVILEGES IN SCHEMA qgis_test GRANT ALL ON TABLES TO qgis_test_group;
+ALTER DEFAULT PRIVILEGES IN SCHEMA qgis_test GRANT ALL ON SEQUENCES TO qgis_test_group;
 
 
---- Create "CamelCaseSchema" schema
-DROP SCHEMA IF EXISTS "CamelCaseSchema" CASCADE;
-CREATE SCHEMA "CamelCaseSchema";
-GRANT ALL ON SCHEMA "CamelCaseSchema" TO public;
-ALTER DEFAULT PRIVILEGES IN SCHEMA "CamelCaseSchema" GRANT ALL ON TABLES TO public;
-ALTER DEFAULT PRIVILEGES IN SCHEMA "CamelCaseSchema" GRANT ALL ON SEQUENCES TO public;
+--- Create "CamelCase'singlequote'Schema" schema
+DROP SCHEMA IF EXISTS "CamelCase'singlequote'Schema" CASCADE;
+CREATE SCHEMA "CamelCase'singlequote'Schema";
+GRANT ALL ON SCHEMA "CamelCase'singlequote'Schema" TO qgis_test_group;
+ALTER DEFAULT PRIVILEGES IN SCHEMA "CamelCase'singlequote'Schema" GRANT ALL ON TABLES TO qgis_test_group;
+ALTER DEFAULT PRIVILEGES IN SCHEMA "CamelCase'singlequote'Schema" GRANT ALL ON SEQUENCES TO qgis_test_group;
 
 
 SET default_tablespace = '';
@@ -93,6 +93,35 @@ INSERT INTO qgis_test."some_poly_data" (pk, geom) VALUES
 (4, NULL)
 ;
 
+
+-- Name: someBorderlineData; Type: TABLE; Schema: qgis_test; Owner: postgres; Tablespace:
+--
+
+CREATE TABLE qgis_test."someBorderlineData" (
+    pk SERIAL NOT NULL,
+    cnt integer,
+    name text DEFAULT 'qgis',
+    name2 text DEFAULT 'qgis',
+    num_char text,
+    dt timestamp without time zone,
+    "date" date,
+    "time" time without time zone,
+    geom public.geometry(Point,4326)
+);
+
+-- Data for Name: someBorderlineData; Type: TABLE DATA; Schema: qgis_test; Owner: postgres
+--
+
+INSERT INTO qgis_test."someBorderlineData" (pk, cnt, name, name2, num_char, dt, "date", "time", geom) VALUES
+(1, -200, NULL, 'NuLl', '5', TIMESTAMP '2020-05-04 12:13:14', '2020-05-02', '12:13:01', 'srid=4326;POINT(40 0)'),
+(2,  300, 'Pear', 'PEaR', '3', NULL, NULL, NULL, 'srid=4326;POINT(40 60)'),
+(3,  100, 'Orange', 'oranGe', '1', TIMESTAMP '2020-05-03 12:13:14', '2020-05-03', '12:13:14', 'srid=4326;POINT(40 -60)'),
+(4,  400, 'Border line', 'point', '4', TIMESTAMP '2021-05-04 13:13:14', '2021-05-04', '13:13:14', 'srid=4326;POINT(180 45)')
+;
+
+
+-- Name: array_tbl; Type: TABLE; Schema: qgis_test; Owner: postgres; Tablespace:
+--
 
 CREATE TABLE qgis_test.array_tbl (id serial PRIMARY KEY, location int[], geom geometry(Point,3857));
 
@@ -727,11 +756,17 @@ VALUES ('SRID=4326;POINT(9 45)'::geometry, 'I have a name'), ('SRID=4326;POINT(1
 --
 
 CREATE TABLE qgis_test.referenced_layer_1(
-  pk_ref_1 serial primary key 
+  pk_ref_1 serial primary key
 );
 
 CREATE TABLE qgis_test.referenced_layer_2(
-  pk_ref_2 serial primary key 
+  pk_ref_2 serial primary key
+);
+
+CREATE TABLE qgis_test.referenced_layer_composite(
+  pk_ref_3 serial,
+  pk_ref_4 serial,
+    CONSTRAINT pk_ref_3_4 PRIMARY KEY (pk_ref_3, pk_ref_4)
 );
 
 CREATE TABLE qgis_test.referencing_layer(
@@ -739,9 +774,20 @@ CREATE TABLE qgis_test.referencing_layer(
   fk_ref_1 integer,
   fk_ref_2 integer,
     CONSTRAINT fk_ref_1
-      FOREIGN KEY(fk_ref_1) 
+      FOREIGN KEY(fk_ref_1)
     REFERENCES qgis_test.referenced_layer_1(pk_ref_1),
     CONSTRAINT fk_ref_2
-      FOREIGN KEY(fk_ref_2) 
+      FOREIGN KEY(fk_ref_2)
     REFERENCES qgis_test.referenced_layer_2(pk_ref_2)
+);
+
+CREATE TABLE qgis_test.referencing_layer_composite(
+  pk serial primary key,
+  fk_ref_3 integer,
+  fk_ref_4 integer,
+    CONSTRAINT fk_ref_3_4
+      FOREIGN KEY (fk_ref_3, fk_ref_4)
+      -- NOTE: referenced cols are given in reverse order to guard
+      --       against issue GH-56420
+      REFERENCES qgis_test.referenced_layer_composite(pk_ref_4, pk_ref_3)
 );

@@ -13,6 +13,7 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgsgeopackagedataitems.h"
+#include "moc_qgsgeopackagedataitems.cpp"
 ///@cond PRIVATE
 
 #include "qgsgeopackagedataitems.h"
@@ -43,9 +44,9 @@ QString QgsGeoPackageDataItemProvider::dataProviderKey() const
   return QStringLiteral( "ogr" );
 }
 
-int QgsGeoPackageDataItemProvider::capabilities() const
+Qgis::DataItemProviderCapabilities QgsGeoPackageDataItemProvider::capabilities() const
 {
-  return QgsDataProvider::Database;
+  return Qgis::DataItemProviderCapability::Databases;
 }
 
 QgsDataItem *QgsGeoPackageDataItemProvider::createDataItem( const QString &path, QgsDataItem *parentItem )
@@ -111,29 +112,29 @@ QVector<QgsDataItem *> QgsGeoPackageCollectionItem::createChildren()
   {
     switch ( sublayer.type() )
     {
-      case QgsMapLayerType::VectorLayer:
+      case Qgis::LayerType::Vector:
       {
         Qgis::BrowserLayerType layerType = Qgis::BrowserLayerType::Vector;
 
         switch ( QgsWkbTypes::geometryType( sublayer.wkbType() ) )
         {
-          case QgsWkbTypes::PointGeometry:
+          case Qgis::GeometryType::Point:
             layerType = Qgis::BrowserLayerType::Point;
             break;
 
-          case QgsWkbTypes::LineGeometry:
+          case Qgis::GeometryType::Line:
             layerType = Qgis::BrowserLayerType::Line;
             break;
 
-          case QgsWkbTypes::PolygonGeometry:
+          case Qgis::GeometryType::Polygon:
             layerType = Qgis::BrowserLayerType::Polygon;
             break;
 
-          case QgsWkbTypes::NullGeometry:
+          case Qgis::GeometryType::Null:
             layerType = Qgis::BrowserLayerType::TableLayer;
             break;
 
-          case QgsWkbTypes::UnknownGeometry:
+          case Qgis::GeometryType::Unknown:
             layerType = Qgis::BrowserLayerType::Vector;
             break;
         }
@@ -142,16 +143,17 @@ QVector<QgsDataItem *> QgsGeoPackageCollectionItem::createChildren()
         break;
       }
 
-      case QgsMapLayerType::RasterLayer:
+      case Qgis::LayerType::Raster:
         children.append( new QgsGeoPackageRasterLayerItem( this, sublayer.name(), path, sublayer.uri() ) );
         break;
 
-      case QgsMapLayerType::PluginLayer:
-      case QgsMapLayerType::MeshLayer:
-      case QgsMapLayerType::VectorTileLayer:
-      case QgsMapLayerType::AnnotationLayer:
-      case QgsMapLayerType::PointCloudLayer:
-      case QgsMapLayerType::GroupLayer:
+      case Qgis::LayerType::Plugin:
+      case Qgis::LayerType::Mesh:
+      case Qgis::LayerType::VectorTile:
+      case Qgis::LayerType::Annotation:
+      case Qgis::LayerType::PointCloud:
+      case Qgis::LayerType::Group:
+      case Qgis::LayerType::TiledScene:
         break;
     }
   }
@@ -184,7 +186,7 @@ QVector<QgsDataItem *> QgsGeoPackageCollectionItem::createChildren()
 
     if ( !fieldDomains.empty() || !domainError.isEmpty() )
     {
-      std::unique_ptr< QgsFieldDomainsItem > domainsItem = std::make_unique< QgsFieldDomainsItem >( this, mPath + "/domains", path, QStringLiteral( "ogr" ) );
+      auto domainsItem = std::make_unique< QgsFieldDomainsItem >( this, mPath + "/domains", path, QStringLiteral( "ogr" ) );
       // force this item to appear last by setting a maximum string value for the sort key
       domainsItem->setSortKey( QString( QChar( 0x10FFFF ) ) );
       children.append( domainsItem.release() );
@@ -205,7 +207,7 @@ QVector<QgsDataItem *> QgsGeoPackageCollectionItem::createChildren()
 
     if ( !relations.empty() || !relationError.isEmpty() )
     {
-      std::unique_ptr< QgsRelationshipsItem > relationsItem = std::make_unique< QgsRelationshipsItem >( this, mPath + "/relations", conn->uri(), QStringLiteral( "ogr" ) );
+      auto relationsItem = std::make_unique< QgsRelationshipsItem >( this, mPath + "/relations", conn->uri(), QStringLiteral( "ogr" ) );
       // force this item to appear last by setting a maximum string value for the sort key
       relationsItem->setSortKey( QString( QChar( 0x11FFFF ) ) );
       children.append( relationsItem.release() );
@@ -216,7 +218,7 @@ QVector<QgsDataItem *> QgsGeoPackageCollectionItem::createChildren()
   {
     // sniff database to see if it's just empty, or if something went wrong
     // note that we HAVE to use update here, or GDAL won't open an empty database
-    gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( path.toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+    gdal::dataset_unique_ptr hDS( GDALOpenEx( path.toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
     if ( !hDS )
     {
       QString errorMessage;
@@ -386,7 +388,7 @@ QList<QgsMapLayer *> QgsGeoPackageAbstractLayerItem::layersInProject() const
 {
   // Check if the layer(s) are in the registry
   QList<QgsMapLayer *> layersList;
-  const auto mapLayers( QgsProject::instance()->mapLayers() );
+  const auto mapLayers( QgsProject::instance()->mapLayers() ); // skip-keyword-check
   for ( QgsMapLayer *layer :  mapLayers )
   {
     if ( layer->publicSource() == mUri )

@@ -1,4 +1,4 @@
-/* **************************************************************************
+/***************************************************************************
                 qgscontrastenhancement.cpp -  description
                        -------------------
 begin                : Mon Oct 22 2007
@@ -9,7 +9,7 @@ This class contains code that was originally part of the larger QgsRasterLayer
 class originally created circa 2004 by T.Sutton, Gary E.Sherman, Steve Halasz
 ****************************************************************************/
 
-/* **************************************************************************
+/***************************************************************************
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -41,7 +41,7 @@ QgsContrastEnhancement::QgsContrastEnhancement( Qgis::DataType dataType )
   //If the data type is larger than 16-bit do not generate a lookup table
   if ( mRasterDataTypeRange <= 65535.0 )
   {
-    mLookupTable = new int[static_cast <int>( mRasterDataTypeRange + 1 )];
+    mLookupTable = std::make_unique<int[]>( static_cast <int>( mRasterDataTypeRange + 1 ) );
   }
 }
 
@@ -60,13 +60,13 @@ QgsContrastEnhancement::QgsContrastEnhancement( const QgsContrastEnhancement &ce
   //If the data type is larger than 16-bit do not generate a lookup table
   if ( mRasterDataTypeRange <= 65535.0 )
   {
-    mLookupTable = new int[static_cast <int>( mRasterDataTypeRange + 1 )];
+    mLookupTable = std::make_unique<int[]>( static_cast <int>( mRasterDataTypeRange + 1 ) );
   }
 }
 
 QgsContrastEnhancement::~QgsContrastEnhancement()
 {
-  delete [] mLookupTable;
+
 }
 
 int QgsContrastEnhancement::enhanceContrast( double value )
@@ -100,8 +100,29 @@ bool QgsContrastEnhancement::generateLookupTable()
     return false;
   if ( NoEnhancement == mContrastEnhancementAlgorithm )
     return false;
-  if ( Qgis::DataType::Byte != mRasterDataType && Qgis::DataType::UInt16 != mRasterDataType && Qgis::DataType::Int16 != mRasterDataType )
-    return false;
+
+  switch ( mRasterDataType )
+  {
+    case Qgis::DataType::Byte:
+    case Qgis::DataType::UInt16:
+    case Qgis::DataType::Int16:
+    case Qgis::DataType::Int8:
+      break;
+
+    case Qgis::DataType::UnknownDataType:
+    case Qgis::DataType::UInt32:
+    case Qgis::DataType::Int32:
+    case Qgis::DataType::Float32:
+    case Qgis::DataType::Float64:
+    case Qgis::DataType::CInt16:
+    case Qgis::DataType::CInt32:
+    case Qgis::DataType::CFloat32:
+    case Qgis::DataType::CFloat64:
+    case Qgis::DataType::ARGB32:
+    case Qgis::DataType::ARGB32_Premultiplied:
+      return false;
+  }
+
   if ( !mLookupTable )
     return false;
 
@@ -314,7 +335,7 @@ void QgsContrastEnhancement::toSld( QDomDocument &doc, QDomElement &element ) co
       return;
     case UserDefinedEnhancement:
       algName = contrastEnhancementAlgorithmString( contrastEnhancementAlgorithm() );
-      QgsDebugMsg( QObject::tr( "No SLD1.0 conversion yet for stretch algorithm %1" ).arg( algName ) );
+      QgsDebugError( QStringLiteral( "No SLD1.0 conversion yet for stretch algorithm %1" ).arg( algName ) );
       return;
   }
 

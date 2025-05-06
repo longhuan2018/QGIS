@@ -35,12 +35,6 @@
 #include "qgsprojutils.h"
 #include "qgsreadwritelocker.h"
 
-#ifdef DEBUG
-typedef struct OGRSpatialReferenceHS *OGRSpatialReferenceH;
-#else
-typedef void *OGRSpatialReferenceH;
-#endif
-
 class QgsCoordinateReferenceSystemPrivate : public QSharedData
 {
   public:
@@ -55,6 +49,7 @@ class QgsCoordinateReferenceSystemPrivate : public QSharedData
       , mDescription( other.mDescription )
       , mProjectionAcronym( other.mProjectionAcronym )
       , mEllipsoidAcronym( other.mEllipsoidAcronym )
+      , mProjType( other.mProjType )
       , mIsGeographic( other.mIsGeographic )
       , mMapUnits( other.mMapUnits )
       , mSRID( other.mSRID )
@@ -62,10 +57,12 @@ class QgsCoordinateReferenceSystemPrivate : public QSharedData
       , mIsValid( other.mIsValid )
       , mCoordinateEpoch( other.mCoordinateEpoch )
       , mPj()
+      , mPjParentContext( nullptr )
       , mProj4( other.mProj4 )
       , mWktPreferred( other.mWktPreferred )
       , mAxisInvertedDirty( other.mAxisInvertedDirty )
       , mAxisInverted( other.mAxisInverted )
+      , mProjLock{}
       , mProjObjects()
     {
     }
@@ -92,11 +89,13 @@ class QgsCoordinateReferenceSystemPrivate : public QSharedData
     //! The official proj4 acronym for the ellipsoid
     QString mEllipsoidAcronym;
 
+    PJ_TYPE mProjType = PJ_TYPE::PJ_TYPE_UNKNOWN;
+
     //! Whether this is a geographic or projected coordinate system
     bool mIsGeographic = false;
 
     //! The map units for the CRS
-    QgsUnitTypes::DistanceUnit mMapUnits = QgsUnitTypes::DistanceUnknownUnit;
+    Qgis::DistanceUnit mMapUnits = Qgis::DistanceUnit::Unknown;
 
     //! If available, the PostGIS spatial_ref_sys identifier for this CRS (defaults to 0)
     long mSRID = 0;
@@ -149,6 +148,15 @@ class QgsCoordinateReferenceSystemPrivate : public QSharedData
 
       mPj = std::move( obj );
       mPjParentContext = QgsProjContext::get();
+
+      if ( mPj )
+      {
+        mProjType = proj_get_type( mPj.get() );
+      }
+      else
+      {
+        mProjType = PJ_TYPE_UNKNOWN;
+      }
     }
 
     bool hasPj() const

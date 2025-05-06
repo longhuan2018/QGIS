@@ -49,7 +49,6 @@ class GUI_EXPORT QgsRangeWidgetWrapper : public QgsEditorWidgetWrapper
 {
     Q_OBJECT
   public:
-
     /**
      * Constructor for QgsRangeWidgetWrapper.
      *
@@ -70,6 +69,9 @@ class GUI_EXPORT QgsRangeWidgetWrapper : public QgsEditorWidgetWrapper
     QWidget *createWidget( QWidget *parent ) override;
     void initWidget( QWidget *editor ) override;
     bool valid() const override;
+
+  public slots:
+    void setEnabled( bool enabled ) override;
 
   private slots:
     // NOTE - cannot be named "valueChanged", otherwise implicit conversion to QVariant results in

@@ -19,16 +19,22 @@
 
 #include "qgis_core.h"
 #include "qgssettingsregistry.h"
-#include "qgssettingsentryimpl.h"
-#include "qgssettingsentryenumflag.h"
 
 #include "qgis.h"
 
+class QgsSettingsEntryBool;
+class QgsSettingsEntryColor;
+class QgsSettingsEntryDouble;
+class QgsSettingsEntryInteger;
+class QgsSettingsEntryInteger64;
+class QgsSettingsEntryString;
+class QgsSettingsEntryStringList;
+template<class T> class QgsSettingsEntryEnumFlag;
 
 /**
  * \ingroup core
  * \class QgsSettingsRegistryCore
- * \brief QgsSettingsRegistryCore is used for settings introspection and collects all
+ * \brief Used for settings introspection and collects all
  * QgsSettingsEntry instances of core.
  *
  * \since QGIS 3.20
@@ -40,14 +46,7 @@ class CORE_EXPORT QgsSettingsRegistryCore : public QgsSettingsRegistry
     // TODO QGIS 4 do not inherit QgsSettingsRegistry
   public:
 
-    /**
-      * Constructor for QgsSettingsRegistryCore.
-      */
     QgsSettingsRegistryCore();
-
-    /**
-     * Destructor for QgsSettingsRegistryCore.
-     */
     virtual ~QgsSettingsRegistryCore();
 
 #ifndef SIP_RUN
@@ -88,13 +87,13 @@ class CORE_EXPORT QgsSettingsRegistryCore : public QgsSettingsRegistry
     static const QgsSettingsEntryDouble *settingsDigitizingDefaultSnappingTolerance;
 
     //! Settings entry digitizing default snapping tolerance unit
-    static const QgsSettingsEntryEnumFlag<QgsTolerance::UnitType> *settingsDigitizingDefaultSnappingToleranceUnit;
+    static const QgsSettingsEntryEnumFlag<Qgis::MapToolUnit> *settingsDigitizingDefaultSnappingToleranceUnit;
 
     //! Settings entry digitizing search radius vertex edit
     static const QgsSettingsEntryDouble *settingsDigitizingSearchRadiusVertexEdit;
 
     //! Settings entry digitizing search radius vertex edit unit
-    static const QgsSettingsEntryEnumFlag<QgsTolerance::UnitType> *settingsDigitizingSearchRadiusVertexEditUnit;
+    static const QgsSettingsEntryEnumFlag<Qgis::MapToolUnit> *settingsDigitizingSearchRadiusVertexEditUnit;
 
     //! Settings entry digitizing snap color
     static const QgsSettingsEntryColor *settingsDigitizingSnapColor;
@@ -159,7 +158,26 @@ class CORE_EXPORT QgsSettingsRegistryCore : public QgsSettingsRegistry
     //! Settings entry enable WMS tile prefetching.
     static const QgsSettingsEntryBool *settingsEnableWMSTilePrefetching;
 
+    static const QgsSettingsEntryStringList *settingsMapScales;
+
+    //! Settings entry maximum thread count used to load layer in parallel
+    static const QgsSettingsEntryInteger *settingsLayerParallelLoadingMaxCount;
+
+    //! Settings entry whether layer are loading in parallel
+    static const QgsSettingsEntryBool *settingsLayerParallelLoading;
+
+    //! Settings entry network cache directory
+    static const QgsSettingsEntryString *settingsNetworkCacheDirectory;
+
+    //! Settings entry network cache directory
+    static const QgsSettingsEntryInteger64 *settingsNetworkCacheSize;
+
+    //! Settings entry autosize columns by default when opening attribute table
+    static const QgsSettingsEntryBool *settingsAutosizeAttributeTable;
+
   private:
+    friend class QgsApplication;
+
     void migrateOldSettings();
     void backwardCompatibility();
 

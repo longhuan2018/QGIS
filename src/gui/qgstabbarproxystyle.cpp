@@ -13,6 +13,7 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgstabbarproxystyle.h"
+#include "moc_qgstabbarproxystyle.cpp"
 #include <QPainter>
 #include <QStyleOption>
 #include <QDebug>
@@ -27,7 +28,6 @@ QgsTabBarProxyStyle::QgsTabBarProxyStyle( QTabBar *tabBar )
 
 void QgsTabBarProxyStyle::drawControl( ControlElement element, const QStyleOption *option, QPainter *painter, const QWidget *widget ) const
 {
-
   QTabBar *tabBar { qobject_cast<QTabBar *>( parent() ) };
 
   if ( tabBar )
@@ -43,7 +43,7 @@ void QgsTabBarProxyStyle::drawControl( ControlElement element, const QStyleOptio
           painter->setFont( style.font );
         }
         QStyleOptionTab opt { *tab };
-        if ( style.overrideColor && style.color.isValid( ) )
+        if ( style.overrideColor && style.color.isValid() )
         {
           opt.palette.setBrush( QPalette::WindowText, style.color );
         }
@@ -55,7 +55,6 @@ void QgsTabBarProxyStyle::drawControl( ControlElement element, const QStyleOptio
   }
 
   QProxyStyle::drawControl( element, option, painter, widget );
-
 }
 
 void QgsTabBarProxyStyle::addStyle( int tabIndex, const QgsAttributeEditorElement::LabelStyle &style )
@@ -83,20 +82,27 @@ QSize QgsTabBar::tabSizeHint( int index ) const
 {
   if ( mTabBarStyle->tabStyles().contains( index ) )
   {
-    const QSize s = QTabBar::tabSizeHint( index );
-    const QFontMetrics fm( font() );
-    const int w = fm.horizontalAdvance( tabText( index ) );
-    const QFont f = mTabBarStyle->tabStyles().value( index ).font;
-    const QFontMetrics bfm( f );
-    const int bw = bfm.horizontalAdvance( tabText( index ) );
-    return QSize( s.width() - w + bw, s.height() );
+    const QgsAttributeEditorElement::LabelStyle tabStyle = mTabBarStyle->tabStyles().value( index );
+    if ( tabStyle.overrideFont )
+    {
+      const QSize s = QTabBar::tabSizeHint( index );
+      const QFontMetrics fm( font() );
+      const int w = fm.horizontalAdvance( tabText( index ) );
+      const QFont f = tabStyle.font;
+      const QFontMetrics bfm( f );
+      const int bw = bfm.horizontalAdvance( tabText( index ) );
+      return QSize( s.width() - w + bw, s.height() );
+    }
+    else
+    {
+      return QTabBar::tabSizeHint( index );
+    }
   }
   else
   {
     return QTabBar::tabSizeHint( index );
   }
 }
-
 
 
 ///@endcond

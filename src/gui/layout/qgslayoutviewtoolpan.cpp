@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgslayoutviewtoolpan.h"
+#include "moc_qgslayoutviewtoolpan.cpp"
 #include "qgslayoutviewmouseevent.h"
 #include "qgslayoutview.h"
 #include <QScrollBar>
@@ -36,7 +37,7 @@ void QgsLayoutViewToolPan::layoutPressEvent( QgsLayoutViewMouseEvent *event )
 
   mIsPanning = true;
   mLastMousePos = event->pos();
-  view()->setCursor( Qt::ClosedHandCursor );
+  view()->viewport()->setCursor( Qt::ClosedHandCursor );
 }
 
 void QgsLayoutViewToolPan::layoutMoveEvent( QgsLayoutViewMouseEvent *event )
@@ -84,7 +85,7 @@ void QgsLayoutViewToolPan::layoutReleaseEvent( QgsLayoutViewMouseEvent *event )
   }
 
   mIsPanning = false;
-  view()->setCursor( Qt::OpenHandCursor );
+  view()->viewport()->setCursor( Qt::OpenHandCursor );
 }
 
 void QgsLayoutViewToolPan::deactivate()

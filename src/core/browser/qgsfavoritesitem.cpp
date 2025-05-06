@@ -16,12 +16,12 @@
  ***************************************************************************/
 
 #include "qgsfavoritesitem.h"
+#include "moc_qgsfavoritesitem.cpp"
 #include "qgssettings.h"
 #include "qgslogger.h"
 #include "qgsapplication.h"
 #include "qgsdataitemproviderregistry.h"
 #include "qgsdataitemprovider.h"
-#include "qgsdataprovider.h"
 
 //
 // QgsFavoritesItem
@@ -104,7 +104,7 @@ void QgsFavoritesItem::removeDirectory( QgsDirectoryItem *item )
   const int idx = findItem( mChildren, item );
   if ( idx < 0 )
   {
-    QgsDebugMsg( QStringLiteral( "favorites item %1 not found" ).arg( item->path() ) );
+    QgsDebugError( QStringLiteral( "favorites item %1 not found" ).arg( item->path() ) );
     return;
   }
 
@@ -167,7 +167,7 @@ QVector<QgsDataItem *> QgsFavoritesItem::createChildren( const QString &director
   children.reserve( providers.size() );
   for ( QgsDataItemProvider *provider : providers )
   {
-    if ( provider->capabilities() & QgsDataProvider::Dir )
+    if ( provider->capabilities() & Qgis::DataItemProviderCapability::Directories )
     {
       if ( QgsDataItem *item = provider->createDataItem( directory, this ) )
       {

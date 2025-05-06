@@ -48,6 +48,7 @@ if (WITH_INTERNAL_MDAL)
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_esri_tin.cpp
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_xms_tin.cpp
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_ply.cpp
+    ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_mike21.cpp
     ${CMAKE_SOURCE_DIR}/external/mdal/3rdparty/libplyxx/libplyxx.cpp
   )
 
@@ -67,10 +68,10 @@ if (WITH_INTERNAL_MDAL)
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_esri_tin.hpp
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_xms_tin.hpp
     ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_ply.hpp
+    ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_mike21.hpp
     ${CMAKE_SOURCE_DIR}/external/mdal/3rdparty/libplyxx.h
     ${CMAKE_SOURCE_DIR}/external/mdal/3rdparty/libplyxx/libplyxx_internal.h
     ${CMAKE_SOURCE_DIR}/external/mdal/3rdparty/textio.h
-    ${CMAKE_SOURCE_DIR}/external/nlohmann/json.hpp
   )
 
   if(HDF5_FOUND)
@@ -89,11 +90,11 @@ if (WITH_INTERNAL_MDAL)
     set (HAVE_HDF5 TRUE)
   endif()
 
-  if(SQLITE3_FOUND)
+  if(SQLite3_FOUND)
      set(HAVE_SQLITE3 TRUE)
   endif()
 
-  if(SQLITE3_FOUND AND NETCDF_FOUND)
+  if(SQLite3_FOUND AND NETCDF_FOUND)
      set(MDAL_LIB_SRCS ${MDAL_LIB_SRCS}
       ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_sqlite3.cpp
       ${CMAKE_SOURCE_DIR}/external/mdal/frmts/mdal_3di.cpp
@@ -206,11 +207,6 @@ if (HDF5_FOUND)
   target_include_directories(provider_mdal PRIVATE ${HDF5_INCLUDE_DIRS})
   target_link_libraries(provider_mdal ${HDF5_C_LIBRARIES} )
   target_compile_definitions(provider_mdal PRIVATE ${HDF5_DEFINITIONS})
-endif()
-
-if (GDAL_FOUND)
-  target_include_directories(provider_mdal PRIVATE ${GDAL_INCLUDE_DIR})
-  target_link_libraries(provider_mdal ${GDAL_LIBRARY} )
 endif()
 
 if (NETCDF_FOUND)

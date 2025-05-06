@@ -23,7 +23,7 @@ email                : hugo dot mercier at oslandia dot com
 
 /**
  * \ingroup core
- * \brief Class to manipulate the definition of a virtual layer
+ * \brief Manipulates the definition of a virtual layer.
  *
  * It is used to extract parameters from an initial virtual layer definition as well as
  * to store the complete, expanded definition once types have been detected.
@@ -34,8 +34,8 @@ class CORE_EXPORT QgsVirtualLayerDefinition
 
     /**
      * \ingroup core
-     * \brief A SourceLayer is either a reference to a live layer in the registry
-     * or all the parameters needed to load it (provider key, source, etc.)
+     * \brief Either a reference to a live layer in the registry
+     * or all the parameters needed to load it (provider key, source, etc.).
      */
     class CORE_EXPORT SourceLayer
     {
@@ -102,7 +102,7 @@ class CORE_EXPORT QgsVirtualLayerDefinition
     //! Convert the definition into a QUrl
     QUrl toUrl() const;
 
-    //! Convert into a QString that can be read by the virtual layer provider
+    //! Converts the definition into a QString that can be read by the virtual layer provider
     QString toString() const;
 
     //! Add a live layer source layer
@@ -160,9 +160,9 @@ class CORE_EXPORT QgsVirtualLayerDefinition
      * QgsWkbTypes::NoGeometry to hide any geometry
      * QgsWkbTypes::Unknown for unknown types
      */
-    QgsWkbTypes::Type geometryWkbType() const { return mGeometryWkbType; }
+    Qgis::WkbType geometryWkbType() const { return mGeometryWkbType; }
     //! Sets the type of the geometry
-    void setGeometryWkbType( QgsWkbTypes::Type t ) { mGeometryWkbType = t; }
+    void setGeometryWkbType( Qgis::WkbType t ) { mGeometryWkbType = t; }
 
     //! Gets the SRID of the geometry
     long geometrySrid() const { return mGeometrySrid; }
@@ -183,7 +183,7 @@ class CORE_EXPORT QgsVirtualLayerDefinition
     //! Convenient method to test if the geometry is defined (not NoGeometry and not Unknown)
     bool hasDefinedGeometry() const
     {
-      return geometryWkbType() != QgsWkbTypes::NoGeometry && geometryWkbType() != QgsWkbTypes::Unknown;
+      return geometryWkbType() != Qgis::WkbType::NoGeometry && geometryWkbType() != Qgis::WkbType::Unknown;
     }
 
     /**
@@ -206,7 +206,7 @@ class CORE_EXPORT QgsVirtualLayerDefinition
     QString mFilePath;
     QgsFields mFields;
     bool mLazy = false;
-    QgsWkbTypes::Type mGeometryWkbType = QgsWkbTypes::Unknown;
+    Qgis::WkbType mGeometryWkbType = Qgis::WkbType::Unknown;
     long mGeometrySrid = 0;
     QString mSubsetString;
 };

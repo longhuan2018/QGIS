@@ -25,13 +25,11 @@
 /**
  * \ingroup server
  * \class QgsBufferServerRequest
- * \brief Class defining request with data
- * \since QGIS 3.0
+ * \brief Defines a request with data.
  */
 class SERVER_EXPORT QgsBufferServerRequest : public QgsServerRequest
 {
   public:
-
     /**
     * Constructor
     *

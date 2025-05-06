@@ -16,8 +16,8 @@
  *                                                                         *
  ***************************************************************************/
 
-#include "qgsapplication.h"
 #include "qgsvertexeditor.h"
+#include "moc_qgsvertexeditor.cpp"
 #include "qgscoordinateutils.h"
 #include "qgsmapcanvas.h"
 #include "qgsmessagelog.h"
@@ -28,6 +28,9 @@
 #include "qgscoordinatetransform.h"
 #include "qgsdoublevalidator.h"
 #include "qgspanelwidgetstack.h"
+#include "qgssettingsentryimpl.h"
+#include "qgssettingstree.h"
+
 
 #include <QClipboard>
 #include <QLabel>
@@ -42,16 +45,16 @@
 #include <QStackedWidget>
 #include <QMenu>
 
-const QgsSettingsEntryBool *QgsVertexEditor::settingAutoPopupVertexEditorDock = new QgsSettingsEntryBool( QStringLiteral( "auto-popup-vertex-editor-dock" ), QgsSettings::sTreeDigitizing, true, QStringLiteral( "Whether the auto-popup behavior of the vertex editor dock should be enabled" ) );
+const QgsSettingsEntryBool *QgsVertexEditor::settingAutoPopupVertexEditorDock = new QgsSettingsEntryBool( QStringLiteral( "auto-popup-vertex-editor-dock" ), QgsSettingsTree::sTreeDigitizing, true, QStringLiteral( "Whether the auto-popup behavior of the vertex editor dock should be enabled" ) );
 
 static const int MIN_RADIUS_ROLE = Qt::UserRole + 1;
 
 
 QgsVertexEditorModel::QgsVertexEditorModel( QgsMapCanvas *canvas, QObject *parent )
   : QAbstractTableModel( parent )
-  , mCanvas( canvas )
 {
-  QWidget *parentWidget = qobject_cast< QWidget * >( parent );
+  Q_UNUSED( canvas )
+  QWidget *parentWidget = qobject_cast<QWidget *>( parent );
   if ( parentWidget )
     mWidgetFont = parentWidget->font();
 }
@@ -63,19 +66,16 @@ void QgsVertexEditorModel::setFeature( QgsLockedFeature *lockedFeature )
   mLockedFeature = lockedFeature;
   if ( mLockedFeature && mLockedFeature->layer() )
   {
-    const QgsWkbTypes::Type layerWKBType = mLockedFeature->layer()->wkbType();
+    const Qgis::WkbType layerWKBType = mLockedFeature->layer()->wkbType();
 
     mHasZ = QgsWkbTypes::hasZ( layerWKBType );
     mHasM = QgsWkbTypes::hasM( layerWKBType );
 
-    if ( mHasZ )
-      mZCol = 2;
+    mZCol = mHasZ ? 2 : -1;
 
-    if ( mHasM )
-      mMCol = 2 + ( mHasZ ? 1 : 0 );
+    mMCol = mHasM ? ( 2 + ( mHasZ ? 1 : 0 ) ) : -1;
 
-    if ( mHasR )
-      mRCol = 2 + ( mHasZ ? 1 : 0 ) + ( mHasM ? 1 : 0 );
+    mRCol = mHasR ? ( 2 + ( mHasZ ? 1 : 0 ) + ( mHasM ? 1 : 0 ) ) : -1;
   }
 
   endResetModel();
@@ -100,8 +100,7 @@ int QgsVertexEditorModel::columnCount( const QModelIndex &parent ) const
 
 QVariant QgsVertexEditorModel::data( const QModelIndex &index, int role ) const
 {
-  if ( !index.isValid() || !mLockedFeature ||
-       ( role != Qt::DisplayRole && role != Qt::EditRole && role != MIN_RADIUS_ROLE && role != Qt::FontRole ) )
+  if ( !index.isValid() || !mLockedFeature || ( role != Qt::DisplayRole && role != Qt::EditRole && role != MIN_RADIUS_ROLE && role != Qt::FontRole ) )
     return QVariant();
 
   if ( index.row() >= mLockedFeature->vertexMap().count() )
@@ -179,7 +178,6 @@ QVariant QgsVertexEditorModel::data( const QModelIndex &index, int role ) const
   {
     return QVariant();
   }
-
 }
 
 QVariant QgsVertexEditorModel::headerData( int section, Qt::Orientation orientation, int role ) const
@@ -272,7 +270,7 @@ bool QgsVertexEditorModel::setData( const QModelIndex &index, const QVariant &va
   }
   const double z = ( index.column() == mZCol ? doubleValue : mLockedFeature->vertexMap().at( index.row() )->point().z() );
   const double m = ( index.column() == mMCol ? doubleValue : mLockedFeature->vertexMap().at( index.row() )->point().m() );
-  const QgsPoint p( QgsWkbTypes::PointZM, x, y, z, m );
+  const QgsPoint p( Qgis::WkbType::PointZM, x, y, z, m );
 
   mLockedFeature->layer()->beginEditCommand( QObject::tr( "Moved vertices" ) );
   mLockedFeature->layer()->moveVertex( p, mLockedFeature->featureId(), index.row() );
@@ -341,8 +339,7 @@ QgsVertexEditorWidget::QgsVertexEditorWidget( QgsMapCanvas *canvas )
 
   QVBoxLayout *pageHintLayout = new QVBoxLayout();
   mHintLabel = new QLabel();
-  mHintLabel->setText( QStringLiteral( "%1\n\n%2" ).arg( tr( "Right click on an editable feature to show its table of vertices." ),
-                       tr( "When a feature is bound to this panel, dragging a rectangle to select vertices on the canvas will only select those of the bound feature." ) ) );
+  mHintLabel->setText( QStringLiteral( "%1\n\n%2" ).arg( tr( "Right click on an editable feature to show its table of vertices." ), tr( "When a feature is bound to this panel, dragging a rectangle to select vertices on the canvas will only select those of the bound feature." ) ) );
   mHintLabel->setWordWrap( true );
 
   pageHintLayout->addStretch();
@@ -374,8 +371,7 @@ QgsVertexEditorWidget::QgsVertexEditorWidget( QgsMapCanvas *canvas )
   QAction *autoPopupAction = new QAction( tr( "Auto-open Table" ), this );
   autoPopupAction->setCheckable( true );
   autoPopupAction->setChecked( QgsVertexEditor::settingAutoPopupVertexEditorDock->value() );
-  connect( autoPopupAction, &QAction::toggled, this, [ = ]( bool checked )
-  {
+  connect( autoPopupAction, &QAction::toggled, this, [=]( bool checked ) {
     QgsVertexEditor::settingAutoPopupVertexEditorDock->setValue( checked );
   } );
   mWidgetMenu->addAction( autoPopupAction );
@@ -557,7 +553,6 @@ void QgsVertexEditor::closeEvent( QCloseEvent *event )
 CoordinateItemDelegate::CoordinateItemDelegate( const QgsCoordinateReferenceSystem &crs, QObject *parent )
   : QStyledItemDelegate( parent ), mCrs( crs )
 {
-
 }
 
 QString CoordinateItemDelegate::displayText( const QVariant &value, const QLocale & ) const
@@ -589,7 +584,7 @@ void CoordinateItemDelegate::setEditorData( QWidget *editor, const QModelIndex &
   QLineEdit *lineEdit = qobject_cast<QLineEdit *>( editor );
   if ( lineEdit && index.isValid() )
   {
-    lineEdit->setText( displayText( index.data( ).toDouble( ), QLocale() ).replace( QLocale().groupSeparator(), QString( ) ) );
+    lineEdit->setText( displayText( index.data().toDouble(), QLocale() ).replace( QLocale().groupSeparator(), QString() ) );
   }
 }
 

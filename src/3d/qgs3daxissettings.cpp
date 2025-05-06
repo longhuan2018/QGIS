@@ -14,27 +14,9 @@
  ***************************************************************************/
 
 #include "qgs3daxissettings.h"
+#include "qgsreadwritecontext.h"
 
 #include <QDomDocument>
-
-#include "qgsreadwritecontext.h"
-#include "qgssymbollayerutils.h"
-
-Qgs3DAxisSettings::Qgs3DAxisSettings( const Qgs3DAxisSettings &other )
-  : mMode( other.mMode )
-  , mHorizontalPosition( other.mHorizontalPosition )
-  , mVerticalPosition( other.mVerticalPosition )
-{
-
-}
-
-Qgs3DAxisSettings &Qgs3DAxisSettings::operator=( Qgs3DAxisSettings const &rhs )
-{
-  this->mMode = rhs.mMode;
-  this->mHorizontalPosition = rhs.mHorizontalPosition;
-  this->mVerticalPosition = rhs.mVerticalPosition;
-  return *this;
-}
 
 bool Qgs3DAxisSettings::operator==( Qgs3DAxisSettings const &rhs ) const
 {
@@ -42,12 +24,15 @@ bool Qgs3DAxisSettings::operator==( Qgs3DAxisSettings const &rhs ) const
   out &= this->mMode == rhs.mMode;
   out &= this->mHorizontalPosition == rhs.mHorizontalPosition;
   out &= this->mVerticalPosition == rhs.mVerticalPosition;
+  out &= this->mDefaultViewportSize == rhs.mDefaultViewportSize;
+  out &= this->mMaxViewportRatio == rhs.mMaxViewportRatio;
+  out &= this->mMinViewportRatio == rhs.mMinViewportRatio;
   return out;
 }
 
 bool Qgs3DAxisSettings::operator!=( Qgs3DAxisSettings const &rhs ) const
 {
-  return ! this->operator==( rhs );
+  return !this->operator==( rhs );
 }
 
 void Qgs3DAxisSettings::readXml( const QDomElement &element, const QgsReadWriteContext & )
@@ -56,13 +41,21 @@ void Qgs3DAxisSettings::readXml( const QDomElement &element, const QgsReadWriteC
   if ( !sizeStr.isEmpty() )
     mDefaultViewportSize = sizeStr.toInt();
 
+  double minViewportRatio = 0.0;
+  double maxViewportRatio = 0.0;
   sizeStr = element.attribute( QStringLiteral( "minViewportRatio" ) );
-  if ( !sizeStr.isEmpty() )
-    mMinViewportRatio = sizeStr.toInt();
+  if ( !sizeStr.isEmpty() && sizeStr.toDouble() != 0.0 )
+    minViewportRatio = sizeStr.toDouble();
 
   sizeStr = element.attribute( QStringLiteral( "maxViewportRatio" ) );
-  if ( !sizeStr.isEmpty() )
-    mMaxViewportRatio = sizeStr.toInt();
+  if ( !sizeStr.isEmpty() && sizeStr.toDouble() != 0.0 )
+    maxViewportRatio = sizeStr.toDouble();
+
+  if ( maxViewportRatio > 0.0 )
+    mMaxViewportRatio = maxViewportRatio;
+
+  if ( minViewportRatio > 0.0 && mMaxViewportRatio > minViewportRatio )
+    mMinViewportRatio = minViewportRatio;
 
   const QString modeStr = element.attribute( QStringLiteral( "mode" ) );
   if ( modeStr == QLatin1String( "Off" ) )
@@ -147,7 +140,6 @@ void Qgs3DAxisSettings::writeXml( QDomElement &element, const QgsReadWriteContex
       break;
   }
   element.setAttribute( QStringLiteral( "vertical" ), str );
-
 }
 
 void Qgs3DAxisSettings::setMinViewportRatio( double ratio )

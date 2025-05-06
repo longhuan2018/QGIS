@@ -18,7 +18,7 @@
 
 #include "qgis_sip.h"
 #include "qgis_core.h"
-#include "qgsunittypes.h"
+#include "qgis.h"
 #include "qgsmapunitscale.h"
 
 #include <QSharedDataPointer>
@@ -33,6 +33,7 @@ class QgsSymbolLayerReference;
  * \class QgsTextMaskSettings
   * \ingroup core
   * \brief Container for settings relating to a selective masking around a text.
+  *
   * A selective masking only makes sense in contexts where the text is rendered over some other map layers, especially for labeling.
   * \note QgsTextMaskSettings objects are implicitly shared.
   * \since QGIS 3.12
@@ -52,16 +53,7 @@ class CORE_EXPORT QgsTextMaskSettings
 
     QgsTextMaskSettings();
 
-    /**
-     * Copy constructor.
-     * \param other source settings
-     */
     QgsTextMaskSettings( const QgsTextMaskSettings &other );
-
-    /**
-     * Copy constructor.
-     * \param other source QgsTextMaskSettings
-     */
     QgsTextMaskSettings &operator=( const QgsTextMaskSettings &other );
 
     ~QgsTextMaskSettings();
@@ -112,7 +104,7 @@ class CORE_EXPORT QgsTextMaskSettings
      * \see size()
      * \see setSizeUnit()
      */
-    QgsUnitTypes::RenderUnit sizeUnit() const;
+    Qgis::RenderUnit sizeUnit() const;
 
     /**
      * Sets the units used for the buffer size.
@@ -120,7 +112,7 @@ class CORE_EXPORT QgsTextMaskSettings
      * \see setSize()
      * \see sizeUnit()
      */
-    void setSizeUnit( QgsUnitTypes::RenderUnit unit );
+    void setSizeUnit( Qgis::RenderUnit unit );
 
     /**
      * Returns the map unit scale object for the buffer size. This is only used if the
@@ -196,14 +188,14 @@ class CORE_EXPORT QgsTextMaskSettings
     /**
      * Returns a list of references to symbol layers that are masked by this buffer.
      * \returns a list of references to masked symbol layers
-     * \see setMaskedSymbolLayers
+     * \see setMaskedSymbolLayers()
      */
     QList<QgsSymbolLayerReference> maskedSymbolLayers() const;
 
     /**
      * Sets the symbol layers that will be masked by this buffer.
      * \param maskedLayers list of references to symbol layers
-     * \see setMaskedSymbolLayers
+     * \see setMaskedSymbolLayers()
      */
     void setMaskedSymbolLayers( const QList<QgsSymbolLayerReference> &maskedLayers );
 

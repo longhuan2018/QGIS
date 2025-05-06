@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     v_net_centrality.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Médéric Ribreux'
-__date__ = 'December 2017'
-__copyright__ = '(C) 2017, Médéric Ribreux'
+__author__ = "Médéric Ribreux"
+__date__ = "December 2017"
+__copyright__ = "(C) 2017, Médéric Ribreux"
 
 from .v_net import incorporatePoints, variableOutput
 
@@ -29,5 +27,5 @@ def processCommand(alg, parameters, context, feedback):
 
 
 def processOutputs(alg, parameters, context, feedback):
-    outputParameter = {'output': ['output', 'point', 1, False]}
+    outputParameter = {"output": ["output", "point", 1, False]}
     variableOutput(alg, outputParameter, parameters, context)

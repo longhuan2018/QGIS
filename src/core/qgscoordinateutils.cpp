@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgscoordinateutils.h"
+#include "moc_qgscoordinateutils.cpp"
 #include "qgscoordinatereferencesystem.h"
 #include "qgscoordinatereferencesystemutils.h"
 #include "qgscoordinatetransform.h"
@@ -35,7 +36,7 @@
 int QgsCoordinateUtils::calculateCoordinatePrecision( double mapUnitsPerPixel, const QgsCoordinateReferenceSystem &mapCrs, QgsProject *project )
 {
   if ( !project )
-    project = QgsProject::instance();
+    project = QgsProject::instance(); // skip-keyword-check
   // Get the display precision from the project settings
   const bool automatic = project->readBoolEntry( QStringLiteral( "PositionPrecision" ), QStringLiteral( "/Automatic" ) );
   int dp = 0;
@@ -87,7 +88,7 @@ int QgsCoordinateUtils::calculateCoordinatePrecisionForCrs( const QgsCoordinateR
   QgsProject *prj = project;
   if ( !prj )
   {
-    prj = QgsProject::instance();
+    prj = QgsProject::instance(); // skip-keyword-check
   }
 
   const bool automatic = prj->readBoolEntry( QStringLiteral( "PositionPrecision" ), QStringLiteral( "/Automatic" ) );
@@ -96,8 +97,13 @@ int QgsCoordinateUtils::calculateCoordinatePrecisionForCrs( const QgsCoordinateR
     return prj->readNumEntry( QStringLiteral( "PositionPrecision" ), QStringLiteral( "/DecimalPlaces" ), 6 );
   }
 
-  const QgsUnitTypes::DistanceUnit unit = crs.mapUnits();
-  if ( unit == QgsUnitTypes::DistanceDegrees )
+  return calculateCoordinatePrecision( crs );
+}
+
+int QgsCoordinateUtils::calculateCoordinatePrecision( const QgsCoordinateReferenceSystem &crs )
+{
+  const Qgis::DistanceUnit unit = crs.mapUnits();
+  if ( unit == Qgis::DistanceUnit::Degrees )
   {
     return 8;
   }
@@ -124,7 +130,7 @@ QString QgsCoordinateUtils::formatCoordinateForProject( QgsProject *project, con
   QgsCoordinateReferenceSystem crs = project->displaySettings()->coordinateCrs();
   if ( !crs.isValid() && !destCrs.isValid() )
   {
-    return QString();
+    return QStringLiteral( "%1%2 %3" ).arg( formattedX, QgsCoordinateFormatter::separator(), formattedY );
   }
   else if ( !crs.isValid() )
   {
@@ -154,6 +160,8 @@ void QgsCoordinateUtils::formatCoordinatePartsForProject( QgsProject *project, c
   QgsCoordinateReferenceSystem crs = project->displaySettings()->coordinateCrs();
   if ( !crs.isValid() && !destCrs.isValid() )
   {
+    x = QgsCoordinateFormatter::formatAsPair( point.x(), precision );
+    y = QgsCoordinateFormatter::formatAsPair( point.y(), precision );
     return;
   }
   else if ( !crs.isValid() )
@@ -303,7 +311,7 @@ double QgsCoordinateUtils::dmsToDecimal( const QString &string, bool *ok, bool *
       value = !sign1.isEmpty() && negative.contains( sign1 ) ? -v : v;
       if ( isEasting )
       {
-        *isEasting = easting.contains( sign2 );
+        *isEasting = easting.contains( sign1 );
       }
     }
     else

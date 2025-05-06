@@ -11,6 +11,7 @@
  ***************************************************************************/
 
 #include "qgsdecorationscalebardialog.h"
+#include "moc_qgsdecorationscalebardialog.cpp"
 #include "qgsdecorationscalebar.h"
 #include "qgslogger.h"
 #include "qgshelp.h"
@@ -20,7 +21,7 @@
 #include <QDialogButtonBox>
 #include <QPushButton>
 
-QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar &deco, int units, QWidget *parent )
+QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar &deco, Qgis::DistanceUnit units, QWidget *parent )
   : QDialog( parent )
   , mDeco( deco )
 {
@@ -39,17 +40,18 @@ QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar 
   spnSize->setShowClearButton( false );
   switch ( units )
   {
-    case 0:
+    case Qgis::DistanceUnit::Meters:
       spnSize->setSuffix( tr( " meters/km" ) );
       break;
-    case 1:
+    case Qgis::DistanceUnit::Feet:
+    case Qgis::DistanceUnit::Miles:
       spnSize->setSuffix( tr( " feet/miles" ) );
       break;
-    case 2:
+    case Qgis::DistanceUnit::Degrees:
       spnSize->setSuffix( tr( " degrees" ) );
       break;
     default:
-      QgsDebugMsg( QStringLiteral( "Error: not picked up map units - actual value = %1" ).arg( units ) );
+      QgsDebugError( QStringLiteral( "Error: not picked up map units - actual value = %1" ).arg( qgsEnumValueToKey( units ) ) );
   }
   spnSize->setValue( mDeco.mPreferredSize );
 
@@ -62,8 +64,7 @@ QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar 
   cboPlacement->addItem( tr( "Bottom Left" ), QgsDecorationItem::BottomLeft );
   cboPlacement->addItem( tr( "Bottom Center" ), QgsDecorationItem::BottomCenter );
   cboPlacement->addItem( tr( "Bottom Right" ), QgsDecorationItem::BottomRight );
-  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [ = ]( int )
-  {
+  connect( cboPlacement, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=]( int ) {
     spnHorizontal->setMinimum( cboPlacement->currentData() == QgsDecorationItem::TopCenter || cboPlacement->currentData() == QgsDecorationItem::BottomCenter ? -100 : 0 );
   } );
   cboPlacement->setCurrentIndex( cboPlacement->findData( mDeco.placement() ) );
@@ -71,7 +72,12 @@ QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar 
   spnHorizontal->setClearValue( 0 );
   spnHorizontal->setValue( mDeco.mMarginHorizontal );
   spnVertical->setValue( mDeco.mMarginVertical );
-  wgtUnitSelection->setUnits( QgsUnitTypes::RenderUnitList() << QgsUnitTypes::RenderMillimeters << QgsUnitTypes::RenderPercentage << QgsUnitTypes::RenderPixels );
+  wgtUnitSelection->setUnits(
+    { Qgis::RenderUnit::Millimeters,
+      Qgis::RenderUnit::Percentage,
+      Qgis::RenderUnit::Pixels
+    }
+  );
   wgtUnitSelection->setUnit( mDeco.mMarginUnit );
 
   grpEnable->setChecked( mDeco.enabled() );
@@ -98,12 +104,12 @@ QgsDecorationScaleBarDialog::QgsDecorationScaleBarDialog( QgsDecorationScaleBar 
 
 void QgsDecorationScaleBarDialog::showHelp()
 {
-  QgsHelp::openHelp( QStringLiteral( "introduction/general_tools.html#scale-bar" ) );
+  QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#scalebar-decoration" ) );
 }
 
 void QgsDecorationScaleBarDialog::apply()
 {
-  mDeco.setPlacement( static_cast< QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
+  mDeco.setPlacement( static_cast<QgsDecorationItem::Placement>( cboPlacement->currentData().toInt() ) );
   mDeco.mMarginUnit = wgtUnitSelection->unit();
   mDeco.mMarginHorizontal = spnHorizontal->value();
   mDeco.mMarginVertical = spnVertical->value();

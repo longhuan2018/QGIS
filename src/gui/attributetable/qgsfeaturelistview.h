@@ -37,7 +37,7 @@ class QgsActionMenu;
 
 /**
  * \ingroup gui
- * \brief Shows a list of features and renders a edit button next to each feature.
+ * \brief Shows a list of features and renders an edit button next to each feature.
  *
  * Accepts a display expression to define the way, features are rendered.
  * Uses a QgsFeatureListModel as source model.
@@ -48,7 +48,6 @@ class GUI_EXPORT QgsFeatureListView : public QListView
     Q_OBJECT
 
   public:
-
     /**
      * Creates a feature list view
      *
@@ -198,30 +197,29 @@ class GUI_EXPORT QgsFeatureListView : public QListView
      * editFirstFeature will try to edit the first feature of the list
      * \since QGIS 3.8
      */
-    void editFirstFeature() {editOtherFeature( First );}
+    void editFirstFeature() { editOtherFeature( First ); }
 
     /**
      * editNextFeature will try to edit next feature of the list
      * \since QGIS 3.8
      */
-    void editNextFeature() {editOtherFeature( Next );}
+    void editNextFeature() { editOtherFeature( Next ); }
 
     /**
      * editPreviousFeature will try to edit previous feature of the list
      * \since QGIS 3.8
      */
-    void editPreviousFeature() {editOtherFeature( Previous );}
+    void editPreviousFeature() { editOtherFeature( Previous ); }
 
     /**
      * editLastFeature will try to edit the last feature of the list
      * \since QGIS 3.8
      */
-    void editLastFeature() {editOtherFeature( Last );}
-
+    void editLastFeature() { editOtherFeature( Last ); }
 
 
   private slots:
-    void editSelectionChanged( const QItemSelection &deselected, const QItemSelection &selected );
+    void editSelectionChanged( const QItemSelection &selected, const QItemSelection &deselected );
 
     /**
      * Make sure, there is an edit selection. If there is none, choose the first item.
@@ -233,6 +231,8 @@ class GUI_EXPORT QgsFeatureListView : public QListView
 
   private:
     void selectRow( const QModelIndex &index, bool anchor );
+
+    void updateEditSelection( bool inSelection = false );
 
     enum PositionInList
     {
@@ -264,7 +264,10 @@ class GUI_EXPORT QgsFeatureListView : public QListView
     int mRowAnchor = 0;
     QItemSelectionModel::SelectionFlags mCtrlDragSelectionFlag;
 
-    QTimer mUpdateEditSelectionTimer;
+    QTimer mUpdateEditSelectionTimerWithSelection;
+    QTimer mUpdateEditSelectionTimerWithoutSelection;
+
+    QgsFeatureId mLastEditSelectionFid;
 
     friend class QgsDualView;
 };

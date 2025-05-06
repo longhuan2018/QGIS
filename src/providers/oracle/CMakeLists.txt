@@ -39,7 +39,6 @@ include_directories(
   ${CMAKE_BINARY_DIR}/src/ui
 )
 include_directories(SYSTEM
-  ${GEOS_INCLUDE_DIR}
   ${QT_QTSQL_INCLUDEDIR}
 )
 
@@ -53,6 +52,7 @@ add_library (provider_oracle MODULE ${ORACLE_SRCS} ${ORACLE_HDRS})
 
 # require c++17
 target_compile_features(provider_oracle PRIVATE cxx_std_17)
+target_compile_definitions(provider_oracle PRIVATE "CMAKE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
 target_link_libraries (provider_oracle
   qgis_core

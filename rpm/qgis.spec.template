@@ -84,6 +84,7 @@ BuildRequires:  fcgi-devel
 BuildRequires:  protobuf-compiler
 BuildRequires:  protobuf-devel
 BuildRequires:  protobuf-lite-devel
+BuildRequires:  draco-devel
 
 # OpenCL
 BuildRequires:  opencl-headers
@@ -99,12 +100,8 @@ BuildRequires:  python3-PyYAML
 BuildRequires:  python3-qscintilla-qt5
 BuildRequires:  python3-qscintilla-qt5-devel
 BuildRequires:  python3-qt5-devel
-%if 0%{?fedora} >= 35
 BuildRequires:  sip6
 BuildRequires:  PyQt-builder
-%else
-BuildRequires:  python3-sip-devel
-%endif
 
 # Qca stuff
 BuildRequires:  qca-qt5-devel
@@ -123,8 +120,6 @@ BuildRequires:  qt5-qt3d-devel
 BuildRequires:  qt5-qtbase-private-devel
 
 # Qwt stuff
-BuildRequires:  qwt-devel
-BuildRequires:  qwt-qt5-devel
 BuildRequires:  qwt-qt5-devel
 
 # GDAL must be explicit. It is required by some raster tools
@@ -184,6 +179,7 @@ Requires:       gdal-python3
 Requires:       gdal-python-tools
 Requires:       python3-jinja2
 Requires:       python3-OWSLib
+Requires:       python3-packaging
 Requires:       python3-psycopg2
 Requires:       python3-pygments
 Requires:       python3-PyYAML
@@ -327,7 +323,7 @@ rm -f %{buildroot}%{_datadir}/%{name}/doc/INSTALL*
 %exclude %{python3_sitearch}/%{name}/_server.so
 
 %files server
-%doc src/server/admin.sld src/server/wms_metadata.xml %{name}-server-README.fedora
+%doc %{name}-server-README.fedora
 %doc %{name}-server-httpd.conf %{name}-server-nginx.conf %{name}-server-fcgi.socket %{name}-server-fcgi.service
 %{_bindir}/%{name}_mapserver
 %{_libdir}/%{name}/server/

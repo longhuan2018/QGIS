@@ -19,9 +19,9 @@
 #include <QProgressDialog>
 
 #include "checkDock.h"
+#include "moc_checkDock.cpp"
 
 #include "qgsfeatureiterator.h"
-#include "qgsvectordataprovider.h"
 #include "qgsvectorlayer.h"
 #include "qgsmaplayer.h"
 #include "qgsproject.h"
@@ -30,9 +30,6 @@
 #include "qgsfeature.h"
 #include "qgsmapcanvas.h"
 #include "qgsrubberband.h"
-#include "qgsproviderregistry.h"
-#include "qgslogger.h"
-#include "qgsspatialindex.h"
 #include "qgisinterface.h"
 #include "qgsmessagelog.h"
 #include "qgssettings.h"
@@ -56,7 +53,7 @@ checkDock::checkDock( QgisInterface *qIface, QWidget *parent )
   mFixButton->hide();
   mFixBox->hide();
 
-  mErrorListModel = new DockFilterModel( mErrorList, parent );
+  mErrorListModel = new DockFilterModel( parent );
   mErrorListModel->setFilterCaseSensitivity( Qt::CaseInsensitive );
   mErrorTableView->setModel( mErrorListModel );
   mErrorTableView->setSelectionBehavior( QAbstractItemView::SelectRows );
@@ -65,7 +62,7 @@ checkDock::checkDock( QgisInterface *qIface, QWidget *parent )
   mConfigureDialog = new rulesDialog( mTest->testMap(), qIface, parent );
   mTestTable = mConfigureDialog->rulesTable();
 
-  QgsMapCanvas *canvas = qIface->mapCanvas();// mQgisApp->mapCanvas();
+  QgsMapCanvas *canvas = qIface->mapCanvas(); // mQgisApp->mapCanvas();
   mRBFeature1.reset( new QgsRubberBand( canvas ) );
   mRBFeature2.reset( new QgsRubberBand( canvas ) );
   mRBConflict.reset( new QgsRubberBand( canvas ) );
@@ -91,7 +88,7 @@ checkDock::checkDock( QgisInterface *qIface, QWidget *parent )
   connect( mFixButton, &QAbstractButton::clicked, this, &checkDock::fix );
   connect( mErrorTableView, &QAbstractItemView::clicked, this, &checkDock::errorListClicked );
 
-  connect( QgsProject::instance(), static_cast < void ( QgsProject::* )( const QString & ) >( &QgsProject::layerWillBeRemoved ), this, &checkDock::parseErrorListByLayer );
+  connect( QgsProject::instance(), static_cast<void ( QgsProject::* )( const QString & )>( &QgsProject::layerWillBeRemoved ), this, &checkDock::parseErrorListByLayer );
 
   connect( this, &QDockWidget::visibilityChanged, this, &checkDock::updateRubberBands );
   connect( qgsInterface, &QgisInterface::newProjectCreated, mConfigureDialog, &rulesDialog::clearRules );
@@ -160,10 +157,15 @@ void checkDock::deleteErrors()
   updateFilterComboBox();
 
   mErrorList.clear();
-  mErrorListModel->resetModel();
+  updateModel();
 
   qDeleteAll( mRbErrorMarkers );
   mRbErrorMarkers.clear();
+}
+
+void checkDock::updateModel()
+{
+  mErrorListModel->setErrors( mErrorList );
 }
 
 void checkDock::parseErrorListByLayer( const QString &layerId )
@@ -183,7 +185,7 @@ void checkDock::parseErrorListByLayer( const QString &layerId )
       ++it;
   }
 
-  mErrorListModel->resetModel();
+  updateModel();
   mComment->setText( tr( "No errors were found" ) );
 }
 
@@ -204,7 +206,7 @@ void checkDock::parseErrorListByFeature( int featureId )
   }
 
   mComment->setText( tr( "No errors were found" ) );
-  mErrorListModel->resetModel();
+  updateModel();
 }
 
 void checkDock::configure()
@@ -250,7 +252,7 @@ void checkDock::errorListClicked( const QModelIndex &index )
 
   // use vertex marker when highlighting a point
   // and rubber band otherwise
-  if ( g.type() == QgsWkbTypes::PointGeometry )
+  if ( g.type() == Qgis::GeometryType::Point )
   {
     mVMFeature1 = new QgsVertexMarker( canvas );
     mVMFeature1->setIconType( QgsVertexMarker::ICON_X );
@@ -279,7 +281,7 @@ void checkDock::errorListClicked( const QModelIndex &index )
     return;
   }
 
-  if ( g.type() == QgsWkbTypes::PointGeometry )
+  if ( g.type() == Qgis::GeometryType::Point )
   {
     mVMFeature2 = new QgsVertexMarker( canvas );
     mVMFeature2->setIconType( QgsVertexMarker::ICON_BOX );
@@ -297,7 +299,7 @@ void checkDock::errorListClicked( const QModelIndex &index )
     return;
   }
 
-  if ( mErrorList.at( row )->conflict().type() == QgsWkbTypes::PointGeometry )
+  if ( mErrorList.at( row )->conflict().type() == Qgis::GeometryType::Point )
   {
     mVMConflict = new QgsVertexMarker( canvas );
     mVMConflict->setIconType( QgsVertexMarker::ICON_BOX );
@@ -327,7 +329,7 @@ void checkDock::fix()
   if ( mErrorList.at( row )->fix( fixName ) )
   {
     mErrorList.removeAt( row );
-    mErrorListModel->resetModel();
+    updateModel();
     //parseErrorListByFeature();
     mComment->setText( tr( "%n error(s) were found", nullptr, mErrorList.count() ) );
     qgsInterface->mapCanvas()->refresh();
@@ -353,17 +355,17 @@ void checkDock::runTests( ValidateType type )
     const QString layer2Str = mTestTable->item( i, 4 )->text();
 
     // test if layer1 is in the registry
-    if ( !( ( QgsVectorLayer * )QgsProject::instance()->mapLayers().contains( layer1Str ) ) )
+    if ( !( ( QgsVectorLayer * ) QgsProject::instance()->mapLayers().contains( layer1Str ) ) )
     {
       QgsMessageLog::logMessage( tr( "Layer %1 not found in registry." ).arg( layer1Str ), tr( "Topology plugin" ) );
       return;
     }
 
-    QgsVectorLayer *layer1 = ( QgsVectorLayer * )QgsProject::instance()->mapLayer( layer1Str );
+    QgsVectorLayer *layer1 = ( QgsVectorLayer * ) QgsProject::instance()->mapLayer( layer1Str );
     QgsVectorLayer *layer2 = nullptr;
 
-    if ( ( QgsVectorLayer * )QgsProject::instance()->mapLayers().contains( layer2Str ) )
-      layer2 = ( QgsVectorLayer * )QgsProject::instance()->mapLayer( layer2Str );
+    if ( ( QgsVectorLayer * ) QgsProject::instance()->mapLayers().contains( layer2Str ) )
+      layer2 = ( QgsVectorLayer * ) QgsProject::instance()->mapLayer( layer2Str );
 
     QProgressDialog progress( testName, tr( "Abort" ), 0, layer1->featureCount(), this );
     progress.setWindowModality( Qt::WindowModal );
@@ -380,22 +382,18 @@ void checkDock::runTests( ValidateType type )
     for ( it = errors.begin(); it != errors.end(); ++it )
     {
       TopolError *te = *it;
-      te->conflict();
-
       const QgsSettings settings;
-      if ( te->conflict().type() == QgsWkbTypes::PolygonGeometry )
+      const QVector<QgsGeometry> geoms = te->conflict().asGeometryCollection();
+
+      for ( const QgsGeometry &g : std::as_const( geoms ) )
       {
-        rb = new QgsRubberBand( qgsInterface->mapCanvas(), QgsWkbTypes::PolygonGeometry );
+        rb = new QgsRubberBand( qgsInterface->mapCanvas(), g.type() );
+        rb->setColor( "red" );
+        rb->setWidth( 4 );
+        rb->setToGeometry( g, layer1 );
+        rb->show();
+        mRbErrorMarkers << rb;
       }
-      else
-      {
-        rb = new QgsRubberBand( qgsInterface->mapCanvas(), te->conflict().type() );
-      }
-      rb->setColor( "red" );
-      rb->setWidth( 4 );
-      rb->setToGeometry( te->conflict(), layer1 );
-      rb->show();
-      mRbErrorMarkers << rb;
     }
     mErrorList << errors;
   }
@@ -410,7 +408,7 @@ void checkDock::runTests( ValidateType type )
   updateFilterComboBox();
 
   mToggleRubberband->setChecked( true );
-  mErrorListModel->resetModel();
+  updateModel();
 }
 
 void checkDock::updateFilterComboBox()

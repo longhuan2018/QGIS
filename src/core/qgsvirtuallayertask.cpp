@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsvirtuallayertask.h"
+#include "moc_qgsvirtuallayertask.cpp"
 #include "qgslogger.h"
 #include "qgsvectorlayer.h"
 
@@ -37,7 +38,7 @@ bool QgsVirtualLayerTask::run()
   }
   catch ( std::exception &e )
   {
-    QgsDebugMsg( QStringLiteral( "Reload error: %1" ).arg( e.what() ) );
+    QgsDebugError( QStringLiteral( "Reload error: %1" ).arg( e.what() ) );
     setExceptionText( e.what() );
     rc = false;
   }

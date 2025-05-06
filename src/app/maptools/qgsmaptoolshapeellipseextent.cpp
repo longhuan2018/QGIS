@@ -15,11 +15,10 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshapeellipseextent.h"
+#include "moc_qgsmaptoolshapeellipseextent.cpp"
 #include "qgsgeometryrubberband.h"
 #include "qgsmapcanvas.h"
 #include "qgspoint.h"
-#include "qgsgeometryutils.h"
-#include "qgslinestring.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
 #include "qgsapplication.h"
@@ -68,7 +67,7 @@ bool QgsMapToolShapeEllipseExtent::cadCanvasReleaseEvent( QgsMapMouseEvent *e, Q
 
     if ( !mTempRubberBand )
     {
-      QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+      Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
       mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
       mTempRubberBand->show();
     }

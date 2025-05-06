@@ -23,7 +23,7 @@
 #include "qgstextshadowsettings.h"
 #include "qgstextbackgroundsettings.h"
 #include "qgsmapunitscale.h"
-#include "qgsunittypes.h"
+#include "qgis.h"
 #include "qgspainteffect.h"
 #include "qgssymbollayerreference.h"
 #include "qgsstringutils.h"
@@ -72,7 +72,7 @@ class QgsTextBufferSettingsPrivate : public QSharedData
 
     bool enabled = false;
     double size = 1;
-    QgsUnitTypes::RenderUnit sizeUnit = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit sizeUnit = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale sizeMapUnitScale;
     QColor color;
     double opacity = 1.0;
@@ -135,22 +135,22 @@ class QgsTextBackgroundSettingsPrivate : public QSharedData
     QString svgFile;   //!< Absolute path to SVG file
     QgsTextBackgroundSettings::SizeType sizeType = QgsTextBackgroundSettings::SizeBuffer;
     QSizeF size;
-    QgsUnitTypes::RenderUnit sizeUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit sizeUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale sizeMapUnitScale;
     QgsTextBackgroundSettings::RotationType rotationType = QgsTextBackgroundSettings::RotationSync;
     double rotation = 0.0;
     QPointF offset;
-    QgsUnitTypes::RenderUnit offsetUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit offsetUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale offsetMapUnitScale;
     QSizeF radii;
-    QgsUnitTypes::RenderUnit radiiUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit radiiUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale radiiMapUnitScale;
     QPainter::CompositionMode blendMode = QPainter::CompositionMode_SourceOver;
     QColor fillColor;
     QColor strokeColor;
     double opacity = 1.0;
     double strokeWidth = 0.0;
-    QgsUnitTypes::RenderUnit strokeWidthUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit strokeWidthUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale strokeWidthMapUnitScale;
     Qt::PenJoinStyle joinStyle = Qt::BevelJoin;
     std::unique_ptr< QgsPaintEffect > paintEffect;
@@ -197,11 +197,11 @@ class QgsTextShadowSettingsPrivate : public QSharedData
     QgsTextShadowSettings::ShadowPlacement shadowUnder = QgsTextShadowSettings::ShadowLowest;
     int offsetAngle = 135;
     double offsetDist = 1.0;
-    QgsUnitTypes::RenderUnit offsetUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit offsetUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale offsetMapUnitScale;
     bool offsetGlobal = true;
     double radius = 1.5;
-    QgsUnitTypes::RenderUnit radiusUnits = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit radiusUnits = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale radiusMapUnitScale;
     bool radiusAlphaOnly = false;
     int scale = 100;
@@ -240,7 +240,7 @@ class QgsTextMaskSettingsPrivate : public QSharedData
     bool enabled = false;
     QgsTextMaskSettings::MaskType type = QgsTextMaskSettings::MaskBuffer;
     double size = 1.5;
-    QgsUnitTypes::RenderUnit sizeUnit = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit sizeUnit = Qgis::RenderUnit::Millimeters;
     QgsMapUnitScale sizeMapUnitScale;
     Qt::PenJoinStyle joinStyle = Qt::RoundJoin;
     double opacity = 1.0;
@@ -264,6 +264,7 @@ class QgsTextSettingsPrivate : public QSharedData
     QgsTextSettingsPrivate( const QgsTextSettingsPrivate &other )
       : QSharedData( other )
       , isValid( other.isValid )
+      , originalFontFamily( other.originalFontFamily )
       , textFont( other.textFont )
       , families( other.families )
       , textNamedStyle( other.textNamedStyle )
@@ -281,28 +282,39 @@ class QgsTextSettingsPrivate : public QSharedData
       , previewBackgroundColor( other.previewBackgroundColor )
       , allowHtmlFormatting( other.allowHtmlFormatting )
       , capitalization( other.capitalization )
+      , tabStopDistance( other.tabStopDistance )
+      , tabPositions( other.tabPositions )
+      , tabStopDistanceUnits( other.tabStopDistanceUnits )
+      , tabStopDistanceMapUnitScale( other.tabStopDistanceMapUnitScale )
       , mDataDefinedProperties( other.mDataDefinedProperties )
     {
     }
 
     bool isValid = false;
+
+    QString originalFontFamily;
     QFont textFont;
     QStringList families;
     QString textNamedStyle;
     bool forcedBold = false;
     bool forcedItalic = false;
-    QgsUnitTypes::RenderUnit fontSizeUnits = QgsUnitTypes::RenderPoints;
+    Qgis::RenderUnit fontSizeUnits = Qgis::RenderUnit::Points;
     QgsMapUnitScale fontSizeMapUnitScale;
     double fontSize = 10 ; //may differ from size in textFont due to units (e.g., size in map units)
     QColor textColor;
     double opacity = 1.0;
     QPainter::CompositionMode blendMode = QPainter::CompositionMode_SourceOver;
     double multilineHeight = 1.0;
-    QgsUnitTypes::RenderUnit multilineHeightUnits = QgsUnitTypes::RenderPercentage;
+    Qgis::RenderUnit multilineHeightUnits = Qgis::RenderUnit::Percentage;
     Qgis::TextOrientation orientation = Qgis::TextOrientation::Horizontal;
     QColor previewBackgroundColor = Qt::white;
     bool allowHtmlFormatting = false;
     Qgis::Capitalization capitalization = Qgis::Capitalization::MixedCase;
+
+    double tabStopDistance = 6.0;
+    QList< QgsTextFormat::Tab > tabPositions;
+    Qgis::RenderUnit tabStopDistanceUnits = Qgis::RenderUnit::Percentage;
+    QgsMapUnitScale tabStopDistanceMapUnitScale;
 
     //! Property collection for data defined settings
     QgsPropertyCollection mDataDefinedProperties;

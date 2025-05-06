@@ -3,7 +3,7 @@
  *                                                                      *
  * src/gui/qgsadvanceddigitizingfloater.h                               *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/
 
 
@@ -14,9 +14,11 @@
 class QgsAdvancedDigitizingFloater : QWidget
 {
 %Docstring(signature="appended")
-The :py:class:`QgsAdvancedDigitizingFloater` class is widget that floats
-next to the mouse pointer, and allow interaction with the AdvancedDigitizing
-feature. It proxies display and actions to :py:class:`QgsMapToolAdvancedDigitizingDockWidget`.
+A widget that floats next to the mouse pointer, and allows interaction
+with the AdvancedDigitizing feature.
+
+It proxies display and actions to
+:py:class:`QgsMapToolAdvancedDigitizingDockWidget`.
 
 .. note::
 
@@ -29,6 +31,20 @@ feature. It proxies display and actions to :py:class:`QgsMapToolAdvancedDigitizi
 #include "qgsadvanceddigitizingfloater.h"
 %End
   public:
+    enum class FloaterItem
+    {
+      XCoordinate,
+      YCoordinate,
+      MCoordinate,
+      ZCoordinate,
+      Angle,
+      CommonAngleSnapping,
+      Distance,
+      Bearing,
+    };
+    typedef QFlags<QgsAdvancedDigitizingFloater::FloaterItem> FloaterItems;
+
+
 
     explicit QgsAdvancedDigitizingFloater( QgsMapCanvas *canvas, QgsAdvancedDigitizingDockWidget *cadDockWidget );
 %Docstring
@@ -42,22 +58,42 @@ Create an advanced digitizing floater widget
 
     bool active();
 %Docstring
-Whether the floater is active or not.
-Note that the floater may be active but not visible (e.g. if the mouse is not over the canvas).
+Whether the floater is active or not. Note that the floater may be
+active but not visible (e.g. if the mouse is not over the canvas).
 
 .. versionadded:: 3.8
+%End
+
+    bool itemVisibility( const QgsAdvancedDigitizingFloater::FloaterItem &item ) const;
+%Docstring
+Returns ``True`` if the floater ``item`` visibility setting is enabled.
+
+:param item: floater item
+
+.. versionadded:: 3.32
 %End
 
   public slots:
 
     void setActive( bool active );
 %Docstring
-Set whether the floater should be active or not.
-Note that the floater may be active but not visible (e.g. if the mouse is not over the canvas).
+Set whether the floater should be active or not. Note that the floater
+may be active but not visible (e.g. if the mouse is not over the
+canvas).
 
-:param active:
+:param active: 
 
 .. versionadded:: 3.8
+%End
+
+    void setItemVisibility( const QgsAdvancedDigitizingFloater::FloaterItem &item, bool visible );
+%Docstring
+Set whether the floater ``item`` should be visible or not.
+
+:param item: floater item
+:param visible: 
+
+.. versionadded:: 3.32
 %End
 
   private:
@@ -77,5 +113,5 @@ event filter to track mouse position
  *                                                                      *
  * src/gui/qgsadvanceddigitizingfloater.h                               *
  *                                                                      *
- * Do not edit manually ! Edit header and run scripts/sipify.pl again   *
+ * Do not edit manually ! Edit header and run scripts/sipify.py again   *
  ************************************************************************/

@@ -46,8 +46,8 @@ bool QgsNullSymbolRenderer::renderFeature( const QgsFeature &feature, QgsRenderC
   }
 
   if ( !feature.hasGeometry() ||
-       feature.geometry().type() == QgsWkbTypes::NullGeometry ||
-       feature.geometry().type() == QgsWkbTypes::UnknownGeometry )
+       feature.geometry().type() == Qgis::GeometryType::Null ||
+       feature.geometry().type() == Qgis::GeometryType::Unknown )
     return true;
 
   if ( !mSymbol )
@@ -121,7 +121,7 @@ QDomElement QgsNullSymbolRenderer::save( QDomDocument &doc, const QgsReadWriteCo
 
 QgsNullSymbolRenderer *QgsNullSymbolRenderer::convertFromRenderer( const QgsFeatureRenderer *renderer )
 {
-  std::unique_ptr< QgsNullSymbolRenderer > res = std::make_unique< QgsNullSymbolRenderer >();
+  auto res = std::make_unique< QgsNullSymbolRenderer >();
   renderer->copyRendererData( res.get() );
   return res.release();
 }

@@ -14,12 +14,14 @@
  ***************************************************************************/
 
 #include "qgslegendfilterbutton.h"
+#include "moc_qgslegendfilterbutton.cpp"
 
 #include <QMenu>
 #include <QAction>
 
 #include "qgsapplication.h"
 #include "qgsexpressionbuilderdialog.h"
+#include "qgsexpressioncontextutils.h"
 
 QgsLegendFilterButton::QgsLegendFilterButton( QWidget *parent )
   : QToolButton( parent )
@@ -58,7 +60,14 @@ void QgsLegendFilterButton::onToggle( bool checked )
 
 void QgsLegendFilterButton::onSetLegendFilterExpression()
 {
-  QgsExpressionBuilderDialog dlg( mLayer, mExpression );
+  QgsExpressionContext context;
+  if ( mExpressionContextGenerator )
+    context = mExpressionContextGenerator->createExpressionContext();
+  else
+  {
+    context.appendScopes( QgsExpressionContextUtils::globalProjectLayerScopes( mLayer ) );
+  }
+  QgsExpressionBuilderDialog dlg( mLayer, mExpression, nullptr, QStringLiteral( "generic" ), context );
   if ( dlg.exec() )
   {
     setExpressionText( dlg.expressionText() );
@@ -77,6 +86,11 @@ void QgsLegendFilterButton::onSetLegendFilterExpression()
     if ( emitSignal )
       emit toggled( isChecked() );
   }
+}
+
+void QgsLegendFilterButton::registerExpressionContextGenerator( QgsExpressionContextGenerator *generator )
+{
+  mExpressionContextGenerator = generator;
 }
 
 void QgsLegendFilterButton::onClearFilterExpression()

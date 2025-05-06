@@ -51,7 +51,6 @@ namespace pal
   class FeaturePart;
 
   class Pal;
-  class LabelInfo;
 
   /**
    * \ingroup core
@@ -76,7 +75,7 @@ namespace pal
        * \param provider Associated provider
        * \param name Name of the layer (for stats, debugging - does not need to be unique)
        * \param arrangement Arrangement mode : how to place candidates
-       * \param defaultPriority layer's prioriry (0 is the best, 1 the worst)
+       * \param defaultPriority layer's priority (0 is the best, 1 the worst)
        * \param active is the layer is active (currently displayed)
        * \param toLabel the layer will be labeled whether toLablel is TRUE
        * \param pal pointer to the pal object
@@ -88,7 +87,7 @@ namespace pal
       /**
        * Returns the number of features in layer.
        */
-      int featureCount() { return mHashtable.size(); }
+      int featureCount() const { return mHashtable.size(); }
 
       /**
        * Returns the maximum number of point label candidates to generate for features
@@ -324,7 +323,7 @@ namespace pal
 
       double mDefaultPriority;
 
-      QgsLabelObstacleSettings::ObstacleType mObstacleType = QgsLabelObstacleSettings::PolygonBoundary;
+      QgsLabelObstacleSettings::ObstacleType mObstacleType = QgsLabelObstacleSettings::ObstacleType::PolygonBoundary;
       bool mActive;
       bool mLabelLayer;
       bool mCentroidInside = false;

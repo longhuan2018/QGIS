@@ -44,9 +44,6 @@ class CORE_EXPORT QgsPlot
 {
   public:
 
-    /**
-     * Constructor for QgsPlot.
-     */
     QgsPlot() = default;
 
     virtual ~QgsPlot();
@@ -81,9 +78,7 @@ class CORE_EXPORT QgsPlotAxis
     QgsPlotAxis();
     ~QgsPlotAxis();
 
-    //! QgsPlotAxis cannot be copied
     QgsPlotAxis( const QgsPlotAxis &other ) = delete;
-    //! QgsPlotAxis cannot be copied
     QgsPlotAxis &operator=( const QgsPlotAxis &other ) = delete;
 
     /**
@@ -200,6 +195,46 @@ class CORE_EXPORT QgsPlotAxis
      */
     void setNumericFormat( QgsNumericFormat *format SIP_TRANSFER );
 
+    /**
+     * Returns the axis label suffix, or an empty string if no label suffix is to be used.
+     *
+     * \see setLabelSuffix()
+     * \see labelSuffixPlacement()
+     *
+     * \since QGIS 3.32
+     */
+    QString labelSuffix() const;
+
+    /**
+     * Sets the axis label \a suffix. Set to an empty string if no label suffix is to be used.
+     *
+     * \see labelSuffix()
+     * \see setLabelSuffixPlacement()
+     *
+     * \since QGIS 3.32
+     */
+    void setLabelSuffix( const QString &suffix );
+
+    /**
+     * Returns the placement for the axis label suffixes.
+     *
+     * \see setLabelSuffixPlacement()
+     * \see labelSuffix()
+     *
+     * \since QGIS 3.32
+     */
+    Qgis::PlotAxisSuffixPlacement labelSuffixPlacement() const;
+
+    /**
+     * Sets the \a placement for the axis label suffixes.
+     *
+     * \see labelSuffixPlacement()
+     * \see setLabelSuffix()
+     *
+     * \since QGIS 3.32
+     */
+    void setLabelSuffixPlacement( Qgis::PlotAxisSuffixPlacement placement );
+
   private:
 
 #ifdef SIP_RUN
@@ -210,6 +245,9 @@ class CORE_EXPORT QgsPlotAxis
     double mGridIntervalMajor = 5;
 
     double mLabelInterval = 1;
+
+    QString mLabelSuffix;
+    Qgis::PlotAxisSuffixPlacement mSuffixPlacement = Qgis::PlotAxisSuffixPlacement::EveryLabel;
 
     std::unique_ptr< QgsNumericFormat > mNumericFormat;
 
@@ -242,9 +280,7 @@ class CORE_EXPORT Qgs2DPlot : public QgsPlot
 
     ~Qgs2DPlot() override;
 
-    //! Qgs2DPlot cannot be copied
     Qgs2DPlot( const Qgs2DPlot &other ) = delete;
-    //! Qgs2DPlot cannot be copied
     Qgs2DPlot &operator=( const Qgs2DPlot &other ) = delete;
 
     bool writeXml( QDomElement &element, QDomDocument &document, const QgsReadWriteContext &context ) const override;
@@ -450,7 +486,7 @@ class CORE_EXPORT Qgs2DPlot : public QgsPlot
 };
 
 /**
- * \brief Manages default settings for plot objects
+ * \brief Manages default settings for plot objects.
  *
  * \warning This class is not considered stable API, and may change in future!
  *

@@ -16,6 +16,7 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgis.h"
+#include "moc_qgis.cpp"
 #ifndef QGSVERSION
 #include "qgsversion.h"
 #endif
@@ -27,14 +28,15 @@
 #include <QDateTime>
 #include "qgsconfig.h"
 #include "qgslogger.h"
+#include "qgsgdalutils.h"
 #include "qgswkbtypes.h"
 
 #include <gdal.h>
 #include <geos_c.h>
 #include <ogr_api.h>
 
-#define xstr(x) str(x)
-#define str(x) #x
+#define qgis_xstr(x) qgis_str(x)
+#define qgis_str(x) #x
 
 // Version constants
 //
@@ -60,7 +62,15 @@ const double Qgis::DEFAULT_M_COORDINATE = 0.0;
 
 const double Qgis::DEFAULT_SNAP_TOLERANCE = 12.0;
 
-const QgsTolerance::UnitType Qgis::DEFAULT_SNAP_UNITS = QgsTolerance::Pixels;
+const Qgis::MapToolUnit Qgis::DEFAULT_SNAP_UNITS = Qgis::MapToolUnit::Pixels;
+
+const int Qgis::USER_CRS_START_ID = 100000;
+const double Qgis::DEFAULT_POINT_SIZE = 2.0;
+const double Qgis::DEFAULT_LINE_WIDTH = 0.26;
+const double Qgis::DEFAULT_SEGMENT_EPSILON = 1e-8;
+
+const int Qgis::PREVIEW_JOB_DELAY_MS = 250;
+const int Qgis::MAXIMUM_LAYER_PREVIEW_TIME_MS = 250;
 
 #ifdef Q_OS_WIN
 const double Qgis::UI_SCALE_FACTOR = 1.5;
@@ -93,20 +103,20 @@ void *qgsMalloc( size_t size )
 {
   if ( size == 0 )
   {
-    QgsDebugMsg( QStringLiteral( "Zero size requested" ) );
+    QgsDebugError( QStringLiteral( "Zero size requested" ) );
     return nullptr;
   }
 
   if ( ( size >> ( 8 * sizeof( size ) - 1 ) ) != 0 )
   {
-    QgsDebugMsg( QStringLiteral( "qgsMalloc - bad size requested: %1" ).arg( size ) );
+    QgsDebugError( QStringLiteral( "qgsMalloc - bad size requested: %1" ).arg( size ) );
     return nullptr;
   }
 
   void *p = malloc( size );
   if ( !p )
   {
-    QgsDebugMsg( QStringLiteral( "Allocation of %1 bytes failed." ).arg( size ) );
+    QgsDebugError( QStringLiteral( "Allocation of %1 bytes failed." ).arg( size ) );
   }
   return p;
 }
@@ -126,36 +136,36 @@ bool qgsVariantLessThan( const QVariant &lhs, const QVariant &rhs )
   else if ( !rhs.isValid() || rhs.isNull() )
     return false;
 
-  switch ( lhs.type() )
+  switch ( lhs.userType() )
   {
-    case QVariant::Int:
+    case QMetaType::Type::Int:
       return lhs.toInt() < rhs.toInt();
-    case QVariant::UInt:
+    case QMetaType::Type::UInt:
       return lhs.toUInt() < rhs.toUInt();
-    case QVariant::LongLong:
+    case QMetaType::Type::LongLong:
       return lhs.toLongLong() < rhs.toLongLong();
-    case QVariant::ULongLong:
+    case QMetaType::Type::ULongLong:
       return lhs.toULongLong() < rhs.toULongLong();
-    case QVariant::Double:
+    case QMetaType::Type::Double:
       return lhs.toDouble() < rhs.toDouble();
-    case QVariant::Char:
+    case QMetaType::Type::QChar:
       return lhs.toChar() < rhs.toChar();
-    case QVariant::Date:
+    case QMetaType::Type::QDate:
       return lhs.toDate() < rhs.toDate();
-    case QVariant::Time:
+    case QMetaType::Type::QTime:
       return lhs.toTime() < rhs.toTime();
-    case QVariant::DateTime:
+    case QMetaType::Type::QDateTime:
       return lhs.toDateTime() < rhs.toDateTime();
-    case QVariant::Bool:
+    case QMetaType::Type::Bool:
       return lhs.toBool() < rhs.toBool();
 
-    case QVariant::List:
+    case QMetaType::Type::QVariantList:
     {
       const QList<QVariant> &lhsl = lhs.toList();
       const QList<QVariant> &rhsl = rhs.toList();
 
       int i, n = std::min( lhsl.size(), rhsl.size() );
-      for ( i = 0; i < n && lhsl[i].type() == rhsl[i].type() && qgsVariantEqual( lhsl[i], rhsl[i] ); i++ )
+      for ( i = 0; i < n && lhsl[i].userType() == rhsl[i].userType() && qgsVariantEqual( lhsl[i], rhsl[i] ); i++ )
         ;
 
       if ( i == n )
@@ -164,7 +174,7 @@ bool qgsVariantLessThan( const QVariant &lhs, const QVariant &rhs )
         return qgsVariantLessThan( lhsl[i], rhsl[i] );
     }
 
-    case QVariant::StringList:
+    case QMetaType::Type::QStringList:
     {
       const QStringList &lhsl = lhs.toStringList();
       const QStringList &rhsl = rhs.toStringList();
@@ -191,27 +201,7 @@ bool qgsVariantGreaterThan( const QVariant &lhs, const QVariant &rhs )
 
 QString qgsVsiPrefix( const QString &path )
 {
-  if ( path.startsWith( QLatin1String( "/vsizip/" ), Qt::CaseInsensitive ) )
-    return QStringLiteral( "/vsizip/" );
-  else if ( path.endsWith( QLatin1String( ".shp.zip" ), Qt::CaseInsensitive ) )
-  {
-    // GDAL 3.1 Shapefile driver directly handles .shp.zip files
-    if ( GDALIdentifyDriverEx( path.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr ) )
-      return QString();
-    return QStringLiteral( "/vsizip/" );
-  }
-  else if ( path.endsWith( QLatin1String( ".zip" ), Qt::CaseInsensitive ) )
-    return QStringLiteral( "/vsizip/" );
-  else if ( path.startsWith( QLatin1String( "/vsitar/" ), Qt::CaseInsensitive ) ||
-            path.endsWith( QLatin1String( ".tar" ), Qt::CaseInsensitive ) ||
-            path.endsWith( QLatin1String( ".tar.gz" ), Qt::CaseInsensitive ) ||
-            path.endsWith( QLatin1String( ".tgz" ), Qt::CaseInsensitive ) )
-    return QStringLiteral( "/vsitar/" );
-  else if ( path.startsWith( QLatin1String( "/vsigzip/" ), Qt::CaseInsensitive ) ||
-            path.endsWith( QLatin1String( ".gz" ), Qt::CaseInsensitive ) )
-    return QStringLiteral( "/vsigzip/" );
-  else
-    return QString();
+  return QgsGdalUtils::vsiPrefixForPath( path );
 }
 
 uint qHash( const QVariant &variant )
@@ -219,41 +209,41 @@ uint qHash( const QVariant &variant )
   if ( !variant.isValid() || variant.isNull() )
     return std::numeric_limits<uint>::max();
 
-  switch ( variant.type() )
+  switch ( variant.userType() )
   {
-    case QVariant::Int:
+    case QMetaType::Type::Int:
       return qHash( variant.toInt() );
-    case QVariant::UInt:
+    case QMetaType::Type::UInt:
       return qHash( variant.toUInt() );
-    case QVariant::Bool:
+    case QMetaType::Type::Bool:
       return qHash( variant.toBool() );
-    case QVariant::Double:
+    case QMetaType::Type::Double:
       return qHash( variant.toDouble() );
-    case QVariant::LongLong:
+    case QMetaType::Type::LongLong:
       return qHash( variant.toLongLong() );
-    case QVariant::ULongLong:
+    case QMetaType::Type::ULongLong:
       return qHash( variant.toULongLong() );
-    case QVariant::String:
+    case QMetaType::Type::QString:
       return qHash( variant.toString() );
-    case QVariant::Char:
+    case QMetaType::Type::QChar:
       return qHash( variant.toChar() );
-    case QVariant::List:
+    case QMetaType::Type::QVariantList:
       return qHash( variant.toList() );
-    case QVariant::StringList:
+    case QMetaType::Type::QStringList:
       return qHash( variant.toStringList() );
-    case QVariant::ByteArray:
+    case QMetaType::Type::QByteArray:
       return qHash( variant.toByteArray() );
-    case QVariant::Date:
+    case QMetaType::Type::QDate:
       return qHash( variant.toDate() );
-    case QVariant::Time:
+    case QMetaType::Type::QTime:
       return qHash( variant.toTime() );
-    case QVariant::DateTime:
+    case QMetaType::Type::QDateTime:
       return qHash( variant.toDateTime() );
-    case QVariant::Url:
-    case QVariant::Locale:
-    case QVariant::RegularExpression:
+    case QMetaType::Type::QUrl:
+    case QMetaType::Type::QLocale:
+    case QMetaType::Type::QRegularExpression:
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    case QVariant::RegExp:
+    case QMetaType::Type::QRegExp:
 #endif
       return qHash( variant.toString() );
     default:
@@ -323,7 +313,7 @@ int Qgis::geosVersionMinor()
 
 int Qgis::geosVersionPatch()
 {
-  static const int version = atoi( xstr( GEOS_VERSION_PATCH ) );
+  static const int version = atoi( qgis_xstr( GEOS_VERSION_PATCH ) );
   return version;
 }
 

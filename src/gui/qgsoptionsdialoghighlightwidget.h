@@ -23,21 +23,47 @@
 #include "qgis_gui.h"
 #include "qgis_sip.h"
 
+class QgsOptionsDialogHighlightWidget;
+
+#ifndef SIP_RUN
+
+///@cond PRIVATE
+
+/**
+ * \ingroup gui
+ * \class QgsOptionsDialogHighlightWidgetEventFilter
+ * \brief QgsOptionsDialogHighlightWidgetEventFilter is an event filter implementation for QgsOptionsDialogHighlightWidget
+ * \since QGIS 3.32
+ */
+class QgsOptionsDialogHighlightWidgetEventFilter : public QObject
+{
+    Q_OBJECT
+  public:
+    //! Constructor
+    QgsOptionsDialogHighlightWidgetEventFilter( QgsOptionsDialogHighlightWidget *highlightWidget );
+    bool eventFilter( QObject *obj, QEvent *event ) override;
+
+  private:
+    QgsOptionsDialogHighlightWidget *mHighlightWidget;
+};
+
+///@endcond
+
+#endif
+
 /**
  * \ingroup gui
  * \class QgsOptionsDialogHighlightWidget
- * \brief Container for a widget to be used to search text in the option dialog
+ * \brief Container for a widget to be used to search text in the option dialog.
+ *
  * If the widget type is handled, it is valid.
+ *
  * It can perform a text search in the widget and highlight it in case of success.
  * This uses stylesheets.
- * \since QGIS 3.0
  */
-class GUI_EXPORT QgsOptionsDialogHighlightWidget : public QObject
+class GUI_EXPORT QgsOptionsDialogHighlightWidget
 {
-
-    Q_OBJECT
   public:
-
     /**
      * create a highlight widget implementation for the proper widget type.
      * For instance a QgsOptionsDialogHighlightButton for button.
@@ -45,6 +71,8 @@ class GUI_EXPORT QgsOptionsDialogHighlightWidget : public QObject
      * for the given widget.
      */
     static QgsOptionsDialogHighlightWidget *createWidget( QWidget *widget ) SIP_FACTORY;
+
+    virtual ~QgsOptionsDialogHighlightWidget() = default;
 
     /**
      * Returns if it valid: if the widget type is handled and if the widget is not still available
@@ -60,14 +88,9 @@ class GUI_EXPORT QgsOptionsDialogHighlightWidget : public QObject
     /**
      * Returns the widget
      */
-    QWidget *widget() {return mWidget;}
-
-
-    bool eventFilter( QObject *obj, QEvent *event ) override;
-
+    QWidget *widget() { return mWidget; }
 
   protected:
-
     /**
      * Search for the \a text in the widget and return TRUE if it was found
      */
@@ -91,12 +114,14 @@ class GUI_EXPORT QgsOptionsDialogHighlightWidget : public QObject
     explicit QgsOptionsDialogHighlightWidget( QWidget *widget = nullptr );
 
     //! Pointer to the widget
-    QPointer< QWidget > mWidget;
+    QPointer<QWidget> mWidget;
 
   private:
+    friend class QgsOptionsDialogHighlightWidgetEventFilter;
+
     QString mSearchText = QString();
     bool mChangedStyle = false;
-    bool mInstalledFilter = false;
+    QgsOptionsDialogHighlightWidgetEventFilter *mEventFilter = nullptr;
 };
 
 #endif // QGSOPTIONSDIALOGHIGHLIGHTWIDGET_H

@@ -43,8 +43,8 @@ namespace QgsWcs
     // create name
     QDomElement nameElem = doc.createElement( QStringLiteral( "name" ) );
     QString name = layer->name();
-    if ( !layer->shortName().isEmpty() )
-      name = layer->shortName();
+    if ( !layer->serverProperties()->shortName().isEmpty() )
+      name = layer->serverProperties()->shortName();
     name = name.replace( ' ', '_' );
     const QDomText nameText = doc.createTextNode( name );
     nameElem.appendChild( nameText );
@@ -52,7 +52,7 @@ namespace QgsWcs
 
     // create label
     QDomElement labelElem = doc.createElement( QStringLiteral( "label" ) );
-    QString title = layer->title();
+    QString title = layer->serverProperties()->title();
     if ( title.isEmpty() )
     {
       title = layer->name();
@@ -62,7 +62,7 @@ namespace QgsWcs
     layerElem.appendChild( labelElem );
 
     //create description
-    const QString abstract = layer->abstract();
+    const QString abstract = layer->serverProperties()->abstract();
     if ( !abstract.isEmpty() )
     {
       QDomElement descriptionElem = doc.createElement( QStringLiteral( "description" ) );
@@ -73,7 +73,7 @@ namespace QgsWcs
 
     //lonLatEnvelope
     const QgsCoordinateReferenceSystem layerCrs = layer->crs();
-    const QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( geoEpsgCrsAuthId() );
+    const QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( Qgis::geographicCrsAuthId() );
     const int wgs84precision = 6;
     const QgsCoordinateTransform t( layerCrs, wgs84, project );
     //transform
@@ -84,7 +84,7 @@ namespace QgsWcs
     }
     catch ( QgsCsException &e )
     {
-      QgsDebugMsg( QStringLiteral( "Transform error caught: %1. Using original layer extent." ).arg( e.what() ) );
+      QgsDebugError( QStringLiteral( "Transform error caught: %1. Using original layer extent." ).arg( e.what() ) );
       BBox = layer->extent();
     }
     QDomElement lonLatElem = doc.createElement( QStringLiteral( "lonLatEnvelope" ) );
@@ -94,7 +94,7 @@ namespace QgsWcs
     lowerPosElem.appendChild( lowerPosText );
     lonLatElem.appendChild( lowerPosElem );
     QDomElement upperPosElem = doc.createElement( QStringLiteral( "gml:pos" ) );
-    const QDomText upperPosText = doc.createTextNode( qgsDoubleToString( QgsServerProjectUtils::ceilWithPrecision( BBox.xMaximum(), wgs84precision ), wgs84precision ) + " " +  qgsDoubleToString( QgsServerProjectUtils::ceilWithPrecision( BBox.yMaximum(), wgs84precision ), wgs84precision ) );
+    const QDomText upperPosText = doc.createTextNode( qgsDoubleToString( QgsServerProjectUtils::ceilWithPrecision( BBox.xMaximum(), wgs84precision ), wgs84precision ) + " " + qgsDoubleToString( QgsServerProjectUtils::ceilWithPrecision( BBox.yMaximum(), wgs84precision ), wgs84precision ) );
     upperPosElem.appendChild( upperPosText );
     lonLatElem.appendChild( upperPosElem );
     layerElem.appendChild( lonLatElem );
@@ -253,8 +253,7 @@ namespace QgsWcs
 
   QString serviceUrl( const QgsServerRequest &request, const QgsProject *project, const QgsServerSettings &settings )
   {
-    static const QSet< QString > sFilter
-    {
+    static const QSet<QString> sFilter {
       QStringLiteral( "REQUEST" ),
       QStringLiteral( "VERSION" ),
       QStringLiteral( "SERVICE" ),
@@ -269,7 +268,7 @@ namespace QgsWcs
       QUrl url = request.originalUrl();
       QUrlQuery q( url );
 
-      const QList<QPair<QString, QString> > queryItems = q.queryItems();
+      const QList<QPair<QString, QString>> queryItems = q.queryItems();
       for ( const QPair<QString, QString> &param : queryItems )
       {
         if ( sFilter.contains( param.first.toUpper() ) )
@@ -278,10 +277,9 @@ namespace QgsWcs
 
       url.setQuery( q );
       href = url.toString();
-
     }
 
-    return  href;
+    return href;
   }
 
   QgsRectangle parseBbox( const QString &bboxStr )
@@ -302,6 +300,4 @@ namespace QgsWcs
     return QgsRectangle( d[0], d[1], d[2], d[3] );
   }
 
-} // namespace QgsWfs
-
-
+} // namespace QgsWcs

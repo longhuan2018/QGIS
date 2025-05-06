@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsvectorlayerelevationproperties.h"
+#include "moc_qgsvectorlayerelevationproperties.cpp"
 #include "qgslinesymbol.h"
 #include "qgsfillsymbol.h"
 #include "qgsmarkersymbol.h"
@@ -53,10 +54,16 @@ QDomElement QgsVectorLayerElevationProperties::writeXml( QDomElement &parentElem
 
   element.setAttribute( QStringLiteral( "extrusionEnabled" ), mEnableExtrusion ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
   element.setAttribute( QStringLiteral( "extrusion" ), qgsDoubleToString( mExtrusionHeight ) );
+  element.setAttribute( QStringLiteral( "customToleranceEnabled" ), mEnableCustomTolerance ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
+  if ( mCustomTolerance != 0 )
+    element.setAttribute( QStringLiteral( "customTolerance" ), qgsDoubleToString( mCustomTolerance ) );
   element.setAttribute( QStringLiteral( "clamping" ), qgsEnumValueToKey( mClamping ) );
   element.setAttribute( QStringLiteral( "binding" ), qgsEnumValueToKey( mBinding ) );
   element.setAttribute( QStringLiteral( "type" ), qgsEnumValueToKey( mType ) );
   element.setAttribute( QStringLiteral( "symbology" ), qgsEnumValueToKey( mSymbology ) );
+  if ( !std::isnan( mElevationLimit ) )
+    element.setAttribute( QStringLiteral( "elevationLimit" ), qgsDoubleToString( mElevationLimit ) );
+
   element.setAttribute( QStringLiteral( "respectLayerSymbol" ), mRespectLayerSymbology ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
   element.setAttribute( QStringLiteral( "showMarkerSymbolInSurfacePlots" ), mShowMarkerSymbolInSurfacePlots ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
 
@@ -89,7 +96,14 @@ bool QgsVectorLayerElevationProperties::readXml( const QDomElement &element, con
   mType = qgsEnumKeyToValue( elevationElement.attribute( QStringLiteral( "type" ) ), Qgis::VectorProfileType::IndividualFeatures );
   mEnableExtrusion = elevationElement.attribute( QStringLiteral( "extrusionEnabled" ), QStringLiteral( "0" ) ).toInt();
   mExtrusionHeight = elevationElement.attribute( QStringLiteral( "extrusion" ), QStringLiteral( "0" ) ).toDouble();
+  mEnableCustomTolerance = elevationElement.attribute( QStringLiteral( "customToleranceEnabled" ), QStringLiteral( "0" ) ).toInt();
+  mCustomTolerance = elevationElement.attribute( QStringLiteral( "customTolerance" ), QStringLiteral( "0" ) ).toDouble();
   mSymbology = qgsEnumKeyToValue( elevationElement.attribute( QStringLiteral( "symbology" ) ), Qgis::ProfileSurfaceSymbology::Line );
+  if ( elevationElement.hasAttribute( QStringLiteral( "elevationLimit" ) ) )
+    mElevationLimit = elevationElement.attribute( QStringLiteral( "elevationLimit" ) ).toDouble();
+  else
+    mElevationLimit = std::numeric_limits< double >::quiet_NaN();
+
   mShowMarkerSymbolInSurfacePlots = elevationElement.attribute( QStringLiteral( "showMarkerSymbolInSurfacePlots" ), QStringLiteral( "0" ) ).toInt();
 
   mRespectLayerSymbology = elevationElement.attribute( QStringLiteral( "respectLayerSymbol" ), QStringLiteral( "1" ) ).toInt();
@@ -97,17 +111,17 @@ bool QgsVectorLayerElevationProperties::readXml( const QDomElement &element, con
   const QColor color = QgsApplication::colorSchemeRegistry()->fetchRandomStyleColor();
 
   const QDomElement profileLineSymbolElement = elevationElement.firstChildElement( QStringLiteral( "profileLineSymbol" ) ).firstChildElement( QStringLiteral( "symbol" ) );
-  mProfileLineSymbol.reset( QgsSymbolLayerUtils::loadSymbol< QgsLineSymbol >( profileLineSymbolElement, context ) );
+  mProfileLineSymbol = QgsSymbolLayerUtils::loadSymbol< QgsLineSymbol >( profileLineSymbolElement, context );
   if ( !mProfileLineSymbol )
     setDefaultProfileLineSymbol( color );
 
   const QDomElement profileFillSymbolElement = elevationElement.firstChildElement( QStringLiteral( "profileFillSymbol" ) ).firstChildElement( QStringLiteral( "symbol" ) );
-  mProfileFillSymbol.reset( QgsSymbolLayerUtils::loadSymbol< QgsFillSymbol >( profileFillSymbolElement, context ) );
+  mProfileFillSymbol = QgsSymbolLayerUtils::loadSymbol< QgsFillSymbol >( profileFillSymbolElement, context );
   if ( !mProfileFillSymbol )
     setDefaultProfileFillSymbol( color );
 
   const QDomElement profileMarkerSymbolElement = elevationElement.firstChildElement( QStringLiteral( "profileMarkerSymbol" ) ).firstChildElement( QStringLiteral( "symbol" ) );
-  mProfileMarkerSymbol.reset( QgsSymbolLayerUtils::loadSymbol< QgsMarkerSymbol >( profileMarkerSymbolElement, context ) );
+  mProfileMarkerSymbol = QgsSymbolLayerUtils::loadSymbol< QgsMarkerSymbol >( profileMarkerSymbolElement, context );
   if ( !mProfileMarkerSymbol )
     setDefaultProfileMarkerSymbol( color );
 
@@ -126,13 +140,19 @@ void QgsVectorLayerElevationProperties::setDefaultsFromLayer( QgsMapLayer *layer
   mEnableExtrusion = false;
   mExtrusionHeight = 0;
 
+  // By default override default tolerance for Polygon and Line
+  // to avoid unexpected behaviors.
+  // For example, see: https://github.com/qgis/QGIS/issues/58016
+  mEnableCustomTolerance = vlayer->geometryType() != Qgis::GeometryType::Point;
+  mCustomTolerance = 0;
+
   mDataDefinedProperties.clear();
 
   mBinding = Qgis::AltitudeBinding::Centroid;
 
   if ( QgsWkbTypes::hasZ( vlayer->wkbType() ) )
   {
-    mClamping = Qgis::AltitudeClamping::Relative;
+    mClamping = Qgis::AltitudeClamping::Absolute;
   }
   else
   {
@@ -142,17 +162,20 @@ void QgsVectorLayerElevationProperties::setDefaultsFromLayer( QgsMapLayer *layer
 
 QgsVectorLayerElevationProperties *QgsVectorLayerElevationProperties::clone() const
 {
-  std::unique_ptr< QgsVectorLayerElevationProperties > res = std::make_unique< QgsVectorLayerElevationProperties >( nullptr );
+  auto res = std::make_unique< QgsVectorLayerElevationProperties >( nullptr );
   res->setClamping( mClamping );
   res->setBinding( mBinding );
   res->setType( mType );
   res->setExtrusionEnabled( mEnableExtrusion );
   res->setExtrusionHeight( mExtrusionHeight );
+  res->setCustomToleranceEnabled( mEnableCustomTolerance );
+  res->setCustomTolerance( mCustomTolerance );
   res->setProfileLineSymbol( mProfileLineSymbol->clone() );
   res->setProfileFillSymbol( mProfileFillSymbol->clone() );
   res->setProfileMarkerSymbol( mProfileMarkerSymbol->clone() );
   res->setRespectLayerSymbology( mRespectLayerSymbology );
   res->setProfileSymbology( mSymbology );
+  res->setElevationLimit( mElevationLimit );
   res->setShowMarkerSymbolInSurfacePlots( mShowMarkerSymbolInSurfacePlots );
   res->copyCommonProperties( this );
   return res.release();
@@ -179,13 +202,13 @@ QString QgsVectorLayerElevationProperties::htmlSummary() const
   {
     switch ( mDataDefinedProperties.property( Property::ZOffset ).propertyType() )
     {
-      case QgsProperty::InvalidProperty:
-      case QgsProperty::StaticProperty:
+      case Qgis::PropertyType::Invalid:
+      case Qgis::PropertyType::Static:
         break;
-      case QgsProperty::FieldBasedProperty:
+      case Qgis::PropertyType::Field:
         properties << tr( "Offset: %1" ).arg( mDataDefinedProperties.property( Property::ZOffset ).field() );
         break;
-      case QgsProperty::ExpressionBasedProperty:
+      case Qgis::PropertyType::Expression:
         properties << tr( "Offset: %1" ).arg( mDataDefinedProperties.property( Property::ZOffset ).expressionString() );
         break;
     }
@@ -201,13 +224,13 @@ QString QgsVectorLayerElevationProperties::htmlSummary() const
     {
       switch ( mDataDefinedProperties.property( Property::ExtrusionHeight ).propertyType() )
       {
-        case QgsProperty::InvalidProperty:
-        case QgsProperty::StaticProperty:
+        case Qgis::PropertyType::Invalid:
+        case Qgis::PropertyType::Static:
           break;
-        case QgsProperty::FieldBasedProperty:
+        case Qgis::PropertyType::Field:
           properties << tr( "Extrusion: %1" ).arg( mDataDefinedProperties.property( Property::ExtrusionHeight ).field() );
           break;
-        case QgsProperty::ExpressionBasedProperty:
+        case Qgis::PropertyType::Expression:
           properties << tr( "Extrusion: %1" ).arg( mDataDefinedProperties.property( Property::ExtrusionHeight ).expressionString() );
           break;
       }
@@ -218,12 +241,17 @@ QString QgsVectorLayerElevationProperties::htmlSummary() const
     }
   }
 
+  if ( mEnableCustomTolerance )
+  {
+    properties << tr( "CustomTolerance: %1" ).arg( mCustomTolerance );
+  }
+
   properties << tr( "Scale: %1" ).arg( mZScale );
 
   return QStringLiteral( "<li>%1</li>" ).arg( properties.join( QLatin1String( "</li><li>" ) ) );
 }
 
-bool QgsVectorLayerElevationProperties::isVisibleInZRange( const QgsDoubleRange & ) const
+bool QgsVectorLayerElevationProperties::isVisibleInZRange( const QgsDoubleRange &, QgsMapLayer * ) const
 {
   // TODO -- test actual layer z range
   return true;
@@ -295,6 +323,26 @@ void QgsVectorLayerElevationProperties::setExtrusionHeight( double height )
   emit profileGenerationPropertyChanged();
 }
 
+void QgsVectorLayerElevationProperties::setCustomTolerance( double tolerance )
+{
+  if ( mCustomTolerance == tolerance )
+    return;
+
+  mCustomTolerance = tolerance;
+  emit changed();
+  emit profileGenerationPropertyChanged();
+}
+
+void QgsVectorLayerElevationProperties::setCustomToleranceEnabled( bool enabled )
+{
+  if ( mEnableCustomTolerance == enabled )
+    return;
+
+  mEnableCustomTolerance = enabled;
+  emit changed();
+  emit profileGenerationPropertyChanged();
+}
+
 void QgsVectorLayerElevationProperties::setRespectLayerSymbology( bool enabled )
 {
   if ( mRespectLayerSymbology == enabled )
@@ -351,6 +399,21 @@ void QgsVectorLayerElevationProperties::setProfileSymbology( Qgis::ProfileSurfac
   emit profileRenderingPropertyChanged();
 }
 
+double QgsVectorLayerElevationProperties::elevationLimit() const
+{
+  return mElevationLimit;
+}
+
+void QgsVectorLayerElevationProperties::setElevationLimit( double limit )
+{
+  if ( qgsDoubleNear( mElevationLimit, limit ) )
+    return;
+
+  mElevationLimit = limit;
+  emit changed();
+  emit profileRenderingPropertyChanged();
+}
+
 void QgsVectorLayerElevationProperties::setShowMarkerSymbolInSurfacePlots( bool show )
 {
   if ( show == mShowMarkerSymbolInSurfacePlots )
@@ -363,13 +426,13 @@ void QgsVectorLayerElevationProperties::setShowMarkerSymbolInSurfacePlots( bool 
 
 void QgsVectorLayerElevationProperties::setDefaultProfileLineSymbol( const QColor &color )
 {
-  std::unique_ptr< QgsSimpleLineSymbolLayer > profileLineLayer = std::make_unique< QgsSimpleLineSymbolLayer >( color, 0.6 );
+  auto profileLineLayer = std::make_unique< QgsSimpleLineSymbolLayer >( color, 0.6 );
   mProfileLineSymbol = std::make_unique< QgsLineSymbol>( QgsSymbolLayerList( { profileLineLayer.release() } ) );
 }
 
 void QgsVectorLayerElevationProperties::setDefaultProfileMarkerSymbol( const QColor &color )
 {
-  std::unique_ptr< QgsSimpleMarkerSymbolLayer > profileMarkerLayer = std::make_unique< QgsSimpleMarkerSymbolLayer >( Qgis::MarkerShape::Diamond, 3 );
+  auto profileMarkerLayer = std::make_unique< QgsSimpleMarkerSymbolLayer >( Qgis::MarkerShape::Diamond, 3 );
   profileMarkerLayer->setColor( color );
   profileMarkerLayer->setStrokeWidth( 0.2 );
   profileMarkerLayer->setStrokeColor( color.darker( 140 ) );
@@ -378,7 +441,7 @@ void QgsVectorLayerElevationProperties::setDefaultProfileMarkerSymbol( const QCo
 
 void QgsVectorLayerElevationProperties::setDefaultProfileFillSymbol( const QColor &color )
 {
-  std::unique_ptr< QgsSimpleFillSymbolLayer > profileFillLayer = std::make_unique< QgsSimpleFillSymbolLayer >( color );
+  auto profileFillLayer = std::make_unique< QgsSimpleFillSymbolLayer >( color );
   profileFillLayer->setStrokeWidth( 0.2 );
   profileFillLayer->setStrokeColor( color.darker( 140 ) );
   mProfileFillSymbol = std::make_unique< QgsFillSymbol>( QgsSymbolLayerList( { profileFillLayer.release() } ) );

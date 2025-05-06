@@ -31,9 +31,7 @@
  */
 class QgsRasterLayerPropertiesAlgorithm : public QgsProcessingAlgorithm
 {
-
   public:
-
     QgsRasterLayerPropertiesAlgorithm() = default;
     void initAlgorithm( const QVariantMap &configuration = QVariantMap() ) override;
     QString name() const override;
@@ -45,27 +43,21 @@ class QgsRasterLayerPropertiesAlgorithm : public QgsProcessingAlgorithm
     QgsRasterLayerPropertiesAlgorithm *createInstance() const override SIP_FACTORY;
 
   protected:
-
     bool prepareAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
-    QVariantMap processAlgorithm( const QVariantMap &parameters,
-                                  QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
+    QVariantMap processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
 
   private:
-
     int mBandCount = 0;
     bool mHasNoDataValue = false;
     QVariant mNoDataValue;
-    int mLayerWidth;
-    int mLayerHeight;
+    int mLayerWidth = 0;
+    int mLayerHeight = 0;
     QgsRectangle mExtent;
     QgsCoordinateReferenceSystem mCrs;
-    double mRasterUnitsPerPixelX;
-    double mRasterUnitsPerPixelY;
-
+    double mRasterUnitsPerPixelX = 0;
+    double mRasterUnitsPerPixelY = 0;
 };
 
 ///@endcond PRIVATE
 
 #endif // QGSALGORITHMRASTERLAYERPROPERTIES_H
-
-

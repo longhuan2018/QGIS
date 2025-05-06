@@ -14,7 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 
-#include  <QVBoxLayout>
+#include <QVBoxLayout>
 
 #include "qgscategorizedsymbolrenderer.h"
 #include "qgscategorizedsymbolrendererwidget.h"
@@ -24,14 +24,12 @@
 #include "qgsmarkersymbollayer.h"
 #include "qgsrendererregistry.h"
 #include "qgssymbollayer.h"
-#include "qgssymbollayerutils.h"
 #include "qgssymbol.h"
 #include "qgsmarkersymbol.h"
-#include "qgslinesymbol.h"
-#include "qgsfillsymbol.h"
+#include "qgsgrassvectormap.h"
 
 #include "qgsgrasseditrenderer.h"
-#include "qgsgrassprovider.h"
+#include "moc_qgsgrasseditrenderer.cpp"
 
 QgsGrassEditRenderer::QgsGrassEditRenderer()
   : QgsFeatureRenderer( QStringLiteral( "grassEdit" ) )
@@ -69,7 +67,7 @@ QgsGrassEditRenderer::QgsGrassEditRenderer()
   lastVertexMarkerLine->setPlacements( Qgis::MarkerLinePlacement::LastVertex );
   for ( int value : colors.keys() )
   {
-    QgsSymbol *symbol = QgsSymbol::defaultSymbol( QgsWkbTypes::LineGeometry );
+    QgsSymbol *symbol = QgsSymbol::defaultSymbol( Qgis::GeometryType::Line );
     symbol->setColor( colors.value( value ) );
     symbol->appendSymbolLayer( firstVertexMarkerLine->clone() );
     symbol->appendSymbolLayer( lastVertexMarkerLine->clone() );
@@ -96,7 +94,7 @@ QgsGrassEditRenderer::QgsGrassEditRenderer()
 
   for ( int value : colors.keys() )
   {
-    QgsSymbol *symbol = QgsSymbol::defaultSymbol( QgsWkbTypes::PointGeometry );
+    QgsSymbol *symbol = QgsSymbol::defaultSymbol( Qgis::GeometryType::Point );
     symbol->setColor( colors.value( value ) );
     categoryList << QgsRendererCategory( QVariant( value ), symbol, labels.value( value ) );
   }
@@ -127,23 +125,18 @@ QgsSymbol *QgsGrassEditRenderer::symbolForFeature( const QgsFeature &feature, Qg
   QgsDebugMsgLevel( QString( "fid = %1 symbolCode = %2" ).arg( feature.id() ).arg( symbolCode ), 3 );
 
   QgsSymbol *symbol = nullptr;
-  if ( symbolCode == QgsGrassVectorMap::TopoPoint || symbolCode == QgsGrassVectorMap::TopoCentroidIn ||
-       symbolCode == QgsGrassVectorMap::TopoCentroidOut || symbolCode == QgsGrassVectorMap::TopoCentroidDupl ||
-       symbolCode == QgsGrassVectorMap::TopoNode0 || symbolCode == QgsGrassVectorMap::TopoNode1 ||
-       symbolCode == QgsGrassVectorMap::TopoNode2 )
+  if ( symbolCode == QgsGrassVectorMap::TopoPoint || symbolCode == QgsGrassVectorMap::TopoCentroidIn || symbolCode == QgsGrassVectorMap::TopoCentroidOut || symbolCode == QgsGrassVectorMap::TopoCentroidDupl || symbolCode == QgsGrassVectorMap::TopoNode0 || symbolCode == QgsGrassVectorMap::TopoNode1 || symbolCode == QgsGrassVectorMap::TopoNode2 )
   {
     symbol = mMarkerRenderer->symbolForFeature( feature, context );
   }
-  else if ( symbolCode == QgsGrassVectorMap::TopoLine || symbolCode == QgsGrassVectorMap::TopoBoundaryError ||
-            symbolCode == QgsGrassVectorMap::TopoBoundaryErrorLeft || symbolCode == QgsGrassVectorMap::TopoBoundaryErrorRight ||
-            symbolCode == QgsGrassVectorMap::TopoBoundaryOk )
+  else if ( symbolCode == QgsGrassVectorMap::TopoLine || symbolCode == QgsGrassVectorMap::TopoBoundaryError || symbolCode == QgsGrassVectorMap::TopoBoundaryErrorLeft || symbolCode == QgsGrassVectorMap::TopoBoundaryErrorRight || symbolCode == QgsGrassVectorMap::TopoBoundaryOk )
   {
     symbol = mLineRenderer->symbolForFeature( feature, context );
   }
   else
   {
     // should not happen
-    QgsDebugMsg( "unknown symbol code" );
+    QgsDebugError( "unknown symbol code" );
   }
 
   if ( symbol )
@@ -158,9 +151,20 @@ QgsSymbol *QgsGrassEditRenderer::symbolForFeature( const QgsFeature &feature, Qg
   return symbol;
 }
 
+Qgis::FeatureRendererFlags QgsGrassEditRenderer::flags() const
+{
+  Qgis::FeatureRendererFlags res;
+  if ( mLineRenderer->flags().testFlag( Qgis::FeatureRendererFlag::AffectsLabeling ) )
+    res.setFlag( Qgis::FeatureRendererFlag::AffectsLabeling );
+  if ( mMarkerRenderer->flags().testFlag( Qgis::FeatureRendererFlag::AffectsLabeling ) )
+    res.setFlag( Qgis::FeatureRendererFlag::AffectsLabeling );
+  return res;
+}
+
 void QgsGrassEditRenderer::startRender( QgsRenderContext &context, const QgsFields &fields )
 {
-  Q_UNUSED( fields )
+  QgsFeatureRenderer::startRender( context, fields );
+
   // TODO better
   //QgsFields topoFields;
   //topoFields.append( QgsField( "topo_symbol", QVariant::Int, "int" ) );
@@ -170,6 +174,8 @@ void QgsGrassEditRenderer::startRender( QgsRenderContext &context, const QgsFiel
 
 void QgsGrassEditRenderer::stopRender( QgsRenderContext &context )
 {
+  QgsFeatureRenderer::stopRender( context );
+
   mLineRenderer->stopRender( context );
   mMarkerRenderer->stopRender( context );
 }
@@ -291,6 +297,3 @@ QgsFeatureRenderer *QgsGrassEditRendererWidget::renderer()
   mRenderer->setMarkerRenderer( mPointRendererWidget->renderer()->clone() );
   return mRenderer;
 }
-
-
-

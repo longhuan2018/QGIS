@@ -14,9 +14,9 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshapecircularstringradius.h"
+#include "moc_qgsmaptoolshapecircularstringradius.cpp"
 #include "qgisapp.h"
 #include "qgscircularstring.h"
-#include "qgscompoundcurve.h"
 #include "qgsgeometryutils.h"
 #include "qgsgeometryrubberband.h"
 #include "qgsmapcanvas.h"
@@ -134,7 +134,7 @@ void QgsMapToolShapeCircularStringRadius::recalculateRubberBand()
     const int rubberBandSize = mPoints.size() - ( mPoints.size() + 1 ) % 2;
     cString->setPoints( mPoints.mid( 0, rubberBandSize ) );
     delete mRubberBand;
-    QgsWkbTypes::GeometryType type = mCaptureMode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+    Qgis::GeometryType type = mCaptureMode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
     mRubberBand = mParentTool->createGeometryRubberBand( type );
     mRubberBand->setGeometry( cString );
     mRubberBand->show();
@@ -148,8 +148,7 @@ void QgsMapToolShapeCircularStringRadius::recalculateTempRubberBand( const QgsPo
   {
     //recalculate midpoint on circle segment
     QgsPoint midPoint;
-    if ( !QgsGeometryUtils::segmentMidPoint( mPoints.at( mPoints.size() - 2 ), mTemporaryEndPoint, midPoint, mRadius,
-         QgsPoint( mousePosition ) ) )
+    if ( !QgsGeometryUtils::segmentMidPoint( mPoints.at( mPoints.size() - 2 ), mTemporaryEndPoint, midPoint, mRadius, QgsPoint( mousePosition ) ) )
     {
       return;
     }
@@ -166,7 +165,7 @@ void QgsMapToolShapeCircularStringRadius::recalculateTempRubberBand( const QgsPo
   QgsCircularString *cString = new QgsCircularString();
   cString->setPoints( rubberBandPoints );
   delete mTempRubberBand;
-  QgsWkbTypes::GeometryType type = mCaptureMode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+  Qgis::GeometryType type = mCaptureMode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
   mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
   mTempRubberBand->setGeometry( cString );
   mTempRubberBand->show();
@@ -181,7 +180,7 @@ void QgsMapToolShapeCircularStringRadius::createRadiusSpinBox()
   mRadiusSpinBox->setPrefix( tr( "Radius: " ) );
   mRadiusSpinBox->setValue( mRadius );
   QgisApp::instance()->addUserInputWidget( mRadiusSpinBox );
-  connect( mRadiusSpinBox, static_cast < void ( QDoubleSpinBox::* )( double ) > ( &QDoubleSpinBox::valueChanged ), this, &QgsMapToolShapeCircularStringRadius::updateRadiusFromSpinBox );
+  connect( mRadiusSpinBox, static_cast<void ( QDoubleSpinBox::* )( double )>( &QDoubleSpinBox::valueChanged ), this, &QgsMapToolShapeCircularStringRadius::updateRadiusFromSpinBox );
   mRadiusSpinBox->setFocus( Qt::TabFocusReason );
 }
 

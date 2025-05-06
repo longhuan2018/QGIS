@@ -16,14 +16,15 @@
  ***************************************************************************/
 
 #include "qgsdirectoryitem.h"
+#include "moc_qgsdirectoryitem.cpp"
 #include "qgssettings.h"
 #include "qgsapplication.h"
 #include "qgsdataitemprovider.h"
 #include "qgsdataitemproviderregistry.h"
-#include "qgsdataprovider.h"
 #include "qgszipitem.h"
 #include "qgsprojectitem.h"
 #include "qgsfileutils.h"
+#include "qgsgdalutils.h"
 #include <QFileSystemWatcher>
 #include <QDir>
 #include <QMouseEvent>
@@ -57,6 +58,10 @@ void QgsDirectoryItem::init( const QString &dirName )
   setToolTip( QDir::toNativeSeparators( mDirPath ) );
 
   QgsSettings settings;
+
+  const QFileInfo fi { mDirPath };
+  mIsDir = fi.isDir();
+  mIsSymLink = fi.isSymLink();
 
   mMonitoring = monitoringForPath( mDirPath );
   switch ( mMonitoring )
@@ -164,8 +169,7 @@ QIcon QgsDirectoryItem::icon()
     return QgsDataItem::icon();
 
   // symbolic link? use link icon
-  const QFileInfo fi( mDirPath );
-  if ( fi.isDir() && fi.isSymLink() )
+  if ( mIsDir && mIsSymLink )
   {
     return mIconColor.isValid()
            ? QgsApplication::getThemeIcon( QStringLiteral( "/mIconFolderLinkParams.svg" ), mIconColor, mIconColor.darker() )
@@ -304,11 +308,9 @@ QVector<QgsDataItem *> QgsDirectoryItem::createChildren()
     const QString path = dir.absoluteFilePath( name );
     const QFileInfo fileInfo( path );
 
-    if ( fileInfo.suffix().compare( QLatin1String( "zip" ), Qt::CaseInsensitive ) == 0 ||
-         fileInfo.suffix().compare( QLatin1String( "tar" ), Qt::CaseInsensitive ) == 0 )
+    if ( QgsGdalUtils::isVsiArchiveFileExtension( fileInfo.suffix() ) )
     {
-      QgsDataItem *item = QgsZipItem::itemFromPath( this, path, name, path );
-      if ( item )
+      if ( QgsDataItem *item = QgsZipItem::itemFromPath( this, path, name, path ) )
       {
         children.append( item );
         continue;
@@ -318,10 +320,10 @@ QVector<QgsDataItem *> QgsDirectoryItem::createChildren()
     bool createdItem = false;
     for ( QgsDataItemProvider *provider : providers )
     {
-      const int capabilities = provider->capabilities();
+      const Qgis::DataItemProviderCapabilities capabilities = provider->capabilities();
 
-      if ( !( ( fileInfo.isFile() && ( capabilities & QgsDataProvider::File ) ) ||
-              ( fileInfo.isDir() && ( capabilities & QgsDataProvider::Dir ) ) ) )
+      if ( !( ( fileInfo.isFile() && ( capabilities & Qgis::DataItemProviderCapability::Files ) ) ||
+              ( fileInfo.isDir() && ( capabilities & Qgis::DataItemProviderCapability::Directories ) ) ) )
       {
         continue;
       }
@@ -405,7 +407,7 @@ void QgsDirectoryItem::directoryChanged()
     // this happens when a new file appears in the directory and
     // the item's children thread will try to open the file with
     // GDAL or OGR even if it is still being written.
-    QTimer::singleShot( 100, this, [ = ] { refresh(); } );
+    QTimer::singleShot( 100, this, [this] { refresh(); } );
   }
 }
 
@@ -453,7 +455,9 @@ bool QgsDirectoryItem::pathShouldByMonitoredByDefault( const QString &path )
 
   // else if we know that the path is on a slow device, we don't monitor by default
   // as this can be very expensive and slow down QGIS
-  if ( QgsFileUtils::pathIsSlowDevice( path ) )
+  // Add trailing slash or windows API functions like GetDriveTypeW won't identify
+  // UNC network drives correctly
+  if ( QgsFileUtils::pathIsSlowDevice( path.endsWith( '/' ) ? path : path + '/' ) )
     return false;
 
   // paths are monitored by default if no explicit setting is in place, and the user hasn't
@@ -467,7 +471,7 @@ void QgsDirectoryItem::childrenCreated()
 
   if ( mRefreshLater )
   {
-    QgsDebugMsgLevel( QStringLiteral( "directory changed during createChidren() -> refresh() again" ), 3 );
+    QgsDebugMsgLevel( QStringLiteral( "directory changed during createChildren() -> refresh() again" ), 3 );
     mRefreshLater = false;
     setState( Qgis::BrowserItemState::Populated );
     refresh();

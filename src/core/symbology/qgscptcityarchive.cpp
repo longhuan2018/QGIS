@@ -17,6 +17,7 @@
 
 #include "qgssettings.h"
 #include "qgscptcityarchive.h"
+#include "moc_qgscptcityarchive.cpp"
 #include "qgis.h"
 #include "qgsdataprovider.h"
 #include "qgslogger.h"
@@ -195,7 +196,7 @@ QgsStringMap QgsCptCityArchive::copyingInfo( const QString &fileName )
   QFile f( fileName );
   if ( !f.open( QFile::ReadOnly ) )
   {
-    QgsDebugMsg( "Couldn't open xml file: " + fileName );
+    QgsDebugError( "Couldn't open xml file: " + fileName );
     return copyingMap;
   }
 
@@ -204,7 +205,7 @@ QgsStringMap QgsCptCityArchive::copyingInfo( const QString &fileName )
   if ( !doc.setContent( &f ) )
   {
     f.close();
-    QgsDebugMsg( "Couldn't parse xml file: " + fileName );
+    QgsDebugError( "Couldn't parse xml file: " + fileName );
     return copyingMap;
   }
   f.close();
@@ -213,7 +214,7 @@ QgsStringMap QgsCptCityArchive::copyingInfo( const QString &fileName )
   const QDomElement docElem = doc.documentElement();
   if ( docElem.tagName() != QLatin1String( "copying" ) )
   {
-    QgsDebugMsg( "Incorrect root tag: " + docElem.tagName() );
+    QgsDebugError( "Incorrect root tag: " + docElem.tagName() );
     return copyingMap;
   }
 
@@ -296,7 +297,7 @@ QgsStringMap QgsCptCityArchive::description( const QString &fileName )
   if ( !doc.setContent( &f, &errMsg ) )
   {
     f.close();
-    QgsDebugMsg( "Couldn't parse file " + fileName + " : " + errMsg );
+    QgsDebugError( "Couldn't parse file " + fileName + " : " + errMsg );
     return descMap;
   }
   f.close();
@@ -305,7 +306,7 @@ QgsStringMap QgsCptCityArchive::description( const QString &fileName )
   const QDomElement docElem = doc.documentElement();
   if ( docElem.tagName() != QLatin1String( "description" ) )
   {
-    QgsDebugMsg( "Incorrect root tag: " + docElem.tagName() );
+    QgsDebugError( "Incorrect root tag: " + docElem.tagName() );
     return descMap;
   }
   // should we make sure the <dir> tag is OK?
@@ -334,7 +335,7 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
   QFile f( fileName );
   if ( !f.open( QFile::ReadOnly ) )
   {
-    QgsDebugMsg( "Couldn't open SVG file: " + fileName );
+    QgsDebugError( "Couldn't open SVG file: " + fileName );
     return colorMap;
   }
 
@@ -343,7 +344,7 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
   if ( !doc.setContent( &f ) )
   {
     f.close();
-    QgsDebugMsg( "Couldn't parse SVG file: " + fileName );
+    QgsDebugError( "Couldn't parse SVG file: " + fileName );
     return colorMap;
   }
   f.close();
@@ -352,7 +353,7 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
 
   if ( docElem.tagName() != QLatin1String( "svg" ) )
   {
-    QgsDebugMsg( "Incorrect root tag: " + docElem.tagName() );
+    QgsDebugError( "Incorrect root tag: " + docElem.tagName() );
     return colorMap;
   }
 
@@ -366,7 +367,7 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
   }
   if ( rampsElement.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "linearGradient tag missing" ) );
+    QgsDebugError( QStringLiteral( "linearGradient tag missing" ) );
     return colorMap;
   }
 
@@ -409,12 +410,12 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
       }
       else
       {
-        QgsDebugMsg( QStringLiteral( "at offset=%1 invalid color \"%2\"" ).arg( offset ).arg( colorStr ) );
+        QgsDebugError( QStringLiteral( "at offset=%1 invalid color \"%2\"" ).arg( offset ).arg( colorStr ) );
       }
     }
     else
     {
-      QgsDebugMsg( "unknown tag: " + e.tagName() );
+      QgsDebugError( "unknown tag: " + e.tagName() );
     }
 
     e = e.nextSiblingElement();
@@ -423,7 +424,7 @@ QMap< double, QPair<QColor, QColor> >QgsCptCityArchive::gradientColorMap( const 
   return colorMap;
 }
 
-bool QgsCptCityArchive::isEmpty()
+bool QgsCptCityArchive::isEmpty() const
 {
   return ( mRootItems.isEmpty() );
 }
@@ -496,7 +497,7 @@ void QgsCptCityArchive::initArchives( bool loadAll )
       QgsCptCityArchive::initArchive( it.key(), it.value() );
     else
     {
-      QgsDebugMsg( QStringLiteral( "not loading archive [%1] because dir %2 does not exist " ).arg( it.key(), it.value() ) );
+      QgsDebugError( QStringLiteral( "not loading archive [%1] because dir %2 does not exist " ).arg( it.key(), it.value() ) );
     }
   }
   *sDefaultArchiveName() = defArchiveName;
@@ -872,7 +873,7 @@ QVector< QgsCptCityDataItem * > QgsCptCityCollectionItem::childrenRamps( bool re
     }
     else
     {
-      QgsDebugMsg( "invalid item " + childItem->path() );
+      QgsDebugError( "invalid item " + childItem->path() );
     }
   }
 
@@ -880,7 +881,7 @@ QVector< QgsCptCityDataItem * > QgsCptCityCollectionItem::childrenRamps( bool re
   const auto constDeleteItems = deleteItems;
   for ( QgsCptCityDataItem *deleteItem : constDeleteItems )
   {
-    QgsDebugMsg( QStringLiteral( "item %1 is invalid, will be deleted" ).arg( deleteItem->path() ) );
+    QgsDebugError( QStringLiteral( "item %1 is invalid, will be deleted" ).arg( deleteItem->path() ) );
     const int i = mChildren.indexOf( deleteItem );
     if ( i != -1 )
       mChildren.remove( i );
@@ -899,8 +900,8 @@ QgsCptCityDirectoryItem::QgsCptCityDirectoryItem( QgsCptCityDataItem *parent,
   mValid = QDir( QgsCptCityArchive::defaultBaseDir() + '/' + mPath ).exists();
   if ( ! mValid )
   {
-    QgsDebugMsg( "created invalid dir item, path = " + QgsCptCityArchive::defaultBaseDir()
-                 + '/' + mPath );
+    QgsDebugError( "created invalid dir item, path = " + QgsCptCityArchive::defaultBaseDir()
+                   + '/' + mPath );
   }
 
   // parse DESC.xml to get mInfo
@@ -1218,7 +1219,7 @@ void QgsCptCitySelectionItem::parseXml()
   QFile f( filename );
   if ( ! f.open( QFile::ReadOnly ) )
   {
-    QgsDebugMsg( filename + " does not exist" );
+    QgsDebugError( filename + " does not exist" );
     return;
   }
 
@@ -1228,7 +1229,7 @@ void QgsCptCitySelectionItem::parseXml()
   if ( !doc.setContent( &f, &errMsg ) )
   {
     f.close();
-    QgsDebugMsg( "Couldn't parse file " + filename + " : " + errMsg );
+    QgsDebugError( "Couldn't parse file " + filename + " : " + errMsg );
     return;
   }
   f.close();
@@ -1237,7 +1238,7 @@ void QgsCptCitySelectionItem::parseXml()
   const QDomElement docElem = doc.documentElement();
   if ( docElem.tagName() != QLatin1String( "selection" ) )
   {
-    QgsDebugMsg( "Incorrect root tag: " + docElem.tagName() );
+    QgsDebugError( "Incorrect root tag: " + docElem.tagName() );
     return;
   }
   QDomElement e = docElem.firstChildElement( QStringLiteral( "name" ) );
@@ -1690,50 +1691,6 @@ void QgsCptCityBrowserModel::fetchMore( const QModelIndex &parent )
     QgsDebugMsgLevel( "path = " + item->path(), 2 );
   }
 }
-
-
-#if 0
-QStringList QgsCptCityBrowserModel::mimeTypes() const
-{
-  QStringList types;
-  // In theory the mime type convention is: application/x-vnd.<vendor>.<application>.<type>
-  // but it seems a bit over formalized. Would be an application/x-qgis-uri better?
-  types << "application/x-vnd.qgis.qgis.uri";
-  return types;
-}
-
-QMimeData *QgsCptCityBrowserModel::mimeData( const QModelIndexList &indexes ) const
-{
-  QgsMimeDataUtils::UriList lst;
-  const auto constIndexes = indexes;
-  for ( const QModelIndex &index : constIndexes )
-  {
-    if ( index.isValid() )
-    {
-      QgsCptCityDataItem *ptr = ( QgsCptCityDataItem * ) index.internalPointer();
-      if ( ptr->type() != QgsCptCityDataItem::Layer ) continue;
-      QgsLayerItem *layer = ( QgsLayerItem * ) ptr;
-      lst.append( QgsMimeDataUtils::Uri( ayer ) );
-    }
-  }
-  return QgsMimeDataUtils::encodeUriList( lst );
-}
-
-bool QgsCptCityBrowserModel::dropMimeData( const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent )
-{
-  Q_UNUSED( row )
-  Q_UNUSED( column )
-
-  QgsCptCityDataItem *destItem = dataItem( parent );
-  if ( !destItem )
-  {
-    QgsDebugMsg( QStringLiteral( "DROP PROBLEM!" ) );
-    return false;
-  }
-
-  return destItem->handleDrop( data, action );
-}
-#endif
 
 QgsCptCityDataItem *QgsCptCityBrowserModel::dataItem( const QModelIndex &idx ) const
 {

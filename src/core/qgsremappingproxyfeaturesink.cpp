@@ -138,14 +138,14 @@ QString QgsRemappingProxyFeatureSink::lastError() const
 QVariant QgsRemappingSinkDefinition::toVariant() const
 {
   QVariantMap map;
-  map.insert( QStringLiteral( "wkb_type" ), mDestinationWkbType );
+  map.insert( QStringLiteral( "wkb_type" ), static_cast< quint32>( mDestinationWkbType ) );
   // we only really care about names here
   QVariantList fieldNames;
   for ( const QgsField &field : mDestinationFields )
     fieldNames << field.name();
   map.insert( QStringLiteral( "destination_field_names" ), fieldNames );
-  map.insert( QStringLiteral( "transform_source" ), mSourceCrs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
-  map.insert( QStringLiteral( "transform_dest" ), mDestinationCrs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
+  map.insert( QStringLiteral( "transform_source" ), mSourceCrs.toWkt( Qgis::CrsWktVariant::Preferred ) );
+  map.insert( QStringLiteral( "transform_dest" ), mDestinationCrs.toWkt( Qgis::CrsWktVariant::Preferred ) );
 
   QVariantMap fieldMap;
   for ( auto it = mFieldMap.constBegin(); it != mFieldMap.constEnd(); ++it )
@@ -159,7 +159,7 @@ QVariant QgsRemappingSinkDefinition::toVariant() const
 
 bool QgsRemappingSinkDefinition::loadVariant( const QVariantMap &map )
 {
-  mDestinationWkbType = static_cast< QgsWkbTypes::Type >( map.value( QStringLiteral( "wkb_type" ), QgsWkbTypes::Unknown ).toInt() );
+  mDestinationWkbType = static_cast< Qgis::WkbType >( map.value( QStringLiteral( "wkb_type" ), static_cast< quint32>( Qgis::WkbType::Unknown ) ).toInt() );
 
   const QVariantList fieldNames = map.value( QStringLiteral( "destination_field_names" ) ).toList();
   QgsFields fields;

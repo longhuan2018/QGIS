@@ -1,8 +1,16 @@
 import pathlib
-from qgis.testing import start_app, unittest, TestCase
+
+from qgis.core import (
+    QgsMultiBandColorRenderer,
+    QgsRasterLayer,
+    QgsSingleBandGrayRenderer,
+)
+from qgis.gui import (
+    QgsMapCanvas,
+    QgsRendererRasterPropertiesWidget,
+)
+from qgis.testing import TestCase, unittest
 from qgis.testing.mocked import get_iface
-from qgis.core import QgsRasterLayer, QgsProject, QgsMultiBandColorRenderer, QgsRasterRenderer, QgsSingleBandGrayRenderer
-from qgis.gui import QgsRendererRasterPropertiesWidget, QgsMapCanvas, QgsMultiBandColorRendererWidget, QgsRasterRendererWidget
 
 
 class QgsRendererRasterPropertiesTestCases(TestCase):
@@ -14,16 +22,17 @@ class QgsRendererRasterPropertiesTestCases(TestCase):
 
         try:
             from utilities import unitTestDataPath
-            path = pathlib.Path(unitTestDataPath()) / 'landsat_4326.tif'
+
+            path = pathlib.Path(unitTestDataPath()) / "landsat_4326.tif"
         except ModuleNotFoundError:
-            path = pathlib.Path(__file__).parent / 'landsat_4326.tif'
+            path = pathlib.Path(__file__).parent / "landsat_4326.tif"
 
         assert isinstance(path, pathlib.Path) and path.is_file()
         lyr = QgsRasterLayer(path.as_posix())
         lyr.setName(path.name)
         self.assertIsInstance(lyr, QgsRasterLayer)
         self.assertTrue(lyr.isValid())
-        self.assertTrue(lyr.bandCount() > 1)
+        self.assertGreater(lyr.bandCount(), 1)
 
         return lyr
 
@@ -65,5 +74,5 @@ class QgsRendererRasterPropertiesTestCases(TestCase):
         assert r.usesBands() == [3, 1, 2]
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -67,6 +67,9 @@ fi
 installroot="$BUILDDIR/dist"
 installprefix="$installroot/usr/$arch-w64-mingw32/sys-root/mingw"
 
+# To make ccache work properly with precompiled headers
+ccache --set-config sloppiness=pch_defines,time_macros,include_file_mtime,include_file_ctime
+
 # Cleanup
 rm -rf "$installroot"
 
@@ -95,6 +98,10 @@ mkdir -p "$BUILDDIR"
     -DQGIS_QML_SUBDIR=lib/qt5/qml \
     -DBINDINGS_GLOBAL_INSTALL=ON \
     -DSIP_GLOBAL_INSTALL=ON \
+    -DWITH_3D=OFF \
+    -DWITH_DRACO=OFF \
+    -DWITH_PDAL=OFF \
+    -DWITH_QUICK=ON \
     -DWITH_SERVER=ON \
     -DWITH_SERVER_LANDINGPAGE_WEBAPP=ON \
     -DTXT2TAGS_EXECUTABLE= \
@@ -115,12 +122,20 @@ echo "::endgroup::"
 # Xvfb :99 &
 # export DISPLAY=:99
 
-echo "::group::compile QGIS"
-mingw$bits-make -C"$BUILDDIR" -j"$njobs" DESTDIR="${installroot}" install VERBOSE=1
+echo "::group::build"
+mingw$bits-make -C"$BUILDDIR" -j"$njobs" #VERBOSE=1
+echo "::endgroup::"
+
+echo "::group::install"
+mingw$bits-make -C"$BUILDDIR" -j"$njobs" DESTDIR="${installroot}" install # VERBOSE=1
 echo "::endgroup::"
 
 #echo "ccache statistics"
+echo "::group::ccache stats"
 ccache -s
+echo "::endgroup::"
+
+echo "::group::link dependenceis"
 
 # Remove plugins with missing dependencies
 rm -rf "${installroot}/share/qgis/python/plugins/{MetaSearch,processing}"
@@ -204,7 +219,6 @@ IFS=$SAVEIFS
 mkdir -p "$installprefix/lib/"
 cp -a "$MINGWROOT/lib/gdalplugins" "$installprefix/lib/gdalplugins"
 
-echo "Linking dependencies..."
 binaries=$(find "$installprefix" -name '*.exe' -or -name '*.dll' -or -name '*.pyd')
 for binary in $binaries; do
     autoLinkDeps $binary
@@ -245,6 +259,7 @@ linkDep lib/qt5/plugins/crypto/libqca-gnupg.dll bin/crypto
 linkDep lib/qt5/plugins/crypto/libqca-ossl.dll bin/crypto
 
 linkDep lib/ossl-modules/legacy.dll lib/ossl-modules
+echo "::endgroup::"
 
 mkdir -p "$installprefix/share/qt5/translations/"
 #cp -a "$MINGWROOT/share/qt5/translations/qt_"*.qm  "$installprefix/share/qt5/translations"

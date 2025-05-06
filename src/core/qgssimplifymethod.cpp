@@ -42,7 +42,7 @@ QgsAbstractGeometrySimplifier *QgsSimplifyMethod::createGeometrySimplifier( cons
   if ( methodType == QgsSimplifyMethod::OptimizeForRendering )
   {
     const int simplifyFlags = QgsMapToPixelSimplifier::SimplifyGeometry | QgsMapToPixelSimplifier::SimplifyEnvelope;
-    return new QgsMapToPixelSimplifier( simplifyFlags, simplifyMethod.tolerance(), QgsMapToPixelSimplifier::Distance );
+    return new QgsMapToPixelSimplifier( simplifyFlags, simplifyMethod.tolerance(), Qgis::VectorSimplificationAlgorithm::Distance );
   }
   else if ( methodType == QgsSimplifyMethod::PreserveTopology )
   {
@@ -50,7 +50,7 @@ QgsAbstractGeometrySimplifier *QgsSimplifyMethod::createGeometrySimplifier( cons
   }
   else
   {
-    QgsDebugMsg( QStringLiteral( "Simplification method type (%1) is not recognised" ).arg( methodType ) );
+    QgsDebugError( QStringLiteral( "Simplification method type (%1) is not recognised" ).arg( methodType ) );
     return nullptr;
   }
 }

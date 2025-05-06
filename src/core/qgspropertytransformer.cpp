@@ -20,6 +20,7 @@
 #include "qgsexpressionnodeimpl.h"
 #include "qgssymbollayerutils.h"
 #include "qgscolorramp.h"
+#include "qgscolorutils.h"
 #include "qgspointxy.h"
 
 
@@ -220,10 +221,10 @@ QString QgsGenericNumericTransformer::toExpression( const QString &baseExpressio
   if ( qgsDoubleNear( mExponent, 1.0 ) )
     return QStringLiteral( "coalesce(scale_linear(%1, %2, %3, %4, %5), %6)" ).arg( baseExpression, minValueString, maxValueString, minOutputString, maxOutputString, nullOutputString );
   else
-    return QStringLiteral( "coalesce(scale_exp(%1, %2, %3, %4, %5, %6), %7)" ).arg( baseExpression, minValueString, maxValueString, minOutputString, maxOutputString, exponentString, nullOutputString );
+    return QStringLiteral( "coalesce(scale_polynomial(%1, %2, %3, %4, %5, %6), %7)" ).arg( baseExpression, minValueString, maxValueString, minOutputString, maxOutputString, exponentString, nullOutputString );
 }
 
-QgsGenericNumericTransformer *QgsGenericNumericTransformer::fromExpression( const QString &expression, QString &baseExpression, QString &fieldName )
+QgsGenericNumericTransformer *QgsGenericNumericTransformer::fromExpression( const QString &expression, QString &baseExpression, QString &fieldName ) // cppcheck-suppress duplInheritedMember
 {
   bool ok = false;
 
@@ -261,7 +262,7 @@ QgsGenericNumericTransformer *QgsGenericNumericTransformer::fromExpression( cons
   {
     exponent = 1.0;
   }
-  else if ( "scale_exp" == QgsExpression::Functions()[f->fnIndex()]->name() )
+  else if ( "scale_polynomial" == QgsExpression::Functions()[f->fnIndex()]->name() )
   {
     exponent = QgsExpression( args[5]->dump() ).evaluate().toDouble( &ok );
   }
@@ -429,13 +430,13 @@ QString QgsSizeScaleTransformer::toExpression( const QString &baseExpression ) c
     case Area:
     case Flannery:
     case Exponential:
-      return QStringLiteral( "coalesce(scale_exp(%1, %2, %3, %4, %5, %6), %7)" ).arg( baseExpression, minValueString, maxValueString, minSizeString, maxSizeString, exponentString, nullSizeString );
+      return QStringLiteral( "coalesce(scale_polynomial(%1, %2, %3, %4, %5, %6), %7)" ).arg( baseExpression, minValueString, maxValueString, minSizeString, maxSizeString, exponentString, nullSizeString );
 
   }
   return QString();
 }
 
-QgsSizeScaleTransformer *QgsSizeScaleTransformer::fromExpression( const QString &expression, QString &baseExpression, QString &fieldName )
+QgsSizeScaleTransformer *QgsSizeScaleTransformer::fromExpression( const QString &expression, QString &baseExpression, QString &fieldName ) // cppcheck-suppress duplInheritedMember
 {
   bool ok = false;
 
@@ -474,7 +475,7 @@ QgsSizeScaleTransformer *QgsSizeScaleTransformer::fromExpression( const QString 
   {
     type = Linear;
   }
-  else if ( "scale_exp" == QgsExpression::Functions()[f->fnIndex()]->name() )
+  else if ( "scale_polynomial" == QgsExpression::Functions()[f->fnIndex()]->name() )
   {
     exponent = QgsExpression( args[5]->dump() ).evaluate().toDouble( &ok );
     if ( ! ok )
@@ -524,10 +525,12 @@ QgsSizeScaleTransformer *QgsSizeScaleTransformer::fromExpression( const QString 
 
 QgsColorRampTransformer::QgsColorRampTransformer( double minValue, double maxValue,
     QgsColorRamp *ramp,
-    const QColor &nullColor )
+    const QColor &nullColor,
+    const QString &rampName )
   : QgsPropertyTransformer( minValue, maxValue )
   , mGradientRamp( ramp )
   , mNullColor( nullColor )
+  , mRampName( rampName )
 {
 
 }
@@ -571,7 +574,7 @@ QVariant QgsColorRampTransformer::toVariant() const
   {
     transformerMap.insert( QStringLiteral( "colorramp" ), QgsSymbolLayerUtils::colorRampToVariant( QStringLiteral( "[source]" ), mGradientRamp.get() ) );
   }
-  transformerMap.insert( QStringLiteral( "nullColor" ), QgsSymbolLayerUtils::encodeColor( mNullColor ) );
+  transformerMap.insert( QStringLiteral( "nullColor" ), QgsColorUtils::colorToString( mNullColor ) );
   transformerMap.insert( QStringLiteral( "rampName" ), mRampName );
 
   return transformerMap;
@@ -586,10 +589,10 @@ bool QgsColorRampTransformer::loadVariant( const QVariant &definition )
   mGradientRamp.reset( nullptr );
   if ( transformerMap.contains( QStringLiteral( "colorramp" ) ) )
   {
-    setColorRamp( QgsSymbolLayerUtils::loadColorRamp( transformerMap.value( QStringLiteral( "colorramp" ) ).toMap() ) );
+    setColorRamp( QgsSymbolLayerUtils::loadColorRamp( transformerMap.value( QStringLiteral( "colorramp" ) ).toMap() ).release() );
   }
 
-  mNullColor = QgsSymbolLayerUtils::decodeColor( transformerMap.value( QStringLiteral( "nullColor" ), QStringLiteral( "0,0,0,0" ) ).toString() );
+  mNullColor = QgsColorUtils::colorFromString( transformerMap.value( QStringLiteral( "nullColor" ), QStringLiteral( "0,0,0,0" ) ).toString() );
   mRampName = transformerMap.value( QStringLiteral( "rampName" ) ).toString();
   return true;
 }

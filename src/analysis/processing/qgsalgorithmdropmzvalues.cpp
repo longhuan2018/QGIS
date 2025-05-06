@@ -71,9 +71,9 @@ void QgsDropMZValuesAlgorithm::initParameters( const QVariantMap & )
   addParameter( new QgsProcessingParameterBoolean( QStringLiteral( "DROP_Z_VALUES" ), QObject::tr( "Drop Z Values" ), false ) );
 }
 
-QgsWkbTypes::Type QgsDropMZValuesAlgorithm::outputWkbType( QgsWkbTypes::Type inputWkbType ) const
+Qgis::WkbType QgsDropMZValuesAlgorithm::outputWkbType( Qgis::WkbType inputWkbType ) const
 {
-  QgsWkbTypes::Type wkb = inputWkbType;
+  Qgis::WkbType wkb = inputWkbType;
   if ( mDropM )
     wkb = QgsWkbTypes::dropM( wkb );
   if ( mDropZ )
@@ -81,9 +81,9 @@ QgsWkbTypes::Type QgsDropMZValuesAlgorithm::outputWkbType( QgsWkbTypes::Type inp
   return wkb;
 }
 
-QgsProcessingFeatureSource::Flag QgsDropMZValuesAlgorithm::sourceFlags() const
+Qgis::ProcessingFeatureSourceFlags QgsDropMZValuesAlgorithm::sourceFlags() const
 {
-  return QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks;
+  return Qgis::ProcessingFeatureSourceFlag::SkipGeometryValidityChecks;
 }
 
 bool QgsDropMZValuesAlgorithm::prepareAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback * )
@@ -98,7 +98,7 @@ QgsFeatureList QgsDropMZValuesAlgorithm::processFeature( const QgsFeature &featu
   QgsFeature f = feature;
   if ( f.hasGeometry() )
   {
-    std::unique_ptr< QgsAbstractGeometry > newGeom( f.geometry().constGet()->clone() );
+    std::unique_ptr<QgsAbstractGeometry> newGeom( f.geometry().constGet()->clone() );
     if ( mDropM )
       newGeom->dropMValue();
     if ( mDropZ )
@@ -110,4 +110,3 @@ QgsFeatureList QgsDropMZValuesAlgorithm::processFeature( const QgsFeature &featu
 }
 
 ///@endcond
-

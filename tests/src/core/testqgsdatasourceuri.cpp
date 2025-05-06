@@ -18,13 +18,14 @@
 //header for class being tested
 #include <qgsdatasourceuri.h>
 
-Q_DECLARE_METATYPE( QgsWkbTypes::Type )
+Q_DECLARE_METATYPE( Qgis::WkbType )
 Q_DECLARE_METATYPE( QgsDataSourceUri::SslMode )
 
-class TestQgsDataSourceUri: public QObject
+class TestQgsDataSourceUri : public QObject
 {
     Q_OBJECT
   private slots:
+    void equality();
     void checkparser();
     void checkparser_data();
     void checkSetConnection();
@@ -35,6 +36,8 @@ class TestQgsDataSourceUri: public QObject
     void checkConnectionInfo_data();
     void checkAuthParams();
     void checkParameterKeys();
+    void checkRemovePassword();
+    void checkUnicodeUri();
 };
 
 void TestQgsDataSourceUri::checkparser_data()
@@ -45,7 +48,7 @@ void TestQgsDataSourceUri::checkparser_data()
   QTest::addColumn<QString>( "key" );
   QTest::addColumn<bool>( "estimatedmetadata" );
   QTest::addColumn<QString>( "srid" );
-  QTest::addColumn<QgsWkbTypes::Type>( "type" );
+  QTest::addColumn<Qgis::WkbType>( "type" );
   QTest::addColumn<bool>( "selectatid" );
   QTest::addColumn<QString>( "service" );
   QTest::addColumn<QString>( "user" );
@@ -62,144 +65,421 @@ void TestQgsDataSourceUri::checkparser_data()
 
 
   QTest::newRow( "oci" )
-      << "host=myhost port=1234 user='myname' password='mypasswd' estimatedmetadata=true srid=1000003007 table=\"myschema\".\"mytable\" (GEOM) myparam='myvalue' sql="
-      << "mytable" // table
-      << "GEOM" // geometrycolumn
-      << "" // key
-      << true // estimatedmetadata
-      << "1000003007" // srid
-      << QgsWkbTypes::Unknown // type
-      << false // selectatid
-      << "" // service
-      << "myname" // user
-      << "mypasswd" // password
-      << "" // authcfg
-      << "" // dbname
-      << "myhost" // host
-      << "1234" // port
-      << "" // driver
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // sql
-      << "myvalue" // myparam
-      << "myschema"
-      ;
+    << "host=myhost port=1234 user='myname' password='mypasswd' estimatedmetadata=true srid=1000003007 table=\"myschema\".\"mytable\" (GEOM) myparam='myvalue' sql="
+    << "mytable"                   // table
+    << "GEOM"                      // geometrycolumn
+    << ""                          // key
+    << true                        // estimatedmetadata
+    << "1000003007"                // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << "myname"                    // user
+    << "mypasswd"                  // password
+    << ""                          // authcfg
+    << ""                          // dbname
+    << "myhost"                    // host
+    << "1234"                      // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << "myvalue"                   // myparam
+    << "myschema";
 
   QTest::newRow( "pgrast" )
-      << R"(PG: dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable estimatedmetadata=true srid=3067 table="public"."basic_map_tiled" (rast))"
-      << "basic_map_tiled" // table
-      << "rast" // geometrycolumn
-      << "" // key
-      << true // estimatedmetadata
-      << "3067" // srid
-      << QgsWkbTypes::Unknown // type
-      << false // selectatid
-      << "" // service
-      << "myname" // user
-      << "" // password
-      << "" // authcfg
-      << "qgis_tests" // dbname
-      << "localhost" // host
-      << "5432" // port
-      << "" // driver
-      << QgsDataSourceUri::SslDisable // sslmode
-      << "" // sql
-      << "" // myparam
-      << "public" // schema
-      ;
+    << R"(PG: dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable estimatedmetadata=true srid=3067 table="public"."basic_map_tiled" (rast))"
+    << "basic_map_tiled"            // table
+    << "rast"                       // geometrycolumn
+    << ""                           // key
+    << true                         // estimatedmetadata
+    << "3067"                       // srid
+    << Qgis::WkbType::Unknown       // type
+    << false                        // selectatid
+    << ""                           // service
+    << "myname"                     // user
+    << ""                           // password
+    << ""                           // authcfg
+    << "qgis_tests"                 // dbname
+    << "localhost"                  // host
+    << "5432"                       // port
+    << ""                           // driver
+    << QgsDataSourceUri::SslDisable // sslmode
+    << ""                           // sql
+    << ""                           // myparam
+    << "public"                     // schema
+    ;
 
   QTest::newRow( "pg_notable" )
-      << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=myschema "
-      << "" // table
-      << "" // geometrycolumn
-      << "" // key
-      << false // estimatedmetadata
-      << "" // srid
-      << QgsWkbTypes::Unknown // type
-      << false // selectatid
-      << "" // service
-      << "myname" // user
-      << "mypasswd" // password
-      << "" // authcfg
-      << "mydb" // dbname
-      << "myhost" // host
-      << "5432" // port
-      << "" // driver
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // sql
-      << "" // myparam
-      << "public" // schema
-      ;
+    << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=myschema "
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << "myname"                    // user
+    << "mypasswd"                  // password
+    << ""                          // authcfg
+    << "mydb"                      // dbname
+    << "myhost"                    // host
+    << "5432"                      // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
 
   QTest::newRow( "pg_notable_quoted" )
-      << "dbname='mydb' host='myhost' user='myname' password='mypasswd' port='5432' mode='2' schema=myschema"
-      << "" // table
-      << "" // geometrycolumn
-      << "" // key
-      << false // estimatedmetadata
-      << "" // srid
-      << QgsWkbTypes::Unknown // type
-      << false // selectatid
-      << "" // service
-      << "myname" // user
-      << "mypasswd" // password
-      << "" // authcfg
-      << "mydb" // dbname
-      << "myhost" // host
-      << "5432" // port
-      << "" // driver
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // sql
-      << "" // myparam
-      << "public" // schema
-      ;
+    << "dbname='mydb' host='myhost' user='myname' password='mypasswd' port='5432' mode='2' schema=myschema"
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << "myname"                    // user
+    << "mypasswd"                  // password
+    << ""                          // authcfg
+    << "mydb"                      // dbname
+    << "myhost"                    // host
+    << "5432"                      // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
 
   QTest::newRow( "pg_notable_authcfg" )
-      << "PG: dbname=mydb host=myhost authcfg=myauthcfg port=5432 mode=2 schema=myschema "
-      << "" // table
-      << "" // geometrycolumn
-      << "" // key
-      << false // estimatedmetadata
-      << "" // srid
-      << QgsWkbTypes::Unknown // type
-      << false // selectatid
-      << "" // service
-      << "" // user
-      << "" // password
-      << "myauthcfg" // authcfg
-      << "mydb" // dbname
-      << "myhost" // host
-      << "5432" // port
-      << "" // driver
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // sql
-      << "" // myparam
-      << "public" // schema
-      ;
-
+    << "PG: dbname=mydb host=myhost authcfg=myauthcfg port=5432 mode=2 schema=myschema "
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << ""                          // user
+    << ""                          // password
+    << "myauthcfg"                 // authcfg
+    << "mydb"                      // dbname
+    << "myhost"                    // host
+    << "5432"                      // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
 
 
   QTest::newRow( "pgmlsz" )
-      << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=public column=geom table=mytable type=MultiLineStringZ"
-      << "mytable" // table
-      << "" // geometrycolumn
-      << "" // key
-      << false // estimatedmetadata
-      << "" // srid
-      << QgsWkbTypes::MultiLineStringZ // type
-      << false // selectatid
-      << "" // service
-      << "myname" // user
-      << "mypasswd" // password
-      << "" // authcfg
-      << "mydb" // dbname
-      << "myhost" // host
-      << "5432" // port
-      << "" // driver
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // sql
-      << "" // myparam
-      << "public" // schema
-      ;
+    << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=public column=geom table=mytable type=MultiLineStringZ"
+    << "mytable"                       // table
+    << ""                              // geometrycolumn
+    << ""                              // key
+    << false                           // estimatedmetadata
+    << ""                              // srid
+    << Qgis::WkbType::MultiLineStringZ // type
+    << false                           // selectatid
+    << ""                              // service
+    << "myname"                        // user
+    << "mypasswd"                      // password
+    << ""                              // authcfg
+    << "mydb"                          // dbname
+    << "myhost"                        // host
+    << "5432"                          // port
+    << ""                              // driver
+    << QgsDataSourceUri::SslPrefer     // sslmode
+    << ""                              // sql
+    << ""                              // myparam
+    << "public"                        // schema
+    ;
+
+  QTest::newRow( "arcgis rest sql" )
+    << "crs='EPSG:2154' filter='' url='https://carto.isogeo.net/server/rest/services/scan_services_1/EMS_EFS_WMS_WFS/FeatureServer/2' table='' sql=abc='def'"
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << ""                          // user
+    << ""                          // password
+    << ""                          // authcfg
+    << ""                          // dbname
+    << ""                          // host
+    << ""                          // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << "abc='def'"                 // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
+
+  QTest::newRow( "arcgis rest empty sql" )
+    << "crs='EPSG:2154' filter='' url='https://carto.isogeo.net/server/rest/services/scan_services_1/EMS_EFS_WMS_WFS/FeatureServer/2' table='' sql=''"
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << ""                          // user
+    << ""                          // password
+    << ""                          // authcfg
+    << ""                          // dbname
+    << ""                          // host
+    << ""                          // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
+
+  QTest::newRow( "arcgis rest empty sql 2" )
+    << "crs='EPSG:2154' filter='' url='https://carto.isogeo.net/server/rest/services/scan_services_1/EMS_EFS_WMS_WFS/FeatureServer/2' table='' sql=\"\""
+    << ""                          // table
+    << ""                          // geometrycolumn
+    << ""                          // key
+    << false                       // estimatedmetadata
+    << ""                          // srid
+    << Qgis::WkbType::Unknown      // type
+    << false                       // selectatid
+    << ""                          // service
+    << ""                          // user
+    << ""                          // password
+    << ""                          // authcfg
+    << ""                          // dbname
+    << ""                          // host
+    << ""                          // port
+    << ""                          // driver
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // sql
+    << ""                          // myparam
+    << "public"                    // schema
+    ;
+}
+
+void TestQgsDataSourceUri::equality()
+{
+  QgsDataSourceUri uri1;
+  QgsDataSourceUri uri2;
+
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setHost( QStringLiteral( "localhost" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setHost( QStringLiteral( "remote" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setHost( QStringLiteral( "localhost" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setPort( QStringLiteral( "5432" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setPort( QStringLiteral( "5433" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setPort( QStringLiteral( "5432" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setDriver( QStringLiteral( "QPSQL" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setDriver( QStringLiteral( "mssql" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setDriver( QStringLiteral( "QPSQL" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setService( QStringLiteral( "service" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setService( QStringLiteral( "service2" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setService( QStringLiteral( "service" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setDatabase( QStringLiteral( "mydb" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setDatabase( QStringLiteral( "mydb2" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setDatabase( QStringLiteral( "mydb" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setUsername( QStringLiteral( "user" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setUsername( QStringLiteral( "user2" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setUsername( QStringLiteral( "user" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setPassword( QStringLiteral( "pass" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setPassword( QStringLiteral( "pass2" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setPassword( QStringLiteral( "pass" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setSchema( QStringLiteral( "public" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSchema( QStringLiteral( "other" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSchema( QStringLiteral( "public" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setTable( QStringLiteral( "mytable" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setTable( QStringLiteral( "othertable" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setTable( QStringLiteral( "mytable" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setGeometryColumn( QStringLiteral( "geom" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setGeometryColumn( QStringLiteral( "geometry" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setGeometryColumn( QStringLiteral( "geom" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setKeyColumn( QStringLiteral( "id" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setKeyColumn( QStringLiteral( "id" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setSql( QStringLiteral( "WHERE id > 10" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSql( QStringLiteral( "WHERE id < 10" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSql( QStringLiteral( "WHERE id > 10" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setAuthConfigId( QStringLiteral( "abc123" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setAuthConfigId( QStringLiteral( "def123" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setAuthConfigId( QStringLiteral( "abc123" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setSslMode( QgsDataSourceUri::SslAllow );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSslMode( QgsDataSourceUri::SslAllow );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setKeyColumn( QStringLiteral( "pk" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setKeyColumn( QStringLiteral( "id" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setKeyColumn( QStringLiteral( "pk" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setUseEstimatedMetadata( true );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setUseEstimatedMetadata( true );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.disableSelectAtId( true );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.disableSelectAtId( true );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setWkbType( Qgis::WkbType::Point );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setWkbType( Qgis::WkbType::Point );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setSrid( QStringLiteral( "4326" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSrid( QStringLiteral( "3111" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setSrid( QStringLiteral( "4326" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  uri1.setParam( QStringLiteral( "param1" ), QStringLiteral( "value1" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.setParam( QStringLiteral( "param1" ), QStringLiteral( "value2" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  // params are a multi-map!
+  uri2.setParam( QStringLiteral( "param1" ), QStringLiteral( "value1" ) );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  uri2.removeParam( QStringLiteral( "param1" ) );
+  uri2.setParam( QStringLiteral( "param1" ), QStringLiteral( "value1" ) );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
+
+  QgsHttpHeaders headers1;
+  headers1.insert( QStringLiteral( "Authorization" ), QStringLiteral( "Bearer token123" ) );
+  uri1.setHttpHeaders( headers1 );
+  QVERIFY( uri1 != uri2 );
+  QVERIFY( !( uri1 == uri2 ) );
+  QgsHttpHeaders headers2;
+  headers2.insert( QStringLiteral( "Authorization" ), QStringLiteral( "Bearer token123" ) );
+  uri2.setHttpHeaders( headers2 );
+  QVERIFY( uri1 == uri2 );
+  QVERIFY( !( uri1 != uri2 ) );
 }
 
 void TestQgsDataSourceUri::checkparser()
@@ -210,7 +490,7 @@ void TestQgsDataSourceUri::checkparser()
   QFETCH( QString, key );
   QFETCH( bool, estimatedmetadata );
   QFETCH( QString, srid );
-  QFETCH( QgsWkbTypes::Type, type );
+  QFETCH( Qgis::WkbType, type );
   QFETCH( bool, selectatid );
   QFETCH( QString, service );
   QFETCH( QString, user );
@@ -256,24 +536,24 @@ void TestQgsDataSourceUri::checkSetConnection_data()
   QTest::addColumn<QString>( "authcfg" );
 
   QTest::newRow( "simple" )
-      << "myhost" // host
-      << "5432" // port
-      << "mydb" // dbname
-      << "myname" // user
-      << "mypasswd" // password
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // authcfg
-      ;
+    << "myhost"                    // host
+    << "5432"                      // port
+    << "mydb"                      // dbname
+    << "myname"                    // user
+    << "mypasswd"                  // password
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // authcfg
+    ;
 
   QTest::newRow( "authcfg" )
-      << "myhost" // host
-      << "5432" // port
-      << "" // dbname
-      << "" // user
-      << "mypasswd" // password
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "myauthcfg" // authcfg
-      ;
+    << "myhost"                    // host
+    << "5432"                      // port
+    << ""                          // dbname
+    << ""                          // user
+    << "mypasswd"                  // password
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << "myauthcfg"                 // authcfg
+    ;
 }
 
 void TestQgsDataSourceUri::checkSetConnection()
@@ -311,22 +591,22 @@ void TestQgsDataSourceUri::checkSetConnectionService_data()
   QTest::addColumn<QString>( "authcfg" );
 
   QTest::newRow( "simple" )
-      << "myservice" // service
-      << "mydb" // dbname
-      << "myname" // user
-      << "mypasswd" // password
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "" // authcfg
-      ;
+    << "myservice"                 // service
+    << "mydb"                      // dbname
+    << "myname"                    // user
+    << "mypasswd"                  // password
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << ""                          // authcfg
+    ;
 
   QTest::newRow( "authcfg" )
-      << "myservice" // service
-      << "" // dbname
-      << "" // user
-      << "mypasswd" // password
-      << QgsDataSourceUri::SslPrefer // sslmode
-      << "myauthcfg" // authcfg
-      ;
+    << "myservice"                 // service
+    << ""                          // dbname
+    << ""                          // user
+    << "mypasswd"                  // password
+    << QgsDataSourceUri::SslPrefer // sslmode
+    << "myauthcfg"                 // authcfg
+    ;
 }
 
 void TestQgsDataSourceUri::checkSetConnectionService()
@@ -359,39 +639,39 @@ void TestQgsDataSourceUri::checkConnectionInfo_data()
 
 
   QTest::newRow( "service" )
-      << "service='qgis_test'"
-      << "service='qgis_test'" // conninfo
-      ;
+    << "service='qgis_test'"
+    << "service='qgis_test'" // conninfo
+    ;
 
   QTest::newRow( "db_host_port_user_pw" )
-      << "dbname='qgis_test' host=postgres port=5432 user='qgis_test_user' password='qgis_test_user_password'"
-      << "dbname='qgis_test' host=postgres port=5432 user='qgis_test_user' password='qgis_test_user_password'" // conninfo
-      ;
+    << "dbname='qgis_test' host=postgres port=5432 user='qgis_test_user' password='qgis_test_user_password'"
+    << "dbname='qgis_test' host=postgres port=5432 user='qgis_test_user' password='qgis_test_user_password'" // conninfo
+    ;
 
   QTest::newRow( "oci" )
-      << "host=myhost port=1234 user='myname' password='mypasswd' estimatedmetadata=true srid=1000003007 table=\"myschema\".\"mytable\" (GEOM) myparam='myvalue' sql="
-      << "host=myhost port=1234 user='myname' password='mypasswd'" // conninfo
-      ;
+    << "host=myhost port=1234 user='myname' password='mypasswd' estimatedmetadata=true srid=1000003007 table=\"myschema\".\"mytable\" (GEOM) myparam='myvalue' sql="
+    << "host=myhost port=1234 user='myname' password='mypasswd'" // conninfo
+    ;
 
   QTest::newRow( "pgrast" )
-      << R"(PG: dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable estimatedmetadata=true srid=3067 table="public"."basic_map_tiled" (rast))"
-      << "dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable" // conninfo
-      ;
+    << R"(PG: dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable estimatedmetadata=true srid=3067 table="public"."basic_map_tiled" (rast))"
+    << "dbname='qgis_tests' host=localhost port=5432 user='myname' sslmode=disable" // conninfo
+    ;
 
   QTest::newRow( "pg_notable" )
-      << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=myschema "
-      << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
-      ;
+    << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=myschema "
+    << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
+    ;
 
   QTest::newRow( "pg_notable_quoted" )
-      << "dbname='mydb' host='myhost' user='myname' password='mypasswd' port='5432' mode='2' schema=myschema"
-      << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
-      ;
+    << "dbname='mydb' host='myhost' user='myname' password='mypasswd' port='5432' mode='2' schema=myschema"
+    << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
+    ;
 
   QTest::newRow( "pgmlsz" )
-      << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=public column=geom table=mytable type=MultiLineStringZ"
-      << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
-      ;
+    << "PG: dbname=mydb host=myhost user=myname password=mypasswd port=5432 mode=2 schema=public column=geom table=mytable type=MultiLineStringZ"
+    << "dbname='mydb' host=myhost port=5432 user='myname' password='mypasswd'" // conninfo
+    ;
 }
 
 void TestQgsDataSourceUri::checkConnectionInfo()
@@ -492,6 +772,27 @@ void TestQgsDataSourceUri::checkAuthParams()
   QCOMPARE( uri4.param( QStringLiteral( "password" ) ), QStringLiteral( "😁😂😍" ) );
   QCOMPARE( uri4.password(), QStringLiteral( "😁😂😍" ) );
 
+  // issue GH #53654
+  QgsDataSourceUri uri5;
+  uri5.setEncodedUri( QStringLiteral( "zmax=14&zmin=0&styleUrl=http://localhost:8000/&f=application%2Fvnd.geoserver.mbstyle%2Bjson" ) );
+  QCOMPARE( uri5.param( QStringLiteral( "f" ) ), QStringLiteral( "application%2Fvnd.geoserver.mbstyle%2Bjson" ) );
+
+  uri5.setEncodedUri( QStringLiteral( "zmax=14&zmin=0&styleUrl=http://localhost:8000/&f=application/vnd.geoserver.mbstyle+json" ) );
+  QCOMPARE( uri5.param( QStringLiteral( "f" ) ), QStringLiteral( "application/vnd.geoserver.mbstyle+json" ) );
+
+  // round trip through encodedUri/setEncodedUri should not lose "%2B" or "+"
+  QgsDataSourceUri uri6;
+  uri6.setParam( QStringLiteral( "percent" ), QStringLiteral( "application%2Fvnd.geoserver.mbstyle%2Bjson" ) );
+  uri6.setParam( QStringLiteral( "explicit" ), QStringLiteral( "application/vnd.geoserver.mbstyle+json" ) );
+  QCOMPARE( uri6.param( QStringLiteral( "percent" ) ), QStringLiteral( "application%2Fvnd.geoserver.mbstyle%2Bjson" ) );
+  QCOMPARE( uri6.param( QStringLiteral( "explicit" ) ), QStringLiteral( "application/vnd.geoserver.mbstyle+json" ) );
+
+  const QByteArray encodedTwo = uri6.encodedUri();
+
+  QgsDataSourceUri uri7;
+  uri7.setEncodedUri( encodedTwo );
+  QCOMPARE( uri7.param( QStringLiteral( "percent" ) ), QStringLiteral( "application%2Fvnd.geoserver.mbstyle%2Bjson" ) );
+  QCOMPARE( uri7.param( QStringLiteral( "explicit" ) ), QStringLiteral( "application/vnd.geoserver.mbstyle+json" ) );
 }
 
 void TestQgsDataSourceUri::checkParameterKeys()
@@ -501,6 +802,26 @@ void TestQgsDataSourceUri::checkParameterKeys()
   QVERIFY( uri.parameterKeys().contains( QLatin1String( "dbname" ) ) );
   QVERIFY( uri.parameterKeys().contains( QLatin1String( "bar" ) ) );
 }
+
+void TestQgsDataSourceUri::checkRemovePassword()
+{
+  const QString uri0 = QgsDataSourceUri::removePassword( QStringLiteral( "postgresql://user:password@127.0.0.1:5432?dbname=test" ) );
+  QCOMPARE( uri0, QStringLiteral( "postgresql://user@127.0.0.1:5432?dbname=test" ) );
+
+  const QString uri1 = QgsDataSourceUri::removePassword( QStringLiteral( "postgresql://user:password@127.0.0.1:5432?dbname=test" ), true );
+  QCOMPARE( uri1, QStringLiteral( "postgresql://user:XXXXXXXX@127.0.0.1:5432?dbname=test" ) );
+
+  const QString uri2 = QgsDataSourceUri::removePassword( QStringLiteral( "postgresql://user@127.0.0.1:5432?dbname=test" ) );
+  QCOMPARE( uri2, QStringLiteral( "postgresql://user@127.0.0.1:5432?dbname=test" ) );
+}
+
+void TestQgsDataSourceUri::checkUnicodeUri()
+{
+  QgsDataSourceUri uri;
+  uri.setEncodedUri( QStringLiteral( "url=file:///directory/テスト.mbtiles&type=mbtiles" ) );
+  QCOMPARE( uri.param( QStringLiteral( "url" ) ), QStringLiteral( "file:///directory/テスト.mbtiles" ) );
+}
+
 
 QGSTEST_MAIN( TestQgsDataSourceUri )
 #include "testqgsdatasourceuri.moc"

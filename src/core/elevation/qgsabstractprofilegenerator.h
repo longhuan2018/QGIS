@@ -21,7 +21,6 @@
 #include "qgis_sip.h"
 #include <QList>
 
-#include "qgspoint.h"
 #include "qgsrendercontext.h"
 
 #include <QTransform>
@@ -194,6 +193,21 @@ class CORE_EXPORT QgsAbstractProfileResults
 {
   public:
 
+    /**
+     * Encapsulates information about a feature exported from the profile results.
+     *
+     * \since QGIS 3.32
+     */
+    struct Feature
+    {
+      //! Identifier for grouping output features
+      QString layerIdentifier;
+      //! Exported geometry
+      QgsGeometry geometry;
+      //! Exported attributes
+      QVariantMap attributes;
+    };
+
     virtual ~QgsAbstractProfileResults();
 
     /**
@@ -216,6 +230,15 @@ class CORE_EXPORT QgsAbstractProfileResults
      * Returns a list of geometries representing the calculated elevation results.
      */
     virtual QVector< QgsGeometry > asGeometries() const = 0;
+
+    /**
+     * Returns a list of features representing the calculated elevation results.
+     *
+     * The default implementation returns an empty list.
+     *
+     * \since QGIS 3.32
+     */
+    virtual QVector< QgsAbstractProfileResults::Feature > asFeatures( Qgis::ProfileExportType type, QgsFeedback *feedback = nullptr ) const;
 
     /**
      * Renders the results to the specified \a context.
@@ -350,7 +373,7 @@ class CORE_EXPORT QgsProfileGenerationContext
     /**
      * Converts a distance size from the specified units to pixels.
      */
-    double convertDistanceToPixels( double size, QgsUnitTypes::RenderUnit unit ) const;
+    double convertDistanceToPixels( double size, Qgis::RenderUnit unit ) const;
 
     bool operator==( const QgsProfileGenerationContext &other ) const;
     bool operator!=( const QgsProfileGenerationContext &other ) const;
@@ -378,13 +401,13 @@ class CORE_EXPORT QgsProfileGenerationContext
  *
  * The scenario will be:
  *
- * # elevation profile job (doing preparation in the GUI thread) calls
+ * - elevation profile job (doing preparation in the GUI thread) calls
  *   QgsAbstractProfileSource::createProfileGenerator() and gets an instance of this class.
  *   The instance is initialized at that point and should not need
  *   additional calls to the source.
- * # profile job (still in GUI thread) stores the generator for later use.
- * # profile job (in worker thread) calls QgsAbstractProfileGenerator::generateProfile()
- * # profile job (again in GUI thread) will check errors() and report them
+ * - profile job (still in GUI thread) stores the generator for later use.
+ * - profile job (in worker thread) calls QgsAbstractProfileGenerator::generateProfile()
+ * - profile job (again in GUI thread) will check errors() and report them
  *
  * \ingroup core
  * \since QGIS 3.26

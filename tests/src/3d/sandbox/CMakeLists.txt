@@ -18,14 +18,11 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}
 
 include_directories(SYSTEM
   ${QT_INCLUDE_DIR}
-  ${GDAL_INCLUDE_DIR}
   ${QT5_3DEXTRA_INCLUDE_DIR}
 )
 
 add_executable(qgis_3d_sandbox
   qgis_3d_sandbox.cpp
-  ${CMAKE_SOURCE_DIR}/src/app/3d/qgs3dmapcanvas.cpp
-  ${CMAKE_SOURCE_DIR}/src/app/3d/qgs3dnavigationwidget.cpp
 )
 # require c++17
 target_compile_features(qgis_3d_sandbox PRIVATE cxx_std_17)
@@ -37,10 +34,9 @@ target_link_libraries(qgis_3d_sandbox
   ${QT_VERSION_BASE}::Svg
   ${QT_VERSION_BASE}::Network
   ${QT_VERSION_BASE}::Test
-  ${PROJ_LIBRARY}
   ${GEOS_LIBRARY}
-  ${GDAL_LIBRARY}
   ${QWT_LIBRARY}
   qgis_core
   qgis_3d
-  qgis_native)
+  qgis_native
+  qgis_app)

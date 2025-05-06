@@ -17,6 +17,9 @@
 
 #include "qgsapplication.h"
 #include "qgslayoutitemlabel.h"
+#include "qgslayoutitemhtml.h"
+#include "qgslayoutmanager.h"
+#include "qgslayoutmultiframe.h"
 #include "qgsvectorlayer.h"
 #include "qgsmultirenderchecker.h"
 #include "qgsfontutils.h"
@@ -24,6 +27,8 @@
 #include "qgsprintlayout.h"
 #include "qgslayoutatlas.h"
 #include "qgslayoutpagecollection.h"
+#include "qgslayoutreportcontext.h"
+#include "qgslayoutrendercontext.h"
 
 #include <QObject>
 #include "qgstest.h"
@@ -33,11 +38,12 @@ class TestQgsLayoutLabel : public QgsTest
     Q_OBJECT
 
   public:
-    TestQgsLayoutLabel() : QgsTest( QStringLiteral( "Layout Label Tests" ) ) {}
+    TestQgsLayoutLabel()
+      : QgsTest( QStringLiteral( "Layout Label Tests" ), QStringLiteral( "composer_label" ) ) {}
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
 
     // test simple expression evaluation
     void evaluation();
@@ -49,8 +55,10 @@ class TestQgsLayoutLabel : public QgsTest
     void pageSizeEvaluation();
     void marginMethods(); //tests getting/setting margins
     void render();
-#ifdef WITH_QTWEBKIT
     void renderAsHtml();
+    void renderAsHtmlLineHeight();
+#ifdef WITH_QTWEBKIT
+    void convertToHtml();
     void renderAsHtmlRelative();
 #endif
     void labelRotation();
@@ -65,11 +73,8 @@ void TestQgsLayoutLabel::initTestCase()
   QgsApplication::initQgis();
 
   //create maplayers from testdata and add to layer registry
-  const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + '/' +  "france_parts.shp" );
-  mVectorLayer = new QgsVectorLayer( vectorFileInfo.filePath(),
-                                     vectorFileInfo.completeBaseName(),
-                                     QStringLiteral( "ogr" ) );
-
+  const QFileInfo vectorFileInfo( QStringLiteral( TEST_DATA_DIR ) + '/' + "france_parts.shp" );
+  mVectorLayer = new QgsVectorLayer( vectorFileInfo.filePath(), vectorFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
 }
 
 void TestQgsLayoutLabel::cleanupTestCase()
@@ -273,17 +278,14 @@ void TestQgsLayoutLabel::render()
   QgsTextFormat format;
   format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
   format.setSize( 48 );
-  format.setSizeUnit( QgsUnitTypes::RenderPoints );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
   label->setTextFormat( format );
   label->attemptMove( QgsLayoutPoint( 70, 70 ) );
   label->adjustSizeToText();
 
-  QgsLayoutChecker checker( QStringLiteral( "composerlabel_render" ), &l );
-  checker.setControlPathPrefix( QStringLiteral( "composer_label" ) );
-  QVERIFY( checker.testLayout( mReport, 0, 0 ) );
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "composerlabel_render" ), &l ) );
 }
 
-#ifdef WITH_QTWEBKIT
 void TestQgsLayoutLabel::renderAsHtml()
 {
   QgsLayout l( QgsProject::instance() );
@@ -298,7 +300,7 @@ void TestQgsLayoutLabel::renderAsHtml()
   QgsTextFormat format;
   format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
   format.setSize( 48 );
-  format.setSizeUnit( QgsUnitTypes::RenderPoints );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
   format.setColor( QColor( 200, 40, 60 ) );
   label->setTextFormat( format );
 
@@ -307,9 +309,50 @@ void TestQgsLayoutLabel::renderAsHtml()
   label->setMode( QgsLayoutItemLabel::ModeHtml );
   label->update();
 
-  QgsLayoutChecker checker( QStringLiteral( "composerlabel_renderhtml" ), &l );
-  checker.setControlPathPrefix( QStringLiteral( "composer_label" ) );
-  QVERIFY( checker.testLayout( mReport, 0, 10 ) );
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "composerlabel_renderhtml" ), &l, 0, 10 ) );
+}
+
+void TestQgsLayoutLabel::renderAsHtmlLineHeight()
+{
+  QgsLayout l( QgsProject::instance() );
+  l.initializeDefaults();
+
+  QgsLayoutItemLabel *label = new QgsLayoutItemLabel( &l );
+  label->setMargin( 1 );
+  l.addLayoutItem( label );
+
+  label->setText( QStringLiteral( "test <i>html</i><br>with <u>line height</u>." ) );
+
+  QgsTextFormat format;
+  format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
+  format.setSize( 48 );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
+  format.setColor( QColor( 200, 40, 60 ) );
+  format.setLineHeight( 2.0 );
+  format.setLineHeightUnit( Qgis::RenderUnit::Percentage );
+  label->setTextFormat( format );
+
+  label->setPos( 70, 70 );
+  label->adjustSizeToText();
+  label->setMode( QgsLayoutItemLabel::ModeHtml );
+  label->update();
+
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "composerlabel_renderhtmllineheight" ), &l, 0, 10 ) );
+}
+
+#ifdef WITH_QTWEBKIT
+void TestQgsLayoutLabel::convertToHtml()
+{
+  QgsProject project;
+  project.read( QStringLiteral( TEST_DATA_DIR ) + "/layouts/sample_label_html.qgs" );
+
+  QgsLayout *layout = project.layoutManager()->printLayouts().at( 0 );
+  QVERIFY( layout );
+
+  QgsLayoutMultiFrame *html = layout->multiFrames().at( 0 );
+  QVERIFY( html );
+
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "composerlabel_converttohtml" ), layout, 0, 10 ) );
 }
 
 void TestQgsLayoutLabel::renderAsHtmlRelative()
@@ -321,13 +364,13 @@ void TestQgsLayoutLabel::renderAsHtmlRelative()
   label->setMargin( 1 );
   l.addLayoutItem( label );
 
-  QgsProject::instance()->setFileName( QStringLiteral( TEST_DATA_DIR ) +  QDir::separator() + "test.qgs" );
+  QgsProject::instance()->setFileName( QStringLiteral( TEST_DATA_DIR ) + QDir::separator() + "test.qgs" );
   label->setText( QStringLiteral( "test <img src=\"small_sample_image.png\" />" ) );
 
   QgsTextFormat format;
   format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
   format.setSize( 48 );
-  format.setSizeUnit( QgsUnitTypes::RenderPoints );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
   format.setColor( QColor( 200, 40, 60 ) );
   label->setTextFormat( format );
 
@@ -336,9 +379,7 @@ void TestQgsLayoutLabel::renderAsHtmlRelative()
   label->setMode( QgsLayoutItemLabel::ModeHtml );
   label->update();
 
-  QgsLayoutChecker checker( QStringLiteral( "composerlabel_renderhtmlrelative" ), &l );
-  checker.setControlPathPrefix( QStringLiteral( "composer_label" ) );
-  QVERIFY( checker.testLayout( mReport, 0, 0 ) );
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "composerlabel_renderhtmlrelative" ), &l ) );
 }
 #endif
 
@@ -354,7 +395,7 @@ void TestQgsLayoutLabel::labelRotation()
   QgsTextFormat format;
   format.setFont( QgsFontUtils::getStandardTestFont( QStringLiteral( "Bold" ) ) );
   format.setSize( 30 );
-  format.setSizeUnit( QgsUnitTypes::RenderPoints );
+  format.setSizeUnit( Qgis::RenderUnit::Points );
   label->setTextFormat( format );
 
   label->attemptMove( QgsLayoutPoint( 70, 70 ) );
@@ -363,9 +404,8 @@ void TestQgsLayoutLabel::labelRotation()
   label->setBackgroundEnabled( true );
   label->setItemRotation( 135 );
 
-  QgsLayoutChecker checker( QStringLiteral( "layoutrotation_label" ), &l );
-  checker.setControlPathPrefix( QStringLiteral( "composer_items" ) );
-  QVERIFY( checker.testLayout( mReport, 0, 0 ) );
+  mControlPathPrefix = QStringLiteral( "composer_items" );
+  QVERIFY( QGSLAYOUTCHECK( QStringLiteral( "layoutrotation_label" ), &l ) );
 }
 
 QGSTEST_MAIN( TestQgsLayoutLabel )

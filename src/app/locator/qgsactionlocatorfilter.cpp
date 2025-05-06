@@ -16,11 +16,11 @@
  ***************************************************************************/
 
 #include "qgsactionlocatorfilter.h"
+#include "moc_qgsactionlocatorfilter.cpp"
 
 #include <QAction>
 #include <QMenu>
 #include <QRegularExpression>
-
 
 
 QgsActionLocatorFilter::QgsActionLocatorFilter( const QList<QWidget *> &parentObjectsForActions, QObject *parent )
@@ -50,21 +50,21 @@ void QgsActionLocatorFilter::fetchResults( const QString &string, const QgsLocat
 
 void QgsActionLocatorFilter::triggerResult( const QgsLocatorResult &result )
 {
-  QAction *action = qobject_cast< QAction * >( qvariant_cast<QObject *>( result.userData ) );
+  QAction *action = qobject_cast<QAction *>( qvariant_cast<QObject *>( result.userData() ) );
   if ( action )
     action->trigger();
 }
 
 void QgsActionLocatorFilter::searchActions( const QString &string, QWidget *parent, QList<QAction *> &found )
 {
-  const QList< QWidget *> children = parent->findChildren<QWidget *>();
+  const QList<QWidget *> children = parent->findChildren<QWidget *>();
   for ( QWidget *widget : children )
   {
     searchActions( string, widget, found );
   }
 
-  QRegularExpression extractFromTooltip( QStringLiteral( "<b>(.*)</b>" ) );
-  QRegularExpression newLineToSpace( QStringLiteral( "[\\s\\n\\r]+" ) );
+  const thread_local QRegularExpression extractFromTooltip( QStringLiteral( "<b>(.*)</b>" ) );
+  const thread_local QRegularExpression newLineToSpace( QStringLiteral( "[\\s\\n\\r]+" ) );
 
   const auto constActions = parent->actions();
   for ( QAction *action : constActions )
@@ -106,7 +106,7 @@ void QgsActionLocatorFilter::searchActions( const QString &string, QWidget *pare
 
     QgsLocatorResult result;
     result.displayString = searchText;
-    result.userData = QVariant::fromValue( action );
+    result.setUserData( QVariant::fromValue( action ) );
     result.icon = action->icon();
     result.score = fuzzyScore( result.displayString, string );
 

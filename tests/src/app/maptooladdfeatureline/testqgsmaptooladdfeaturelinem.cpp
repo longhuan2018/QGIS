@@ -22,13 +22,10 @@
 #include "qgsmapcanvassnappingutils.h"
 #include "qgssnappingconfig.h"
 #include "qgsmaptooladdfeature.h"
-#include "qgsmapcanvastracer.h"
 #include "qgsproject.h"
 #include "qgssettings.h"
 #include "qgssettingsregistrycore.h"
 #include "qgsvectorlayer.h"
-#include "qgswkbtypes.h"
-#include "qgsmapmouseevent.h"
 #include "testqgsmaptoolutils.h"
 
 bool operator==( const QgsGeometry &g1, const QgsGeometry &g2 )
@@ -47,7 +44,7 @@ namespace QTest
     QByteArray ba = geom.asWkt().toLatin1();
     return qstrdup( ba.data() );
   }
-}
+} // namespace QTest
 
 
 /**
@@ -61,8 +58,8 @@ class TestQgsMapToolAddFeatureLineM : public QObject
     TestQgsMapToolAddFeatureLineM();
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
 
     void testM();
     void testTopologicalEditingM();
@@ -114,7 +111,7 @@ void TestQgsMapToolAddFeatureLineM::initTestCase()
   mLayerLine->startEditing();
   mLayerLine->addFeature( lineF1 );
   mFidLineF1 = lineF1.id();
-  QCOMPARE( mLayerLine->featureCount(), ( long )1 );
+  QCOMPARE( mLayerLine->featureCount(), ( long ) 1 );
 
   // just one added feature
   QCOMPARE( mLayerLine->undoStack()->index(), 1 );
@@ -125,13 +122,13 @@ void TestQgsMapToolAddFeatureLineM::initTestCase()
   QgsProject::instance()->addMapLayers( QList<QgsMapLayer *>() << mLayerLineM );
 
   QgsPolyline line2;
-  line2 << QgsPoint( QgsWkbTypes::PointM, 1, 1, 0, 0 ) << QgsPoint( QgsWkbTypes::PointM, 2, 1, 0, 1 ) << QgsPoint( QgsWkbTypes::PointM, 3, 2, 0, 2 ) << QgsPoint( QgsWkbTypes::PointM, 1, 2, 0, 3 ) << QgsPoint( QgsWkbTypes::PointM, 1, 1, 0, 0 );
+  line2 << QgsPoint( Qgis::WkbType::PointM, 1, 1, 0, 0 ) << QgsPoint( Qgis::WkbType::PointM, 2, 1, 0, 1 ) << QgsPoint( Qgis::WkbType::PointM, 3, 2, 0, 2 ) << QgsPoint( Qgis::WkbType::PointM, 1, 2, 0, 3 ) << QgsPoint( Qgis::WkbType::PointM, 1, 1, 0, 0 );
   QgsFeature lineF2;
   lineF2.setGeometry( QgsGeometry::fromPolyline( line2 ) );
 
   mLayerLineM->startEditing();
   mLayerLineM->addFeature( lineF2 );
-  QCOMPARE( mLayerLineM->featureCount(), ( long )1 );
+  QCOMPARE( mLayerLineM->featureCount(), ( long ) 1 );
 
   mCanvas->setFrameStyle( QFrame::NoFrame );
   mCanvas->resize( 512, 512 );

@@ -15,18 +15,17 @@
 #include "qgstest.h"
 #include "qgsproject.h"
 #include "qgspointcloudlayer.h"
-#include "qgspointcloudattribute.h"
 #include "qgspointcloudlayerexporter.h"
 
-class TestQgsPointCloudLayerExporter: public QObject
+class TestQgsPointCloudLayerExporter : public QObject
 {
     Q_OBJECT
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init();// will be called before each testfunction is executed.
-    void cleanup();// will be called after every testfunction.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
     void testScratchLayer();
     void testScratchLayerFiltered();
     void testScratchLayerExtent();
@@ -44,7 +43,6 @@ class TestQgsPointCloudLayerExporter: public QObject
     void testPdalFile();
 
   private:
-
     std::unique_ptr<QgsProject> mProject;
     QgsPointCloudLayer *mLayer;
     QString mTestDataDir;
@@ -65,7 +63,6 @@ void TestQgsPointCloudLayerExporter::initTestCase()
   QVERIFY( mLayer->isValid() );
   mProject->addMapLayer( mLayer );
   mProject->setCrs( mLayer->crs() );
-
 }
 
 void TestQgsPointCloudLayerExporter::cleanupTestCase()
@@ -75,7 +72,6 @@ void TestQgsPointCloudLayerExporter::cleanupTestCase()
 
 void TestQgsPointCloudLayerExporter::init()
 {
-
 }
 
 void TestQgsPointCloudLayerExporter::cleanup()
@@ -91,7 +87,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayer()
   QgsVectorLayer *result = qgis::down_cast<QgsVectorLayer *>( exp.takeExportedLayer() );
 
   QVERIFY( result->isValid() );
-  QCOMPARE( result->wkbType(), QgsWkbTypes::PointZ );
+  QCOMPARE( result->wkbType(), Qgis::WkbType::PointZ );
   QCOMPARE( result->featureCount(), 134 );
   QCOMPARE( result->dataProvider()->featureCount(), 134 );
   QCOMPARE( result->crs(), mLayer->crs() );
@@ -218,7 +214,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayerFilteredByLayerSelected()
   polygonLayer->addFeature( polygonF3 );
   polygonLayer->commitChanges();
 
-  const QgsFeatureIds ids{1, 2};
+  const QgsFeatureIds ids { 1, 2 };
   polygonLayer->selectByIds( ids );
 
   QgsPointCloudLayerExporter exp( mLayer );
@@ -264,10 +260,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayerFilteredByLayerDifferentCrs
 void TestQgsPointCloudLayerExporter::testScratchLayerAttributes()
 {
   QgsPointCloudLayerExporter exp( mLayer );
-  QStringList attrs { QStringLiteral( "Red" ),
-                      QStringLiteral( "Green" ),
-                      QStringLiteral( "Blue" )
-                    };
+  QStringList attrs { QStringLiteral( "Red" ), QStringLiteral( "Green" ), QStringLiteral( "Blue" ) };
   exp.setAttributes( attrs );
   exp.setFormat( QgsPointCloudLayerExporter::ExportFormat::Memory );
   exp.doExport();
@@ -289,10 +282,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayerAttributes()
 void TestQgsPointCloudLayerExporter::testScratchLayerBadAttributes()
 {
   QgsPointCloudLayerExporter exp( mLayer );
-  QStringList attrs { QStringLiteral( "Red" ),
-                      QStringLiteral( "Red" ),
-                      QStringLiteral( "MissingAttribute" )
-                    };
+  QStringList attrs { QStringLiteral( "Red" ), QStringLiteral( "Red" ), QStringLiteral( "MissingAttribute" ) };
   exp.setAttributes( attrs );
   exp.setFormat( QgsPointCloudLayerExporter::ExportFormat::Memory );
   exp.doExport();
@@ -337,7 +327,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayerCrs()
   QgsVectorLayer *result = qgis::down_cast<QgsVectorLayer *>( exp.takeExportedLayer() );
 
   QVERIFY( result->isValid() );
-  QCOMPARE( result->wkbType(), QgsWkbTypes::PointZ );
+  QCOMPARE( result->wkbType(), Qgis::WkbType::PointZ );
   QCOMPARE( result->featureCount(), 134 );
   QCOMPARE( result->dataProvider()->featureCount(), 134 );
   QCOMPARE( result->crs(), differentCrs );
@@ -350,10 +340,7 @@ void TestQgsPointCloudLayerExporter::testScratchLayerSynthetic()
   mLayer->setSubsetString( QStringLiteral( "red > 150" ) );
 
   QgsPointCloudLayerExporter exp( mLayer );
-  QStringList attrs { QStringLiteral( "Red" ),
-                      QStringLiteral( "Red" ),
-                      QStringLiteral( "MissingAttribute" )
-                    };
+  QStringList attrs { QStringLiteral( "Red" ), QStringLiteral( "Red" ), QStringLiteral( "MissingAttribute" ) };
   exp.setAttributes( attrs );
   exp.setFilterExtent( QgsRectangle( 497754, 7050888, 497755, 7050889 ) );
   exp.setZRange( QgsDoubleRange( 1, 1.1 ) );
@@ -382,7 +369,7 @@ void TestQgsPointCloudLayerExporter::testOgrFile()
   QgsVectorLayer *result = qgis::down_cast<QgsVectorLayer *>( exp.takeExportedLayer() );
 
   QVERIFY( result->isValid() );
-  QCOMPARE( result->wkbType(), QgsWkbTypes::PointZ );
+  QCOMPARE( result->wkbType(), Qgis::WkbType::PointZ );
   QCOMPARE( result->featureCount(), 134 );
   delete result;
 }

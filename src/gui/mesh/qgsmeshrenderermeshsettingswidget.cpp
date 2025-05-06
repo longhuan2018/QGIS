@@ -14,15 +14,11 @@
  ***************************************************************************/
 
 #include "qgsmeshrenderermeshsettingswidget.h"
+#include "moc_qgsmeshrenderermeshsettingswidget.cpp"
 #include <QtGlobal>
 
 #include "qgis.h"
-#include "qgsmapcanvas.h"
 #include "qgsmeshlayer.h"
-#include "qgsrasterlayer.h"
-#include "raster/qgsrasterminmaxwidget.h"
-#include "qgsrasterminmaxorigin.h"
-#include "qgsmessagelog.h"
 #include "qgscolorbutton.h"
 #include "qgsdoublespinbox.h"
 
@@ -32,18 +28,18 @@ QgsMeshRendererMeshSettingsWidget::QgsMeshRendererMeshSettingsWidget( QWidget *p
 {
   setupUi( this );
 
-  mLineUnitsComboBox->setUnits( QgsUnitTypes::RenderUnitList()
-                                << QgsUnitTypes::RenderMillimeters
-                                << QgsUnitTypes::RenderMetersInMapUnits
-                                << QgsUnitTypes::RenderPixels
-                                << QgsUnitTypes::RenderPoints );
+  mLineUnitsComboBox->setUnits(
+    { Qgis::RenderUnit::Millimeters,
+      Qgis::RenderUnit::MetersInMapUnits,
+      Qgis::RenderUnit::Pixels,
+      Qgis::RenderUnit::Points
+    }
+  );
 
 
   connect( mColorWidget, &QgsColorButton::colorChanged, this, &QgsMeshRendererMeshSettingsWidget::widgetChanged );
-  connect( mLineWidthSpinBox, qOverload<double>( &QgsDoubleSpinBox::valueChanged ),
-           this, &QgsMeshRendererMeshSettingsWidget::widgetChanged );
-  connect( mLineUnitsComboBox, &QgsUnitSelectionWidget::changed,
-           this, &QgsMeshRendererMeshSettingsWidget::widgetChanged );
+  connect( mLineWidthSpinBox, qOverload<double>( &QgsDoubleSpinBox::valueChanged ), this, &QgsMeshRendererMeshSettingsWidget::widgetChanged );
+  connect( mLineUnitsComboBox, &QgsUnitSelectionWidget::changed, this, &QgsMeshRendererMeshSettingsWidget::widgetChanged );
 }
 
 void QgsMeshRendererMeshSettingsWidget::setLayer( QgsMeshLayer *layer, MeshType meshType )
@@ -61,7 +57,7 @@ QgsMeshRendererMeshSettings QgsMeshRendererMeshSettingsWidget::settings() const
   return settings;
 }
 
-void QgsMeshRendererMeshSettingsWidget::syncToLayer( )
+void QgsMeshRendererMeshSettingsWidget::syncToLayer()
 {
   if ( !mMeshLayer )
     return;

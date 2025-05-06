@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgslayoutitemhtml.h"
+#include "moc_qgslayoutitemhtml.cpp"
 #include "qgslayoutframe.h"
 #include "qgslayout.h"
 #include "qgsnetworkaccessmanager.h"
@@ -28,7 +29,10 @@
 #include "qgsmapsettings.h"
 #include "qgswebpage.h"
 #include "qgswebframe.h"
+#include "qgslayoutitemlabel.h"
 #include "qgslayoutitemmap.h"
+#include "qgslayoutreportcontext.h"
+#include "qgslayoutrendercontext.h"
 
 #include <QCoreApplication>
 #include <QPainter>
@@ -36,6 +40,7 @@
 #include <QNetworkReply>
 #include <QThread>
 #include <QUrl>
+#include <QAbstractTextDocumentLayout>
 
 // clazy:excludeall=lambda-in-connect
 
@@ -97,6 +102,33 @@ QgsLayoutItemHtml *QgsLayoutItemHtml::create( QgsLayout *layout )
   return new QgsLayoutItemHtml( layout );
 }
 
+QgsLayoutItemHtml *QgsLayoutItemHtml::createFromLabel( QgsLayoutItemLabel *label )
+{
+  QgsLayoutItemHtml *html = new QgsLayoutItemHtml( label->layout() );
+  QgsLayoutFrame *frame = new QgsLayoutFrame( label->layout(), html );
+  frame->setVisible( label->isVisible() );
+  frame->setLocked( label->isLocked() );
+  frame->setItemOpacity( label->itemOpacity() );
+  frame->setRotation( label->rotation() );
+  frame->setReferencePoint( label->referencePoint() );
+  frame->attemptMove( label->positionWithUnits() );
+  frame->attemptResize( label->sizeWithUnits() );
+  frame->setZValue( label->zValue() );
+  frame->setParentGroup( label->parentGroup() );
+  frame->setBackgroundColor( label->backgroundColor() );
+  frame->setFrameEnabled( label->frameEnabled() );
+  frame->setFrameJoinStyle( label->frameJoinStyle() );
+  frame->setFrameStrokeWidth( label->frameStrokeWidth() );
+  frame->setFrameStrokeColor( label->frameStrokeColor() );
+  html->addFrame( frame );
+  html->setContentMode( QgsLayoutItemHtml::ManualHtml );
+  html->setHtml( label->currentText() );
+  html->setUserStylesheetEnabled( true );
+  html->setUserStylesheet( label->createStylesheet() );
+  html->loadHtml();
+  return html;
+}
+
 void QgsLayoutItemHtml::setUrl( const QUrl &url )
 {
   if ( !mWebPage )
@@ -145,11 +177,11 @@ void QgsLayoutItemHtml::loadHtml( const bool useCache, const QgsExpressionContex
 
       //data defined url set?
       bool ok = false;
-      currentUrl = mDataDefinedProperties.valueAsString( QgsLayoutObject::SourceUrl, *evalContext, currentUrl, &ok );
+      currentUrl = mDataDefinedProperties.valueAsString( QgsLayoutObject::DataDefinedProperty::SourceUrl, *evalContext, currentUrl, &ok );
       if ( ok )
       {
         currentUrl = currentUrl.trimmed();
-        QgsDebugMsg( QStringLiteral( "exprVal Source Url:%1" ).arg( currentUrl ) );
+        QgsDebugMsgLevel( QStringLiteral( "exprVal Source Url:%1" ).arg( currentUrl ), 2 );
       }
       if ( currentUrl.isEmpty() )
       {
@@ -211,6 +243,7 @@ void QgsLayoutItemHtml::loadHtml( const bool useCache, const QgsExpressionContex
   if ( !loaded )
     loop.exec( QEventLoop::ExcludeUserInputEvents );
 
+#ifdef WITH_QTWEBKIT
   //inject JSON feature
   if ( !mAtlasFeatureJSON.isEmpty() )
   {
@@ -221,6 +254,7 @@ void QgsLayoutItemHtml::loadHtml( const bool useCache, const QgsExpressionContex
 
     jsLoop.execIfNotDone();
   }
+#endif
 
   recalculateFrameSizes();
   //trigger a repaint
@@ -303,8 +337,10 @@ QSizeF QgsLayoutItemHtml::totalSize() const
   return mSize;
 }
 
-void QgsLayoutItemHtml::render( QgsLayoutItemRenderContext &context, const QRectF &renderExtent, const int )
+void QgsLayoutItemHtml::render( QgsLayoutItemRenderContext &context, const QRectF &renderExtent, const int frameIndex )
 {
+#ifdef WITH_QTWEBKIT
+  Q_UNUSED( frameIndex )
   if ( !mWebPage )
     return;
 
@@ -314,6 +350,38 @@ void QgsLayoutItemHtml::render( QgsLayoutItemRenderContext &context, const QRect
   painter->scale( context.renderContext().scaleFactor() / mHtmlUnitsToLayoutUnits, context.renderContext().scaleFactor() / mHtmlUnitsToLayoutUnits );
   painter->translate( 0.0, -renderExtent.top() * mHtmlUnitsToLayoutUnits );
   mWebPage->mainFrame()->render( painter, QRegion( renderExtent.left(), renderExtent.top() * mHtmlUnitsToLayoutUnits, renderExtent.width() * mHtmlUnitsToLayoutUnits, renderExtent.height() * mHtmlUnitsToLayoutUnits ) );
+#else
+  Q_UNUSED( renderExtent )
+  if ( mLayout->renderContext().isPreviewRender() )
+  {
+    if ( QgsLayoutFrame *currentFrame = frame( frameIndex ) )
+    {
+      QPainter *painter = context.renderContext().painter();
+
+      // painter is scaled to dots, so scale back to layout units
+      const QRectF painterRect = QRectF( currentFrame->rect().left() * context.renderContext().scaleFactor(),
+                                         currentFrame->rect().top() * context.renderContext().scaleFactor(),
+                                         currentFrame->rect().width() * context.renderContext().scaleFactor(),
+                                         currentFrame->rect().height() * context.renderContext().scaleFactor()
+                                       );
+
+      painter->setBrush( QBrush( QColor( 255, 125, 125, 125 ) ) );
+      painter->setPen( Qt::NoPen );
+      painter->drawRect( painterRect );
+      painter->setBrush( Qt::NoBrush );
+
+      painter->setPen( QColor( 200, 0, 0, 255 ) );
+      QTextDocument td;
+      td.setTextWidth( painterRect.width() );
+      td.setHtml( QStringLiteral( "<span style=\"color: rgb(200,0,0);\"><b>%1</b><br>%2</span>" ).arg(
+                    tr( "WebKit not available!" ),
+                    tr( "The item cannot be rendered because this QGIS install was built without WebKit support." ) ) );
+      painter->setClipRect( painterRect );
+      QAbstractTextDocumentLayout::PaintContext ctx;
+      td.documentLayout()->draw( painter, ctx );
+    }
+  }
+#endif
 }
 
 double QgsLayoutItemHtml::htmlUnitsToLayoutUnits()
@@ -323,7 +391,7 @@ double QgsLayoutItemHtml::htmlUnitsToLayoutUnits()
     return 1.0;
   }
 
-  return mLayout->convertToLayoutUnits( QgsLayoutMeasurement( mLayout->renderContext().dpi() / 72.0, QgsUnitTypes::LayoutMillimeters ) ); //webkit seems to assume a standard dpi of 96
+  return mLayout->convertToLayoutUnits( QgsLayoutMeasurement( mLayout->renderContext().dpi() / 72.0, Qgis::LayoutUnit::Millimeters ) ); //webkit seems to assume a standard dpi of 96
 }
 
 bool candidateSort( QPair<int, int> c1, QPair<int, int> c2 )
@@ -553,7 +621,7 @@ void QgsLayoutItemHtml::refreshDataDefinedProperty( const QgsLayoutObject::DataD
   const QgsExpressionContext context = createExpressionContext();
 
   //updates data defined properties and redraws item to match
-  if ( property == QgsLayoutObject::SourceUrl || property == QgsLayoutObject::AllProperties )
+  if ( property == QgsLayoutObject::DataDefinedProperty::SourceUrl || property == QgsLayoutObject::DataDefinedProperty::AllProperties )
   {
     loadHtml( true, &context );
   }

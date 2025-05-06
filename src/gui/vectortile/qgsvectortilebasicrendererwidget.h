@@ -20,8 +20,6 @@
 
 #include "ui_qgsvectortilebasicrendererwidget.h"
 
-#include "qgswkbtypes.h"
-
 #include <memory>
 #include <QSortFilterProxyModel>
 
@@ -35,6 +33,7 @@ class QgsVectorTileLayer;
 class QgsMapCanvas;
 class QgsMessageBar;
 class QgsVectorTileBasicRendererProxyModel;
+class QgsSymbolSelectorWidget;
 
 /**
  * \ingroup gui
@@ -49,23 +48,22 @@ class GUI_EXPORT QgsVectorTileBasicRendererWidget : public QgsMapLayerConfigWidg
     QgsVectorTileBasicRendererWidget( QgsVectorTileLayer *layer, QgsMapCanvas *canvas, QgsMessageBar *messageBar, QWidget *parent = nullptr );
     ~QgsVectorTileBasicRendererWidget() override;
 
-    void setLayer( QgsVectorTileLayer *layer );
+    void syncToLayer( QgsMapLayer *mapLayer ) final;
 
   public slots:
     //! Applies the settings made in the dialog
     void apply() override;
 
   private slots:
-    void addStyle( QgsWkbTypes::GeometryType geomType );
+    void addStyle( Qgis::GeometryType geomType );
     void editStyle();
     void editStyleAtIndex( const QModelIndex &index );
     void removeStyle();
 
-    void updateSymbolsFromWidget();
-    void cleanUpSymbolSelector( QgsPanelWidget *container );
+    void updateSymbolsFromWidget( QgsSymbolSelectorWidget *widget );
 
   private:
-    QPointer< QgsVectorTileLayer > mVTLayer;
+    QPointer<QgsVectorTileLayer> mVTLayer;
     std::unique_ptr<QgsVectorTileBasicRenderer> mRenderer;
     QgsVectorTileBasicRendererListModel *mModel = nullptr;
     QgsVectorTileBasicRendererProxyModel *mProxyModel = nullptr;
@@ -80,7 +78,6 @@ class QgsVectorTileBasicRendererListModel : public QAbstractListModel
 {
     Q_OBJECT
   public:
-
     enum Role
     {
       MinZoom = Qt::UserRole + 1,
@@ -90,7 +87,7 @@ class QgsVectorTileBasicRendererListModel : public QAbstractListModel
       Filter
     };
 
-    QgsVectorTileBasicRendererListModel( QgsVectorTileBasicRenderer *r, QObject *parent = nullptr );
+    QgsVectorTileBasicRendererListModel( QgsVectorTileBasicRenderer *r, QObject *parent = nullptr, QScreen *screen = nullptr );
 
     int rowCount( const QModelIndex &parent = QModelIndex() ) const override;
     int columnCount( const QModelIndex &parent = QModelIndex() ) const override;
@@ -111,6 +108,7 @@ class QgsVectorTileBasicRendererListModel : public QAbstractListModel
 
   private:
     QgsVectorTileBasicRenderer *mRenderer = nullptr;
+    QPointer<QScreen> mScreen;
 };
 
 class QgsVectorTileBasicRendererProxyModel : public QSortFilterProxyModel
@@ -126,7 +124,6 @@ class QgsVectorTileBasicRendererProxyModel : public QSortFilterProxyModel
     bool filterAcceptsRow( int source_row, const QModelIndex &source_parent ) const override;
 
   private:
-
     bool mFilterVisible = false;
     QString mFilterString;
     int mCurrentZoom = -1;

@@ -15,14 +15,13 @@
  ***************************************************************************/
 
 #include "qgslayoutpolylinewidget.h"
-#include "qgssymbolselectordialog.h"
-#include "qgsstyle.h"
-#include "qgssymbollayerutils.h"
+#include "moc_qgslayoutpolylinewidget.cpp"
 #include "qgslayoutitemregistry.h"
 #include "qgslayout.h"
 #include "qgslayoutundostack.h"
 #include "qgsvectorlayer.h"
 #include "qgslinesymbol.h"
+#include "qgslayoutreportcontext.h"
 
 #include <QButtonGroup>
 #include <QFileDialog>
@@ -34,8 +33,8 @@ QgsLayoutPolylineWidget::QgsLayoutPolylineWidget( QgsLayoutItemPolyline *polylin
   setupUi( this );
   setPanelTitle( tr( "Polyline Properties" ) );
 
-  connect( mStrokeWidthSpinBox, static_cast < void ( QDoubleSpinBox::* )( double ) > ( &QDoubleSpinBox::valueChanged ), this, &QgsLayoutPolylineWidget::arrowStrokeWidthChanged );
-  connect( mArrowHeadWidthSpinBox, static_cast < void ( QDoubleSpinBox::* )( double ) > ( &QDoubleSpinBox::valueChanged ), this, &QgsLayoutPolylineWidget::arrowHeadWidthChanged );
+  connect( mStrokeWidthSpinBox, static_cast<void ( QDoubleSpinBox::* )( double )>( &QDoubleSpinBox::valueChanged ), this, &QgsLayoutPolylineWidget::arrowStrokeWidthChanged );
+  connect( mArrowHeadWidthSpinBox, static_cast<void ( QDoubleSpinBox::* )( double )>( &QDoubleSpinBox::valueChanged ), this, &QgsLayoutPolylineWidget::arrowHeadWidthChanged );
   connect( mArrowHeadFillColorButton, &QgsColorButton::colorChanged, this, &QgsLayoutPolylineWidget::arrowHeadFillColorChanged );
   connect( mArrowHeadStrokeColorButton, &QgsColorButton::colorChanged, this, &QgsLayoutPolylineWidget::arrowHeadStrokeColorChanged );
   connect( mRadioStartArrow, &QRadioButton::toggled, this, &QgsLayoutPolylineWidget::startArrowHeadToggled );
@@ -116,7 +115,7 @@ bool QgsLayoutPolylineWidget::setNewItem( QgsLayoutItem *item )
     disconnect( mPolyline, &QgsLayoutObject::changed, this, &QgsLayoutPolylineWidget::setGuiElementValues );
   }
 
-  mPolyline = qobject_cast< QgsLayoutItemPolyline * >( item );
+  mPolyline = qobject_cast<QgsLayoutItemPolyline *>( item );
   mItemPropertiesWidget->setItem( mPolyline );
 
   if ( mPolyline )

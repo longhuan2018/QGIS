@@ -26,14 +26,16 @@ class QgsRasterBlock;
 
 /**
  * \ingroup core
- * \brief Stores digital elevation model in a raster image which may get updated
- * as a part of map layer rendering process. Afterwards the elevations can
- * be used for post-processing effects of the rendered color map image.
+ * \brief Stores a digital elevation model in a raster image which may get updated
+ * as a part of the map layer rendering process.
+ *
+ * Afterwards the elevations can be used for post-processing effects of the
+ * rendered color map image.
  *
  * Elevations are encoded as colors in QImage, thanks to this it is not
  * only possible to set elevation for each pixel, but also to use QPainter
  * for more complex updates of elevations. We encode elevations to 24 bits
- * in range of [-8000, 8777] with precision of three decimal digits, which
+ * in range of [-7900, 8877] with precision of three decimal digits, which
  * should give millimiter precision and enough range for elevation values
  * in meters.
  *
@@ -43,11 +45,10 @@ class CORE_EXPORT QgsElevationMap
 {
   public:
 
-    //! Default constructor
     QgsElevationMap() = default;
 
     //! Constructs an elevation map with the given width and height
-    explicit QgsElevationMap( const QSize &size );
+    explicit QgsElevationMap( const QSize &size, float devicePixelRatio = 1.0 );
 
     /**
      * Constructs an elevation map from an existing raw elevation \a image.
@@ -58,7 +59,6 @@ class CORE_EXPORT QgsElevationMap
      */
     explicit QgsElevationMap( const QImage &image );
 
-    //! Copy constructor
     QgsElevationMap( const QgsElevationMap &other );
 
     /**
@@ -100,6 +100,15 @@ class CORE_EXPORT QgsElevationMap
 
     //! Returns raw elevation image with elevations encoded as color values
     QImage rawElevationImage() const { return mElevationImage; }
+
+#ifndef SIP_RUN
+
+    /**
+     * Returns pointer to the actual elevation image data
+     * \since QGIS 3.36
+     */
+    QRgb *rawElevationImageData() { return reinterpret_cast<QRgb *>( mElevationImage.bits() ); }
+#endif
 
     //! Returns painter to the underlying QImage with elevations
     QPainter *painter() const;

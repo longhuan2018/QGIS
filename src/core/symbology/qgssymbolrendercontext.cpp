@@ -17,7 +17,7 @@
 #include "qgsrendercontext.h"
 #include "qgslegendpatchshape.h"
 
-QgsSymbolRenderContext::QgsSymbolRenderContext( QgsRenderContext &c, QgsUnitTypes::RenderUnit u, qreal opacity, bool selected, Qgis::SymbolRenderHints renderHints, const QgsFeature *f, const QgsFields &fields, const QgsMapUnitScale &mapUnitScale )
+QgsSymbolRenderContext::QgsSymbolRenderContext( QgsRenderContext &c, Qgis::RenderUnit u, qreal opacity, bool selected, Qgis::SymbolRenderHints renderHints, const QgsFeature *f, const QgsFields &fields, const QgsMapUnitScale &mapUnitScale )
   : mRenderContext( c )
   , mOutputUnit( u )
   , mMapUnitScale( mapUnitScale )
@@ -36,6 +36,12 @@ QgsSymbolRenderContext::~QgsSymbolRenderContext() = default;
 void QgsSymbolRenderContext::setOriginalValueVariable( const QVariant &value )
 {
   mRenderContext.expressionContext().setOriginalValueVariable( value );
+}
+
+bool QgsSymbolRenderContext::forceVectorRendering() const
+{
+  return mRenderContext.testFlag( Qgis::RenderContextFlag::ForceVectorOutput )
+         || mRenderHints.testFlag( Qgis::SymbolRenderHint::ForceVectorRendering );
 }
 
 double QgsSymbolRenderContext::outputLineWidth( double width ) const

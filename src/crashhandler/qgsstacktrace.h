@@ -33,34 +33,32 @@
 * The QgsStacktrace class provides an interface to generate a stack trace for
 * displaying additional debug information when things go wrong.
 *
-* \since QGIS 3.0
 */
 class QgsStackTrace
 {
   public:
-
     /**
     * Represents a line from a stack trace.
     */
     struct StackLine
     {
-      QString moduleName;
-      QString symbolName;
-      QString fileName;
-      QString lineNumber;
+        QString moduleName;
+        QString symbolName;
+        QString fileName;
+        QString lineNumber;
 
-      /**
+        /**
       * Check if this stack line is part of QGIS.
       * \return TRUE if part of QGIS.
       */
-      bool isQgisModule() const;
+        bool isQgisModule() const;
 
-      /**
+        /**
       * Check if this stack line is valid.  Considered valid when the filename and line
       * number are known.
       * \return TRUE of the line is valid.
       */
-      bool isValid() const;
+        bool isValid() const;
     };
 
     bool symbolsLoaded;
@@ -75,7 +73,6 @@ class QgsStackTrace
     /**
      * Returns a demangled stack backtrace of the caller function.
      *
-     * \since QGIS 3.0
      */
     static QgsStackTrace *trace( DWORD processID, DWORD threadID, struct _EXCEPTION_POINTERS *ExceptionInfo, QString symbolPath );
 #endif
@@ -85,7 +82,6 @@ class QgsStackTrace
     /**
     * Returns a demangled stack backtrace of the caller function.
      *
-     * \since QGIS 3.0
      */
     static QVector<QgsStackTrace::StackLine> trace( unsigned int maxFrames = 63 );
 #endif

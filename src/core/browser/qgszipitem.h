@@ -24,7 +24,7 @@
 
 /**
  * \ingroup core
- * \brief A zip file: contains layers, using GDAL/OGR VSIFILE mechanism
+ * \brief A browser item for zip (archive) files.
 */
 class CORE_EXPORT QgsZipItem : public QgsDataCollectionItem
 {
@@ -60,7 +60,10 @@ class CORE_EXPORT QgsZipItem : public QgsDataCollectionItem
     static QVector<dataItem_t *> sDataItemPtr SIP_SKIP;
     static QStringList sProviderNames;
 
-    static QString vsiPrefix( const QString &uri ) { return qgsVsiPrefix( uri ); }
+    /**
+     * \deprecated QGIS 3.40. Will be removed in QGIS 4.0.
+     */
+    Q_DECL_DEPRECATED static QString vsiPrefix( const QString &uri ) SIP_DEPRECATED;
 
     /**
      * Creates a new data item from the specified path.

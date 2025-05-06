@@ -27,14 +27,13 @@
 
 /**
  * \ingroup gui
- * \brief A widget to enter a custom dash space pattern for lines
+ * \brief A widget for entering a custom dash space pattern for lines.
  * \since QGIS 3.8
 */
-class GUI_EXPORT QgsDashSpaceWidget: public QgsPanelWidget, private Ui::QgsDashSpaceWidgetBase
+class GUI_EXPORT QgsDashSpaceWidget : public QgsPanelWidget, private Ui::QgsDashSpaceWidgetBase
 {
     Q_OBJECT
   public:
-
     //! Constructor for QgsDashSpaceWidget
     QgsDashSpaceWidget( const QVector<qreal> &vectorPattern, QWidget *parent SIP_TRANSFERTHIS = nullptr );
 
@@ -45,23 +44,21 @@ class GUI_EXPORT QgsDashSpaceWidget: public QgsPanelWidget, private Ui::QgsDashS
      * Sets the unit type used for the dash space pattern (used to update interface labels)
      * \param unit the unit type
     */
-    void setUnit( QgsUnitTypes::RenderUnit unit );
+    void setUnit( Qgis::RenderUnit unit );
 
   private slots:
     void mAddButton_clicked();
     void mRemoveButton_clicked();
-
 };
 
 /**
  * \ingroup gui
- * \brief A dialog to enter a custom dash space pattern for lines
+ * \brief A dialog for entering a custom dash space pattern for lines.
 */
 class GUI_EXPORT QgsDashSpaceDialog : public QDialog
 {
     Q_OBJECT
   public:
-
     //! Constructor for QgsDashSpaceDialog
     QgsDashSpaceDialog( const QVector<qreal> &v, QWidget *parent SIP_TRANSFERTHIS = nullptr, Qt::WindowFlags f = Qt::WindowFlags() );
 
@@ -73,12 +70,10 @@ class GUI_EXPORT QgsDashSpaceDialog : public QDialog
      * \param unit the unit type
      * \since QGIS 3.8
     */
-    void setUnit( QgsUnitTypes::RenderUnit unit );
+    void setUnit( Qgis::RenderUnit unit );
 
   private:
-
     QgsDashSpaceWidget *mWidget = nullptr;
-
 };
 
 #endif // QGSDASHSPACEDIALOG_H

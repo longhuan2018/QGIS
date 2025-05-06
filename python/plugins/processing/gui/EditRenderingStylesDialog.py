@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     EditRenderingStylesDialog.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 import warnings
@@ -28,8 +26,7 @@ from qgis.PyQt import uic
 from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import QDialog, QHeaderView, QTableWidgetItem
 
-from qgis.core import (QgsProcessingOutputRasterLayer,
-                       QgsProcessingOutputVectorLayer)
+from qgis.core import QgsProcessingOutputRasterLayer, QgsProcessingOutputVectorLayer
 
 from processing.gui.RenderingStyles import RenderingStyles
 from processing.gui.RenderingStyleFilePanel import RenderingStyleFilePanel
@@ -39,18 +36,21 @@ pluginPath = os.path.split(os.path.dirname(__file__))[0]
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'DlgRenderingStyles.ui'))
+        os.path.join(pluginPath, "ui", "DlgRenderingStyles.ui")
+    )
 
 
 class EditRenderingStylesDialog(BASE, WIDGET):
 
     def __init__(self, alg):
-        super(EditRenderingStylesDialog, self).__init__(None)
+        super().__init__(None)
         self.setupUi(self)
 
         self.alg = alg
 
-        self.tblStyles.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.tblStyles.horizontalHeader().setSectionResizeMode(
+            QHeaderView.ResizeMode.Stretch
+        )
         self.setWindowTitle(self.alg.displayName())
 
         self.valueItems = {}
@@ -60,21 +60,24 @@ class EditRenderingStylesDialog(BASE, WIDGET):
     def setTableContent(self):
         numOutputs = 0
         for output in self.alg.outputDefinitions():
-            if isinstance(output, (QgsProcessingOutputVectorLayer, QgsProcessingOutputRasterLayer)):
+            if isinstance(
+                output, (QgsProcessingOutputVectorLayer, QgsProcessingOutputRasterLayer)
+            ):
                 numOutputs += 1
         self.tblStyles.setRowCount(numOutputs)
 
         i = 0
         for output in self.alg.outputDefinitions():
-            if isinstance(output, (QgsProcessingOutputVectorLayer, QgsProcessingOutputRasterLayer)):
-                item = QTableWidgetItem(output.description() + '<' +
-                                        output.__class__.__name__ + '>')
-                item.setFlags(Qt.ItemIsEnabled)
+            if isinstance(
+                output, (QgsProcessingOutputVectorLayer, QgsProcessingOutputRasterLayer)
+            ):
+                item = QTableWidgetItem(
+                    output.description() + "<" + output.__class__.__name__ + ">"
+                )
+                item.setFlags(Qt.ItemFlag.ItemIsEnabled)
                 self.tblStyles.setItem(i, 0, item)
                 item = RenderingStyleFilePanel()
-                style = \
-                    RenderingStyles.getStyle(self.alg.id(),
-                                             output.name())
+                style = RenderingStyles.getStyle(self.alg.id(), output.name())
                 if style:
                     item.setText(str(style))
                 self.valueItems[output.name()] = item

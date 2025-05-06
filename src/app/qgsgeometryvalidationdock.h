@@ -25,6 +25,7 @@ class QgsGeometryValidationModel;
 class QgsGeometryValidationService;
 class QgsRubberBand;
 class QgisApp;
+class QgsMapLayer;
 class QgsVectorLayer;
 
 /**
@@ -59,7 +60,6 @@ class QgsGeometryValidationDock : public QgsDockWidget, public Ui_QgsGeometryVal
     void showErrorContextMenu( const QPoint &pos );
 
   private:
-
     enum ZoomToAction
     {
       ZoomToFeature,
@@ -73,7 +73,6 @@ class QgsGeometryValidationDock : public QgsDockWidget, public Ui_QgsGeometryVal
     ZoomToAction mLastZoomToAction = ZoomToFeature;
     QgsGeometryValidationModel *mGeometryValidationModel = nullptr;
     QgsGeometryValidationService *mGeometryValidationService = nullptr;
-    QButtonGroup *mZoomToButtonGroup = nullptr;
     QgsMapCanvas *mMapCanvas = nullptr;
     QgisApp *mQgisApp = nullptr;
     QModelIndex currentIndex() const;

@@ -129,7 +129,7 @@
            </widget>
           </item>
           <item row="0" column="1">
-           <widget class="QgsOpacityWidget" name="mOpacityWidget" native="true">
+           <widget class="QgsOpacityWidget" name="mOpacityWidget">
             <property name="focusPolicy">
              <enum>Qt::StrongFocus</enum>
             </property>
@@ -137,19 +137,6 @@
           </item>
          </layout>
         </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>0</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </widget>
@@ -200,19 +187,6 @@
           </property>
           <item>
            <widget class="QgsMeshRendererScalarSettingsWidget" name="mMeshRendererScalarSettingsWidget" native="true"/>
-          </item>
-          <item>
-           <spacer name="verticalSpacer_4">
-            <property name="orientation">
-             <enum>Qt::Vertical</enum>
-            </property>
-            <property name="sizeHint" stdset="0">
-             <size>
-              <width>20</width>
-              <height>0</height>
-             </size>
-            </property>
-           </spacer>
           </item>
          </layout>
         </widget>
@@ -449,7 +423,7 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout_7">
           <item>
-           <widget class="QgsMeshRenderer3dAveragingWidget" name="m3dAveragingSettingsWidget" native="true"/>
+           <widget class="QgsMeshRenderer3DAveragingWidget" name="m3dAveragingSettingsWidget" native="true"/>
           </item>
          </layout>
         </widget>
@@ -481,44 +455,44 @@
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>QgsBlendModeComboBox</class>
-   <extends>QComboBox</extends>
-   <header>qgsblendmodecombobox.h</header>
-  </customwidget>
-  <customwidget>
    <class>QgsOpacityWidget</class>
    <extends>QWidget</extends>
    <header>qgsopacitywidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
+   <class>QgsBlendModeComboBox</class>
+   <extends>QComboBox</extends>
+   <header>qgsblendmodecombobox.h</header>
+  </customwidget>
+  <customwidget>
    <class>QgsMeshRendererScalarSettingsWidget</class>
    <extends>QWidget</extends>
-   <header>mesh/qgsmeshrendererscalarsettingswidget.h</header>
+   <header>qgsmeshrendererscalarsettingswidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>QgsMeshRendererActiveDatasetWidget</class>
    <extends>QWidget</extends>
-   <header>mesh/qgsmeshrendereractivedatasetwidget.h</header>
+   <header>qgsmeshrendereractivedatasetwidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>QgsMeshRendererMeshSettingsWidget</class>
    <extends>QWidget</extends>
-   <header>mesh/qgsmeshrenderermeshsettingswidget.h</header>
+   <header>qgsmeshrenderermeshsettingswidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
    <class>QgsMeshRendererVectorSettingsWidget</class>
    <extends>QWidget</extends>
-   <header>mesh/qgsmeshrenderervectorsettingswidget.h</header>
+   <header>qgsmeshrenderervectorsettingswidget.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>
-   <class>QgsMeshRenderer3dAveragingWidget</class>
+   <class>QgsMeshRenderer3DAveragingWidget</class>
    <extends>QWidget</extends>
-   <header>mesh/qgsmeshrenderer3daveragingwidget.h</header>
+   <header>qgsmeshrenderer3daveragingwidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     RectanglesOvalsDiamondsVariable.py
@@ -17,94 +15,125 @@
 ***************************************************************************
 """
 
-__author__ = 'Alexander Bruy'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Alexander Bruy"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import math
 
 from qgis.PyQt.QtCore import QCoreApplication
-from qgis.core import (NULL,
-                       QgsWkbTypes,
-                       QgsFeature,
-                       QgsFeatureSink,
-                       QgsGeometry,
-                       QgsPointXY,
-                       QgsProcessing,
-                       QgsProcessingException,
-                       QgsProcessingAlgorithm,
-                       QgsProcessingParameterField,
-                       QgsProcessingParameterFeatureSource,
-                       QgsProcessingParameterEnum,
-                       QgsProcessingParameterNumber,
-                       QgsProcessingParameterFeatureSink)
+from qgis.core import (
+    NULL,
+    QgsWkbTypes,
+    QgsFeature,
+    QgsFeatureSink,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProcessing,
+    QgsProcessingException,
+    QgsProcessingAlgorithm,
+    QgsProcessingParameterField,
+    QgsProcessingParameterFeatureSource,
+    QgsProcessingParameterEnum,
+    QgsProcessingParameterNumber,
+    QgsProcessingParameterFeatureSink,
+)
 
 from processing.algs.qgis.QgisAlgorithm import QgisAlgorithm
 
 
 class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
-    INPUT = 'INPUT'
-    SHAPE = 'SHAPE'
-    WIDTH = 'WIDTH'
-    HEIGHT = 'HEIGHT'
-    ROTATION = 'ROTATION'
-    SEGMENTS = 'SEGMENTS'
-    OUTPUT = 'OUTPUT'
+    INPUT = "INPUT"
+    SHAPE = "SHAPE"
+    WIDTH = "WIDTH"
+    HEIGHT = "HEIGHT"
+    ROTATION = "ROTATION"
+    SEGMENTS = "SEGMENTS"
+    OUTPUT = "OUTPUT"
 
     def group(self):
-        return self.tr('Vector geometry')
+        return self.tr("Vector geometry")
 
     def groupId(self):
-        return 'vectorgeometry'
+        return "vectorgeometry"
 
     def __init__(self):
         super().__init__()
 
     def flags(self):
-        return super().flags() | QgsProcessingAlgorithm.FlagDeprecated
+        return super().flags() | QgsProcessingAlgorithm.Flag.FlagDeprecated
 
     def initAlgorithm(self, config=None):
-        self.shapes = [self.tr('Rectangles'), self.tr('Diamonds'), self.tr('Ovals')]
+        self.shapes = [self.tr("Rectangles"), self.tr("Diamonds"), self.tr("Ovals")]
 
-        self.addParameter(QgsProcessingParameterFeatureSource(self.INPUT,
-                                                              self.tr('Input layer'),
-                                                              [QgsProcessing.TypeVectorPoint]))
+        self.addParameter(
+            QgsProcessingParameterFeatureSource(
+                self.INPUT,
+                self.tr("Input layer"),
+                [QgsProcessing.SourceType.TypeVectorPoint],
+            )
+        )
 
-        self.addParameter(QgsProcessingParameterEnum(self.SHAPE,
-                                                     self.tr('Buffer shape'), options=self.shapes))
+        self.addParameter(
+            QgsProcessingParameterEnum(
+                self.SHAPE, self.tr("Buffer shape"), options=self.shapes
+            )
+        )
 
-        self.addParameter(QgsProcessingParameterField(self.WIDTH,
-                                                      self.tr('Width field'),
-                                                      parentLayerParameterName=self.INPUT,
-                                                      type=QgsProcessingParameterField.Numeric))
-        self.addParameter(QgsProcessingParameterField(self.HEIGHT,
-                                                      self.tr('Height field'),
-                                                      parentLayerParameterName=self.INPUT,
-                                                      type=QgsProcessingParameterField.Numeric))
-        self.addParameter(QgsProcessingParameterField(self.ROTATION,
-                                                      self.tr('Rotation field'),
-                                                      parentLayerParameterName=self.INPUT,
-                                                      type=QgsProcessingParameterField.Numeric,
-                                                      optional=True))
-        self.addParameter(QgsProcessingParameterNumber(self.SEGMENTS,
-                                                       self.tr('Number of segments'),
-                                                       minValue=1,
-                                                       defaultValue=36))
+        self.addParameter(
+            QgsProcessingParameterField(
+                self.WIDTH,
+                self.tr("Width field"),
+                parentLayerParameterName=self.INPUT,
+                type=QgsProcessingParameterField.DataType.Numeric,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterField(
+                self.HEIGHT,
+                self.tr("Height field"),
+                parentLayerParameterName=self.INPUT,
+                type=QgsProcessingParameterField.DataType.Numeric,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterField(
+                self.ROTATION,
+                self.tr("Rotation field"),
+                parentLayerParameterName=self.INPUT,
+                type=QgsProcessingParameterField.DataType.Numeric,
+                optional=True,
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterNumber(
+                self.SEGMENTS,
+                self.tr("Number of segments"),
+                minValue=1,
+                defaultValue=36,
+            )
+        )
 
-        self.addParameter(QgsProcessingParameterFeatureSink(self.OUTPUT,
-                                                            self.tr('Output'),
-                                                            type=QgsProcessing.TypeVectorPolygon))
+        self.addParameter(
+            QgsProcessingParameterFeatureSink(
+                self.OUTPUT,
+                self.tr("Output"),
+                type=QgsProcessing.SourceType.TypeVectorPolygon,
+            )
+        )
 
     def name(self):
-        return 'rectanglesovalsdiamondsvariable'
+        return "rectanglesovalsdiamondsvariable"
 
     def displayName(self):
-        return self.tr('Rectangles, ovals, diamonds (variable)')
+        return self.tr("Rectangles, ovals, diamonds (variable)")
 
     def processAlgorithm(self, parameters, context, feedback):
         source = self.parameterAsSource(parameters, self.INPUT, context)
         if source is None:
-            raise QgsProcessingException(self.invalidSourceError(parameters, self.INPUT))
+            raise QgsProcessingException(
+                self.invalidSourceError(parameters, self.INPUT)
+            )
 
         shape = self.parameterAsEnum(parameters, self.SHAPE, context)
 
@@ -113,8 +142,14 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
         rotation_field = self.parameterAsString(parameters, self.ROTATION, context)
         segments = self.parameterAsInt(parameters, self.SEGMENTS, context)
 
-        (sink, dest_id) = self.parameterAsSink(parameters, self.OUTPUT, context,
-                                               source.fields(), QgsWkbTypes.Polygon, source.sourceCrs())
+        (sink, dest_id) = self.parameterAsSink(
+            parameters,
+            self.OUTPUT,
+            context,
+            source.fields(),
+            QgsWkbTypes.Type.Polygon,
+            source.sourceCrs(),
+        )
         if sink is None:
             raise QgsProcessingException(self.invalidSinkError(parameters, self.OUTPUT))
 
@@ -128,6 +163,7 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
         else:
             self.ovals(sink, source, width, height, rotation, segments, feedback)
 
+        sink.finalize()
         return {self.OUTPUT: dest_id}
 
     def rectangles(self, sink, source, width, height, rotation, feedback):
@@ -149,14 +185,20 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 angle = feat[rotation]
                 # block 0/NULL width or height, but allow 0 as angle value
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
                 if angle is NULL:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'angle. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "angle. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -166,13 +208,25 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 point = feat.geometry().asPoint()
                 x = point.x()
                 y = point.y()
-                points = [(-xOffset, -yOffset), (-xOffset, yOffset), (xOffset, yOffset), (xOffset, -yOffset)]
-                polygon = [[QgsPointXY(i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
-                                       -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y) for i in points]]
+                points = [
+                    (-xOffset, -yOffset),
+                    (-xOffset, yOffset),
+                    (xOffset, yOffset),
+                    (xOffset, -yOffset),
+                ]
+                polygon = [
+                    [
+                        QgsPointXY(
+                            i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
+                            -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y,
+                        )
+                        for i in points
+                    ]
+                ]
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
 
                 feedback.setProgress(int(current * total))
         else:
@@ -186,9 +240,12 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 w = feat[width]
                 h = feat[height]
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -197,12 +254,17 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 point = feat.geometry().asPoint()
                 x = point.x()
                 y = point.y()
-                points = [(-xOffset, -yOffset), (-xOffset, yOffset), (xOffset, yOffset), (xOffset, -yOffset)]
+                points = [
+                    (-xOffset, -yOffset),
+                    (-xOffset, yOffset),
+                    (xOffset, yOffset),
+                    (xOffset, -yOffset),
+                ]
                 polygon = [[QgsPointXY(i[0] + x, i[1] + y) for i in points]]
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
 
                 feedback.setProgress(int(current * total))
 
@@ -224,14 +286,20 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 angle = feat[rotation]
                 # block 0/NULL width or height, but allow 0 as angle value
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
                 if angle is NULL:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'angle. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "angle. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -241,13 +309,25 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 point = feat.geometry().asPoint()
                 x = point.x()
                 y = point.y()
-                points = [(0.0, -yOffset), (-xOffset, 0.0), (0.0, yOffset), (xOffset, 0.0)]
-                polygon = [[QgsPointXY(i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
-                                       -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y) for i in points]]
+                points = [
+                    (0.0, -yOffset),
+                    (-xOffset, 0.0),
+                    (0.0, yOffset),
+                    (xOffset, 0.0),
+                ]
+                polygon = [
+                    [
+                        QgsPointXY(
+                            i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
+                            -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y,
+                        )
+                        for i in points
+                    ]
+                ]
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
                 feedback.setProgress(int(current * total))
         else:
             for current, feat in enumerate(features):
@@ -260,9 +340,12 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 w = feat[width]
                 h = feat[height]
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -271,12 +354,17 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 point = feat.geometry().asPoint()
                 x = point.x()
                 y = point.y()
-                points = [(0.0, -yOffset), (-xOffset, 0.0), (0.0, yOffset), (xOffset, 0.0)]
+                points = [
+                    (0.0, -yOffset),
+                    (-xOffset, 0.0),
+                    (0.0, yOffset),
+                    (xOffset, 0.0),
+                ]
                 polygon = [[QgsPointXY(i[0] + x, i[1] + y) for i in points]]
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
                 feedback.setProgress(int(current * total))
 
     def ovals(self, sink, source, width, height, rotation, segments, feedback):
@@ -297,14 +385,20 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 angle = feat[rotation]
                 # block 0/NULL width or height, but allow 0 as angle value
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
                 if angle == NULL:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'angle. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "angle. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -319,12 +413,19 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                     for t in [(2 * math.pi) / segments * i for i in range(segments)]
                 ]
 
-                polygon = [[QgsPointXY(i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
-                                       -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y) for i in points]]
+                polygon = [
+                    [
+                        QgsPointXY(
+                            i[0] * math.cos(phi) + i[1] * math.sin(phi) + x,
+                            -i[0] * math.sin(phi) + i[1] * math.cos(phi) + y,
+                        )
+                        for i in points
+                    ]
+                ]
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
                 feedback.setProgress(int(current * total))
         else:
             for current, feat in enumerate(features):
@@ -337,9 +438,12 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
                 w = feat[width]
                 h = feat[height]
                 if not w or not h:
-                    feedback.pushInfo(QCoreApplication.translate('RectanglesOvalsDiamondsVariable', 'Feature {} has empty '
-                                                                 'width or height. '
-                                                                 'Skipping…').format(feat.id()))
+                    feedback.pushInfo(
+                        QCoreApplication.translate(
+                            "RectanglesOvalsDiamondsVariable",
+                            "Feature {} has empty " "width or height. " "Skipping…",
+                        ).format(feat.id())
+                    )
                     continue
 
                 xOffset = w / 2.0
@@ -357,5 +461,5 @@ class RectanglesOvalsDiamondsVariable(QgisAlgorithm):
 
                 ft.setGeometry(QgsGeometry.fromPolygonXY(polygon))
                 ft.setAttributes(feat.attributes())
-                sink.addFeature(ft, QgsFeatureSink.FastInsert)
+                sink.addFeature(ft, QgsFeatureSink.Flag.FastInsert)
                 feedback.setProgress(int(current * total))

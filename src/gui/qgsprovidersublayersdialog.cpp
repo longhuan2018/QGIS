@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsprovidersublayersdialog.h"
+#include "moc_qgsprovidersublayersdialog.cpp"
 #include "qgssettings.h"
 #include "qgsprovidersublayermodel.h"
 #include "qgsproviderutils.h"
@@ -21,6 +22,7 @@
 #include "qgsapplication.h"
 #include "qgstaskmanager.h"
 #include "qgsnative.h"
+#include "qgsgui.h"
 
 #include <QPushButton>
 #include <QFileInfo>
@@ -31,7 +33,6 @@
 QgsProviderSublayerDialogModel::QgsProviderSublayerDialogModel( QObject *parent )
   : QgsProviderSublayerModel( parent )
 {
-
 }
 
 QVariant QgsProviderSublayerDialogModel::data( const QModelIndex &index, int role ) const
@@ -47,21 +48,21 @@ QVariant QgsProviderSublayerDialogModel::data( const QModelIndex &index, int rol
   {
     const QgsProviderSublayerDetails details = sublayerNode->sublayer();
 
-    if ( details.type() == QgsMapLayerType::VectorLayer && details.wkbType() == QgsWkbTypes::Unknown && !mGeometryTypesResolved )
+    if ( details.type() == Qgis::LayerType::Vector && details.wkbType() == Qgis::WkbType::Unknown && !mGeometryTypesResolved )
     {
       switch ( role )
       {
         case Qt::DisplayRole:
         case Qt::ToolTipRole:
         {
-          if ( index.column() == static_cast< int >( Column::Description ) )
+          if ( index.column() == static_cast<int>( Column::Description ) )
             return tr( "Scanning…" );
           break;
         }
 
         case Qt::FontRole:
         {
-          QFont f =  QgsProviderSublayerModel::data( index, role ).value< QFont >();
+          QFont f = QgsProviderSublayerModel::data( index, role ).value<QFont>();
           f.setItalic( true );
           return f;
         }
@@ -73,7 +74,7 @@ QVariant QgsProviderSublayerDialogModel::data( const QModelIndex &index, int rol
       {
         case Qt::FontRole:
         {
-          QFont f =  QgsProviderSublayerModel::data( index, role ).value< QFont >();
+          QFont f = QgsProviderSublayerModel::data( index, role ).value<QFont>();
           f.setItalic( true );
           return f;
         }
@@ -96,7 +97,7 @@ Qt::ItemFlags QgsProviderSublayerDialogModel::flags( const QModelIndex &index ) 
   {
     const QgsProviderSublayerDetails details = mSublayers.at( index.row() );
 
-    if ( details.type() == QgsMapLayerType::VectorLayer && details.wkbType() == QgsWkbTypes::Unknown && !mGeometryTypesResolved )
+    if ( details.type() == Qgis::LayerType::Vector && details.wkbType() == Qgis::WkbType::Unknown && !mGeometryTypesResolved )
     {
       // unknown geometry item can't be selected
       return Qt::ItemFlags();
@@ -111,7 +112,7 @@ void QgsProviderSublayerDialogModel::setGeometryTypesResolved( bool resolved )
   emit dataChanged( index( 0, 0 ), index( rowCount( QModelIndex() ), columnCount() ) );
 }
 
-QgsProviderSublayersDialog::QgsProviderSublayersDialog( const QString &uri, const QString &providerKey, const QString &filePathIn, const QList<QgsProviderSublayerDetails> initialDetails, const QList<QgsMapLayerType> &acceptableTypes, QWidget *parent, Qt::WindowFlags fl )
+QgsProviderSublayersDialog::QgsProviderSublayersDialog( const QString &uri, const QString &providerKey, const QString &filePathIn, const QList<QgsProviderSublayerDetails> initialDetails, const QList<Qgis::LayerType> &acceptableTypes, QWidget *parent, Qt::WindowFlags fl )
   : QDialog( parent, fl )
 {
   setupUi( this );
@@ -129,12 +130,11 @@ QgsProviderSublayersDialog::QgsProviderSublayersDialog( const QString &uri, cons
   setWindowTitle( fileName.isEmpty() ? tr( "Select Items to Add" ) : QStringLiteral( "%1 | %2" ).arg( tr( "Select Items to Add" ), fileName ) );
 
   mLblFilePath->setText( QStringLiteral( "<a href=\"%1\">%2</a>" )
-                         .arg( QUrl::fromLocalFile( filePath ).toString(), QDir::toNativeSeparators( QFileInfo( filePath ).canonicalFilePath() ) ) );
+                           .arg( QUrl::fromLocalFile( filePath ).toString(), QDir::toNativeSeparators( QFileInfo( filePath ).canonicalFilePath() ) ) );
   mLblFilePath->setVisible( !filePath.isEmpty() );
   mLblFilePath->setWordWrap( true );
   mLblFilePath->setTextInteractionFlags( Qt::TextBrowserInteraction );
-  connect( mLblFilePath, &QLabel::linkActivated, this, [ = ]( const QString & link )
-  {
+  connect( mLblFilePath, &QLabel::linkActivated, this, [=]( const QString &link ) {
     const QUrl url( link );
     const QFileInfo file( url.toLocalFile() );
     if ( file.exists() && !file.isDir() )
@@ -173,13 +173,12 @@ QgsProviderSublayersDialog::QgsProviderSublayersDialog( const QString &uri, cons
   {
     // initial details are incomplete, so fire up a task in the background to fully populate the model...
     mTask = new QgsProviderSublayerTask( uri, providerKey, true );
-    connect( mTask.data(), &QgsProviderSublayerTask::taskCompleted, this, [ = ]
-    {
-      QList< QgsProviderSublayerDetails > res = mTask->results();
-      res.erase( std::remove_if( res.begin(), res.end(), [acceptableTypes]( const QgsProviderSublayerDetails & sublayer )
-      {
-        return !acceptableTypes.empty() && !acceptableTypes.contains( sublayer.type() );
-      } ), res.end() );
+    connect( mTask.data(), &QgsProviderSublayerTask::taskCompleted, this, [=] {
+      QList<QgsProviderSublayerDetails> res = mTask->results();
+      res.erase( std::remove_if( res.begin(), res.end(), [acceptableTypes]( const QgsProviderSublayerDetails &sublayer ) {
+                   return !acceptableTypes.empty() && !acceptableTypes.contains( sublayer.type() );
+                 } ),
+                 res.end() );
 
       mModel->setSublayerDetails( res );
       mModel->setGeometryTypesResolved( true );
@@ -191,26 +190,22 @@ QgsProviderSublayersDialog::QgsProviderSublayersDialog( const QString &uri, cons
   }
 
   connect( mBtnSelectAll, &QAbstractButton::pressed, this, &QgsProviderSublayersDialog::selectAll );
-  connect( mBtnDeselectAll, &QAbstractButton::pressed, this, [ = ] { mLayersTree->selectionModel()->clear(); } );
+  connect( mBtnDeselectAll, &QAbstractButton::pressed, this, [=] { mLayersTree->selectionModel()->clear(); } );
   connect( mLayersTree->selectionModel(), &QItemSelectionModel::selectionChanged, this, &QgsProviderSublayersDialog::treeSelectionChanged );
   connect( mSearchLineEdit, &QgsFilterLineEdit::textChanged, mProxyModel, &QgsProviderSublayerProxyModel::setFilterString );
   connect( mCheckShowSystem, &QCheckBox::toggled, mProxyModel, &QgsProviderSublayerProxyModel::setIncludeSystemTables );
   connect( mCheckShowEmpty, &QCheckBox::toggled, mProxyModel, &QgsProviderSublayerProxyModel::setIncludeEmptyLayers );
-  connect( mLayersTree, &QTreeView::doubleClicked, this, [ = ]( const QModelIndex & index )
-  {
+  connect( mLayersTree, &QTreeView::doubleClicked, this, [=]( const QModelIndex &index ) {
     const QModelIndex left = mLayersTree->model()->index( index.row(), 0, index.parent() );
     if ( !( left.flags() & Qt::ItemIsSelectable ) )
       return;
 
-    mLayersTree->selectionModel()->select( QItemSelection( left,
-                                           mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ),
-                                           QItemSelectionModel::ClearAndSelect );
+    mLayersTree->selectionModel()->select( QItemSelection( left, mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ), QItemSelectionModel::ClearAndSelect );
     emit layersAdded( selectedLayers() );
     accept();
   } );
   connect( mButtonBox, &QDialogButtonBox::rejected, this, &QDialog::reject );
-  connect( mButtonBox, &QDialogButtonBox::accepted, this, [ = ]
-  {
+  connect( mButtonBox, &QDialogButtonBox::accepted, this, [=] {
     emit layersAdded( selectedLayers() );
     accept();
   } );
@@ -241,11 +236,11 @@ QgsProviderSublayersDialog::~QgsProviderSublayersDialog()
 QList<QgsProviderSublayerDetails> QgsProviderSublayersDialog::selectedLayers() const
 {
   const QModelIndexList selection = mLayersTree->selectionModel()->selectedRows();
-  QList< QgsProviderSublayerDetails > selectedSublayers;
+  QList<QgsProviderSublayerDetails> selectedSublayers;
   for ( const QModelIndex &index : selection )
   {
     const QModelIndex sourceIndex = mProxyModel->mapToSource( index );
-    if ( !mModel->data( sourceIndex, static_cast< int >( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
+    if ( !mModel->data( sourceIndex, static_cast<int>( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
     {
       selectedSublayers << mModel->indexToSublayer( sourceIndex );
     }
@@ -256,11 +251,11 @@ QList<QgsProviderSublayerDetails> QgsProviderSublayersDialog::selectedLayers() c
 QList<QgsProviderSublayerModel::NonLayerItem> QgsProviderSublayersDialog::selectedNonLayerItems() const
 {
   const QModelIndexList selection = mLayersTree->selectionModel()->selectedRows();
-  QList< QgsProviderSublayerModel::NonLayerItem > selectedItems;
+  QList<QgsProviderSublayerModel::NonLayerItem> selectedItems;
   for ( const QModelIndex &index : selection )
   {
     const QModelIndex sourceIndex = mProxyModel->mapToSource( index );
-    if ( mModel->data( sourceIndex, static_cast< int >( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
+    if ( mModel->data( sourceIndex, static_cast<int>( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
     {
       selectedItems << mModel->indexToNonLayerItem( sourceIndex );
     }
@@ -301,7 +296,7 @@ void QgsProviderSublayersDialog::treeSelectionChanged( const QItemSelection &sel
     if ( index.column() != 0 )
       continue;
 
-    if ( mProxyModel->data( index, static_cast< int >( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
+    if ( mProxyModel->data( index, static_cast<int>( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
     {
       if ( !selectedANonLayerItem )
       {
@@ -311,9 +306,7 @@ void QgsProviderSublayersDialog::treeSelectionChanged( const QItemSelection &sel
       else
       {
         // only one non-layer item can be selected
-        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ),
-                                               mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ),
-                                               QItemSelectionModel::Deselect );
+        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ), mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ), QItemSelectionModel::Deselect );
       }
     }
     else
@@ -325,22 +318,18 @@ void QgsProviderSublayersDialog::treeSelectionChanged( const QItemSelection &sel
   for ( int row = 0; row < mProxyModel->rowCount(); ++row )
   {
     const QModelIndex index = mProxyModel->index( row, 0 );
-    if ( mProxyModel->data( index, static_cast< int >( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
+    if ( mProxyModel->data( index, static_cast<int>( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
     {
       if ( ( selectedANonLayerItem && index != firstSelectedNonLayerItem ) || selectedALayerItem )
       {
-        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ),
-                                               mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ),
-                                               QItemSelectionModel::Deselect );
+        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ), mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ), QItemSelectionModel::Deselect );
       }
     }
     else
     {
       if ( selectedANonLayerItem )
       {
-        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ),
-                                               mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ),
-                                               QItemSelectionModel::Deselect );
+        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ), mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ), QItemSelectionModel::Deselect );
       }
     }
   }
@@ -356,18 +345,15 @@ void QgsProviderSublayersDialog::selectAll()
 {
   mLayersTree->selectionModel()->clear();
 
-  std::function< void( const QModelIndex & ) > selectAllInParent;
+  std::function<void( const QModelIndex & )> selectAllInParent;
 
-  selectAllInParent = [this, &selectAllInParent]( const QModelIndex & parent )
-  {
+  selectAllInParent = [this, &selectAllInParent]( const QModelIndex &parent ) {
     for ( int row = 0; row < mProxyModel->rowCount( parent ); ++row )
     {
       const QModelIndex index = mProxyModel->index( row, 0, parent );
-      if ( !mProxyModel->data( index, static_cast< int >( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
+      if ( !mProxyModel->data( index, static_cast<int>( QgsProviderSublayerModel::Role::IsNonLayerItem ) ).toBool() )
       {
-        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ),
-                                               mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ),
-                                               QItemSelectionModel::Select );
+        mLayersTree->selectionModel()->select( QItemSelection( mLayersTree->model()->index( index.row(), 0, index.parent() ), mLayersTree->model()->index( index.row(), mLayersTree->model()->columnCount() - 1, index.parent() ) ), QItemSelectionModel::Select );
       }
       selectAllInParent( index );
     }

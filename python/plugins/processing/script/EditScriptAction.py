@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     EditScriptAction.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import inspect
 
@@ -41,15 +39,19 @@ class EditScriptAction(ContextAction):
         self.name = QCoreApplication.translate("EditScriptAction", "Edit Script…")
 
     def isEnabled(self):
-        return isinstance(self.itemData, QgsProcessingAlgorithm) and self.itemData.provider().id() == "script"
+        return (
+            isinstance(self.itemData, QgsProcessingAlgorithm)
+            and self.itemData.provider().id() == "script"
+        )
 
     def execute(self):
         filePath = ScriptUtils.findAlgorithmSource(self.itemData.name())
         if filePath is not None:
-            dlg = ScriptEditorDialog(filePath, iface.mainWindow())
+            dlg = ScriptEditorDialog(filePath, parent=iface.mainWindow())
             dlg.show()
         else:
-            QMessageBox.warning(None,
-                                self.tr("Edit Script"),
-                                self.tr("Can not find corresponding script file.")
-                                )
+            QMessageBox.warning(
+                None,
+                self.tr("Edit Script"),
+                self.tr("Can not find corresponding script file."),
+            )

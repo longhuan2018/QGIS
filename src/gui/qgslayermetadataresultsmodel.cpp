@@ -14,6 +14,7 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgslayermetadataresultsmodel.h"
+#include "moc_qgslayermetadataresultsmodel.cpp"
 #include "qgsfeedback.h"
 #include "qgsapplication.h"
 #include "qgslayermetadataproviderregistry.h"
@@ -27,8 +28,8 @@ QgsLayerMetadataResultsModel::QgsLayerMetadataResultsModel( const QgsMetadataSea
   : QAbstractTableModel( parent )
   , mSearchContext( searchContext )
 {
-  qRegisterMetaType< QgsLayerMetadataSearchResults>( "QgsLayerMetadataSearchResults" );
-  qRegisterMetaType< QgsLayerMetadataProviderResult>( "QgsLayerMetadataProviderResult" );
+  qRegisterMetaType<QgsLayerMetadataSearchResults>( "QgsLayerMetadataSearchResults" );
+  qRegisterMetaType<QgsLayerMetadataProviderResult>( "QgsLayerMetadataProviderResult" );
 }
 
 QgsLayerMetadataResultsModel::~QgsLayerMetadataResultsModel()
@@ -48,7 +49,7 @@ int QgsLayerMetadataResultsModel::columnCount( const QModelIndex &parent ) const
 
 QVariant QgsLayerMetadataResultsModel::data( const QModelIndex &index, int role ) const
 {
-  if ( index.isValid() && index.row() < mResult.metadata().count( ) )
+  if ( index.isValid() && index.row() < mResult.metadata().count() )
   {
     switch ( role )
     {
@@ -57,7 +58,7 @@ QVariant QgsLayerMetadataResultsModel::data( const QModelIndex &index, int role 
         switch ( index.column() )
         {
           case Sections::Identifier:
-            return mResult.metadata().at( index.row() ).identifier( );
+            return mResult.metadata().at( index.row() ).identifier();
           case Sections::Title:
             return mResult.metadata().at( index.row() ).title();
           case Sections::Abstract:
@@ -70,10 +71,11 @@ QVariant QgsLayerMetadataResultsModel::data( const QModelIndex &index, int role 
           }
           case Sections::GeometryType:
           {
-            const QgsLayerMetadataProviderResult &md { mResult.metadata().at( index.row() ) };
-            if ( md.layerType() == QgsMapLayerType::RasterLayer )
+            const QList<QgsLayerMetadataProviderResult> metadata = mResult.metadata();
+            const QgsLayerMetadataProviderResult &md { metadata.at( index.row() ) };
+            if ( md.layerType() == Qgis::LayerType::Raster )
               return tr( "Raster" );
-            return md.geometryType() == QgsWkbTypes::GeometryType::UnknownGeometry ? QgsWkbTypes::geometryDisplayString( QgsWkbTypes::GeometryType::NullGeometry ) : QgsWkbTypes::geometryDisplayString( md.geometryType() );
+            return md.geometryType() == Qgis::GeometryType::Unknown ? QgsWkbTypes::geometryDisplayString( Qgis::GeometryType::Null ) : QgsWkbTypes::geometryDisplayString( md.geometryType() );
           }
           default:
             return QVariant();
@@ -84,29 +86,30 @@ QVariant QgsLayerMetadataResultsModel::data( const QModelIndex &index, int role 
       {
         const QgsLayerMetadataFormatter formatter { mResult.metadata().at( index.row() ) };
         return tr( R"HTML(<html><body><!-- metadata headers ---><h3>Identification</h3>%1</body></html>)HTML" )
-               .arg(
-                 formatter.identificationSectionHtml() );
+          .arg(
+            formatter.identificationSectionHtml()
+          );
         break;
       }
       case Qt::ItemDataRole::DecorationRole:
       {
         if ( index.column() == 0 )
         {
-          const QgsLayerMetadataProviderResult &md { mResult.metadata().at( index.row() ) };
-          if ( md.layerType() == QgsMapLayerType::RasterLayer )
+          const QList<QgsLayerMetadataProviderResult> metadata = mResult.metadata();
+          const QgsLayerMetadataProviderResult &md { metadata.at( index.row() ) };
+          if ( md.layerType() == Qgis::LayerType::Raster )
             return QgsApplication::getThemeIcon( QStringLiteral( "mIconRaster.svg" ) );
-          return QgsIconUtils::iconForGeometryType( md.geometryType() == QgsWkbTypes::GeometryType::UnknownGeometry ? QgsWkbTypes::GeometryType::NullGeometry : md.geometryType() );
+          return QgsIconUtils::iconForGeometryType( md.geometryType() == Qgis::GeometryType::Unknown ? Qgis::GeometryType::Null : md.geometryType() );
         }
         break;
       }
-      case Roles::Metadata:
+      case static_cast<int>( CustomRole::Metadata ):
       {
         return QVariant::fromValue( mResult.metadata().at( index.row() ) );
       }
       default:
         // Ignore
         break;
-
     }
   }
   return QVariant();
@@ -166,12 +169,11 @@ void QgsLayerMetadataResultsModel::reloadAsync()
   const QList<QgsAbstractLayerMetadataProvider *> providers { QgsApplication::instance()->layerMetadataProviderRegistry()->layerMetadataProviders() };
   for ( QgsAbstractLayerMetadataProvider *mdProvider : std::as_const( providers ) )
   {
-    std::unique_ptr<QgsMetadataResultsFetcher> fetcher = std::make_unique<QgsMetadataResultsFetcher>( mdProvider, mSearchContext, mFeedback.get() );
-    std::unique_ptr<QThread> thread = std::make_unique<QThread>();
+    auto fetcher = std::make_unique<QgsMetadataResultsFetcher>( mdProvider, mSearchContext, mFeedback.get() );
+    auto thread = std::make_unique<QThread>();
     fetcher->moveToThread( thread.get() );
     // Forward signals to the model
-    connect( fetcher.get(), &QgsMetadataResultsFetcher::resultsReady, this, [ = ]( const QgsLayerMetadataSearchResults & results )
-    {
+    connect( fetcher.get(), &QgsMetadataResultsFetcher::resultsReady, this, [=]( const QgsLayerMetadataSearchResults &results ) {
       resultsReady( results );
     } );
     connect( thread.get(), &QThread::started, fetcher.get(), &QgsMetadataResultsFetcher::fetchMetadata );
@@ -183,7 +185,7 @@ void QgsLayerMetadataResultsModel::reloadAsync()
 
 void QgsLayerMetadataResultsModel::resultsReady( const QgsLayerMetadataSearchResults &results )
 {
-  mFeedback->setProgress( mFeedback->progress() + 100 / QgsApplication::instance()->layerMetadataProviderRegistry()->layerMetadataProviders().count() );
+  mFeedback->setProgress( mFeedback->progress() + static_cast<double>( 100 ) / QgsApplication::instance()->layerMetadataProviderRegistry()->layerMetadataProviders().count() );
   beginInsertRows( QModelIndex(), mResult.metadata().count(), mResult.metadata().count() + results.metadata().count() - 1 );
   const QList<QgsLayerMetadataProviderResult> metadata { results.metadata() };
   for ( const QgsLayerMetadataProviderResult &result : std::as_const( metadata ) )

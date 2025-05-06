@@ -35,7 +35,6 @@ class QgsRandomRasterAlgorithmBase : public QgsProcessingAlgorithm
     void initAlgorithm( const QVariantMap &configuration = QVariantMap() ) final;
 
   protected:
-
     /**
      * Adds specific subclass algorithm parameters. The common parameters, such as raster destination, are automatically
      * added by the base class.
@@ -64,8 +63,8 @@ class QgsRandomRasterAlgorithmBase : public QgsProcessingAlgorithm
   private:
     QgsRectangle mExtent;
     QgsCoordinateReferenceSystem mCrs;
-    double mPixelSize;
-    Qgis::DataType mRasterDataType;
+    double mPixelSize = 0;
+    Qgis::DataType mRasterDataType = Qgis::DataType::UnknownDataType;
 };
 
 
@@ -89,8 +88,8 @@ class QgsRandomUniformRasterAlgorithm : public QgsRandomRasterAlgorithmBase
     double generateRandomDoubleValue( std::mt19937 &mersenneTwister ) final;
 
   private:
-    double mRandomUpperBound;
-    double mRandomLowerBound;
+    double mRandomUpperBound = 0;
+    double mRandomLowerBound = 0;
     std::uniform_int_distribution<long> mRandomUniformIntDistribution;
     std::uniform_real_distribution<double> mRandomUniformDoubleDistribution;
 };

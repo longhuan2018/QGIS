@@ -39,7 +39,6 @@ class GUI_EXPORT QgsProcessingBatchAlgorithmDialogBase : public QgsProcessingAlg
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsProcessingBatchAlgorithmDialogBase.
      */
@@ -54,21 +53,20 @@ class GUI_EXPORT QgsProcessingBatchAlgorithmDialogBase : public QgsProcessingAlg
     /**
      * Will be called when the "Run as Single" button is clicked.
      */
-    virtual void runAsSingle() = 0;
+    virtual void runAsSingle() = 0; // cppcheck-suppress pureVirtualCall
 
   protected slots:
 
     void algExecuted( bool successful, const QVariantMap &results ) override;
 
   protected:
-
     bool isFinalized() override;
 
     /**
      * Starts the batch execution, where the \a parameters list dictates the parameters for each component
      * step of the batch.
      */
-    void execute( const QList< QVariantMap > &parameters );
+    void execute( const QList<QVariantMap> &parameters );
 
     /**
      * Creates a new Processing context.
@@ -90,7 +88,7 @@ class GUI_EXPORT QgsProcessingBatchAlgorithmDialogBase : public QgsProcessingAlg
     /**
      * Creates a summary table of the results of a batch execution.
      */
-    virtual void createSummaryTable( const QList< QVariantMap > &results, const QList< QVariantMap > &errors ) = 0;
+    virtual void createSummaryTable( const QList<QVariantMap> &results, const QList<QVariantMap> &errors ) = 0;
 
   private slots:
 
@@ -98,7 +96,6 @@ class GUI_EXPORT QgsProcessingBatchAlgorithmDialogBase : public QgsProcessingAlg
     void taskTriggered( QgsTask *task );
 
   private:
-
     void executeNext();
     void allTasksComplete( bool canceled );
 
@@ -106,14 +103,14 @@ class GUI_EXPORT QgsProcessingBatchAlgorithmDialogBase : public QgsProcessingAlg
 
     int mCurrentStep = 0;
     int mTotalSteps = 0;
-    QList< QVariantMap > mQueuedParameters;
+    QList<QVariantMap> mQueuedParameters;
     QVariantMap mCurrentParameters;
-    QPointer< QgsProxyProgressTask > mProxyTask;
-    std::unique_ptr< QgsProcessingFeedback > mFeedback;
-    std::unique_ptr< QgsProcessingBatchFeedback > mBatchFeedback;
-    std::unique_ptr< QgsProcessingContext > mTaskContext;
-    QList< QVariantMap > mResults;
-    QList< QVariantMap > mErrors;
+    QPointer<QgsProxyProgressTask> mProxyTask;
+    std::unique_ptr<QgsProcessingFeedback> mFeedback;
+    std::unique_ptr<QgsProcessingBatchFeedback> mBatchFeedback;
+    std::unique_ptr<QgsProcessingContext> mTaskContext;
+    QList<QVariantMap> mResults;
+    QList<QVariantMap> mErrors;
     QElapsedTimer mTotalTimer;
     QElapsedTimer mCurrentStepTimer;
 };

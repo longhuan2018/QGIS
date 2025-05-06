@@ -15,6 +15,7 @@
 
 
 #include "qgsrelationaggregatesearchwidgetwrapper.h"
+#include "moc_qgsrelationaggregatesearchwidgetwrapper.cpp"
 #include "qgsattributeform.h"
 #include "qgsrelationwidgetwrapper.h"
 #include "qgslogger.h"
@@ -80,7 +81,7 @@ bool QgsRelationAggregateSearchWidgetWrapper::applyDirectly()
 void QgsRelationAggregateSearchWidgetWrapper::setExpression( const QString &value )
 {
   Q_UNUSED( value )
-  QgsDebugMsg( QStringLiteral( "Not supported" ) );
+  QgsDebugError( QStringLiteral( "Not supported" ) );
 }
 
 bool QgsRelationAggregateSearchWidgetWrapper::eventFilter( QObject *watched, QEvent *event )

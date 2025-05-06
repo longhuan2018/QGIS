@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     FixedTablePanel.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 import warnings
@@ -33,13 +31,14 @@ pluginPath = os.path.split(os.path.dirname(__file__))[0]
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'widgetBaseSelector.ui'))
+        os.path.join(pluginPath, "ui", "widgetBaseSelector.ui")
+    )
 
 
 class FixedTablePanel(BASE, WIDGET):
 
     def __init__(self, param, parent=None):
-        super(FixedTablePanel, self).__init__(parent)
+        super().__init__(parent)
         self.setupUi(self)
 
         self.leText.setEnabled(False)
@@ -50,16 +49,22 @@ class FixedTablePanel(BASE, WIDGET):
         self.table = []
         for row in range(param.numberRows()):
             for col in range(len(param.headers())):
-                self.table.append('0')
+                self.table.append("0")
 
         self.leText.setText(
-            self.tr('Fixed table {0}x{1}').format(param.numberRows(), len(param.headers())))
+            self.tr("Fixed table {0}x{1}").format(
+                param.numberRows(), len(param.headers())
+            )
+        )
 
         self.btnSelect.clicked.connect(self.showFixedTableDialog)
 
     def updateSummaryText(self):
-        self.leText.setText(self.tr('Fixed table {0}x{1}').format(
-            len(self.table) // len(self.param.headers()), len(self.param.headers())))
+        self.leText.setText(
+            self.tr("Fixed table {0}x{1}").format(
+                len(self.table) // len(self.param.headers()), len(self.param.headers())
+            )
+        )
 
     def setValue(self, value):
         self.table = value
@@ -67,7 +72,7 @@ class FixedTablePanel(BASE, WIDGET):
 
     def showFixedTableDialog(self):
         dlg = FixedTableDialog(self.param, self.table)
-        dlg.exec_()
+        dlg.exec()
         if dlg.rettable is not None:
             self.setValue(dlg.rettable)
         dlg.deleteLater()

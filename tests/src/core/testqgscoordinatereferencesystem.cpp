@@ -27,12 +27,13 @@ Email                : sherman at mrcc dot com
 #include "qgsprojutils.h"
 #include "qgsprojectionfactors.h"
 #include "qgsprojoperation.h"
+#include "qgscoordinatereferencesystemregistry.h"
 #include <proj.h>
 #include <gdal.h>
 #include <cpl_conv.h>
 #include <QtTest/QSignalSpy>
 
-class TestQgsCoordinateReferenceSystem: public QObject
+class TestQgsCoordinateReferenceSystem : public QObject
 {
     Q_OBJECT
   private slots:
@@ -42,7 +43,17 @@ class TestQgsCoordinateReferenceSystem: public QObject
     void idCtor();
     void copyCtor();
     void assignmentCtor();
+    void testDeprecated();
+    void compoundCrs();
+    void verticalCrs();
+    void projectedCrs();
+    void geocentricCrs();
+    void geographic3d();
+    void toHorizontal();
+    void toVertical();
+    void hasVerticalAxis();
     void coordinateEpoch();
+    void createCompound();
     void saveAsUserCrs();
     void createFromId();
     void fromEpsgId();
@@ -99,7 +110,6 @@ class TestQgsCoordinateReferenceSystem: public QObject
     void geographicCrsAuthId();
     void noProj();
     void customProjString();
-    void recentProjections();
     void displayIdentifier();
     void createFromWktWithIdentify();
     void fromProj4EPSG20936();
@@ -116,6 +126,9 @@ class TestQgsCoordinateReferenceSystem: public QObject
     QStringList myTOWGS84Strings;
     QStringList myAuthIdStrings;
     QString mTempFolder;
+
+    const QString mWgs84Wkt = R"""(GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],USAGE[SCOPE["unknown"],AREA["World"],BBOX[-90,-180,90,180]],ID["EPSG",4326]] )""";
+
     QString testESRIWkt( int i, QgsCoordinateReferenceSystem &crs );
 
     static bool sValidateCalled;
@@ -160,9 +173,8 @@ void TestQgsCoordinateReferenceSystem::initTestCase()
   QgsApplication::showSettings();
 
 
-  QgsDebugMsg( QStringLiteral( "Custom srs database: %1" ).arg( QgsApplication::qgisUserDatabaseFilePath() ) );
+  QgsDebugMsgLevel( QStringLiteral( "Custom srs database: %1" ).arg( QgsApplication::qgisUserDatabaseFilePath() ), 1 );
 
-  qDebug() << "geoProj4() constant:      " << geoProj4();
   qDebug() << "GDAL version (build):   " << GDAL_RELEASE_NAME;
   qDebug() << "GDAL version (runtime): " << GDALVersionInfo( "RELEASE_NAME" );
   const PJ_INFO info = proj_info();
@@ -174,7 +186,6 @@ void TestQgsCoordinateReferenceSystem::initTestCase()
     qDebug() << "Warning! GDAL_FIX_ESRI_WKT =" << CPLGetConfigOption( "GDAL_FIX_ESRI_WKT", "" )
              << "this might generate errors!";
   }
-
 }
 
 void TestQgsCoordinateReferenceSystem::cleanupTestCase()
@@ -184,18 +195,18 @@ void TestQgsCoordinateReferenceSystem::cleanupTestCase()
 
 void TestQgsCoordinateReferenceSystem::wktCtor()
 {
-  const QString myWkt = geoWkt();
-  QgsCoordinateReferenceSystem myCrs( myWkt );
+  QgsCoordinateReferenceSystem myCrs( mWgs84Wkt );
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
 
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7030" ) );
+
+  QCOMPARE( myCrs.type(), Qgis::CrsType::Geographic2d );
 }
 void TestQgsCoordinateReferenceSystem::idCtor()
 {
   Q_NOWARN_DEPRECATED_PUSH
-  const QgsCoordinateReferenceSystem myCrs( GEOSRID,
-      QgsCoordinateReferenceSystem::EpsgCrsId );
+  const QgsCoordinateReferenceSystem myCrs( 4326, QgsCoordinateReferenceSystem::EpsgCrsId );
   Q_NOWARN_DEPRECATED_POP
   QVERIFY( myCrs.isValid() );
 
@@ -254,6 +265,171 @@ void TestQgsCoordinateReferenceSystem::assignmentCtor()
   QCOMPARE( myCrs3.coordinateEpoch(), 2021.2 );
 }
 
+void TestQgsCoordinateReferenceSystem::testDeprecated()
+{
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ).isDeprecated() );
+  QVERIFY( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4226" ) ).isDeprecated() );
+}
+
+void TestQgsCoordinateReferenceSystem::compoundCrs()
+{
+  QgsCoordinateReferenceSystem crs;
+  crs.createFromString( QStringLiteral( "EPSG:5500" ) );
+  QVERIFY( crs.isValid() );
+
+  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5500" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Compound );
+  QVERIFY( crs.isGeographic() );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::Degrees );
+
+  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:9388" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Compound );
+  QVERIFY( !crs.isGeographic() );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::Meters );
+  QVERIFY( !crs.hasAxisInverted() );
+  QCOMPARE( crs.axisOrdering(), QList<Qgis::CrsAxisDirection>() << Qgis::CrsAxisDirection::East << Qgis::CrsAxisDirection::North << Qgis::CrsAxisDirection::Up );
+
+  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3903" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Compound );
+  QVERIFY( !crs.isGeographic() );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::Meters );
+  QVERIFY( crs.hasAxisInverted() );
+  QCOMPARE( crs.axisOrdering(), QList<Qgis::CrsAxisDirection>() << Qgis::CrsAxisDirection::North << Qgis::CrsAxisDirection::East << Qgis::CrsAxisDirection::Up );
+}
+
+void TestQgsCoordinateReferenceSystem::verticalCrs()
+{
+  QgsCoordinateReferenceSystem crs;
+  crs.createFromString( QStringLiteral( "EPSG:5703" ) );
+  QVERIFY( crs.isValid() );
+
+  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) );
+  QVERIFY( crs.isValid() );
+
+  QCOMPARE( crs.type(), Qgis::CrsType::Vertical );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::Meters );
+
+  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:6358" ) );
+  QVERIFY( crs.isValid() );
+
+  QCOMPARE( crs.type(), Qgis::CrsType::Vertical );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::FeetUSSurvey );
+}
+
+void TestQgsCoordinateReferenceSystem::projectedCrs()
+{
+  QgsCoordinateReferenceSystem crs;
+  crs.createFromString( QStringLiteral( "EPSG:3111" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Projected );
+}
+
+void TestQgsCoordinateReferenceSystem::geocentricCrs()
+{
+  QgsCoordinateReferenceSystem crs;
+  crs.createFromString( QStringLiteral( "EPSG:4978" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Geocentric );
+}
+
+void TestQgsCoordinateReferenceSystem::geographic3d()
+{
+  QgsCoordinateReferenceSystem crs;
+  crs.createFromString( QStringLiteral( "EPSG:4979" ) );
+  QVERIFY( crs.isValid() );
+  QCOMPARE( crs.type(), Qgis::CrsType::Geographic3d );
+}
+
+void TestQgsCoordinateReferenceSystem::toHorizontal()
+{
+  // invalid
+  QVERIFY( !QgsCoordinateReferenceSystem().horizontalCrs().isValid() );
+  // vertical only
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ).horizontalCrs().isValid() );
+  // compound
+  QCOMPARE( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5500" ) ).horizontalCrs().authid(), QStringLiteral( "EPSG:4759" ) );
+  // already horizontal
+  QCOMPARE( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ).horizontalCrs().authid(), QStringLiteral( "EPSG:3111" ) );
+  // geographic 3d
+  QCOMPARE( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4979" ) ).horizontalCrs().authid(), QStringLiteral( "EPSG:4979" ) );
+}
+
+void TestQgsCoordinateReferenceSystem::toVertical()
+{
+  // invalid
+  QVERIFY( !QgsCoordinateReferenceSystem().verticalCrs().isValid() );
+  // horizontal only (projected 2d)
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ).verticalCrs().isValid() );
+  // compound
+  QCOMPARE( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5500" ) ).verticalCrs().authid(), QStringLiteral( "EPSG:5703" ) );
+  // already vertical
+  QCOMPARE( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ).verticalCrs().authid(), QStringLiteral( "EPSG:5703" ) );
+  // geographic 3d
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4979" ) ).verticalCrs().isValid() );
+}
+
+void TestQgsCoordinateReferenceSystem::hasVerticalAxis()
+{
+  // invalid
+  QVERIFY( !QgsCoordinateReferenceSystem().hasVerticalAxis() );
+  // horizontal only (projected 2d)
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ).hasVerticalAxis() );
+  // compound
+  QVERIFY( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5500" ) ).hasVerticalAxis() );
+  // already vertical
+  QVERIFY( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ).hasVerticalAxis() );
+  // geographic 2d
+  QVERIFY( !QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) ).hasVerticalAxis() );
+  // geographic 3d
+  QVERIFY( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4979" ) ).hasVerticalAxis() );
+  // projected 3d
+  const QString projected3DWkt = QStringLiteral( "PROJCRS[\"NAD83(HARN) / Oregon GIC Lambert (ft)\",\n"
+                                                 "    BASEGEOGCRS[\"NAD83(HARN)\",\n"
+                                                 "        DATUM[\"NAD83 (High Accuracy Reference Network)\",\n"
+                                                 "            ELLIPSOID[\"GRS 1980\",6378137,298.257222101,\n"
+                                                 "                LENGTHUNIT[\"metre\",1]]],\n"
+                                                 "        PRIMEM[\"Greenwich\",0,\n"
+                                                 "            ANGLEUNIT[\"degree\",0.0174532925199433]],\n"
+                                                 "        ID[\"EPSG\",4957]],\n"
+                                                 "    CONVERSION[\"unnamed\",\n"
+                                                 "        METHOD[\"Lambert Conic Conformal (2SP)\",\n"
+                                                 "            ID[\"EPSG\",9802]],\n"
+                                                 "        PARAMETER[\"Latitude of false origin\",41.75,\n"
+                                                 "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+                                                 "            ID[\"EPSG\",8821]],\n"
+                                                 "        PARAMETER[\"Longitude of false origin\",-120.5,\n"
+                                                 "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+                                                 "            ID[\"EPSG\",8822]],\n"
+                                                 "        PARAMETER[\"Latitude of 1st standard parallel\",43,\n"
+                                                 "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+                                                 "            ID[\"EPSG\",8823]],\n"
+                                                 "        PARAMETER[\"Latitude of 2nd standard parallel\",45.5,\n"
+                                                 "            ANGLEUNIT[\"degree\",0.0174532925199433],\n"
+                                                 "            ID[\"EPSG\",8824]],\n"
+                                                 "        PARAMETER[\"Easting at false origin\",1312335.958,\n"
+                                                 "            LENGTHUNIT[\"foot\",0.3048],\n"
+                                                 "            ID[\"EPSG\",8826]],\n"
+                                                 "        PARAMETER[\"Northing at false origin\",0,\n"
+                                                 "            LENGTHUNIT[\"foot\",0.3048],\n"
+                                                 "            ID[\"EPSG\",8827]]],\n"
+                                                 "    CS[Cartesian,3],\n"
+                                                 "        AXIS[\"easting\",east,\n"
+                                                 "            ORDER[1],\n"
+                                                 "            LENGTHUNIT[\"foot\",0.3048]],\n"
+                                                 "        AXIS[\"northing\",north,\n"
+                                                 "            ORDER[2],\n"
+                                                 "            LENGTHUNIT[\"foot\",0.3048]],\n"
+                                                 "        AXIS[\"ellipsoidal height (h)\",up,\n"
+                                                 "            ORDER[3],\n"
+                                                 "            LENGTHUNIT[\"foot\",0.3048]]]" );
+  const QgsCoordinateReferenceSystem projected3D = QgsCoordinateReferenceSystem::fromWkt( projected3DWkt );
+  QVERIFY( projected3D.isValid() );
+  QVERIFY( projected3D.hasVerticalAxis() );
+}
+
 void TestQgsCoordinateReferenceSystem::coordinateEpoch()
 {
   QgsCoordinateReferenceSystem crs( QStringLiteral( "EPSG:4326" ) );
@@ -273,24 +449,49 @@ void TestQgsCoordinateReferenceSystem::coordinateEpoch()
   QVERIFY( crs2.projObject() );
 }
 
+void TestQgsCoordinateReferenceSystem::createCompound()
+{
+  //horizontal invalid / vertical invalid
+  QString error;
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem(), QgsCoordinateReferenceSystem(), error ).isValid() );
+  // horizontal valid / vertical invalid
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ), QgsCoordinateReferenceSystem(), error ).isValid() );
+  // horizontal invalid / vertical valid
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem(), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ), error ).isValid() );
+  // horizontal valid / vertical valid
+  const QgsCoordinateReferenceSystem compound = QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ), error );
+  QVERIFY( compound.isValid() );
+  QCOMPARE( compound.description(), QStringLiteral( "unnamed" ) );
+  QCOMPARE( compound.type(), Qgis::CrsType::Compound );
+  QVERIFY( error.isEmpty() );
+  // horizontal / vertical flipped
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ), error ).isValid() );
+  QCOMPARE( error.left( 79 ), QStringLiteral( "components of the compound CRS do not belong to one of the allowed combinations" ) );
+  // horizontal valid / not vertical
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3113" ) ), error ).isValid() );
+  QCOMPARE( error.left( 79 ), QStringLiteral( "components of the compound CRS do not belong to one of the allowed combinations" ) );
+  // horizontal already a compound
+  QVERIFY( !QgsCoordinateReferenceSystem::createCompoundCrs( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5500" ) ), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) ), error ).isValid() );
+  QCOMPARE( error.left( 79 ), QStringLiteral( "components of the compound CRS do not belong to one of the allowed combinations" ) );
+}
+
 void TestQgsCoordinateReferenceSystem::createFromId()
 {
   QgsCoordinateReferenceSystem myCrs;
   Q_NOWARN_DEPRECATED_PUSH
-  myCrs.createFromId( GEO_EPSG_CRS_ID,
-                      QgsCoordinateReferenceSystem::EpsgCrsId );
+  myCrs.createFromId( 4326, QgsCoordinateReferenceSystem::EpsgCrsId );
   Q_NOWARN_DEPRECATED_POP
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7030" ) );
 }
 
 void TestQgsCoordinateReferenceSystem::fromEpsgId()
 {
-  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromEpsgId( GEO_EPSG_CRS_ID );
+  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromEpsgId( 4326 );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   myCrs = QgsCoordinateReferenceSystem::fromEpsgId( -999 );
   QVERIFY( !myCrs.isValid() );
 
@@ -372,11 +573,11 @@ void TestQgsCoordinateReferenceSystem::createFromSrid()
 {
   QgsCoordinateReferenceSystem myCrs;
   Q_NOWARN_DEPRECATED_PUSH
-  myCrs.createFromSrid( GEOSRID );
+  myCrs.createFromSrid( 4326 );
   Q_NOWARN_DEPRECATED_POP
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7030" ) );
 }
 
@@ -415,10 +616,10 @@ void TestQgsCoordinateReferenceSystem::sridCache()
 void TestQgsCoordinateReferenceSystem::createFromWkt()
 {
   QgsCoordinateReferenceSystem myCrs;
-  myCrs.createFromWkt( geoWkt() );
+  myCrs.createFromWkt( mWgs84Wkt );
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7030" ) );
 }
 
@@ -486,64 +687,64 @@ void TestQgsCoordinateReferenceSystem::createFromWktUnknown()
   const QString wkt = QStringLiteral( R"""(PROJCS["Belge 1972 / Belgian Lambert 72",GEOGCS["Belge 1972",DATUM["Reseau_National_Belge_1972",SPHEROID["International 1924",6378388,297],AUTHORITY["EPSG","6313"]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433]],PROJECTION["Lambert_Conformal_Conic_2SP"],PARAMETER["latitude_of_origin",90],PARAMETER["central_meridian",4.36798666666667],PARAMETER["standard_parallel_1",49.8333339],PARAMETER["standard_parallel_2",51.1666672333333],PARAMETER["false_easting",150000.01256],PARAMETER["false_northing",5400088.4378],UNIT["metre",1,AUTHORITY["EPSG","9001"]],AXIS["Easting",EAST],AXIS["Northing",NORTH]])""" );
   const QString expectedWkt = QStringLiteral( R"""(PROJCRS["Belge 1972 / Belgian Lambert 72",BASEGEOGCRS["Belge 1972",DATUM["Reseau National Belge 1972",ELLIPSOID["International 1924",6378388,297,LENGTHUNIT["metre",1]],ID["EPSG",6313]],PRIMEM["Greenwich",0,ANGLEUNIT["Degree",0.0174532925199433]]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of false origin",90,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",4.36798666666667,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",49.8333339,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",51.1666672333333,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",150000.01256,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",5400088.4378,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]])""" );
 
-  QgsDebugMsg( expectedWkt );
+  QgsDebugMsgLevel( expectedWkt, 1 );
 
   crs.createFromWkt( wkt );
   QVERIFY( crs.isValid() );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Preferred ), 1 );
   crs.saveAsUserCrs( QStringLiteral( "Test CRS" ) );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
-  QCOMPARE( crs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ), expectedWkt );
-  QCOMPARE( crs.srsid(), static_cast< long >( USER_CRS_START_ID + 1 ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Preferred ), 1 );
+  QCOMPARE( crs.toWkt( Qgis::CrsWktVariant::Preferred ), expectedWkt );
+  QCOMPARE( crs.srsid(), static_cast<long>( Qgis::USER_CRS_START_ID + 1 ) );
   QCOMPARE( crs.authid(), QStringLiteral( "USER:100001" ) );
-  QCOMPARE( crs.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs.mapUnits(), Qgis::DistanceUnit::Meters );
   QCOMPARE( crs.ellipsoidAcronym().left( 30 ), QStringLiteral( "PARAMETER:6378388:6356911.9461" ) );
 
   // try creating new ones with same def
   const QgsCoordinateReferenceSystem crs2( QStringLiteral( "USER:100001" ) );
   QVERIFY( crs2.isValid() );
-  QCOMPARE( crs2.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs2.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs2.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs2.mapUnits(), Qgis::DistanceUnit::Meters );
 
   QgsCoordinateReferenceSystem crs3;
   crs3.createFromWkt( wkt );
   QVERIFY( crs3.isValid() );
-  QCOMPARE( crs3.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs3.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs3.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs3.mapUnits(), Qgis::DistanceUnit::Meters );
 
   // force reads from database
   QgsCoordinateReferenceSystem::invalidateCache();
   QgsCoordinateReferenceSystem crs4( QStringLiteral( "USER:100001" ) );
   QVERIFY( crs4.isValid() );
-  QCOMPARE( crs4.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs4.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs4.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs4.mapUnits(), Qgis::DistanceUnit::Meters );
   QgsCoordinateReferenceSystem::invalidateCache();
   crs4.createFromOgcWmsCrs( QStringLiteral( "USER:100001" ) );
   QVERIFY( crs4.isValid() );
-  QCOMPARE( crs4.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs4.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs4.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs4.mapUnits(), Qgis::DistanceUnit::Meters );
 
   QgsCoordinateReferenceSystem crs5;
   crs5.createFromWkt( expectedWkt );
   QVERIFY( crs5.isValid() );
-  QCOMPARE( crs5.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs5.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs5.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs5.mapUnits(), Qgis::DistanceUnit::Meters );
   QCOMPARE( crs5.authid(), QStringLiteral( "USER:100001" ) );
 
   // try creating with a different parameter order, should still be matched to existing user crs
   QgsCoordinateReferenceSystem crs6;
   crs6.createFromWkt( QStringLiteral( R"""(PROJCRS["Belge 1972 / Belgian Lambert 72",BASEGEOGCRS["Belge 1972",DATUM["Reseau National Belge 1972",ELLIPSOID["International 1924",6378388,297,LENGTHUNIT["metre",1]],ID["EPSG",6313]],PRIMEM["Greenwich",0,ANGLEUNIT["Degree",0.0174532925199433]]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of false origin",90,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Latitude of 1st standard parallel",49.8333339,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Longitude of false origin",4.36798666666667,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 2nd standard parallel",51.1666672333333,ANGLEUNIT["Degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",150000.01256,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",5400088.4378,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]])""" ) );
   QVERIFY( crs6.isValid() );
-  QCOMPARE( crs6.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), expectedWkt );
-  QCOMPARE( crs6.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( crs6.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), expectedWkt );
+  QCOMPARE( crs6.mapUnits(), Qgis::DistanceUnit::Meters );
   QCOMPARE( crs6.authid(), QStringLiteral( "USER:100001" ) );
 }
 
 void TestQgsCoordinateReferenceSystem::fromWkt()
 {
-  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromWkt( geoWkt() );
+  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromWkt( mWgs84Wkt );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   myCrs = QgsCoordinateReferenceSystem::fromWkt( QStringLiteral( "not wkt" ) );
   QVERIFY( !myCrs.isValid() );
 
@@ -551,21 +752,138 @@ void TestQgsCoordinateReferenceSystem::fromWkt()
   myCrs = QgsCoordinateReferenceSystem::fromWkt( R"""(PROJCRS["some locally made crs",BASEGEOGCRS["unknown",DATUM["Unknown based on WGS84 ellipsoid",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1],ID["EPSG",7030]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8901]]],CONVERSION["unknown",METHOD["Hotine Oblique Mercator (variant B)",ID["EPSG",9815]],PARAMETER["Latitude of projection centre",47.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8811]],PARAMETER["Longitude of projection centre",9,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8812]],PARAMETER["Azimuth of initial line",39.4,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8813]],PARAMETER["Angle from Rectified to Skew Grid",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8814]],PARAMETER["Scale factor on initial line",1,SCALEUNIT["unity",1],ID["EPSG",8815]],PARAMETER["Easting at projection centre",750,LENGTHUNIT["metre",1],ID["EPSG",8816]],PARAMETER["Northing at projection centre",250,LENGTHUNIT["metre",1],ID["EPSG",8817]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]])""" );
   QVERIFY( myCrs.isValid() );
   QCOMPARE( myCrs.description(), QStringLiteral( "some locally made crs" ) );
+
+
+  // wkt with ID set, but not a known one:
+  myCrs = QgsCoordinateReferenceSystem::fromWkt( R"""(GEODCRS["IAU_2015MoonXYZ",
+  DATUM["Moon(2015)-Sphere",
+    ELLIPSOID["Moon(2015)-Sphere",1737400,0,LENGTHUNIT["metre",1,ID["EPSG",9001]]]],
+  CS[Cartesian,3],
+  AXIS["(X)",geocentricX,ORDER[1],LENGTHUNIT["metre",1]],
+  AXIS["(Y)",geocentricY,ORDER[2],LENGTHUNIT["metre",1]],
+  AXIS["(Z)",geocentricZ,ORDER[3],LENGTHUNIT["metre",1]],
+  ID["IAU",30000,2015]
+])""" );
+  QVERIFY( myCrs.isValid() );
+  // we should ignore the authid from the WKT, it is not a valid one
+  QCOMPARE( myCrs.authid(), QString() );
+  QCOMPARE( myCrs.description(), QStringLiteral( "IAU_2015MoonXYZ" ) );
+  QCOMPARE( myCrs.type(), Qgis::CrsType::Geocentric );
+  QCOMPARE( myCrs.celestialBodyName(), QStringLiteral( "Moon" ) );
+
+  // retrieve from cache
+  QgsCoordinateReferenceSystem fromCache = QgsCoordinateReferenceSystem::fromWkt( R"""(GEODCRS["IAU_2015MoonXYZ",
+  DATUM["Moon(2015)-Sphere",
+    ELLIPSOID["Moon(2015)-Sphere",1737400,0,LENGTHUNIT["metre",1,ID["EPSG",9001]]]],
+  CS[Cartesian,3],
+  AXIS["(X)",geocentricX,ORDER[1],LENGTHUNIT["metre",1]],
+  AXIS["(Y)",geocentricY,ORDER[2],LENGTHUNIT["metre",1]],
+  AXIS["(Z)",geocentricZ,ORDER[3],LENGTHUNIT["metre",1]],
+  ID["IAU",30000,2015]
+])""" );
+  QCOMPARE( fromCache, myCrs );
+
+  // wkt with ID set, but not a known one:
+  myCrs = QgsCoordinateReferenceSystem::fromWkt( R"""(PROJCRS["RGF93 v2b / Lambert-LSBB",
+    BASEGEOGCRS["RGF93 v2b",
+        DATUM["Reseau Geodesique Francais 1993 v2b",
+            ELLIPSOID["GRS 1980",6378137,298.257222101,
+                LENGTHUNIT["metre",1]]],
+        PRIMEM["Greenwich",0,
+            ANGLEUNIT["degree",0.0174532925199433]],
+        ID["EPSG",9782]],
+    CONVERSION["Lambert-LSBB",
+        METHOD["Lambert Conic Conformal (1SP)",
+            ID["EPSG",9801]],
+        PARAMETER["Latitude of natural origin",43.93333333333333,
+            ANGLEUNIT["degree",0.0174532925199433],
+            ID["EPSG",8801]],
+        PARAMETER["Longitude of natural origin",5.475000,
+            ANGLEUNIT["degree",0.0174532925199433],
+            ID["EPSG",8802]],
+        PARAMETER["Scale factor at natural origin",1.00008468,
+            SCALEUNIT["unity",1],
+            ID["EPSG",8805]],
+        PARAMETER["False easting",10000,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8806]],
+        PARAMETER["False northing",70000,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8807]]],
+    CS[Cartesian,2],
+        AXIS["easting (X)",east,
+            ORDER[1],
+            LENGTHUNIT["metre",1]],
+        AXIS["northing (Y)",north,
+            ORDER[2],
+            LENGTHUNIT["metre",1]],
+    USAGE[
+        SCOPE["Engineering survey, topographic mapping."],
+        AREA["France - onshore and offshore, mainland and Corsica."],
+        BBOX[43,4,45,6]],
+    ID["EPSG",100001]])""" );
+  QVERIFY( myCrs.isValid() );
+  // we should ignore the authid from the WKT, it is not a valid one
+  QCOMPARE( myCrs.authid(), QString() );
+  QCOMPARE( myCrs.description(), QStringLiteral( "RGF93 v2b / Lambert-LSBB" ) );
+  QCOMPARE( myCrs.type(), Qgis::CrsType::Projected );
+  QCOMPARE( myCrs.celestialBodyName(), QStringLiteral( "Earth" ) );
+
+  // retrieve from cache
+  fromCache = QgsCoordinateReferenceSystem::fromWkt( R"""(PROJCRS["RGF93 v2b / Lambert-LSBB",
+    BASEGEOGCRS["RGF93 v2b",
+        DATUM["Reseau Geodesique Francais 1993 v2b",
+            ELLIPSOID["GRS 1980",6378137,298.257222101,
+                LENGTHUNIT["metre",1]]],
+        PRIMEM["Greenwich",0,
+            ANGLEUNIT["degree",0.0174532925199433]],
+        ID["EPSG",9782]],
+    CONVERSION["Lambert-LSBB",
+        METHOD["Lambert Conic Conformal (1SP)",
+            ID["EPSG",9801]],
+        PARAMETER["Latitude of natural origin",43.93333333333333,
+            ANGLEUNIT["degree",0.0174532925199433],
+            ID["EPSG",8801]],
+        PARAMETER["Longitude of natural origin",5.475000,
+            ANGLEUNIT["degree",0.0174532925199433],
+            ID["EPSG",8802]],
+        PARAMETER["Scale factor at natural origin",1.00008468,
+            SCALEUNIT["unity",1],
+            ID["EPSG",8805]],
+        PARAMETER["False easting",10000,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8806]],
+        PARAMETER["False northing",70000,
+            LENGTHUNIT["metre",1],
+            ID["EPSG",8807]]],
+    CS[Cartesian,2],
+        AXIS["easting (X)",east,
+            ORDER[1],
+            LENGTHUNIT["metre",1]],
+        AXIS["northing (Y)",north,
+            ORDER[2],
+            LENGTHUNIT["metre",1]],
+    USAGE[
+        SCOPE["Engineering survey, topographic mapping."],
+        AREA["France - onshore and offshore, mainland and Corsica."],
+        BBOX[43,4,45,6]],
+    ID["EPSG",100001]])""" );
+  QCOMPARE( fromCache, myCrs );
 }
 
 void TestQgsCoordinateReferenceSystem::wktCache()
 {
   // test that crs can be retrieved correctly from cache
   QgsCoordinateReferenceSystem crs;
-  QVERIFY( crs.createFromWkt( geoWkt() ) );
+  QVERIFY( crs.createFromWkt( mWgs84Wkt ) );
   QVERIFY( crs.isValid() );
-  QCOMPARE( crs.srsid(), GEOCRS_ID );
-  QVERIFY( QgsCoordinateReferenceSystem::wktCache().contains( geoWkt() ) );
+  QCOMPARE( crs.srsid(), 3452 );
+  QVERIFY( QgsCoordinateReferenceSystem::wktCache().contains( mWgs84Wkt ) );
   // a second time, so crs is fetched from cache
   QgsCoordinateReferenceSystem crs2;
-  QVERIFY( crs2.createFromWkt( geoWkt() ) );
+  QVERIFY( crs2.createFromWkt( mWgs84Wkt ) );
   QVERIFY( crs2.isValid() );
-  QCOMPARE( crs2.srsid(), GEOCRS_ID );
+  QCOMPARE( crs2.srsid(), 3452 );
 
   // invalid
   QgsCoordinateReferenceSystem crs3;
@@ -578,14 +896,14 @@ void TestQgsCoordinateReferenceSystem::wktCache()
   QVERIFY( !crs4.isValid() );
 
   QgsCoordinateReferenceSystem::invalidateCache();
-  QVERIFY( !QgsCoordinateReferenceSystem::wktCache().contains( geoWkt() ) );
+  QVERIFY( !QgsCoordinateReferenceSystem::wktCache().contains( mWgs84Wkt ) );
 }
 
 QString TestQgsCoordinateReferenceSystem::testESRIWkt( int i, QgsCoordinateReferenceSystem &myCrs )
 {
   debugPrint( myCrs );
 
-  if ( ! myCrs.isValid() )
+  if ( !myCrs.isValid() )
     return QStringLiteral( "test %1 crs is invalid" );
 #if 0
   if ( myCrs.toProj() != myProj4Strings[i] )
@@ -594,10 +912,14 @@ QString TestQgsCoordinateReferenceSystem::testESRIWkt( int i, QgsCoordinateRefer
 #endif
   if ( myCrs.toProj().indexOf( myTOWGS84Strings[i] ) == -1 )
     return QStringLiteral( "test %1 [%2] not found, PROJ = [%3] expecting [%4]"
-                         ).arg( i ).arg( myTOWGS84Strings[i], myCrs.toProj(), myProj4Strings[i] );
+    )
+      .arg( i )
+      .arg( myTOWGS84Strings[i], myCrs.toProj(), myProj4Strings[i] );
   if ( myCrs.authid() != myAuthIdStrings[i] )
     return QStringLiteral( "test %1 AUTHID = [%2] expecting [%3]"
-                         ).arg( i ).arg( myCrs.authid(), myAuthIdStrings[i] );
+    )
+      .arg( i )
+      .arg( myCrs.authid(), myAuthIdStrings[i] );
 
   return QString();
 }
@@ -606,18 +928,18 @@ void TestQgsCoordinateReferenceSystem::createFromSrId()
 {
   QgsCoordinateReferenceSystem myCrs;
   Q_NOWARN_DEPRECATED_PUSH
-  QVERIFY( myCrs.createFromSrid( GEOSRID ) );
+  QVERIFY( myCrs.createFromSrid( 4326 ) );
   Q_NOWARN_DEPRECATED_POP
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
 }
 
 void TestQgsCoordinateReferenceSystem::fromSrsId()
 {
-  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromSrsId( GEOCRS_ID );
+  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromSrsId( 3452 );
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   myCrs = QgsCoordinateReferenceSystem::fromSrsId( -9999 );
   QVERIFY( !myCrs.isValid() );
 }
@@ -626,15 +948,15 @@ void TestQgsCoordinateReferenceSystem::srsIdCache()
 {
   // test that crs can be retrieved correctly from cache
   QgsCoordinateReferenceSystem crs;
-  QVERIFY( crs.createFromSrsId( GEOCRS_ID ) );
+  QVERIFY( crs.createFromSrsId( 3452 ) );
   QVERIFY( crs.isValid() );
-  QCOMPARE( crs.srsid(), GEOCRS_ID );
-  QVERIFY( QgsCoordinateReferenceSystem::srsIdCache().contains( GEOCRS_ID ) );
+  QCOMPARE( crs.srsid(), 3452 );
+  QVERIFY( QgsCoordinateReferenceSystem::srsIdCache().contains( 3452 ) );
   // a second time, so crs is fetched from cache
   QgsCoordinateReferenceSystem crs2;
-  QVERIFY( crs2.createFromSrsId( GEOCRS_ID ) );
+  QVERIFY( crs2.createFromSrsId( 3452 ) );
   QVERIFY( crs2.isValid() );
-  QCOMPARE( crs2.srsid(), GEOCRS_ID );
+  QCOMPARE( crs2.srsid(), 3452 );
 
   // invalid
   QgsCoordinateReferenceSystem crs3;
@@ -647,7 +969,7 @@ void TestQgsCoordinateReferenceSystem::srsIdCache()
   QVERIFY( !crs4.isValid() );
 
   QgsCoordinateReferenceSystem::invalidateCache();
-  QVERIFY( !QgsCoordinateReferenceSystem::srsIdCache().contains( GEOCRS_ID ) );
+  QVERIFY( !QgsCoordinateReferenceSystem::srsIdCache().contains( 3452 ) );
 }
 
 
@@ -657,19 +979,19 @@ void TestQgsCoordinateReferenceSystem::createFromProj()
   QVERIFY( !myCrs.createFromProj( QString() ) );
   QVERIFY( !myCrs.isValid() );
 
-  QVERIFY( myCrs.createFromProj( geoProj4() ) );
+  QVERIFY( myCrs.createFromProj( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) ) );
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7030" ) );
 }
 
 void TestQgsCoordinateReferenceSystem::fromProj()
 {
-  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromProj( geoProj4() );
+  QgsCoordinateReferenceSystem myCrs = QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) );
   debugPrint( myCrs );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.srsid(), GEOCRS_ID );
+  QCOMPARE( myCrs.srsid(), 3452 );
   myCrs = QgsCoordinateReferenceSystem::fromProj( QString() );
   QVERIFY( !myCrs.isValid() );
 }
@@ -678,15 +1000,15 @@ void TestQgsCoordinateReferenceSystem::proj4Cache()
 {
   // test that crs can be retrieved correctly from cache
   QgsCoordinateReferenceSystem crs;
-  QVERIFY( crs.createFromProj( geoProj4() ) );
+  QVERIFY( crs.createFromProj( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) ) );
   QVERIFY( crs.isValid() );
-  QCOMPARE( crs.srsid(), GEOCRS_ID );
-  QVERIFY( QgsCoordinateReferenceSystem::projCache().contains( geoProj4() ) );
+  QCOMPARE( crs.srsid(), 3452 );
+  QVERIFY( QgsCoordinateReferenceSystem::projCache().contains( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) ) );
   // a second time, so crs is fetched from cache
   QgsCoordinateReferenceSystem crs2;
-  QVERIFY( crs2.createFromProj( geoProj4() ) );
+  QVERIFY( crs2.createFromProj( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) ) );
   QVERIFY( crs2.isValid() );
-  QCOMPARE( crs2.srsid(), GEOCRS_ID );
+  QCOMPARE( crs2.srsid(), 3452 );
 
   // invalid
   QgsCoordinateReferenceSystem crs3;
@@ -699,7 +1021,7 @@ void TestQgsCoordinateReferenceSystem::proj4Cache()
   QVERIFY( !crs4.isValid() );
 
   QgsCoordinateReferenceSystem::invalidateCache();
-  QVERIFY( !QgsCoordinateReferenceSystem::projCache().contains( geoProj4() ) );
+  QVERIFY( !QgsCoordinateReferenceSystem::projCache().contains( QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) ) );
 }
 
 void TestQgsCoordinateReferenceSystem::fromString()
@@ -891,6 +1213,8 @@ void TestQgsCoordinateReferenceSystem::comparison_data()
   QgsCoordinateReferenceSystem noAuthId;
   noAuthId.createFromWkt( QStringLiteral( "PROJCS[\"unnamed\",GEOGCS[\"unnamed\",DATUM[\"Geocentric_Datum_of_Australia_2020\",SPHEROID[\"GRS 80\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",147],PARAMETER[\"scale_factor\",0.1996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",10000000],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]" ) );
 
+  QgsCoordinateReferenceSystem noAuthId2;
+  noAuthId2.createFromProj( QStringLiteral( "+proj=ortho +lat_0=47.686 +lon_0=16.548 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs" ) );
 
   const QgsCoordinateReferenceSystem epsg4326( QStringLiteral( "EPSG:4326" ) );
   const QgsCoordinateReferenceSystem epsg3111( QStringLiteral( "EPSG:3111" ) );
@@ -910,6 +1234,8 @@ void TestQgsCoordinateReferenceSystem::comparison_data()
   QTest::newRow( "epsg4326 == epsg4326" ) << epsg4326 << epsg4326 << true;
   QTest::newRow( "user == user" ) << userCrs1 << userCrs1 << true;
   QTest::newRow( "noAuthId == noAuthId" ) << noAuthId << noAuthId << true;
+  QTest::newRow( "noAuthId == noAuthId" ) << noAuthId2 << noAuthId2 << true;
+  QTest::newRow( "noAuthId2 < noAuthId" ) << noAuthId2 << noAuthId << false;
 
   QTest::newRow( "invalid < epsg4326" ) << QgsCoordinateReferenceSystem() << epsg4326 << false;
   QTest::newRow( "invalid < user" ) << QgsCoordinateReferenceSystem() << userCrs1 << false;
@@ -976,8 +1302,8 @@ void TestQgsCoordinateReferenceSystem::equality()
   QVERIFY( !( myCrs == myCrs2 ) );
   myCrs2.setCoordinateEpoch( 2021.3 );
   QVERIFY( myCrs == myCrs2 );
-  myCrs.setCoordinateEpoch( std::numeric_limits< double >::quiet_NaN() );
-  myCrs2.setCoordinateEpoch( std::numeric_limits< double >::quiet_NaN() );
+  myCrs.setCoordinateEpoch( std::numeric_limits<double>::quiet_NaN() );
+  myCrs2.setCoordinateEpoch( std::numeric_limits<double>::quiet_NaN() );
 
   // custom crs, no authid
   myCrs.createFromWkt( QStringLiteral( "PROJCS[\"unnamed\",GEOGCS[\"unnamed\",DATUM[\"Geocentric_Datum_of_Australia_2020\",SPHEROID[\"GRS 80\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",147],PARAMETER[\"scale_factor\",0.1996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",10000000],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]" ) );
@@ -999,8 +1325,8 @@ void TestQgsCoordinateReferenceSystem::noEquality()
   QVERIFY( myCrs != myCrs3 );
   myCrs3.setCoordinateEpoch( 2021.3 );
   QVERIFY( !( myCrs != myCrs3 ) );
-  myCrs.setCoordinateEpoch( std::numeric_limits< double >::quiet_NaN() );
-  myCrs3.setCoordinateEpoch( std::numeric_limits< double >::quiet_NaN() );
+  myCrs.setCoordinateEpoch( std::numeric_limits<double>::quiet_NaN() );
+  myCrs3.setCoordinateEpoch( std::numeric_limits<double>::quiet_NaN() );
 
   // custom crs, no authid
   myCrs.createFromWkt( QStringLiteral( "PROJCS[\"unnamed\",GEOGCS[\"unnamed\",DATUM[\"Geocentric_Datum_of_Australia_2020\",SPHEROID[\"GRS 80\",6378137,298.257222101]],PRIMEM[\"Greenwich\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Transverse_Mercator\"],PARAMETER[\"latitude_of_origin\",0],PARAMETER[\"central_meridian\",147],PARAMETER[\"scale_factor\",0.1996],PARAMETER[\"false_easting\",500000],PARAMETER[\"false_northing\",10000000],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]" ) );
@@ -1035,7 +1361,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QgsCoordinateReferenceSystem badCrs;
   QVERIFY( !badCrs.readXml( node ) );
   QVERIFY( !badCrs.isValid() );
-  const QDomElement badSrsElement  = document.createElement( QStringLiteral( "spatialrefsys" ) );
+  const QDomElement badSrsElement = document.createElement( QStringLiteral( "spatialrefsys" ) );
   QDomElement badNode = document.createElement( QStringLiteral( "crs" ) );
   document.appendChild( badNode );
   badNode.appendChild( badSrsElement );
@@ -1063,11 +1389,11 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QDomDocument document2( QStringLiteral( "test" ) );
   QDomElement node2 = document2.createElement( QStringLiteral( "crs" ) );
   document2.appendChild( node2 );
-  QVERIFY( ! myCrs3.isValid() );
+  QVERIFY( !myCrs3.isValid() );
   QVERIFY( myCrs3.writeXml( node2, document2 ) );
   QgsCoordinateReferenceSystem myCrs4;
   QVERIFY( myCrs4.readXml( node2 ) );
-  QVERIFY( ! myCrs4.isValid() );
+  QVERIFY( !myCrs4.isValid() );
   QVERIFY( myCrs3 == myCrs4 );
 
   // Empty XML node
@@ -1075,7 +1401,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   const QDomElement node3 = document3.createElement( QStringLiteral( "crs" ) );
   document3.appendChild( node3 );
   QgsCoordinateReferenceSystem myCrs5;
-  QVERIFY( ! myCrs5.readXml( node3 ) );
+  QVERIFY( !myCrs5.readXml( node3 ) );
   QVERIFY( myCrs5 == QgsCoordinateReferenceSystem() );
 
   // valid CRS using auth/code
@@ -1110,7 +1436,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
 
   QCOMPARE( myCrs9.authid(), QStringLiteral( "USER:%1" ).arg( myCrs9.srsid() ) );
   QCOMPARE( myCrs9.toProj(), QStringLiteral( "+proj=aea +lat_1=20 +lat_2=-23 +lat_0=4 +lon_0=29 +x_0=10.123 +y_0=3 +datum=WGS84 +units=m +no_defs" ) );
-  QCOMPARE( myCrs9.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), QStringLiteral( R"""(PROJCRS["unknown",BASEGEOGCRS["unknown",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ID["EPSG",6326]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8901]]],CONVERSION["unknown",METHOD["Albers Equal Area",ID["EPSG",9822]],PARAMETER["Latitude of false origin",4,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",29,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",20,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-23,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",10.123,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",3,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]])""" ) );
+  QCOMPARE( myCrs9.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), QStringLiteral( R"""(PROJCRS["unknown",BASEGEOGCRS["unknown",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ID["EPSG",6326]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8901]]],CONVERSION["unknown",METHOD["Albers Equal Area",ID["EPSG",9822]],PARAMETER["Latitude of false origin",4,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",29,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",20,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-23,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",10.123,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",3,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["(E)",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["(N)",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]])""" ) );
 
   // valid CRS from WKT string
   QgsCoordinateReferenceSystem myCrs10;
@@ -1124,7 +1450,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   myCrs11.saveAsUserCrs( QStringLiteral( "test4" ) );
   QCOMPARE( myCrs11.authid(), QStringLiteral( "USER:%1" ).arg( myCrs11.srsid() ) );
   QCOMPARE( myCrs11.toProj(), QStringLiteral( "+proj=lcc +lat_0=-37.2 +lon_0=145.1 +lat_1=-36 +lat_2=-38 +x_0=2510000 +y_0=2520000 +ellps=GRS80 +towgs84=1,2,3,4,5,6,7 +units=m +no_defs +type=crs" ) );
-  QCOMPARE( myCrs11.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
+  QCOMPARE( myCrs11.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
 
   // try reloading, make sure it gets the same user crs assigned
   QgsCoordinateReferenceSystem myCrs11b;
@@ -1132,7 +1458,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   myCrs11b.saveAsUserCrs( QStringLiteral( "test4" ) );
   QCOMPARE( myCrs11b.authid(), QStringLiteral( "USER:%1" ).arg( myCrs11b.srsid() ) );
   QCOMPARE( myCrs11b.toProj(), QStringLiteral( "+proj=lcc +lat_0=-37.2 +lon_0=145.1 +lat_1=-36 +lat_2=-38 +x_0=2510000 +y_0=2520000 +ellps=GRS80 +towgs84=1,2,3,4,5,6,7 +units=m +no_defs +type=crs" ) );
-  QCOMPARE( myCrs11b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
+  QCOMPARE( myCrs11b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
 
   // fudge an dom element without the wkt element
   QgsCoordinateReferenceSystem myCrs12;
@@ -1147,7 +1473,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   myCrs13.saveAsUserCrs( QStringLiteral( "test6" ) );
   QCOMPARE( myCrs13.authid(), QStringLiteral( "USER:%1" ).arg( myCrs13.srsid() ) );
   QCOMPARE( myCrs13.toProj(), QStringLiteral( "+proj=lcc +lat_0=-37.2 +lon_0=145.1 +lat_1=-36 +lat_2=-38 +x_0=2510000 +y_0=2520000 +ellps=GRS80 +towgs84=1,2,3,4,5,6,7 +units=m +no_defs" ) );
-  QgsDebugMsg( myCrs13.toWkt() );
+  QgsDebugMsgLevel( myCrs13.toWkt(), 1 );
   QVERIFY( myCrs13.toWkt().contains( QLatin1String( R"""(SPHEROID["GRS 1980",)""" ) ) );
   QVERIFY( myCrs13.toWkt().contains( QLatin1String( R"""(TOWGS84[1,2,3,4,5,6,7])""" ) ) );
   QVERIFY( myCrs13.toWkt().contains( QLatin1String( R"""(PROJECTION["Lambert_Conformal_Conic_2SP"])""" ) ) );
@@ -1170,7 +1496,7 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   myCrs15.saveAsUserCrs( QStringLiteral( "test6" ) );
   QCOMPARE( myCrs15.authid(), QStringLiteral( "USER:%1" ).arg( myCrs15.srsid() ) );
   QCOMPARE( myCrs15.toProj(), QStringLiteral( "+proj=lcc +lat_0=-37.2 +lon_0=145.1 +lat_1=-36 +lat_2=-38 +x_0=2510000 +y_0=2520000 +ellps=GRS80 +towgs84=1,2,3,4,5,6,7 +units=m +no_defs +type=crs" ) );
-  QCOMPARE( myCrs15.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
+  QCOMPARE( myCrs15.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["xxx",BASEGEOGCRS["GDA94",DATUM["Geocentric Datum of Australia 1994",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4283]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of 1st standard parallel",-36,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",-38,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Latitude of false origin",-37.2,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",145.1,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Easting at false origin",2510000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",2520000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["metre",1,ID["EPSG",9001]]],AXIS["northing",north,ORDER[2],LENGTHUNIT["metre",1,ID["EPSG",9001]]]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["geodetic latitude (Lat)",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["geodetic longitude (Lon)",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from GDA94 to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",6,ID["EPSG",8610]],PARAMETER["Scale difference",1.000007,ID["EPSG",8611]]]])""" ) );
 
   // fudge a dom element with auth/code and conflicting proj, auth/code should be preferred
   const QgsCoordinateReferenceSystem myCrs16( QStringLiteral( "EPSG:3111" ) );
@@ -1214,15 +1540,15 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QgsCoordinateReferenceSystem myCrs21;
   QVERIFY( myCrs21.readXml( node ) );
   QVERIFY( myCrs21.isValid() );
-  QgsDebugMsg( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(BOUNDCRS[SOURCECRS[PROJCRS["")""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",16,ID["EPSG",8610]])""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 1st standard parallel",-36,)""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 2nd standard parallel",-38,)""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of false origin",-37.5,)""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of false origin",145.5,)""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at false origin",2533000,)""" ) ) );
-  QVERIFY( myCrs21.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at false origin",2533000,)""" ) ) );
+  QgsDebugMsgLevel( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(BOUNDCRS[SOURCECRS[PROJCRS["")""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",16,ID["EPSG",8610]])""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 1st standard parallel",-36,)""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 2nd standard parallel",-38,)""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of false origin",-37.5,)""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of false origin",145.5,)""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at false origin",2533000,)""" ) ) );
+  QVERIFY( myCrs21.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at false origin",2533000,)""" ) ) );
   QCOMPARE( myCrs21.description(), QString() );
 
   // now fudge in the description node to mimic as though the XML came from a different QGIS install where this CRS was a user-defined CRS with a name
@@ -1233,16 +1559,16 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QgsCoordinateReferenceSystem myCrs22;
   QVERIFY( myCrs22.readXml( node ) );
   QVERIFY( myCrs22.isValid() );
-  QgsDebugMsg( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
+  QgsDebugMsgLevel( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
 
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(BOUNDCRS[SOURCECRS[PROJCRS["")""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",16,ID["EPSG",8610]])""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 1st standard parallel",-36,)""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 2nd standard parallel",-38,)""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of false origin",-37.5,)""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of false origin",145.5,)""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at false origin",2533000,)""" ) ) );
-  QVERIFY( myCrs22.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at false origin",2533000,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(BOUNDCRS[SOURCECRS[PROJCRS["")""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",1,ID["EPSG",8605]],PARAMETER["Y-axis translation",2,ID["EPSG",8606]],PARAMETER["Z-axis translation",3,ID["EPSG",8607]],PARAMETER["X-axis rotation",4,ID["EPSG",8608]],PARAMETER["Y-axis rotation",5,ID["EPSG",8609]],PARAMETER["Z-axis rotation",16,ID["EPSG",8610]])""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 1st standard parallel",-36,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of 2nd standard parallel",-38,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of false origin",-37.5,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of false origin",145.5,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at false origin",2533000,)""" ) ) );
+  QVERIFY( myCrs22.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at false origin",2533000,)""" ) ) );
 
   // description should be restored, even though it's not a user-defined CRS on this install...
   QCOMPARE( myCrs22.description(), QStringLiteral( "someone else's previously saved CRS" ) );
@@ -1259,18 +1585,18 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QgsCoordinateReferenceSystem myCrs21b;
   QVERIFY( myCrs21b.readXml( node ) );
   QVERIFY( myCrs21b.isValid() );
-  QgsDebugMsg( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PROJCRS["",)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(BASEGEOGCRS["unknown",DATUM["Unknown based on WGS84 ellipsoid",)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(CONVERSION["unknown")""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Hotine Oblique Mercator (variant B)",)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of projection centre",47.173836897)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of projection centre",8.4550705414,)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Azimuth of initial line",39.3,)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Angle from Rectified to Skew Grid",0,)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Scale factor on initial line",1,)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at projection centre",750,)""" ) ) );
-  QVERIFY( myCrs21b.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at projection centre",250,)""" ) ) );
+  QgsDebugMsgLevel( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PROJCRS["",)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(BASEGEOGCRS["unknown",DATUM["Unknown based on WGS84 ellipsoid",)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(CONVERSION["unknown")""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Hotine Oblique Mercator (variant B)",)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of projection centre",47.173836897)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of projection centre",8.4550705414,)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Azimuth of initial line",39.3,)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Angle from Rectified to Skew Grid",0,)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Scale factor on initial line",1,)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at projection centre",750,)""" ) ) );
+  QVERIFY( myCrs21b.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at projection centre",250,)""" ) ) );
   QCOMPARE( myCrs21b.description(), QStringLiteral( "a new CRS" ) );
 
   // a different WKT string, which doesn't match any CRS previously used this session, and which includes a name in the WKT but which should be overridden with the user set name
@@ -1285,19 +1611,19 @@ void TestQgsCoordinateReferenceSystem::readWriteXml()
   QgsCoordinateReferenceSystem myCrs21c;
   QVERIFY( myCrs21c.readXml( node ) );
   QVERIFY( myCrs21c.isValid() );
-  QgsDebugMsg( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
+  QgsDebugMsgLevel( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
 
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PROJCRS["XXYYZZ",)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(BASEGEOGCRS["unknown",DATUM["Unknown based on WGS84 ellipsoid",)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(CONVERSION["unknown")""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Hotine Oblique Mercator (variant B)",)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of projection centre",47.2)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of projection centre",8.4550705414,)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Azimuth of initial line",39.3,)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Angle from Rectified to Skew Grid",0,)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Scale factor on initial line",1,)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at projection centre",750,)""" ) ) );
-  QVERIFY( myCrs21c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at projection centre",250,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PROJCRS["XXYYZZ",)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(BASEGEOGCRS["unknown",DATUM["Unknown based on WGS84 ellipsoid",)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(CONVERSION["unknown")""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Hotine Oblique Mercator (variant B)",)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Latitude of projection centre",47.2)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Longitude of projection centre",8.4550705414,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Azimuth of initial line",39.3,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Angle from Rectified to Skew Grid",0,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Scale factor on initial line",1,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Easting at projection centre",750,)""" ) ) );
+  QVERIFY( myCrs21c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["Northing at projection centre",250,)""" ) ) );
   QCOMPARE( myCrs21c.description(), QStringLiteral( "a new CRS C" ) );
 }
 
@@ -1344,7 +1670,6 @@ void TestQgsCoordinateReferenceSystem::setCustomSrsValidation()
 
 void TestQgsCoordinateReferenceSystem::customSrsValidation()
 {
-
   /**
    * \todo implement this test
   *  "QgsCoordinateReferenceSystem myCrs;
@@ -1356,9 +1681,9 @@ void TestQgsCoordinateReferenceSystem::postgisSrid()
 {
   QgsCoordinateReferenceSystem myCrs;
   Q_NOWARN_DEPRECATED_PUSH
-  myCrs.createFromSrid( GEOSRID );
+  myCrs.createFromSrid( 4326 );
   Q_NOWARN_DEPRECATED_POP
-  QVERIFY( myCrs.postgisSrid() == GEOSRID );
+  QVERIFY( myCrs.postgisSrid() == 4326 );
   debugPrint( myCrs );
 }
 void TestQgsCoordinateReferenceSystem::ellipsoidAcronym()
@@ -1368,7 +1693,6 @@ void TestQgsCoordinateReferenceSystem::ellipsoidAcronym()
 
   myCrs.createFromString( QStringLiteral( "EPSG:2951" ) );
   QCOMPARE( myCrs.ellipsoidAcronym(), QStringLiteral( "EPSG:7019" ) );
-
 }
 void TestQgsCoordinateReferenceSystem::toWkt()
 {
@@ -1386,7 +1710,7 @@ void TestQgsCoordinateReferenceSystem::toProj()
   const QgsCoordinateReferenceSystem myCrs( QStringLiteral( "EPSG:4326" ) );
   //first proj string produced by gdal 1.8-1.9
   //second by gdal 1.7
-  QCOMPARE( myCrs.toProj(), geoProj4() );
+  QCOMPARE( myCrs.toProj(), QStringLiteral( "+proj=longlat +datum=WGS84 +no_defs" ) );
 }
 void TestQgsCoordinateReferenceSystem::isGeographic()
 {
@@ -1400,28 +1724,36 @@ void TestQgsCoordinateReferenceSystem::mapUnits()
 {
   QgsCoordinateReferenceSystem myCrs;
   myCrs.createFromString( QStringLiteral( "EPSG:4326" ) );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceDegrees );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Degrees );
   debugPrint( myCrs );
   myCrs.createFromString( QStringLiteral( "EPSG:28355" ) );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Meters );
   debugPrint( myCrs );
   myCrs.createFromString( QStringLiteral( "EPSG:26812" ) );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceFeet );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::FeetUSSurvey );
   myCrs.createFromString( QStringLiteral( "EPSG:4619" ) );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceDegrees );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Degrees );
+
+  // compound CRS
+  myCrs.createFromString( QStringLiteral( "EPSG:5500" ) );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Degrees );
+
+  // vertical CRS
+  myCrs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:5703" ) );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Meters );
 
   // custom CRS using "m" unit keyword
   myCrs.createFromWkt( QStringLiteral( R"""(PROJCS["MGI / Austria Lambert", GEOGCS["MGI", DATUM["Militar-Geographische Institut", SPHEROID["Bessel 1841", 6377397.155, 299.1528128, AUTHORITY["EPSG","7004"]], TOWGS84[601.705, 84.263, 485.227, 4.7354, -1.3145, -5.393, -2.3887], AUTHORITY["EPSG","6312"]], PRIMEM["Greenwich", 0.0, AUTHORITY["EPSG","8901"]], UNIT["degree", 0.017453292519943295], AXIS["Geodetic longitude", EAST], AXIS["Geodetic latitude", NORTH], AUTHORITY["EPSG","4312"]], PROJECTION["Lambert_Conformal_Conic_2SP", AUTHORITY["EPSG","9802"]], PARAMETER["central_meridian", 13.333333333333336], PARAMETER["latitude_of_origin", 47.5], PARAMETER["standard_parallel_1", 48.99999999999999], PARAMETER["false_easting", 400000.0], PARAMETER["false_northing", 400000.0], PARAMETER["scale_factor", 1.0], PARAMETER["standard_parallel_2", 46.0], UNIT["m", 1.0], AXIS["Easting", EAST], AXIS["Northing", NORTH], AUTHORITY["EPSG","31287"]])""" ) );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Meters );
 
   // bound CRS using "m" unit keyword
   myCrs.createFromWkt( QStringLiteral( R"""(BOUNDCRS[SOURCECRS[PROJCRS["MGI / Austria Lambert",BASEGEOGCRS["MGI",DATUM["Militar-Geographische Institut",ELLIPSOID["Bessel 1841",6377397.155,299.1528128,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]]],CONVERSION["unnamed",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Longitude of false origin",13.3333333333333,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of false origin",47.5,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Latitude of 1st standard parallel",49,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Easting at false origin",400000,LENGTHUNIT["m",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",400000,LENGTHUNIT["m",1],ID["EPSG",8827]],PARAMETER["scale_factor",1,SCALEUNIT["unity",1]],PARAMETER["Latitude of 2nd standard parallel",46,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]]],CS[Cartesian,2],AXIS["easting",east,ORDER[1],LENGTHUNIT["m",1]],AXIS["northing",north,ORDER[2],LENGTHUNIT["m",1]],ID["EPSG",31287]]],TARGETCRS[GEOGCRS["WGS 84",DATUM["World Geodetic System 1984",ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],CS[ellipsoidal,2],AXIS["latitude",north,ORDER[1],ANGLEUNIT["degree",0.0174532925199433]],AXIS["longitude",east,ORDER[2],ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]]],ABRIDGEDTRANSFORMATION["Transformation from MGI to WGS84",METHOD["Position Vector transformation (geog2D domain)",ID["EPSG",9606]],PARAMETER["X-axis translation",601.705,ID["EPSG",8605]],PARAMETER["Y-axis translation",84.263,ID["EPSG",8606]],PARAMETER["Z-axis translation",485.227,ID["EPSG",8607]],PARAMETER["X-axis rotation",4.7354,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.3145,ID["EPSG",8609]],PARAMETER["Z-axis rotation",-5.393,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999976113,ID["EPSG",8611]]]])""" ) );
   QVERIFY( myCrs.isValid() );
-  QCOMPARE( myCrs.mapUnits(), QgsUnitTypes::DistanceMeters );
+  QCOMPARE( myCrs.mapUnits(), Qgis::DistanceUnit::Meters );
 
   // an invalid crs should return unknown unit
-  QCOMPARE( QgsCoordinateReferenceSystem().mapUnits(), QgsUnitTypes::DistanceUnknownUnit );
+  QCOMPARE( QgsCoordinateReferenceSystem().mapUnits(), Qgis::DistanceUnit::Unknown );
 }
 
 void TestQgsCoordinateReferenceSystem::isDynamic()
@@ -1436,8 +1768,24 @@ void TestQgsCoordinateReferenceSystem::isDynamic()
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) );
   QVERIFY( crs.isDynamic() );
 
-  // ETRS89 (generic), using datum ensemble
-  crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4258" ) );
+  // Test generic geodetic CRS using datum ensemble
+  QVERIFY( crs.createFromWkt( QStringLiteral( R"""(GEOGCRS["test",
+    ENSEMBLE["test",
+             MEMBER["member1"],
+        MEMBER["member2"],
+        ELLIPSOID["GRS 1980",6378137,298.257222101,
+            LENGTHUNIT["metre",1]],
+        ENSEMBLEACCURACY[0.1]],
+    PRIMEM["Greenwich",0,
+        ANGLEUNIT["degree",0.0174532925199433]],
+    CS[ellipsoidal,2],
+        AXIS["geodetic latitude (Lat)",north,
+            ORDER[1],
+            ANGLEUNIT["degree",0.0174532925199433]],
+        AXIS["geodetic longitude (Lon)",east,
+            ORDER[2],
+            ANGLEUNIT["degree",0.0174532925199433]]])""" ) ) );
+  QVERIFY( crs.isValid() );
   QVERIFY( !crs.isDynamic() );
 
   QVERIFY( crs.createFromWkt( QStringLiteral( R"""(GEOGCS["WGS 84",
@@ -1458,7 +1806,6 @@ void TestQgsCoordinateReferenceSystem::isDynamic()
 
 void TestQgsCoordinateReferenceSystem::celestialBody()
 {
-#if (PROJ_VERSION_MAJOR>8 || (PROJ_VERSION_MAJOR==8 && PROJ_VERSION_MINOR >= 1 ) )
   QgsCoordinateReferenceSystem crs;
   QCOMPARE( crs.celestialBodyName(), QString() );
 
@@ -1467,7 +1814,6 @@ void TestQgsCoordinateReferenceSystem::celestialBody()
 
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "ESRI:104903" ) );
   QCOMPARE( crs.celestialBodyName(), QStringLiteral( "Moon" ) );
-#endif
 }
 
 void TestQgsCoordinateReferenceSystem::operation()
@@ -1478,12 +1824,12 @@ void TestQgsCoordinateReferenceSystem::operation()
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) );
   QVERIFY( crs.operation().isValid() );
   QCOMPARE( crs.operation().id(), QStringLiteral( "longlat" ) );
-  QCOMPARE( crs.operation().description(),  QStringLiteral( "Lat/long (Geodetic alias)" ) );
+  QCOMPARE( crs.operation().description(), QStringLiteral( "Lat/long (Geodetic alias)" ) );
 
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:28356" ) );
   QVERIFY( crs.operation().isValid() );
   QCOMPARE( crs.operation().id(), QStringLiteral( "utm" ) );
-  QCOMPARE( crs.operation().description(),  QStringLiteral( "Universal Transverse Mercator (UTM)" ) );
+  QCOMPARE( crs.operation().description(), QStringLiteral( "Universal Transverse Mercator (UTM)" ) );
   QVERIFY( crs.operation().details().contains( QStringLiteral( "south approx" ) ) );
 }
 
@@ -1509,7 +1855,7 @@ void TestQgsCoordinateReferenceSystem::hasAxisInverted()
 
   crs.createFromOgcWmsCrs( QStringLiteral( "OGC:CRS84" ) ); // WGS 84 without inverted axes
   QVERIFY( !crs.hasAxisInverted() );
-  QgsDebugMsg( crs.toWkt() );
+  QgsDebugMsgLevel( crs.toWkt(), 1 );
   QCOMPARE( crs.toWkt(), QStringLiteral( R"""(GEOGCS["WGS 84 (CRS84)",DATUM["WGS_1984",SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0,AUTHORITY["EPSG","8901"]],UNIT["degree",0.0174532925199433,AUTHORITY["EPSG","9122"]],AUTHORITY["OGC","CRS84"]])""" ) );
   crs.createFromOgcWmsCrs( QStringLiteral( "EPSG:32633" ) ); // "WGS 84 / UTM zone 33N" - projected CRS without invertex axes
   QVERIFY( !crs.hasAxisInverted() );
@@ -1517,28 +1863,28 @@ void TestQgsCoordinateReferenceSystem::hasAxisInverted()
 
 
 void TestQgsCoordinateReferenceSystem::debugPrint(
-  QgsCoordinateReferenceSystem &crs )
+  QgsCoordinateReferenceSystem &crs
+)
 {
-  QgsDebugMsg( QStringLiteral( "***SpatialRefSystem***" ) );
-  QgsDebugMsg( "* Valid : " + ( crs.isValid() ? QStringLiteral( "true" ) :
-                                QStringLiteral( "false" ) ) );
-  QgsDebugMsg( "* SrsId : " + QString::number( crs.srsid() ) );
-  QgsDebugMsg( "* EPSG ID : " + crs.authid() );
-  QgsDebugMsg( "* PGIS ID : " + QString::number( crs.postgisSrid() ) );
-  QgsDebugMsg( "* Proj4 : " + crs.toProj() );
-  QgsDebugMsg( "* WKT   : " + crs.toWkt() );
-  QgsDebugMsg( "* Desc. : " + crs.description() );
-  if ( crs.mapUnits() == QgsUnitTypes::DistanceMeters )
+  QgsDebugMsgLevel( QStringLiteral( "***SpatialRefSystem***" ), 1 );
+  QgsDebugMsgLevel( "* Valid : " + ( crs.isValid() ? QStringLiteral( "true" ) : QStringLiteral( "false" ) ), 1 );
+  QgsDebugMsgLevel( "* SrsId : " + QString::number( crs.srsid() ), 1 );
+  QgsDebugMsgLevel( "* EPSG ID : " + crs.authid(), 1 );
+  QgsDebugMsgLevel( "* PGIS ID : " + QString::number( crs.postgisSrid() ), 1 );
+  QgsDebugMsgLevel( "* Proj4 : " + crs.toProj(), 1 );
+  QgsDebugMsgLevel( "* WKT   : " + crs.toWkt(), 1 );
+  QgsDebugMsgLevel( "* Desc. : " + crs.description(), 1 );
+  if ( crs.mapUnits() == Qgis::DistanceUnit::Meters )
   {
-    QgsDebugMsg( QStringLiteral( "* Units : meters" ) );
+    QgsDebugMsgLevel( QStringLiteral( "* Units : meters" ), 1 );
   }
-  else if ( crs.mapUnits() == QgsUnitTypes::DistanceFeet )
+  else if ( crs.mapUnits() == Qgis::DistanceUnit::Feet )
   {
-    QgsDebugMsg( QStringLiteral( "* Units : feet" ) );
+    QgsDebugMsgLevel( QStringLiteral( "* Units : feet" ), 1 );
   }
-  else if ( crs.mapUnits() == QgsUnitTypes::DistanceDegrees )
+  else if ( crs.mapUnits() == Qgis::DistanceUnit::Degrees )
   {
-    QgsDebugMsg( QStringLiteral( "* Units : degrees" ) );
+    QgsDebugMsgLevel( QStringLiteral( "* Units : degrees" ), 1 );
   }
 }
 
@@ -1550,7 +1896,7 @@ void TestQgsCoordinateReferenceSystem::createFromProjInvalid()
 
 void TestQgsCoordinateReferenceSystem::validSrsIds()
 {
-  const QList< long > ids = QgsCoordinateReferenceSystem::validSrsIds();
+  const QList<long> ids = QgsCoordinateReferenceSystem::validSrsIds();
   QVERIFY( ids.contains( 3857 ) );
   QVERIFY( ids.contains( 28356 ) );
 
@@ -1573,7 +1919,7 @@ void TestQgsCoordinateReferenceSystem::validSrsIds()
     if ( !crs || proj_get_type( crs.get() ) == PJ_TYPE_COMPOUND_CRS )
       continue;
 
-    const QgsCoordinateReferenceSystem viaWkt = QgsCoordinateReferenceSystem::fromWkt( c.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
+    const QgsCoordinateReferenceSystem viaWkt = QgsCoordinateReferenceSystem::fromWkt( c.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ) );
     QCOMPARE( viaWkt.authid(), c.authid() );
 #if 0 // NOT POSSIBLE -- too costly to test for all CRSes !
     // round trip via proj strings
@@ -1648,7 +1994,7 @@ void TestQgsCoordinateReferenceSystem::saveAsUserCrs()
   QCOMPARE( userCrs.srsid(), 0L ); // not saved to database yet
 
   const long newId = userCrs.saveAsUserCrs( QStringLiteral( "babies first projection" ) );
-  QCOMPARE( newId, static_cast< long >( USER_CRS_START_ID ) );
+  QCOMPARE( newId, static_cast<long>( Qgis::USER_CRS_START_ID ) );
   QCOMPARE( userCrs.srsid(), newId );
   QCOMPARE( userCrs.authid(), QStringLiteral( "USER:100000" ) );
   QCOMPARE( userCrs.description(), QStringLiteral( "babies first projection" ) );
@@ -1724,8 +2070,7 @@ void TestQgsCoordinateReferenceSystem::geographicCrsAuthId()
   crs.createFromString( QStringLiteral( "EPSG:3825" ) );
   QCOMPARE( crs.authid(), QStringLiteral( "EPSG:3825" ) );
   QCOMPARE( crs.geographicCrsAuthId(), QStringLiteral( "EPSG:3824" ) );
-  QCOMPARE( crs.toGeographicCrs().toProj().replace( QLatin1String( "+towgs84=0,0,0,0,0,0,0 " ), QString() ).replace( QLatin1String( " +type=crs" ), QString() ),
-            QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3824" ) ).toProj().replace( QLatin1String( "+towgs84=0,0,0,0,0,0,0 " ), QString() ).replace( QLatin1String( " +type=crs" ), QString() ) );
+  QCOMPARE( crs.toGeographicCrs().toProj().replace( QLatin1String( "+towgs84=0,0,0,0,0,0,0 " ), QString() ).replace( QLatin1String( " +type=crs" ), QString() ), QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3824" ) ).toProj().replace( QLatin1String( "+towgs84=0,0,0,0,0,0,0 " ), QString() ).replace( QLatin1String( " +type=crs" ), QString() ) );
   QVERIFY( crs.toGeographicCrs().isGeographic() );
 }
 
@@ -1739,13 +2084,17 @@ void TestQgsCoordinateReferenceSystem::noProj()
   crs = QgsCoordinateReferenceSystem::fromOgcWmsCrs( QStringLiteral( "ESRI:54091" ) );
   QCOMPARE( crs.authid(), QStringLiteral( "ESRI:54091" ) );
   QVERIFY( crs.isValid() );
-  QCOMPARE( crs.toWkt(), QStringLiteral( "PROJCS[\"WGS_1984_Peirce_quincuncial_North_Pole_diamond\",GEOGCS[\"WGS 84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.0174532925199433]],PROJECTION[\"Peirce_Quincuncial\"],PARAMETER[\"False_Easting\",0],PARAMETER[\"False_Northing\",0],PARAMETER[\"Central_Meridian\",0],PARAMETER[\"Scale_Factor\",1],PARAMETER[\"Latitude_Of_Origin\",90],PARAMETER[\"Option\",1],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH],AUTHORITY[\"ESRI\",\"54091\"]]" ) );
+  QCOMPARE( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019Simplified ).left( 30 ), QStringLiteral( "PROJCRS[\"WGS_1984_Peirce_quinc" ) );
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:22300" ) );
   QCOMPARE( crs.authid(), QStringLiteral( "EPSG:22300" ) );
   QVERIFY( crs.isValid() );
-  QgsDebugMsg( crs.toWkt() );
+  QgsDebugMsgLevel( crs.toWkt(), 1 );
   QVERIFY( crs.toWkt().startsWith( QLatin1String( "PROJCS[\"Carthage (Paris) / Tunisia Mining Grid\"," ) ) );
+#if ( PROJ_VERSION_MAJOR > 9 || ( PROJ_VERSION_MAJOR == 9 && PROJ_VERSION_MINOR >= 2 ) )
+  QVERIFY( crs.toWkt().contains( QLatin1String( "PROJECTION[\"Tunisia_Mining_Grid\"]" ) ) );
+#else
   QVERIFY( crs.toWkt().contains( QLatin1String( "PROJECTION[\"Tunisia_Mapping_Grid\"]" ) ) );
+#endif
 }
 
 void TestQgsCoordinateReferenceSystem::customProjString()
@@ -1753,10 +2102,10 @@ void TestQgsCoordinateReferenceSystem::customProjString()
   QgsCoordinateReferenceSystem crs = QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
   QVERIFY( crs.isValid() );
   QCOMPARE( crs.toProj(), QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
   const long id = crs.saveAsUserCrs( QStringLiteral( "custom proj crs" ), Qgis::CrsDefinitionFormat::Proj );
   QVERIFY( id );
 
@@ -1764,10 +2113,10 @@ void TestQgsCoordinateReferenceSystem::customProjString()
   crs = QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
   QVERIFY( crs.isValid() );
   QCOMPARE( crs.toProj(), QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
 
   QCOMPARE( crs.authid(), QStringLiteral( "USER:%1" ).arg( id ) );
 
@@ -1776,10 +2125,10 @@ void TestQgsCoordinateReferenceSystem::customProjString()
   crs = QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
   QVERIFY( crs.isValid() );
   QCOMPARE( crs.toProj(), QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
 
   QCOMPARE( crs.authid(), QStringLiteral( "USER:%1" ).arg( id ) );
 
@@ -1789,82 +2138,17 @@ void TestQgsCoordinateReferenceSystem::customProjString()
   QVERIFY( crs.isValid() );
   QCOMPARE( crs.authid(), QStringLiteral( "USER:%1" ).arg( id ) );
   QCOMPARE( crs.toProj(), QStringLiteral( "+proj=sterea +lat_0=47.4860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
-  QgsDebugMsg( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
-  QVERIFY( crs.toWkt( QgsCoordinateReferenceSystem::WKT2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
-}
-
-void TestQgsCoordinateReferenceSystem::recentProjections()
-{
-  QList< QgsCoordinateReferenceSystem > recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QVERIFY( recent.isEmpty() );
-
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ) );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 1 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:3111" ) );
-
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem::fromProj( geoProj4() ) );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 2 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:4326" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:3111" ) );
-
-  // push back to top of list
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) ) );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 2 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:3111" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:4326" ) );
-
-  // no invalid CRSes in list:
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem() );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 2 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:3111" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:4326" ) );
-
-  // no custom CRSes in list:
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=sterea +lat_0=47.9860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) ) );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 2 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:3111" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:4326" ) );
-
-  // user CRSes ARE allowed
-  QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem( QStringLiteral( "USER:100001" ) ) );
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 3 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "USER:100001" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:3111" ) );
-  QCOMPARE( recent.at( 2 ).authid(), QStringLiteral( "EPSG:4326" ) );
-
-  // list should be truncated after 30 entries
-  for ( int i = 32510; i < 32550; ++i )
-  {
-    QgsCoordinateReferenceSystem::pushRecentCoordinateReferenceSystem( QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:%1" ).arg( i ) ) );
-  }
-  recent = QgsCoordinateReferenceSystem::recentCoordinateReferenceSystems();
-  QCOMPARE( recent.size(), 30 );
-  QCOMPARE( recent.at( 0 ).authid(), QStringLiteral( "EPSG:32549" ) );
-  QCOMPARE( recent.at( 1 ).authid(), QStringLiteral( "EPSG:32548" ) );
-  QCOMPARE( recent.at( 2 ).authid(), QStringLiteral( "EPSG:32547" ) );
-  QCOMPARE( recent.at( 3 ).authid(), QStringLiteral( "EPSG:32546" ) );
-  QCOMPARE( recent.at( 4 ).authid(), QStringLiteral( "EPSG:32545" ) );
-  QCOMPARE( recent.at( 5 ).authid(), QStringLiteral( "EPSG:32544" ) );
-  QCOMPARE( recent.at( 6 ).authid(), QStringLiteral( "EPSG:32543" ) );
-  QCOMPARE( recent.at( 7 ).authid(), QStringLiteral( "EPSG:32542" ) );
-  QCOMPARE( recent.at( 8 ).authid(), QStringLiteral( "EPSG:32541" ) );
-  QCOMPARE( recent.at( 9 ).authid(), QStringLiteral( "EPSG:32540" ) );
-  QCOMPARE( recent.constLast().authid(), QStringLiteral( "EPSG:32520" ) );
+  QgsDebugMsgLevel( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ), 1 );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).startsWith( QLatin1String( R"""(BOUNDCRS[SOURCECRS[)""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(METHOD["Oblique Stereographic",ID["EPSG",9809]])""" ) ) );
+  QVERIFY( crs.toWkt( Qgis::CrsWktVariant::Wkt2_2019 ).contains( QLatin1String( R"""(PARAMETER["X-axis translation",595.75,ID["EPSG",8605]],PARAMETER["Y-axis translation",121.09,ID["EPSG",8606]],PARAMETER["Z-axis translation",515.5,ID["EPSG",8607]],PARAMETER["X-axis rotation",8.227,ID["EPSG",8608]],PARAMETER["Y-axis rotation",-1.5193,ID["EPSG",8609]],PARAMETER["Z-axis rotation",5.5971,ID["EPSG",8610]],PARAMETER["Scale difference",0.9999973271,ID["EPSG",8611]])""" ) ) );
 }
 
 void TestQgsCoordinateReferenceSystem::displayIdentifier()
 {
   QgsCoordinateReferenceSystem crs = QgsCoordinateReferenceSystem();
   QCOMPARE( crs.userFriendlyIdentifier(), QString() );
-  QCOMPARE( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::ShortString ), QStringLiteral( "Unknown CRS" ) );
+  QCOMPARE( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::ShortString ), QStringLiteral( "Unknown CRS" ) );
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) );
   QCOMPARE( crs.userFriendlyIdentifier(), QStringLiteral( "EPSG:4326 - WGS 84" ) );
   crs.setCoordinateEpoch( 2021.3 );
@@ -1872,19 +2156,19 @@ void TestQgsCoordinateReferenceSystem::displayIdentifier()
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:3111" ) );
   QCOMPARE( crs.userFriendlyIdentifier(), QStringLiteral( "EPSG:3111 - GDA94 / Vicgrid" ) );
   crs = QgsCoordinateReferenceSystem( QStringLiteral( "EPSG:4326" ) );
-  QCOMPARE( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::ShortString ), QStringLiteral( "EPSG:4326" ) );
+  QCOMPARE( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::ShortString ), QStringLiteral( "EPSG:4326" ) );
 
   // non registered custom CRS
   crs = QgsCoordinateReferenceSystem::fromProj( QStringLiteral( "+proj=sterea +lat_0=47.9860018439082 +lon_0=19.0491441390302 +k=1 +x_0=500000 +y_0=500000 +ellps=bessel +towgs84=595.75,121.09,515.50,8.2270,-1.5193,5.5971,-2.6729 +units=m +vunits=m +no_defs" ) );
-  QgsDebugMsg( crs.userFriendlyIdentifier() );
+  QgsDebugMsgLevel( crs.userFriendlyIdentifier(), 1 );
   QVERIFY( crs.userFriendlyIdentifier().startsWith( QLatin1String( "Custom CRS: BOUNDCRS[" ) ) );
   QVERIFY( !crs.userFriendlyIdentifier().contains( QLatin1String( "PARAMETER[\"Scale difference\",0.9999973271,ID[\"EPSG\",8611]]" ) ) );
-  QVERIFY( crs.userFriendlyIdentifier().endsWith( QChar( 0x2026 ) ) );  //#spellok
+  QVERIFY( crs.userFriendlyIdentifier().endsWith( QChar( 0x2026 ) ) ); //#spellok
 
-  QgsDebugMsg( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::FullString ) );
-  QVERIFY( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::FullString ).startsWith( QLatin1String( "Custom CRS: BOUNDCRS[" ) ) );
-  QVERIFY( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::FullString ).contains( QLatin1String( "PARAMETER[\"Scale difference\",0.9999973271,ID[\"EPSG\",8611]]" ) ) );
-  QCOMPARE( crs.userFriendlyIdentifier( QgsCoordinateReferenceSystem::ShortString ), QStringLiteral( "Custom CRS" ) );
+  QgsDebugMsgLevel( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::FullString ), 1 );
+  QVERIFY( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::FullString ).startsWith( QLatin1String( "Custom CRS: BOUNDCRS[" ) ) );
+  QVERIFY( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::FullString ).contains( QLatin1String( "PARAMETER[\"Scale difference\",0.9999973271,ID[\"EPSG\",8611]]" ) ) );
+  QCOMPARE( crs.userFriendlyIdentifier( Qgis::CrsIdentifierType::ShortString ), QStringLiteral( "Custom CRS" ) );
 
   crs.saveAsUserCrs( QStringLiteral( "my test" ) );
   QCOMPARE( crs.userFriendlyIdentifier(), QStringLiteral( "USER:%1 - my test" ).arg( crs.srsid() ) );

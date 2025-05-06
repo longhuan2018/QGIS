@@ -26,17 +26,16 @@
 #include "qgswmsrendercontext.h"
 
 class QgsMapLayer;
+class QgsAbstractVectorLayerLabeling;
 
 /**
  * \ingroup server
  * \brief RAII class to restore layer configuration on destruction (opacity,
- * filters, ...)
- * \since QGIS 3.0
+ * filters, ...).
  */
 class QgsLayerRestorer
 {
   public:
-
     /**
      * Constructor for QgsLayerRestorer.
      * \param layers List of layers to restore in their initial states
@@ -51,17 +50,17 @@ class QgsLayerRestorer
     ~QgsLayerRestorer();
 
   private:
-
     struct QgsLayerSettings
     {
-      QString name;
-      double mOpacity;
-      QString mNamedStyle;
-      QString mFilter;
-      QgsFeatureIds mSelectedFeatureIds;
+        QString name;
+        double mOpacity;
+        std::unique_ptr<QgsAbstractVectorLayerLabeling> mLabeling;
+        QString mNamedStyle;
+        QString mFilter;
+        QgsFeatureIds mSelectedFeatureIds;
     };
 
-    QMap<QgsMapLayer *, QgsLayerSettings> mLayerSettings;
+    std::map<QgsMapLayer *, QgsLayerSettings> mLayerSettings;
 };
 
 namespace QgsWms
@@ -75,22 +74,17 @@ namespace QgsWms
   class QgsWmsRestorer
   {
     public:
-
       /**
        * Constructor for QgsWmsRestorer.
        * \param context The rendering context to restore in its initial state
        */
       QgsWmsRestorer( const QgsWmsRenderContext &context );
 
-      /**
-       * Default destructor.
-       */
       ~QgsWmsRestorer() = default;
 
     private:
-
       QgsLayerRestorer mLayerRestorer;
   };
-};
+}; // namespace QgsWms
 
 #endif

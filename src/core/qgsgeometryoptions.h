@@ -19,16 +19,16 @@
 #define QGSGEOMETRYOPTIONS_H
 
 #include "qgis_core.h"
-#include "qgis_sip.h"
 #include "qgsgeometry.h"
-#include "qgssettingsentryimpl.h"
 
 #include <QObject>
+
+class QgsSettingsEntryString;
 
 /**
  * \ingroup core
  *
- * \brief The QgsGeometryOptions class contains options to automatically adjust geometries to
+ * \brief Contains options to automatically adjust geometries to
  * constraints on a layer.
  *
  * \since QGIS 3.4

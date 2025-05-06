@@ -27,6 +27,24 @@ class QgsProcessingParameterType;
 class QgsProcessingAlgorithmConfigurationWidgetFactory;
 
 /**
+ * \class QgsProcessingAlgorithmInformation
+ * \ingroup core
+ * \brief Contains basic properties for a Processing algorithm.
+ * \since QGIS 3.32
+ */
+class CORE_EXPORT QgsProcessingAlgorithmInformation
+{
+  public:
+
+    //! Algorithm display name
+    QString displayName;
+
+    //! Algorithm icon
+    QIcon icon;
+};
+
+
+/**
  * \class QgsProcessingRegistry
  * \ingroup core
  * \brief Registry for various processing components, including providers, algorithms
@@ -34,7 +52,6 @@ class QgsProcessingAlgorithmConfigurationWidgetFactory;
  *
  * QgsProcessingRegistry is not usually directly created, but rather accessed through
  * QgsApplication::processingRegistry().
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsProcessingRegistry : public QObject
 {
@@ -49,9 +66,7 @@ class CORE_EXPORT QgsProcessingRegistry : public QObject
 
     ~QgsProcessingRegistry() override;
 
-    //! Registry cannot be copied
     QgsProcessingRegistry( const QgsProcessingRegistry &other ) = delete;
-    //! Registry cannot be copied
     QgsProcessingRegistry &operator=( const QgsProcessingRegistry &other ) = delete;
 
     /**
@@ -87,13 +102,23 @@ class CORE_EXPORT QgsProcessingRegistry : public QObject
     /**
      * Returns a matching provider by provider ID.
      */
-    QgsProcessingProvider *providerById( const QString &id );
+    QgsProcessingProvider *providerById( const QString &id ) const SIP_HOLDGIL;
 
     /**
      * Returns a list of all available algorithms from registered providers.
      * \see algorithmById()
      */
     QList< const QgsProcessingAlgorithm *> algorithms() const;
+
+    /**
+     * Returns basic algorithm information for the algorithm with matching ID.
+     *
+     * This method uses an internal cache to ensure that information is quickly
+     * returned and is suitable for calling many times.
+     *
+     * \since QGIS 3.32
+     */
+    QgsProcessingAlgorithmInformation algorithmInformation( const QString &id ) const;
 
     /**
      * Finds an algorithm by its ID. If no matching algorithm is found, NULLPTR
@@ -215,9 +240,13 @@ class CORE_EXPORT QgsProcessingRegistry : public QObject
 
     QMap< QString, QString > mAlgorithmAliases;
 
+    mutable QMap< QString, QgsProcessingAlgorithmInformation > mCachedInformation;
+
 #ifdef SIP_RUN
     QgsProcessingRegistry( const QgsProcessingRegistry &other );
 #endif
+
+    friend class TestQgsProcessing;
 };
 
 #endif // QGSPROCESSINGREGISTRY_H

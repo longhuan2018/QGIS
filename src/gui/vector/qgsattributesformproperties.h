@@ -33,21 +33,17 @@
 #include <QHBoxLayout>
 #include <QFormLayout>
 #include <QPlainTextEdit>
+#include <QAction>
+#include <QMenu>
+#include <QClipboard>
 
 #include "ui_qgsattributesformproperties.h"
 #include "qgis_gui.h"
-#include "qgsaddattrdialog.h"
-#include "qgslogger.h"
-#include "qgsexpressionbuilderdialog.h"
-#include "qgsfieldcalculator.h"
-#include "qgsfieldexpressionwidget.h"
-#include "qgsattributesforminitcode.h"
-#include "qgsgui.h"
-#include "qgseditorwidgetfactory.h"
-#include "qgseditorwidgetregistry.h"
-#include "qgsrelationmanager.h"
-#include "qgsattributeeditorrelation.h"
-
+#include "qgsoptionalexpression.h"
+#include "qgsexpressioncontextgenerator.h"
+#include "qgsattributeeditorelement.h"
+#include "qgspropertycollection.h"
+#include "qgsmessagebar.h"
 
 class QgsAttributesDnDTree;
 class QgsAttributeFormContainerEdit;
@@ -57,13 +53,13 @@ class QgsAttributeWidgetEdit;
 /**
  * \ingroup gui
  * \class QgsAttributesFormProperties
+ * \brief A widget for configuring attribute forms.
  */
 class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpressionContextGenerator, private Ui_QgsAttributesFormProperties
 {
     Q_OBJECT
 
   public:
-
     enum FieldPropertiesRoles
     {
       DnDTreeRole = Qt::UserRole,
@@ -73,38 +69,39 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
 
     struct RelationEditorConfiguration
     {
-      operator QVariant();
+        operator QVariant();
 
-      QString mRelationWidgetType;
-      QVariantMap mRelationWidgetConfig;
-      QVariant nmRelationId;
-      bool forceSuppressFormPopup = false;
-      QString label;
+        QString mRelationWidgetType;
+        QVariantMap mRelationWidgetConfig;
+        QVariant nmRelationId;
+        bool forceSuppressFormPopup = false;
+        QString label;
     };
 
     struct QmlElementEditorConfiguration
     {
-      QString qmlCode;
+        QString qmlCode;
     };
 
     struct HtmlElementEditorConfiguration
     {
-      QString htmlCode;
+        QString htmlCode;
     };
 
     struct TextElementEditorConfiguration
     {
-      QString text;
+        QString text;
     };
 
     struct SpacerElementEditorConfiguration
     {
-      bool drawLine = false;
+        bool drawLine = false;
     };
 
     /**
      * \ingroup gui
      * \class DnDTreeItemData
+     * \brief A tree widget item containing drag-and-drop form designer elements.
      */
     class DnDTreeItemData : public QTreeWidgetItem
     {
@@ -116,9 +113,9 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
           Container, //!< Container for the form
           QmlWidget,
           HtmlWidget,
-          WidgetType, //!< In the widget tree, the type of widget
-          Action, //!< Layer action
-          TextWidget, //!< Text widget type, \since QGIS 3.30
+          WidgetType,   //!< In the widget tree, the type of widget
+          Action,       //!< Layer action
+          TextWidget,   //!< Text widget type, \since QGIS 3.30
           SpacerWidget, //!< Spacer widget type, \since QGIS 3.30
         };
 
@@ -146,8 +143,21 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
         int columnCount() const { return mColumnCount; }
         void setColumnCount( int count ) { mColumnCount = count; }
 
-        bool showAsGroupBox() const;
-        void setShowAsGroupBox( bool showAsGroupBox );
+        /**
+         * Returns the container type.
+         *
+         * \see setContainerType()
+         * \since QGIS 3.32
+         */
+        Qgis::AttributeEditorContainerType containerType() const;
+
+        /**
+         * Sets the container type.
+         *
+         * \see containerType()
+         * \since QGIS 3.32
+         */
+        void setContainerType( Qgis::AttributeEditorContainerType type );
 
         /**
          * For group box containers  returns if this group box is collapsed.
@@ -185,6 +195,46 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
         bool showLabel() const;
         void setShowLabel( bool showLabel );
 
+        /**
+         * Returns the horizontal stretch factor for the element.
+         *
+         * \see setHorizontalStretch()
+         * \see verticalStretch()
+         *
+         * \since QGIS 3.32
+         */
+        int horizontalStretch() const { return mHorizontalStretch; }
+
+        /**
+         * Sets the horizontal \a stretch factor for the element.
+         *
+         * \see horizontalStretch()
+         * \see setVerticalStretch()
+         *
+         * \since QGIS 3.32
+         */
+        void setHorizontalStretch( int stretch ) { mHorizontalStretch = stretch; }
+
+        /**
+         * Returns the vertical stretch factor for the element.
+         *
+         * \see setVerticalStretch()
+         * \see horizontalStretch()
+         *
+         * \since QGIS 3.32
+         */
+        int verticalStretch() const { return mVerticalStretch; }
+
+        /**
+         * Sets the vertical \a stretch factor for the element.
+         *
+         * \see verticalStretch()
+         * \see setHorizontalStretch()
+         *
+         * \since QGIS 3.32
+         */
+        void setVerticalStretch( int stretch ) { mVerticalStretch = stretch; }
+
         QgsOptionalExpression visibilityExpression() const;
 
         /**
@@ -215,14 +265,47 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
          */
         void setCollapsedExpression( const QgsOptionalExpression &collapsedExpression );
 
+        /**
+         * Returns the relation editor configuration.
+         *
+         * \see setRelationEditorConfiguration()
+         */
         RelationEditorConfiguration relationEditorConfiguration() const;
-        void setRelationEditorConfiguration( RelationEditorConfiguration relationEditorConfiguration );
 
+        /**
+         * Sets the relation editor configuration.
+         *
+         * \see relationEditorConfiguration()
+         */
+        void setRelationEditorConfiguration( const RelationEditorConfiguration &relationEditorConfiguration );
+
+        /**
+         * Returns the QML editor configuration.
+         *
+         * \see setQmlElementEditorConfiguration()
+         */
         QmlElementEditorConfiguration qmlElementEditorConfiguration() const;
-        void setQmlElementEditorConfiguration( QmlElementEditorConfiguration qmlElementEditorConfiguration );
 
+        /**
+         * Sets the QML editor configuration.
+         *
+         * \see qmlElementEditorConfiguration()
+         */
+        void setQmlElementEditorConfiguration( const QmlElementEditorConfiguration &qmlElementEditorConfiguration );
+
+        /**
+         * Returns the HTML editor configuration.
+         *
+         * \see setHtmlElementEditorConfiguration()
+         */
         HtmlElementEditorConfiguration htmlElementEditorConfiguration() const;
-        void setHtmlElementEditorConfiguration( HtmlElementEditorConfiguration htmlElementEditorConfiguration );
+
+        /**
+         * Sets the HTML editor configuration.
+         *
+         * \see htmlElementEditorConfiguration()
+         */
+        void setHtmlElementEditorConfiguration( const HtmlElementEditorConfiguration &htmlElementEditorConfiguration );
 
         /**
          * Returns the spacer element configuration
@@ -256,8 +339,10 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
         QString mName;
         QString mDisplayName;
         int mColumnCount = 1;
-        bool mShowAsGroupBox = false;
+        Qgis::AttributeEditorContainerType mContainerType = Qgis::AttributeEditorContainerType::Tab;
         bool mShowLabel = true;
+        int mHorizontalStretch = 0;
+        int mVerticalStretch = 0;
         QgsOptionalExpression mVisibilityExpression;
         RelationEditorConfiguration mRelationEditorConfiguration;
         QmlElementEditorConfiguration mQmlElementEditorConfiguration;
@@ -276,32 +361,46 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
      */
     struct FieldConfig
     {
-      FieldConfig() = default;
-      FieldConfig( QgsVectorLayer *layer, int idx );
+        FieldConfig() = default;
+        FieldConfig( QgsVectorLayer *layer, int idx );
 
-      bool mEditable = true;
-      bool mEditableEnabled = true;
-      bool mLabelOnTop = false;
-      bool mReuseLastValues = false;
-      QgsFieldConstraints mFieldConstraints;
-      QPushButton *mButton = nullptr;
-      QString mEditorWidgetType;
-      QMap<QString, QVariant> mEditorWidgetConfig;
-      QString mAlias;
-      QgsPropertyCollection mDataDefinedProperties;
-      QString mComment;
+        bool mEditable = true;
+        bool mLabelOnTop = false;
+        bool mReuseLastValues = false;
+        QgsFieldConstraints mFieldConstraints;
+        QPushButton *mButton = nullptr;
+        QString mEditorWidgetType;
+        QMap<QString, QVariant> mEditorWidgetConfig;
+        QString mAlias;
+        QgsPropertyCollection mDataDefinedProperties;
+        QString mComment;
+        Qgis::FieldDomainSplitPolicy mSplitPolicy = Qgis::FieldDomainSplitPolicy::Duplicate;
+        Qgis::FieldDuplicatePolicy mDuplicatePolicy = Qgis::FieldDuplicatePolicy::Duplicate;
+        Qgis::FieldDomainMergePolicy mMergePolicy = Qgis::FieldDomainMergePolicy::DefaultValue;
 
-      operator QVariant();
+        operator QVariant();
     };
 
   public:
     explicit QgsAttributesFormProperties( QgsVectorLayer *layer, QWidget *parent = nullptr );
 
-    QgsAttributeEditorElement *createAttributeEditorWidget( QTreeWidgetItem *item, QgsAttributeEditorElement *parent, bool forceGroup = true );
+    /**
+     * Creates a new attribute editor element based on the definition stored in \a item.
+     */
+    QgsAttributeEditorElement *createAttributeEditorWidget( QTreeWidgetItem *item, QgsAttributeEditorElement *parent, bool isTopLevel = false );
 
     void init();
+
+    /**
+     * Applies the attribute from properties to the vector layer.
+     */
     void apply();
 
+    /**
+     * Stores currently opened widget configuration.
+     * \since QGIS 3.36
+     */
+    void store();
 
     void loadRelations();
 
@@ -328,11 +427,21 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
     QLabel *mInfoTextWidget = nullptr;
 
   private slots:
+    void addContainer();
+    void removeTabOrGroupButton();
+    void mEditorLayoutComboBox_currentIndexChanged( int index );
+    void pbnSelectEditForm_clicked();
+    void mTbInitCode_clicked();
 
     void onInvertSelectionButtonClicked( bool checked );
     void loadAttributeSpecificEditor( QgsAttributesDnDTree *emitter, QgsAttributesDnDTree *receiver );
     void onAttributeSelectionChanged();
     void onFormLayoutSelectionChanged();
+
+    //! Context menu for Fields to enable Copy&Paste
+    void onContextMenuRequested( QPoint );
+
+    void updatedFields();
 
   private:
     //! this will clean the right panel
@@ -342,38 +451,45 @@ class GUI_EXPORT QgsAttributesFormProperties : public QWidget, public QgsExpress
     void storeAttributeWidgetEdit();
 
     void loadAttributeTypeDialog();
-    void storeAttributeTypeDialog( );
+    void loadAttributeTypeDialogFromConfiguration( const FieldConfig &cfg );
+    void storeAttributeTypeDialog();
 
     void storeAttributeContainerEdit();
     void loadAttributeContainerEdit();
 
     void loadInfoWidget( const QString &infoText );
 
+    void copyWidgetConfiguration();
+    void pasteWidgetConfiguration();
+
     QTreeWidgetItem *loadAttributeEditorTreeItem( QgsAttributeEditorElement *widgetDef, QTreeWidgetItem *parent, QgsAttributesDnDTree *tree );
 
-    QgsEditFormConfig::PythonInitCodeSource mInitCodeSource = QgsEditFormConfig::CodeSourceNone;
+    QgsMessageBar *mMessageBar = nullptr;
+
+    Qgis::AttributeFormPythonInitCodeSource mInitCodeSource = Qgis::AttributeFormPythonInitCodeSource::NoSource;
     QString mInitFunction;
     QString mInitFilePath;
     QString mInitCode;
+    int mBlockUpdates = 0;
 
-  private slots:
-    void addTabOrGroupButton();
-    void removeTabOrGroupButton();
-    void mEditorLayoutComboBox_currentIndexChanged( int index );
-    void pbnSelectEditForm_clicked();
-    void mTbInitCode_clicked();
+    //! Context menu for Fields
+    QMenu *mAvailableWidgetsTreeContextMenu = nullptr;
+    QAction *mActionCopyWidgetConfiguration = nullptr;
+    QAction *mActionPasteWidgetConfiguration = nullptr;
+
+    friend class TestQgsAttributesFormProperties;
 };
 
 
-QDataStream &operator<< ( QDataStream &stream, const QgsAttributesFormProperties::DnDTreeItemData &data );
-QDataStream &operator>> ( QDataStream &stream, QgsAttributesFormProperties::DnDTreeItemData &data );
+QDataStream &operator<<( QDataStream &stream, const QgsAttributesFormProperties::DnDTreeItemData &data );
+QDataStream &operator>>( QDataStream &stream, QgsAttributesFormProperties::DnDTreeItemData &data );
 
 
 /**
  * \ingroup gui
  * \class QgsAttributesDnDTree
  *
- * \brief This class overrides mime type handling to be able to work with
+ * \brief Overrides mime type handling to be able to work with
  * the drag and drop attribute editor.
  *
  * The mime type is application/x-qgsattributetablefield
@@ -391,8 +507,14 @@ class GUI_EXPORT QgsAttributesDnDTree : public QTreeWidget, private QgsExpressio
      * Adds a new item to a \a parent. If \a index is -1, the item is added to the end of the parent's existing children.
      * Otherwise it is inserted at the specified \a index.
      */
-    QTreeWidgetItem *addItem( QTreeWidgetItem *parent, QgsAttributesFormProperties::DnDTreeItemData data, int index = -1, const QIcon &icon = QIcon() );
-    QTreeWidgetItem *addContainer( QTreeWidgetItem *parent, const QString &title, int columnCount );
+    QTreeWidgetItem *addItem( QTreeWidgetItem *parent, const QgsAttributesFormProperties::DnDTreeItemData &data, int index = -1, const QIcon &icon = QIcon() );
+
+    /**
+     * Adds a new container to \a parent.
+     *
+     * If no \a parent is set then the container will be forced to a tab widget.
+     */
+    QTreeWidgetItem *addContainer( QTreeWidgetItem *parent, const QString &title, int columnCount, Qgis::AttributeEditorContainerType type );
 
     enum Type
     {
@@ -417,7 +539,7 @@ class GUI_EXPORT QgsAttributesDnDTree : public QTreeWidget, private QgsExpressio
   protected:
     QStringList mimeTypes() const override;
 
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
+#if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
     QMimeData *mimeData( const QList<QTreeWidgetItem *> items ) const override;
 #else
     QMimeData *mimeData( const QList<QTreeWidgetItem *> &items ) const override;

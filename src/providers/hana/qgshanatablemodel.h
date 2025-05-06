@@ -18,41 +18,40 @@
 #define QGSHANATABLEMODEL_H
 
 #include "qgis.h"
-#include "qgswkbtypes.h"
 #include "qgsabstractdbtablemodel.h"
 
 //! Schema properties structure
 struct QgsHanaSchemaProperty
 {
-  QString name;
-  QString owner;
+    QString name;
+    QString owner;
 };
 
 //! Layer Property structure
 struct QgsHanaLayerProperty
 {
-  QString     schemaName;
-  QString     tableName;
-  QString     tableComment;
-  QString     geometryColName;
-  QgsWkbTypes::Type type;
-  QStringList pkCols;
-  int         srid;
-  QString     sql;
-  bool        isView = false;
-  bool        isUnique = false;
-  bool        isValid = false;
-  QString     errorMessage;
+    QString schemaName;
+    QString tableName;
+    QString tableComment;
+    QString geometryColName;
+    Qgis::WkbType type;
+    QStringList pkCols;
+    int srid;
+    QString sql;
+    bool isView = false;
+    bool isUnique = false;
+    bool isValid = false;
+    QString errorMessage;
 
-  QString defaultName() const
-  {
-    QString ret = tableName;
-    if ( !isUnique && !geometryColName.isEmpty() )
-      ret += " [" + geometryColName + "]";
-    return ret;
-  }
+    QString defaultName() const
+    {
+      QString ret = tableName;
+      if ( !isUnique && !geometryColName.isEmpty() )
+        ret += " [" + geometryColName + "]";
+      return ret;
+    }
 
-  bool isGeometryValid() const { return type != QgsWkbTypes::Unknown && srid >= 0; }
+    bool isGeometryValid() const { return type != Qgis::WkbType::Unknown && srid >= 0; }
 };
 
 class QIcon;
@@ -99,13 +98,12 @@ class QgsHanaTableModel : public QgsAbstractDbTableModel
 
     QString layerURI( const QModelIndex &index, const QString &connName, const QString &connInfo );
 
-    static QIcon iconForWkbType( QgsWkbTypes::Type type );
+    static QIcon iconForWkbType( Qgis::WkbType type );
 
   private:
     //! Number of tables in the model
     int mTableCount = 0;
     QStringList mColumns;
-
 };
 
-#endif  // QGSHANATABLEMODEL_H
+#endif // QGSHANATABLEMODEL_H

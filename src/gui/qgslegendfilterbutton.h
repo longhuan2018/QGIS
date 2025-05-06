@@ -17,23 +17,24 @@
 
 #include <QToolButton>
 #include "qgis_gui.h"
+#include "qgsexpressioncontext.h"
 
 class QgsVectorLayer;
+class QgsExpressionContextGenerator;
 
 /**
  * \ingroup gui
  * \class QgsLegendFilterButton
  * \brief A tool button that allows enabling or disabling legend filter by contents of the map.
+ *
  * An additional pop down menu allows defining a boolean expression to refine the filtering.
- * \since QGIS 2.14
  */
 
-class GUI_EXPORT QgsLegendFilterButton: public QToolButton
+class GUI_EXPORT QgsLegendFilterButton : public QToolButton
 {
     Q_OBJECT
 
   public:
-
     /**
      * Construct a new filter legend button
      *
@@ -51,6 +52,13 @@ class GUI_EXPORT QgsLegendFilterButton: public QToolButton
      * This will update the menu
      */
     void setExpressionText( const QString &expression );
+
+    /**
+     * Register an expression context generator class that will be used to retrieve
+     * an expression context for the button when required.
+     * \since QGIS 3.32
+     */
+    void registerExpressionContextGenerator( QgsExpressionContextGenerator *generator );
 
     /**
      * Returns the current associated vectorLayer
@@ -76,6 +84,7 @@ class GUI_EXPORT QgsLegendFilterButton: public QToolButton
     QAction *mSetExpressionAction = nullptr;
     QAction *mClearExpressionAction = nullptr;
     QString mExpression;
+    QgsExpressionContextGenerator *mExpressionContextGenerator = nullptr;
 
     void updateMenu();
 

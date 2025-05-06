@@ -18,13 +18,20 @@
 
 #include <cmath>
 #include "qgslogger.h"
-#include "qgsrectangle.h"
 #include "qgsscalecalculator.h"
+#include "qgsrectangle.h"
+#include "qgsunittypes.h"
+#include <QSizeF>
 
-QgsScaleCalculator::QgsScaleCalculator( double dpi, QgsUnitTypes::DistanceUnit mapUnits )
+QgsScaleCalculator::QgsScaleCalculator( double dpi, Qgis::DistanceUnit mapUnits )
   : mDpi( dpi )
   , mMapUnits( mapUnits )
 {}
+
+void QgsScaleCalculator::setMethod( Qgis::ScaleCalculationMethod method )
+{
+  mMethod = method;
+}
 
 void QgsScaleCalculator::setDpi( double dpi )
 {
@@ -35,15 +42,15 @@ double QgsScaleCalculator::dpi() const
   return mDpi;
 }
 
-void QgsScaleCalculator::setMapUnits( QgsUnitTypes::DistanceUnit mapUnits )
+void QgsScaleCalculator::setMapUnits( Qgis::DistanceUnit mapUnits )
 {
-  QgsDebugMsgLevel( QStringLiteral( "Map units set to %1" ).arg( QString::number( mapUnits ) ), 3 );
+  QgsDebugMsgLevel( QStringLiteral( "Map units set to %1" ).arg( qgsEnumValueToKey( mapUnits ) ), 3 );
   mMapUnits = mapUnits;
 }
 
-QgsUnitTypes::DistanceUnit QgsScaleCalculator::mapUnits() const
+Qgis::DistanceUnit QgsScaleCalculator::mapUnits() const
 {
-  QgsDebugMsgLevel( QStringLiteral( "Map units returned as %1" ).arg( QString::number( mMapUnits ) ), 4 );
+  QgsDebugMsgLevel( QStringLiteral( "Map units returned as %1" ).arg( qgsEnumValueToKey( mMapUnits ) ), 4 );
   return mMapUnits;
 }
 
@@ -51,7 +58,7 @@ double QgsScaleCalculator::calculate( const QgsRectangle &mapExtent, double canv
 {
   if ( qgsDoubleNear( canvasWidth, 0. ) || qgsDoubleNear( mDpi, 0.0 ) )
   {
-    QgsDebugMsg( QStringLiteral( "Can't calculate scale from the input values" ) );
+    QgsDebugError( QStringLiteral( "Can't calculate scale from the input values" ) );
     return 0;
   }
 
@@ -68,7 +75,7 @@ QSizeF QgsScaleCalculator::calculateImageSize( const QgsRectangle &mapExtent, do
 {
   if ( qgsDoubleNear( scale, 0.0 ) || qgsDoubleNear( mDpi, 0.0 ) )
   {
-    QgsDebugMsg( QStringLiteral( "Can't calculate image size from the input values" ) );
+    QgsDebugError( QStringLiteral( "Can't calculate image size from the input values" ) );
     return QSizeF();
   }
   double conversionFactor = 0;
@@ -88,21 +95,69 @@ QSizeF QgsScaleCalculator::calculateImageSize( const QgsRectangle &mapExtent, do
 void QgsScaleCalculator::calculateMetrics( const QgsRectangle &mapExtent, double &delta, double &conversionFactor ) const
 {
   delta = mapExtent.xMaximum() - mapExtent.xMinimum();
+
   switch ( mMapUnits )
   {
-    case QgsUnitTypes::DistanceMeters:
-      // convert meters to inches
-      conversionFactor = 39.3700787;
+    case Qgis::DistanceUnit::Inches:
+      conversionFactor = 1;
       break;
-    case QgsUnitTypes::DistanceFeet:
-      conversionFactor = 12.0;
+
+    case Qgis::DistanceUnit::Meters:
+    case Qgis::DistanceUnit::Kilometers:
+    case Qgis::DistanceUnit::Feet:
+    case Qgis::DistanceUnit::Yards:
+    case Qgis::DistanceUnit::Millimeters:
+    case Qgis::DistanceUnit::Centimeters:
+    case Qgis::DistanceUnit::Miles:
+    case Qgis::DistanceUnit::NauticalMiles:
+    case Qgis::DistanceUnit::ChainsInternational:
+    case Qgis::DistanceUnit::ChainsBritishBenoit1895A:
+    case Qgis::DistanceUnit::ChainsBritishBenoit1895B:
+    case Qgis::DistanceUnit::ChainsBritishSears1922Truncated:
+    case Qgis::DistanceUnit::ChainsBritishSears1922:
+    case Qgis::DistanceUnit::ChainsClarkes:
+    case Qgis::DistanceUnit::ChainsUSSurvey:
+    case Qgis::DistanceUnit::FeetBritish1865:
+    case Qgis::DistanceUnit::FeetBritish1936:
+    case Qgis::DistanceUnit::FeetBritishBenoit1895A:
+    case Qgis::DistanceUnit::FeetBritishBenoit1895B:
+    case Qgis::DistanceUnit::FeetBritishSears1922Truncated:
+    case Qgis::DistanceUnit::FeetBritishSears1922:
+    case Qgis::DistanceUnit::FeetClarkes:
+    case Qgis::DistanceUnit::FeetGoldCoast:
+    case Qgis::DistanceUnit::FeetIndian:
+    case Qgis::DistanceUnit::FeetIndian1937:
+    case Qgis::DistanceUnit::FeetIndian1962:
+    case Qgis::DistanceUnit::FeetIndian1975:
+    case Qgis::DistanceUnit::FeetUSSurvey:
+    case Qgis::DistanceUnit::LinksInternational:
+    case Qgis::DistanceUnit::LinksBritishBenoit1895A:
+    case Qgis::DistanceUnit::LinksBritishBenoit1895B:
+    case Qgis::DistanceUnit::LinksBritishSears1922Truncated:
+    case Qgis::DistanceUnit::LinksBritishSears1922:
+    case Qgis::DistanceUnit::LinksClarkes:
+    case Qgis::DistanceUnit::LinksUSSurvey:
+    case Qgis::DistanceUnit::YardsBritishBenoit1895A:
+    case Qgis::DistanceUnit::YardsBritishBenoit1895B:
+    case Qgis::DistanceUnit::YardsBritishSears1922Truncated:
+    case Qgis::DistanceUnit::YardsBritishSears1922:
+    case Qgis::DistanceUnit::YardsClarkes:
+    case Qgis::DistanceUnit::YardsIndian:
+    case Qgis::DistanceUnit::YardsIndian1937:
+    case Qgis::DistanceUnit::YardsIndian1962:
+    case Qgis::DistanceUnit::YardsIndian1975:
+    case Qgis::DistanceUnit::MilesUSSurvey:
+    case Qgis::DistanceUnit::Fathoms:
+    case Qgis::DistanceUnit::MetersGermanLegal:
+      // convert to inches
+      conversionFactor = QgsUnitTypes::fromUnitToUnitFactor( mMapUnits, Qgis::DistanceUnit::Inches );
       break;
-    case QgsUnitTypes::DistanceNauticalMiles:
-      // convert nautical miles to inches
-      conversionFactor = 72913.4;
-      break;
-    default:
-    case QgsUnitTypes::DistanceDegrees:
+
+    case Qgis::DistanceUnit::Unknown:
+      // assume degrees to maintain old API
+      [[fallthrough]];
+
+    case Qgis::DistanceUnit::Degrees:
       // degrees require conversion to meters first
       conversionFactor = 39.3700787;
       delta = calculateGeographicDistance( mapExtent );
@@ -112,8 +167,43 @@ void QgsScaleCalculator::calculateMetrics( const QgsRectangle &mapExtent, double
 
 double QgsScaleCalculator::calculateGeographicDistance( const QgsRectangle &mapExtent ) const
 {
+  switch ( mMethod )
+  {
+    case Qgis::ScaleCalculationMethod::HorizontalTop:
+      return calculateGeographicDistanceAtLatitude( mapExtent.yMaximum(),
+             mapExtent.xMinimum(), mapExtent.xMaximum() );
+
+    case Qgis::ScaleCalculationMethod::HorizontalMiddle:
+      return calculateGeographicDistanceAtLatitude( ( mapExtent.yMaximum() + mapExtent.yMinimum() ) * 0.5,
+             mapExtent.xMinimum(), mapExtent.xMaximum() );
+
+    case Qgis::ScaleCalculationMethod::HorizontalBottom:
+      return calculateGeographicDistanceAtLatitude( mapExtent.yMinimum(),
+             mapExtent.xMinimum(), mapExtent.xMaximum() );
+
+    case Qgis::ScaleCalculationMethod::HorizontalAverage:
+    {
+      const double dTop = calculateGeographicDistanceAtLatitude( mapExtent.yMaximum(),
+                          mapExtent.xMinimum(), mapExtent.xMaximum() );
+      const double dMiddle = calculateGeographicDistanceAtLatitude( ( mapExtent.yMaximum() + mapExtent.yMinimum() ) * 0.5,
+                             mapExtent.xMinimum(), mapExtent.xMaximum() );
+      const double dBottom = calculateGeographicDistanceAtLatitude( mapExtent.yMinimum(),
+                             mapExtent.xMinimum(), mapExtent.xMaximum() );
+      return ( dTop + dMiddle + dBottom ) / 3.0;
+    }
+
+    case Qgis::ScaleCalculationMethod::AtEquator:
+      return calculateGeographicDistanceAtLatitude( 0,
+             mapExtent.xMinimum(), mapExtent.xMaximum() );
+  }
+  // unreachable!
+  return 0;
+}
+
+double QgsScaleCalculator::calculateGeographicDistanceAtLatitude( double lat, double longitude1, double longitude2 ) const
+{
   // need to calculate the x distance in meters
-  // We'll use the middle latitude for the calculation
+
   // Note this is an approximation (although very close) but calculating scale
   // for geographic data over large extents is quasi-meaningless
 
@@ -129,14 +219,14 @@ double QgsScaleCalculator::calculateGeographicDistance( const QgsRectangle &mapE
   // possibly extending beyond +/-180 degrees:
   //
   // - Use the Halversine formula to calculate the distance from -90 to
-  //   +90 degrees at the mean latitude.
+  //   +90 degrees at desired latitude.
   // - Scale this distance by the number of degrees between
-  //   mapExtent.xMinimum() and mapExtent.xMaximum();
-  // - For a slight improvemnt, allow for the ellipsoid shape of earth.
+  //   the two longitudes
 
+
+  // - TODO: respect the actual ellipsoid parameters!!
 
   // For a longitude change of 180 degrees
-  const double lat = ( mapExtent.yMaximum() + mapExtent.yMinimum() ) * 0.5;
   static const double RADS = ( 4.0 * std::atan( 1.0 ) ) / 180.0;
   const double a = std::pow( std::cos( lat * RADS ), 2 );
   const double c = 2.0 * std::atan2( std::sqrt( a ), std::sqrt( 1.0 - a ) );
@@ -146,7 +236,7 @@ double QgsScaleCalculator::calculateGeographicDistance( const QgsRectangle &mapE
   static const double E = 0.0810820288;
   const double radius = RA * ( 1.0 - E * E ) /
                         std::pow( 1.0 - E * E * std::sin( lat * RADS ) * std::sin( lat * RADS ), 1.5 );
-  const double meters = ( mapExtent.xMaximum() - mapExtent.xMinimum() ) / 180.0 * radius * c;
+  const double meters = ( longitude2 - longitude1 ) / 180.0 * radius * c;
 
   QgsDebugMsgLevel( "Distance across map extent (m): " + QString::number( meters ), 4 );
 

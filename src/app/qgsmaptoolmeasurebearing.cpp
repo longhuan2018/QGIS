@@ -14,14 +14,12 @@
  ***************************************************************************/
 
 #include "qgsmaptoolmeasurebearing.h"
+#include "moc_qgsmaptoolmeasurebearing.cpp"
 #include "qgsdisplayangle.h"
 #include "qgsdistancearea.h"
-#include "qgslogger.h"
 #include "qgsmapcanvas.h"
-#include "qgsmaptopixel.h"
 #include "qgsproject.h"
 #include "qgsrubberband.h"
-#include "qgssnappingutils.h"
 #include "qgssettings.h"
 #include "qgssnapindicator.h"
 #include "qgsmapmouseevent.h"
@@ -34,8 +32,7 @@ QgsMapToolMeasureBearing::QgsMapToolMeasureBearing( QgsMapCanvas *canvas )
 {
   mToolName = tr( "Measure bearing" );
 
-  connect( canvas, &QgsMapCanvas::destinationCrsChanged,
-           this, &QgsMapToolMeasureBearing::updateSettings );
+  connect( canvas, &QgsMapCanvas::destinationCrsChanged, this, &QgsMapToolMeasureBearing::updateSettings );
 }
 
 QgsMapToolMeasureBearing::~QgsMapToolMeasureBearing()
@@ -63,13 +60,11 @@ void QgsMapToolMeasureBearing::canvasMoveEvent( QgsMapMouseEvent *e )
 
       if ( !mResultDisplay->isVisible() )
       {
-        mResultDisplay->move( e->pos() - QPoint( 100, 100 ) );
         mResultDisplay->show();
       }
     }
     catch ( QgsCsException & )
     {
-
     }
   }
 }
@@ -96,7 +91,7 @@ void QgsMapToolMeasureBearing::canvasReleaseEvent( QgsMapMouseEvent *e )
       mResultDisplay = new QgsDisplayAngle( this );
       mResultDisplay->setWindowFlags( mResultDisplay->windowFlags() | Qt::Tool );
       mResultDisplay->setWindowTitle( tr( "Bearing" ) );
-      connect( mResultDisplay, &QDialog::rejected, this, &QgsMapToolMeasureBearing::stopMeasuring );
+      connect( mResultDisplay, &QDialog::finished, this, &QgsMapToolMeasureBearing::stopMeasuring );
     }
     configureDistanceArea();
     createRubberBand();
@@ -163,7 +158,7 @@ void QgsMapToolMeasureBearing::deactivate()
 void QgsMapToolMeasureBearing::createRubberBand()
 {
   delete mRubberBand;
-  mRubberBand = new QgsRubberBand( mCanvas, QgsWkbTypes::LineGeometry );
+  mRubberBand = new QgsRubberBand( mCanvas, Qgis::GeometryType::Line );
 
   const QgsSettings settings;
   const int myRed = settings.value( QStringLiteral( "qgis/default_measure_color_red" ), 180 ).toInt();

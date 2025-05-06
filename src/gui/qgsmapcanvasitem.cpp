@@ -39,9 +39,7 @@ QgsMapCanvasItem::~QgsMapCanvasItem()
   update(); // schedule redraw of canvas
 }
 
-void QgsMapCanvasItem::paint( QPainter *painter,
-                              const QStyleOptionGraphicsItem *option,
-                              QWidget *widget )
+void QgsMapCanvasItem::paint( QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget )
 {
   Q_UNUSED( option )
   Q_UNUSED( widget )
@@ -98,7 +96,7 @@ void QgsMapCanvasItem::setRect( const QgsRectangle &rect, bool resetRotation )
     setRotation( 0 );
   }
 
-  // QgsDebugMsg(QString("[%1,%2]-[%3x%4]").arg((int) r.left()).arg((int) r.top()).arg((int) r.width()).arg((int) r.height()));
+  // QgsDebugMsgLevel(QString("[%1,%2]-[%3x%4]").arg((int) r.left()).arg((int) r.top()).arg((int) r.width()).arg((int) r.height()), 2);
 
   update();
 }

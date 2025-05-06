@@ -200,7 +200,7 @@ void QgsAction::handleFormSubmitAction( const QString &expandedAction ) const
                     cleaned.push_back( ascii[i] );
                   }
                 }
-                ascii = cleaned;
+                ascii = std::move( cleaned );
               }
             }
           }
@@ -276,7 +276,7 @@ void QgsAction::run( const QgsExpressionContext &expressionContext ) const
 {
   if ( !isValid() )
   {
-    QgsDebugMsg( QStringLiteral( "Invalid action cannot be run" ) );
+    QgsDebugError( QStringLiteral( "Invalid action cannot be run" ) );
     return;
   }
 

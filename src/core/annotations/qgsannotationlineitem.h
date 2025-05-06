@@ -35,7 +35,7 @@ class CORE_EXPORT QgsAnnotationLineItem : public QgsAnnotationItem
   public:
 
     /**
-     * Constructor for QgsAnnotationLineItem, with the specified \a linestring.
+     * Constructor for QgsAnnotationLineItem, with the specified \a curve.
      */
     QgsAnnotationLineItem( QgsCurve *curve SIP_TRANSFER );
     ~QgsAnnotationLineItem() override;
@@ -43,9 +43,10 @@ class CORE_EXPORT QgsAnnotationLineItem : public QgsAnnotationItem
     QString type() const override;
     void render( QgsRenderContext &context, QgsFeedback *feedback ) override;
     bool writeXml( QDomElement &element, QDomDocument &document, const QgsReadWriteContext &context ) const override;
-    QList< QgsAnnotationItemNode > nodes() const override;
-    Qgis::AnnotationItemEditOperationResult applyEdit( QgsAbstractAnnotationItemEditOperation *operation ) override;
-    QgsAnnotationItemEditOperationTransientResults *transientEditResults( QgsAbstractAnnotationItemEditOperation *operation ) override SIP_FACTORY;
+    QList< QgsAnnotationItemNode > nodesV2( const QgsAnnotationItemEditContext &context ) const override;
+    Qgis::AnnotationItemEditOperationResult applyEditV2( QgsAbstractAnnotationItemEditOperation *operation, const QgsAnnotationItemEditContext &context ) override;
+    QgsAnnotationItemEditOperationTransientResults *transientEditResultsV2( QgsAbstractAnnotationItemEditOperation *operation, const QgsAnnotationItemEditContext &context ) override SIP_FACTORY;
+    Qgis::AnnotationItemFlags flags() const override;
 
     /**
      * Creates a new linestring annotation item.
@@ -55,7 +56,7 @@ class CORE_EXPORT QgsAnnotationLineItem : public QgsAnnotationItem
     bool readXml( const QDomElement &element, const QgsReadWriteContext &context ) override;
     QgsRectangle boundingBox() const override;
 
-    QgsAnnotationLineItem *clone() override SIP_FACTORY;
+    QgsAnnotationLineItem *clone() const override SIP_FACTORY;
 
     /**
      * Returns the geometry of the item.
@@ -73,7 +74,7 @@ class CORE_EXPORT QgsAnnotationLineItem : public QgsAnnotationItem
      *
      * \see geometry()
      */
-    void setGeometry( QgsCurve *geometry SIP_TRANSFER ) { mCurve.reset( geometry ); }
+    void setGeometry( QgsCurve *geometry SIP_TRANSFER );
 
     /**
      * Returns the symbol used to render the item.

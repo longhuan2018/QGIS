@@ -15,6 +15,7 @@
 
 #include "qgsmeshspatialindex.h"
 #include "qgsrectangle.h"
+#include "qgsspatialindexutils.h"
 #include "qgslogger.h"
 #include "qgsfeedback.h"
 
@@ -71,13 +72,6 @@ static Region edgeToRegion( const QgsMesh &mesh, int id, bool &ok )
   double pt1[2] = { xMinimum, yMinimum };
   double pt2[2] = { xMaximum, yMaximum };
   ok = true;
-  return SpatialIndex::Region( pt1, pt2, 2 );
-}
-
-static Region rectToRegion( const QgsRectangle &rect )
-{
-  double pt1[2] = { rect.xMinimum(), rect.yMinimum() };
-  double pt2[2] = { rect.xMaximum(), rect.yMaximum() };
   return SpatialIndex::Region( pt1, pt2, 2 );
 }
 
@@ -155,7 +149,7 @@ class QgsMeshIteratorDataStream : public IDataStream
                                         QgsFeedback *feedback = nullptr )
       : mMesh( mesh )
       , mFeaturesCount( featuresCount )
-      , mFeatureToRegionFunction( featureToRegionFunction )
+      , mFeatureToRegionFunction( std::move( featureToRegionFunction ) )
       , mFeedback( feedback )
     {
       readNextEntry();
@@ -354,7 +348,8 @@ QgsMeshSpatialIndex::QgsMeshSpatialIndex( const QgsMesh &mesh, QgsFeedback *feed
 }
 
 QgsMeshSpatialIndex::QgsMeshSpatialIndex( const QgsMeshSpatialIndex &other ) //NOLINT
-  : d( other.d )
+  : mElementType( other.mElementType )
+  , d( other.d )
 {
 }
 
@@ -363,7 +358,10 @@ QgsMeshSpatialIndex:: ~QgsMeshSpatialIndex() = default; //NOLINT
 QgsMeshSpatialIndex &QgsMeshSpatialIndex::operator=( const QgsMeshSpatialIndex &other )
 {
   if ( this != &other )
+  {
+    mElementType = other.mElementType;
     d = other.d;
+  }
   return *this;
 }
 
@@ -372,7 +370,7 @@ QList<int> QgsMeshSpatialIndex::intersects( const QgsRectangle &rect ) const
   QList<int> list;
   QgisMeshVisitor visitor( list );
 
-  const SpatialIndex::Region r = rectToRegion( rect );
+  const SpatialIndex::Region r = QgsSpatialIndexUtils::rectangleToRegion( rect );
 
   const QMutexLocker locker( &d->mMutex );
   d->mRTree->intersectsWithQuery( r, visitor );
@@ -418,16 +416,16 @@ void QgsMeshSpatialIndex::addFace( int faceIndex, const QgsMesh &mesh )
   catch ( Tools::Exception &e )
   {
     Q_UNUSED( e )
-    QgsDebugMsg( QStringLiteral( "Tools::Exception caught: " ).arg( e.what().c_str() ) );
+    QgsDebugError( QStringLiteral( "Tools::Exception caught: " ).arg( e.what().c_str() ) );
   }
   catch ( const std::exception &e )
   {
     Q_UNUSED( e )
-    QgsDebugMsg( QStringLiteral( "std::exception caught: " ).arg( e.what() ) );
+    QgsDebugError( QStringLiteral( "std::exception caught: " ).arg( e.what() ) );
   }
   catch ( ... )
   {
-    QgsDebugMsg( QStringLiteral( "unknown spatial index exception caught" ) );
+    QgsDebugError( QStringLiteral( "unknown spatial index exception caught" ) );
   }
 }
 

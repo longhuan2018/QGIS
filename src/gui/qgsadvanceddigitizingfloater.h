@@ -31,9 +31,11 @@ class QgsAdvancedDigitizingDockWidget;
 
 /**
 * \ingroup gui
-* \brief The QgsAdvancedDigitizingFloater class is widget that floats
-* next to the mouse pointer, and allow interaction with the AdvancedDigitizing
-* feature. It proxies display and actions to QgsMapToolAdvancedDigitizingDockWidget.
+* \brief A widget that floats next to the mouse pointer, and allows interaction with the AdvancedDigitizing
+* feature.
+*
+* It proxies display and actions to QgsMapToolAdvancedDigitizingDockWidget.
+*
 * \note This class is a technology preview and unstable API.
 * \since QGIS 3.8
 */
@@ -42,6 +44,21 @@ class GUI_EXPORT QgsAdvancedDigitizingFloater : public QWidget, private Ui::QgsA
     Q_OBJECT
 
   public:
+    //! Available floater items
+    enum class FloaterItem : int SIP_ENUM_BASETYPE( IntFlag )
+    {
+      XCoordinate = 1 << 1,
+      YCoordinate = 1 << 2,
+      MCoordinate = 1 << 3,
+      ZCoordinate = 1 << 4,
+      Angle = 1 << 5,
+      CommonAngleSnapping = 1 << 6,
+      Distance = 1 << 7,
+      Bearing = 1 << 8,
+    };
+    Q_DECLARE_FLAGS( FloaterItems, FloaterItem )
+    Q_FLAG( FloaterItem )
+
 
     /**
      * Create an advanced digitizing floater widget
@@ -58,6 +75,14 @@ class GUI_EXPORT QgsAdvancedDigitizingFloater : public QWidget, private Ui::QgsA
     */
     bool active();
 
+    /**
+    * Returns TRUE if the floater \a item visibility setting is enabled.
+    *
+    * \param item floater item
+    * \since QGIS 3.32
+    */
+    bool itemVisibility( const QgsAdvancedDigitizingFloater::FloaterItem &item ) const;
+
   public slots:
 
     /**
@@ -69,14 +94,25 @@ class GUI_EXPORT QgsAdvancedDigitizingFloater : public QWidget, private Ui::QgsA
     */
     void setActive( bool active );
 
+    /**
+    * Set whether the floater \a item should be visible or not.
+    *
+    * \param item floater item
+    * \param visible
+    * \since QGIS 3.32
+    */
+    void setItemVisibility( const QgsAdvancedDigitizingFloater::FloaterItem &item, bool visible );
+
   private slots:
 
     void changeX( const QString &text );
     void changeY( const QString &text );
     void changeZ( const QString &text );
     void changeM( const QString &text );
+    void changeCommonAngleSnapping( double angle );
     void changeDistance( const QString &text );
     void changeAngle( const QString &text );
+    void changeBearing( const QString &text );
     void changeLockX( bool locked );
     void changeLockY( bool locked );
     void changeLockZ( bool locked );
@@ -101,14 +137,15 @@ class GUI_EXPORT QgsAdvancedDigitizingFloater : public QWidget, private Ui::QgsA
     void enabledChangedM( bool enabled );
     void enabledChangedAngle( bool enabled );
     void enabledChangedDistance( bool enabled );
+    void enabledCommonAngleSnapping( bool enabled );
+    void enabledChangedBearing( bool enabled );
 
   private:
-
     //! pointer to map canvas
     QgsMapCanvas *mMapCanvas = nullptr;
 
     //! pointer to map cad docker widget
-    QPointer< QgsAdvancedDigitizingDockWidget > mCadDockWidget;
+    QPointer<QgsAdvancedDigitizingDockWidget> mCadDockWidget;
 
     /**
     * event filter to track mouse position
@@ -129,6 +166,8 @@ class GUI_EXPORT QgsAdvancedDigitizingFloater : public QWidget, private Ui::QgsA
 
     //! Whether the floater is enabled.
     bool mActive = false;
+
+    FloaterItems mItemsVisibility;
 };
 
 #endif // QGSADVANCEDDIGITIZINGFLOATER_H

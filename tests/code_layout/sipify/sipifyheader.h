@@ -56,7 +56,7 @@ typedef QMap<QgsFeatureId, QPair<QMap<Something, Complex> >>  SIP_PYALTERNATIVET
 
 /**
  * \ingroup core
- * A super QGIS class
+ * A super QGIS class.
  */
 #ifndef SIP_RUN // following will be hidden
 class CORE_EXPORT QgsSuperClass : public QtClass<QVariant>
@@ -87,7 +87,7 @@ typedef QVector<QVariant> QgsSuperClass;
 
 /**
  * \ingroup core
- * Documentation goes here
+ * Documentation goes here.
  *
  * Here's some comment mentioning another class QgsAutoAwesomemater::makeAwesome.
  * \note some other note
@@ -107,7 +107,7 @@ class CORE_EXPORT QgsSipifyHeader : public QtClass<QVariant>, private Ui::QgsBas
 
   public:
     //! This is an enum
-    enum MyEnum
+    enum MyEnum : int SIP_ENUM_BASETYPE( IntFlag )
     {
       Success = 0, //!< Edit operation was successful
       NoSuccess = 1, //!< Edit operation resulted in an empty geometry
@@ -229,6 +229,7 @@ class CORE_EXPORT QgsSipifyHeader : public QtClass<QVariant>, private Ui::QgsBas
 
     /**
      * \brief some brief
+     *
      * My long doc \a string
      * is not very interesting!
      * Here's some comment mentioning another class QgsAutoAwesomemater::makeLessAwesome.
@@ -371,7 +372,17 @@ class CORE_EXPORT QgsSipifyHeader : public QtClass<QVariant>, private Ui::QgsBas
     void position( bool first_remove SIP_PYARGREMOVE, bool keep );
     void position( bool keep, bool middle_remove SIP_PYARGREMOVE, bool keep );
     void position( bool keep, bool last_remove SIP_PYARGREMOVE );
-
+    static QgsFields stringToFields( const QString &string, QTextCodec *encoding SIP_PYARGREMOVE6 = 0 );
+    QList<QgsMapLayer *> addMapLayers( const QList<QgsMapLayer *> &mapLayers SIP_TRANSFER,
+                                       bool addToLegend = true,
+                                       bool takeOwnership SIP_PYARGREMOVE = true );
+    QgsEditorWidgetWrapper *create( const QString &widgetId,
+                                    QgsVectorLayer *vl,
+                                    int fieldIdx,
+                                    const QVariantMap &config,
+                                    QWidget *editor,
+                                    QWidget *parent SIP_TRANSFERTHIS,
+                                    const QgsAttributeEditorContext &context  SIP_PYARGREMOVE = QgsAttributeEditorContext() ) SIP_FACTORY;
     void method( bool myArg SIP_PYARGRENAME( superArg ) = test );
     void method( bool myArg1,
                  bool myArg2 SIP_PYARGRENAME( superArg2 ) = test, // hola
@@ -468,7 +479,7 @@ class CORE_EXPORT QgsSipifyHeader : public QtClass<QVariant>, private Ui::QgsBas
 /**
  * \class ClassWithPrivateInheritanceOnly
  * \ingroup core
- * Documentation goes here
+ * Documentation goes here.
  */
 class CORE_EXPORT ClassWithPrivateInheritanceOnly : private QgsBaseClass SIP_ABSTRACT
 {
@@ -486,7 +497,7 @@ class CORE_EXPORT ClassWithPrivateInheritanceOnly : private QgsBaseClass SIP_ABS
 /**
  * \class AbstractClass
  * \ingroup core
- * Documentation goes here
+ * Documentation goes here.
  */
 
 class CORE_EXPORT AbstractClass SIP_ABSTRACT
@@ -521,6 +532,9 @@ class CORE_EXPORT TemplateInheritance4 : public SomethingElse1, public QList<Som
 {
 }
 class CORE_EXPORT TemplateInheritance5 : public SomethingElse, public QList<Something>
+{
+}
+class CORE_EXPORT TemplateInheritance6 : public SomethingElse, public YourSuperTemplate<Abc, Def, Ghi>
 {
 }
 

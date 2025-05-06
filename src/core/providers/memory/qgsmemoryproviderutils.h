@@ -31,7 +31,6 @@ class QgsFields;
  * \class QgsMemoryProviderUtils
  * \ingroup core
  * \brief Utility functions for use with the memory vector data provider.
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsMemoryProviderUtils
 {
@@ -49,7 +48,7 @@ class CORE_EXPORT QgsMemoryProviderUtils
      */
     static QgsVectorLayer *createMemoryLayer( const QString &name,
         const QgsFields &fields,
-        QgsWkbTypes::Type geometryType = QgsWkbTypes::NoGeometry,
+        Qgis::WkbType geometryType = Qgis::WkbType::NoGeometry,
         const QgsCoordinateReferenceSystem &crs = QgsCoordinateReferenceSystem(),
         bool loadDefaultStyle = true ) SIP_FACTORY;
 };

@@ -15,10 +15,11 @@
  ***************************************************************************/
 
 #include "qgslayoutitemmarker.h"
+#include "moc_qgslayoutitemmarker.cpp"
 #include "qgslayout.h"
 #include "qgslayoututils.h"
 #include "qgssymbollayerutils.h"
-#include "qgslayoutmodel.h"
+#include "qgslayoutrendercontext.h"
 #include "qgsstyleentityvisitor.h"
 #include "qgslayoutitemmap.h"
 #include "qgsmarkersymbol.h"
@@ -34,10 +35,10 @@ QgsLayoutItemMarker::QgsLayoutItemMarker( QgsLayout *layout )
   setReferencePoint( QgsLayoutItem::Middle );
   QVariantMap properties;
   properties.insert( QStringLiteral( "size" ), QStringLiteral( "4" ) );
-  mShapeStyleSymbol.reset( QgsMarkerSymbol::createSimple( properties ) );
+  mShapeStyleSymbol = QgsMarkerSymbol::createSimple( properties );
   refreshSymbol();
 
-  connect( this, &QgsLayoutItemMarker::sizePositionChanged, this, [ = ]
+  connect( this, &QgsLayoutItemMarker::sizePositionChanged, this, [this]
   {
     updateBoundingRect();
     update();
@@ -78,7 +79,7 @@ void QgsLayoutItemMarker::refreshSymbol()
                       -bounds.top() * 25.4 / lLayout->renderContext().dpi() );
     bounds.translate( mPoint );
 
-    const QgsLayoutSize newSizeMm = QgsLayoutSize( bounds.size()  * 25.4 / lLayout->renderContext().dpi(), QgsUnitTypes::LayoutMillimeters );
+    const QgsLayoutSize newSizeMm = QgsLayoutSize( bounds.size()  * 25.4 / lLayout->renderContext().dpi(), Qgis::LayoutUnit::Millimeters );
     mFixedSize = mLayout->renderContext().measurementConverter().convert( newSizeMm, sizeWithUnits().units() );
 
     attemptResize( mFixedSize );
@@ -183,7 +184,7 @@ void QgsLayoutItemMarker::draw( QgsLayoutItemRenderContext &context )
   painter->setPen( Qt::NoPen );
   painter->setBrush( Qt::NoBrush );
 
-  const double scale = context.renderContext().convertToPainterUnits( 1, QgsUnitTypes::RenderMillimeters );
+  const double scale = context.renderContext().convertToPainterUnits( 1, Qgis::RenderUnit::Millimeters );
 
   const QPointF shapePoint = mPoint * scale;
 
@@ -220,7 +221,7 @@ bool QgsLayoutItemMarker::readPropertiesFromElement( const QDomElement &element,
   const QDomElement shapeStyleSymbolElem = element.firstChildElement( QStringLiteral( "symbol" ) );
   if ( !shapeStyleSymbolElem.isNull() )
   {
-    mShapeStyleSymbol.reset( QgsSymbolLayerUtils::loadSymbol<QgsMarkerSymbol>( shapeStyleSymbolElem, context ) );
+    mShapeStyleSymbol = QgsSymbolLayerUtils::loadSymbol<QgsMarkerSymbol>( shapeStyleSymbolElem, context );
   }
 
   //picture rotation

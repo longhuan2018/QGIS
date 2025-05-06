@@ -34,8 +34,7 @@
 
 namespace QgsWfs
 {
-  void writeDescribeFeatureType( QgsServerInterface *serverIface, const QgsProject *project, const QString &version,
-                                 const QgsServerRequest &request, QgsServerResponse &response )
+  void writeDescribeFeatureType( QgsServerInterface *serverIface, const QgsProject *project, const QString &version, const QgsServerRequest &request, QgsServerResponse &response )
   {
     const QgsWfsParameters wfsParameters( QUrlQuery( request.url() ) );
     const QgsWfsParameters::Format oFormat = wfsParameters.outputFormat();
@@ -59,9 +58,7 @@ namespace QgsWfs
       break;
 
       default:
-        throw QgsBadRequestException( QStringLiteral( "Invalid WFS Parameter" ),
-                                      QStringLiteral( "OUTPUTFORMAT %1 is not supported" ).arg( wfsParameters.outputFormatAsString() ) );
-
+        throw QgsBadRequestException( QStringLiteral( "Invalid WFS Parameter" ), QStringLiteral( "OUTPUTFORMAT %1 is not supported" ).arg( wfsParameters.outputFormatAsString() ) );
     }
   }
 
@@ -107,44 +104,44 @@ namespace QgsWfs
     const thread_local QRegularExpression sCleanTagNameRegExp( QStringLiteral( "[^\\w\\.-_]" ), QRegularExpression::PatternOption::UseUnicodePropertiesOption );
     fieldName.replace( ' ', '_' ).replace( sCleanTagNameRegExp, QString() );
 
-    const QVariant::Type attributeType = field.type();
+    const QMetaType::Type attributeType = field.type();
 
-    if ( attributeType == QVariant::Int )
+    if ( attributeType == QMetaType::Type::Int )
     {
       fieldType = QStringLiteral( "int" );
     }
-    else if ( attributeType == QVariant::UInt )
+    else if ( attributeType == QMetaType::Type::UInt )
     {
       fieldType = QStringLiteral( "unsignedInt" );
     }
-    else if ( attributeType == QVariant::LongLong )
+    else if ( attributeType == QMetaType::Type::LongLong )
     {
       fieldType = QStringLiteral( "long" );
     }
-    else if ( attributeType == QVariant::ULongLong )
+    else if ( attributeType == QMetaType::Type::ULongLong )
     {
       fieldType = QStringLiteral( "unsignedLong" );
     }
-    else if ( attributeType == QVariant::Double )
+    else if ( attributeType == QMetaType::Type::Double )
     {
       if ( field.length() > 0 && field.precision() == 0 )
         fieldType = QStringLiteral( "integer" );
       else
         fieldType = QStringLiteral( "decimal" );
     }
-    else if ( attributeType == QVariant::Bool )
+    else if ( attributeType == QMetaType::Type::Bool )
     {
       fieldType = QStringLiteral( "boolean" );
     }
-    else if ( attributeType == QVariant::Date )
+    else if ( attributeType == QMetaType::Type::QDate )
     {
       fieldType = QStringLiteral( "date" );
     }
-    else if ( attributeType == QVariant::Time )
+    else if ( attributeType == QMetaType::Type::QTime )
     {
       fieldType = QStringLiteral( "time" );
     }
-    else if ( attributeType == QVariant::DateTime )
+    else if ( attributeType == QMetaType::Type::QDateTime )
     {
       fieldType = QStringLiteral( "dateTime" );
     }
@@ -154,24 +151,27 @@ namespace QgsWfs
     }
 
     const QgsEditorWidgetSetup setup = field.editorWidgetSetup();
-    if ( setup.type() ==  QStringLiteral( "DateTime" ) )
+    if ( setup.type() == QLatin1String( "DateTime" ) )
     {
       // Get editor widget setup config
       const QVariantMap config = setup.config();
       // Get field format from editor widget setup config
       const QString fieldFormat = config.value(
-                                    QStringLiteral( "field_format" ),
-                                    QgsDateTimeFieldFormatter::defaultFormat( field.type() )
-                                  ).toString();
+                                          QStringLiteral( "field_format" ),
+                                          QgsDateTimeFieldFormatter::defaultFormat( field.type() )
+      )
+                                    .toString();
       // Define type from field format
-      if ( fieldFormat == QgsDateTimeFieldFormatter::TIME_FORMAT ) // const TIME_FORMAT
+      if ( fieldFormat == QgsDateTimeFieldFormatter::TIME_FORMAT ) // const QgsDateTimeFieldFormatter::TIME_FORMAT
         fieldType = QStringLiteral( "time" );
-      else if ( fieldFormat == QLatin1String( "yyyy-MM-dd" ) ) // QgsDateTimeFieldFormatter provide a local date format
+      else if ( fieldFormat == QgsDateTimeFieldFormatter::DATE_FORMAT ) // const QgsDateTimeFieldFormatter::DATE_FORMAT since QGIS 3.30
         fieldType = QStringLiteral( "date" );
-      else
+      else if ( fieldFormat == QgsDateTimeFieldFormatter::DATETIME_FORMAT ) // const QgsDateTimeFieldFormatter::DATETIME_FORMAT since QGIS 3.30
+        fieldType = QStringLiteral( "dateTime" );
+      else if ( fieldFormat == QgsDateTimeFieldFormatter::QT_ISO_FORMAT )
         fieldType = QStringLiteral( "dateTime" );
     }
-    else if ( setup.type() ==  QStringLiteral( "Range" ) )
+    else if ( setup.type() == QLatin1String( "Range" ) )
     {
       const QVariantMap config = setup.config();
       if ( config.contains( QStringLiteral( "Precision" ) ) )
@@ -179,7 +179,7 @@ namespace QgsWfs
         // if precision in range config is not the same as the attributePrec
         // we need to update type
         bool ok;
-        const int configPrec( config[ QStringLiteral( "Precision" ) ].toInt( &ok ) );
+        const int configPrec( config[QStringLiteral( "Precision" )].toInt( &ok ) );
         if ( ok && configPrec != field.precision() )
         {
           if ( configPrec == 0 )

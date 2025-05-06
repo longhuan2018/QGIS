@@ -31,7 +31,7 @@ class QTreeWidgetItem;
  * Widget to edit a container (tab or group box) of a form configuration
  * \since QGIS 3.14
  */
-class GUI_EXPORT QgsAttributeFormContainerEdit: public QWidget, private Ui_QgsAttributeFormContainerEdit
+class GUI_EXPORT QgsAttributeFormContainerEdit : public QWidget, private Ui_QgsAttributeFormContainerEdit
 {
     Q_OBJECT
 
@@ -46,6 +46,10 @@ class GUI_EXPORT QgsAttributeFormContainerEdit: public QWidget, private Ui_QgsAt
     void registerExpressionContextGenerator( QgsExpressionContextGenerator *generator );
 
     void updateItemData();
+
+  private slots:
+
+    void containerTypeChanged();
 
   private:
     QTreeWidgetItem *mTreeItem = nullptr;

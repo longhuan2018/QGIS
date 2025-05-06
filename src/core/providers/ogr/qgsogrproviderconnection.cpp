@@ -25,6 +25,7 @@
 #include "qgsfielddomain.h"
 #include "qgsogrproviderutils.h"
 #include "qgsdbquerylog.h"
+#include "qgsdbquerylog_p.h"
 #include "qgsprovidersublayerdetails.h"
 #include "qgsweakrelation.h"
 #if GDAL_VERSION_NUM < GDAL_COMPUTE_VERSION(3,4,0)
@@ -42,7 +43,7 @@
 // QgsOgrProviderResultIterator
 //
 
-QgsOgrProviderResultIterator::QgsOgrProviderResultIterator( gdal::ogr_datasource_unique_ptr hDS, OGRLayerH ogrLayer )
+QgsOgrProviderResultIterator::QgsOgrProviderResultIterator( gdal::dataset_unique_ptr hDS, OGRLayerH ogrLayer )
   : mHDS( std::move( hDS ) )
   , mOgrLayer( ogrLayer )
 {
@@ -105,12 +106,6 @@ QVariantList QgsOgrProviderResultIterator::nextRowInternal()
           row.push_back( QVariant( QString::fromUtf8( OGR_F_GetFieldAsString( fet.get(), i ) ) ) );
         }
       }
-    }
-    else
-    {
-      // Release the resources
-      GDALDatasetReleaseResultSet( mHDS.get(), mOgrLayer );
-      mHDS.release();
     }
   }
   return row;
@@ -183,7 +178,7 @@ QString QgsOgrProviderConnection::tableUri( const QString &, const QString &name
   return QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) )->encodeUri( parts );
 }
 
-QList<QgsAbstractDatabaseProviderConnection::TableProperty> QgsOgrProviderConnection::tables( const QString &, const TableFlags &flags ) const
+QList<QgsAbstractDatabaseProviderConnection::TableProperty> QgsOgrProviderConnection::tables( const QString &, const TableFlags &flags, QgsFeedback *feedback ) const
 {
   QList<QgsAbstractDatabaseProviderConnection::TableProperty> tableInfo;
 
@@ -191,11 +186,14 @@ QList<QgsAbstractDatabaseProviderConnection::TableProperty> QgsOgrProviderConnec
   const QList< QgsProviderSublayerDetails > subLayers = metadata->querySublayers(
         uri(),
         ( flags & TableFlag::IncludeSystemTables ) ? Qgis::SublayerQueryFlag::IncludeSystemTables : Qgis::SublayerQueryFlags(),
-        nullptr );
+        feedback );
 
   tableInfo.reserve( subLayers.size() );
   for ( const QgsProviderSublayerDetails &subLayer : subLayers )
   {
+    if ( feedback && feedback->isCanceled() )
+      break;
+
     tableInfo.append( table( QString(), subLayer.name() ) );
   }
 
@@ -211,7 +209,7 @@ QList<QgsAbstractDatabaseProviderConnection::TableProperty> QgsOgrProviderConnec
   return tableInfo;
 }
 
-QgsAbstractDatabaseProviderConnection::TableProperty QgsOgrProviderConnection::table( const QString &, const QString &table ) const
+QgsAbstractDatabaseProviderConnection::TableProperty QgsOgrProviderConnection::table( const QString &, const QString &table, QgsFeedback * ) const
 {
   const QVariantMap parts = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) )->decodeUri( uri() );
   const QString path = parts.value( QStringLiteral( "path" ) ).toString();
@@ -263,7 +261,7 @@ QgsAbstractDatabaseProviderConnection::TableProperty QgsOgrProviderConnection::t
   }
   geomType.wkbType = QgsOgrUtils::ogrGeometryTypeToQgsWkbType( fdef.GetGeomType() );
 
-  if ( geomType.wkbType != QgsWkbTypes::NoGeometry )
+  if ( geomType.wkbType != Qgis::WkbType::NoGeometry )
   {
     property.setGeometryColumnTypes( { geomType } );
     property.setFlag( TableFlag::Vector );
@@ -287,14 +285,14 @@ QgsVectorLayer *QgsOgrProviderConnection::createSqlVectorLayer( const QgsAbstrac
   QgsProviderMetadata *providerMetadata { QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) ) };
   Q_ASSERT( providerMetadata );
   QMap<QString, QVariant> decoded = providerMetadata->decodeUri( uri() );
-  decoded[ QStringLiteral( "subset" ) ] = options.sql;
+  decoded[ QStringLiteral( "subset" ) ] = sanitizeSqlForQueryLayer( options.sql ) ;
   return new QgsVectorLayer( providerMetadata->encodeUri( decoded ), options.layerName.isEmpty() ? QStringLiteral( "QueryLayer" ) : options.layerName, providerKey() );
 }
 
 void QgsOgrProviderConnection::createVectorTable( const QString &schema,
     const QString &name,
     const QgsFields &fields,
-    QgsWkbTypes::Type wkbType,
+    Qgis::WkbType wkbType,
     const QgsCoordinateReferenceSystem &srs,
     bool overwrite,
     const QMap<QString, QVariant> *options ) const
@@ -317,6 +315,7 @@ void QgsOgrProviderConnection::createVectorTable( const QString &schema,
   opts[ QStringLiteral( "driverName" ) ] = QString( GDALGetDriverShortName( hDriver ) );
   QMap<int, int> map;
   QString errCause;
+  QString createdLayerName;
   Qgis::VectorExportResult errCode = QgsOgrProvider::createEmptyLayer(
                                        uri(),
                                        fields,
@@ -324,13 +323,29 @@ void QgsOgrProviderConnection::createVectorTable( const QString &schema,
                                        srs,
                                        overwrite,
                                        &map,
+                                       createdLayerName,
                                        &errCause,
                                        &opts
                                      );
+  // TODO we need some way to hand createdLayerName back to caller, as it may differ from the requested name...
   if ( errCode != Qgis::VectorExportResult::Success )
   {
     throw QgsProviderConnectionException( QObject::tr( "An error occurred while creating the vector layer: %1" ).arg( errCause ) );
   }
+}
+
+QString QgsOgrProviderConnection::createVectorLayerExporterDestinationUri( const VectorLayerExporterOptions &options, QVariantMap &providerOptions ) const
+{
+  if ( !options.schema.isEmpty() )
+  {
+    QgsMessageLog::logMessage( QStringLiteral( "Schema is not supported by OGR, ignoring" ), QStringLiteral( "OGR" ), Qgis::MessageLevel::Info );
+  }
+
+  // OGR provider uses "layerName" from options rather then the table name from the URI
+  providerOptions.clear();
+  providerOptions.insert( QStringLiteral( "layerName" ), options.layerName );
+
+  return uri();
 }
 
 void QgsOgrProviderConnection::dropVectorTable( const QString &schema, const QString &name ) const
@@ -414,7 +429,7 @@ void QgsOgrProviderConnection::setDefaultCapabilities()
     mCapabilities |= Capability::Spatial;
 
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,4,0)
-  mSingleTableDataset = GDALGetMetadataItem( hDriver, GDAL_DCAP_MULTIPLE_VECTOR_LAYERS, nullptr ) == nullptr;
+  mSingleTableDataset = !GDALGetMetadataItem( hDriver, GDAL_DCAP_MULTIPLE_VECTOR_LAYERS, nullptr );
 #else
   {
     const QVariantMap uriParts = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) )->decodeUri( uri() );
@@ -446,6 +461,19 @@ void QgsOgrProviderConnection::setDefaultCapabilities()
     {
       mCapabilities |= RenameField;
     }
+
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,7,0)
+    // only supported on gdal 3.7 and above
+    if ( CSLFindString( papszTokens, "AlternativeName" ) >= 0 )
+    {
+      mCapabilities2 |= Qgis::DatabaseProviderConnectionCapability2::SetFieldAlias;
+    }
+    if ( CSLFindString( papszTokens, "Comment" ) >= 0 )
+    {
+      mCapabilities2 |= Qgis::DatabaseProviderConnectionCapability2::SetFieldComment;
+    }
+#endif
+
     CSLDestroy( papszTokens );
   }
 #else
@@ -455,7 +483,7 @@ void QgsOgrProviderConnection::setDefaultCapabilities()
   mCapabilities |= RenameField;
 #endif
 
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
   if ( !hDS )
   {
     // fallback to read only otherwise
@@ -464,18 +492,18 @@ void QgsOgrProviderConnection::setDefaultCapabilities()
 
   if ( hDS )
   {
-    if ( OGR_DS_TestCapability( hDS.get(), ODsCCurveGeometries ) )
+    if ( GDALDatasetTestCapability( hDS.get(), ODsCCurveGeometries ) )
       mGeometryColumnCapabilities |= GeometryColumnCapability::Curves;
 
-    if ( OGR_DS_TestCapability( hDS.get(), ODsCMeasuredGeometries ) )
+    if ( GDALDatasetTestCapability( hDS.get(), ODsCMeasuredGeometries ) )
       mGeometryColumnCapabilities |= GeometryColumnCapability::M;
 
     if ( !mSingleTableDataset )
     {
-      if ( OGR_DS_TestCapability( hDS.get(), ODsCCreateLayer ) )
+      if ( GDALDatasetTestCapability( hDS.get(), ODsCCreateLayer ) )
         mCapabilities |= CreateVectorTable;
 
-      if ( OGR_DS_TestCapability( hDS.get(), ODsCDeleteLayer ) )
+      if ( GDALDatasetTestCapability( hDS.get(), ODsCDeleteLayer ) )
         mCapabilities |= DropVectorTable;
     }
   }
@@ -646,7 +674,7 @@ QgsAbstractDatabaseProviderConnection::QueryResult QgsOgrProviderConnection::exe
 
   QString errCause;
   // try first using an editable datasource
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
   if ( !hDS )
   {
     // fallback to read only otherwise
@@ -793,7 +821,7 @@ QList<QgsVectorDataProvider::NativeType> QgsOgrProviderConnection::nativeTypes()
 QStringList QgsOgrProviderConnection::fieldDomainNames() const
 {
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,5,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( !hDS )
   {
     // In some cases (empty geopackage for example), opening in read-only
@@ -855,7 +883,7 @@ QList<Qgis::FieldDomainType> QgsOgrProviderConnection::supportedFieldDomainTypes
 QgsFieldDomain *QgsOgrProviderConnection::fieldDomain( const QString &name ) const
 {
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,3,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( !hDS )
   {
     // In some cases (empty geopackage for example), opening in read-only
@@ -933,7 +961,7 @@ void QgsOgrProviderConnection::addFieldDomain( const QgsFieldDomain &domain, con
     QgsMessageLog::logMessage( QStringLiteral( "Schema is not supported by OGR, ignoring" ), QStringLiteral( "OGR" ), Qgis::MessageLevel::Info );
   }
 
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR | GDAL_OF_UPDATE, nullptr, nullptr, nullptr ) );
   if ( hDS )
   {
     if ( OGRFieldDomainH ogrDomain = QgsOgrUtils::convertFieldDomain( &domain ) )
@@ -1012,6 +1040,86 @@ void QgsOgrProviderConnection::renameField( const QString &schema, const QString
   }
 }
 
+void QgsOgrProviderConnection::setFieldAlias( const QString &fieldName, const QString &schema, const QString &tableName, const QString &alias ) const
+{
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,7,0)
+  if ( ! schema.isEmpty() )
+  {
+    QgsMessageLog::logMessage( QStringLiteral( "Schema is not supported by OGR, ignoring" ), QStringLiteral( "OGR" ), Qgis::MessageLevel::Info );
+  }
+
+  QString errCause;
+  QgsOgrLayerUniquePtr layer = QgsOgrProviderUtils::getLayer( uri(),
+                               true,
+                               QStringList(),
+                               tableName, errCause, true );
+  if ( !layer )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "There was an error opening the dataset: %1" ).arg( errCause ) );
+  }
+
+  //type does not matter, it will not be used
+  gdal::ogr_field_def_unique_ptr fld( OGR_Fld_Create( fieldName.toUtf8().constData(), OFTReal ) );
+  OGR_Fld_SetAlternativeName( fld.get(), alias.toUtf8().constData() );
+
+  const int fieldIndex = layer->GetLayerDefn().GetFieldIndex( fieldName.toUtf8().constData() );
+  if ( fieldIndex < 0 )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "Could not set alias for %1 - field does not exist" ).arg( fieldName ) );
+  }
+  if ( layer->AlterFieldDefn( fieldIndex, fld.get(), ALTER_ALTERNATIVE_NAME_FLAG ) != OGRERR_NONE )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "Could not set alias: %1" ).arg( CPLGetLastErrorMsg() ) );
+  }
+#else
+  ( void )fieldName;
+  ( void )schema;
+  ( void )tableName;
+  ( void )alias;
+  throw QgsProviderConnectionException( QObject::tr( "Setting field aliases for datasets requires GDAL 3.7 or later" ) );
+#endif
+}
+
+void QgsOgrProviderConnection::setFieldComment( const QString &fieldName, const QString &schema, const QString &tableName, const QString &comment ) const
+{
+#if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,7,0)
+  if ( ! schema.isEmpty() )
+  {
+    QgsMessageLog::logMessage( QStringLiteral( "Schema is not supported by OGR, ignoring" ), QStringLiteral( "OGR" ), Qgis::MessageLevel::Info );
+  }
+
+  QString errCause;
+  QgsOgrLayerUniquePtr layer = QgsOgrProviderUtils::getLayer( uri(),
+                               true,
+                               QStringList(),
+                               tableName, errCause, true );
+  if ( !layer )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "There was an error opening the dataset: %1" ).arg( errCause ) );
+  }
+
+  //type does not matter, it will not be used
+  gdal::ogr_field_def_unique_ptr fld( OGR_Fld_Create( fieldName.toUtf8().constData(), OFTReal ) );
+  OGR_Fld_SetComment( fld.get(), comment.toUtf8().constData() );
+
+  const int fieldIndex = layer->GetLayerDefn().GetFieldIndex( fieldName.toUtf8().constData() );
+  if ( fieldIndex < 0 )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "Could not set comment for %1 - field does not exist" ).arg( fieldName ) );
+  }
+  if ( layer->AlterFieldDefn( fieldIndex, fld.get(), ALTER_COMMENT_FLAG ) != OGRERR_NONE )
+  {
+    throw QgsProviderConnectionException( QObject::tr( "Could not set comment: %1" ).arg( CPLGetLastErrorMsg() ) );
+  }
+#else
+  ( void )fieldName;
+  ( void )schema;
+  ( void )tableName;
+  ( void )comment;
+  throw QgsProviderConnectionException( QObject::tr( "Setting field comments for datasets requires GDAL 3.7 or later" ) );
+#endif
+}
+
 QgsAbstractDatabaseProviderConnection::SqlVectorLayerOptions QgsOgrProviderConnection::sqlOptions( const QString &layerSource )
 {
   SqlVectorLayerOptions options;
@@ -1059,7 +1167,7 @@ QList<QgsWeakRelation> QgsOgrProviderConnection::relationships( const QString &s
   }
 
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( !hDS )
   {
     // In some cases (empty geopackage for example), opening in read-only
@@ -1111,7 +1219,7 @@ void QgsOgrProviderConnection::addRelationship( const QgsWeakRelation &relations
   checkCapability( Capability::AddRelationship );
 
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( hDS )
   {
     const QVariantMap leftParts = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) )->decodeUri( relationship.referencedLayerSource() );
@@ -1156,7 +1264,7 @@ void QgsOgrProviderConnection::updateRelationship( const QgsWeakRelation &relati
   checkCapability( Capability::UpdateRelationship );
 
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( hDS )
   {
     const QVariantMap leftParts = QgsProviderRegistry::instance()->providerMetadata( QStringLiteral( "ogr" ) )->decodeUri( relationship.referencedLayerSource() );
@@ -1201,7 +1309,7 @@ void QgsOgrProviderConnection::deleteRelationship( const QgsWeakRelation &relati
   checkCapability( Capability::DeleteRelationship );
 
 #if GDAL_VERSION_NUM >= GDAL_COMPUTE_VERSION(3,6,0)
-  gdal::ogr_datasource_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
+  gdal::dataset_unique_ptr hDS( GDALOpenEx( uri().toUtf8().constData(), GDAL_OF_UPDATE | GDAL_OF_VECTOR, nullptr, nullptr, nullptr ) );
   if ( hDS )
   {
     const QString relationshipName = relationship.name();
@@ -1224,6 +1332,11 @@ void QgsOgrProviderConnection::deleteRelationship( const QgsWeakRelation &relati
   Q_UNUSED( relationship )
   throw QgsProviderConnectionException( QObject::tr( "Deleting relationships for datasets requires GDAL 3.6 or later" ) );
 #endif
+}
+
+Qgis::DatabaseProviderTableImportCapabilities QgsOgrProviderConnection::tableImportCapabilities() const
+{
+  return Qgis::DatabaseProviderTableImportCapabilities();
 }
 
 ///@endcond

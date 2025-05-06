@@ -35,7 +35,6 @@
 class QgsFillNoDataAlgorithm : public QgsProcessingAlgorithm
 {
   public:
-
     QgsFillNoDataAlgorithm() = default;
     void initAlgorithm( const QVariantMap &configuration = QVariantMap() ) override;
     QIcon icon() const override { return QgsApplication::getThemeIcon( QStringLiteral( "/algorithms/mAlgorithmFillNoData.svg" ) ); }
@@ -50,22 +49,20 @@ class QgsFillNoDataAlgorithm : public QgsProcessingAlgorithm
 
   protected:
     bool prepareAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
-    QVariantMap processAlgorithm( const QVariantMap &parameters,
-                                  QgsProcessingContext &context,
-                                  QgsProcessingFeedback *feedback ) override;
+    QVariantMap processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
 
   private:
-    QgsRasterLayer *mInputRaster;
+    QgsRasterLayer *mInputRaster = nullptr;
     double mFillValue = 0;
-    int mBand;
-    std::unique_ptr< QgsRasterInterface > mInterface;
+    int mBand = 1;
+    std::unique_ptr<QgsRasterInterface> mInterface;
     QgsRectangle mExtent;
     QgsCoordinateReferenceSystem mCrs;
-    int mLayerWidth;
-    int mLayerHeight;
+    int mLayerWidth = 0;
+    int mLayerHeight = 0;
     int mNbCellsXProvider = 0;
     int mNbCellsYProvider = 0;
-    double mInputNoDataValue;
+    double mInputNoDataValue = 0;
 };
 
 ///@endcond PRIVATE

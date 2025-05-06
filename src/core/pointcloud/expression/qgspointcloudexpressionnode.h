@@ -166,6 +166,13 @@ class CORE_EXPORT QgsPointCloudExpressionNode
     bool prepare( QgsPointCloudExpression *parent, const QgsPointCloudBlock *block );
 
     /**
+     * Converts this node into a PDAL expression format.
+     *
+     * \since QGIS 3.32
+     */
+    virtual QString toPdal() const = 0;
+
+    /**
      * First line in the parser this node was found.
      * \note This might not be complete for all nodes. Currently
      * only \see QgsPointCloudExpressionNode has this complete
@@ -211,9 +218,6 @@ class CORE_EXPORT QgsPointCloudExpressionNode
 
   protected:
 
-    /**
-     * Constructor.
-     */
     QgsPointCloudExpressionNode() = default;
 
     //! Copy constructor
@@ -235,7 +239,7 @@ class CORE_EXPORT QgsPointCloudExpressionNode
     /**
      * Contains the static, precalculated value for the node if mHasCachedValue is TRUE.
      */
-    mutable double mCachedStaticValue;
+    mutable double mCachedStaticValue = 0;
 
   private:
 

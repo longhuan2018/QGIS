@@ -5,50 +5,61 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
 """
-__author__ = 'Nyall Dawson'
-__date__ = '22/08/2018'
-__copyright__ = 'Copyright 2018, The QGIS Project'
 
-import qgis  # NOQA
+__author__ = "Nyall Dawson"
+__date__ = "22/08/2018"
+__copyright__ = "Copyright 2018, The QGIS Project"
+
 
 from qgis.core import (
-    QgsVectorLayer,
-    QgsMeshLayer,
+    Qgis,
     QgsAnnotationLayer,
+    QgsMapLayerProxyModel,
+    QgsMeshLayer,
     QgsProject,
-    QgsMapLayerModel,
-    QgsMapLayerProxyModel
+    QgsVectorLayer,
 )
-from qgis.PyQt.QtCore import Qt, QModelIndex
-
-from qgis.testing import start_app, unittest
+import unittest
+from qgis.testing import start_app, QgisTestCase
 
 start_app()
 
 
 def create_layer(name):
-    layer = QgsVectorLayer("Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                           name, "memory")
+    layer = QgsVectorLayer(
+        "Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer", name, "memory"
+    )
     return layer
 
 
 def create_mesh_layer(name):
-    layer = QgsMeshLayer("1.0, 2.0\n2.0, 2.0\n3.0, 2.0\n---\n0, 1, 3", name, "mesh_memory")
+    layer = QgsMeshLayer(
+        "1.0, 2.0\n2.0, 2.0\n3.0, 2.0\n---\n0, 1, 3", name, "mesh_memory"
+    )
     return layer
 
 
-class TestQgsMapLayerProxyModel(unittest.TestCase):
+class TestQgsMapLayerProxyModel(QgisTestCase):
 
     def testGettersSetters(self):
-        """ test model getters/setters """
+        """test model getters/setters"""
         m = QgsMapLayerProxyModel()
-        l1 = create_layer('l1')
+        l1 = create_layer("l1")
         QgsProject.instance().addMapLayer(l1)
-        l2 = create_layer('l2')
+        l2 = create_layer("l2")
         QgsProject.instance().addMapLayer(l2)
 
-        m.setFilters(QgsMapLayerProxyModel.LineLayer | QgsMapLayerProxyModel.WritableLayer)
-        self.assertEqual(m.filters(), QgsMapLayerProxyModel.LineLayer | QgsMapLayerProxyModel.WritableLayer)
+        m.setFilters(
+            Qgis.LayerFilters(
+                Qgis.LayerFilter.LineLayer | Qgis.LayerFilter.WritableLayer
+            )
+        )
+        self.assertEqual(
+            m.filters(),
+            Qgis.LayerFilters(
+                Qgis.LayerFilter.LineLayer | Qgis.LayerFilter.WritableLayer
+            ),
+        )
 
         m.setExceptedLayerIds([l2.id()])
         self.assertEqual(m.exceptedLayerIds(), [l2.id()])
@@ -59,24 +70,24 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
         m.setLayerAllowlist([l2])
         self.assertEqual(m.layerAllowlist(), [l2])
 
-        m.setExcludedProviders(['a', 'b'])
-        self.assertEqual(m.excludedProviders(), ['a', 'b'])
+        m.setExcludedProviders(["a", "b"])
+        self.assertEqual(m.excludedProviders(), ["a", "b"])
 
-        m.setFilterString('c')
-        self.assertEqual(m.filterString(), 'c')
+        m.setFilterString("c")
+        self.assertEqual(m.filterString(), "c")
 
     def testMeshLayer(self):
         m = QgsMapLayerProxyModel()
         l1 = create_mesh_layer("l1")
         QgsProject.instance().addMapLayer(l1)
-        l2 = create_layer('l2')
+        l2 = create_layer("l2")
         QgsProject.instance().addMapLayer(l2)
 
-        m.setFilters(QgsMapLayerProxyModel.MeshLayer)
-        self.assertEqual(m.filters(), QgsMapLayerProxyModel.MeshLayer)
+        m.setFilters(Qgis.LayerFilter.MeshLayer)
+        self.assertEqual(m.filters(), Qgis.LayerFilter.MeshLayer)
 
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'l1')
+        self.assertEqual(m.data(m.index(0, 0)), "l1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
@@ -88,113 +99,125 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
         QgsProject.instance().clear()
 
         m = QgsMapLayerProxyModel()
-        options = QgsAnnotationLayer.LayerOptions(QgsProject.instance().transformContext())
-        l1 = QgsAnnotationLayer('annotation 1', options)
+        options = QgsAnnotationLayer.LayerOptions(
+            QgsProject.instance().transformContext()
+        )
+        l1 = QgsAnnotationLayer("annotation 1", options)
         QgsProject.instance().addMapLayer(l1)
-        l2 = create_layer('l2')
+        l2 = create_layer("l2")
         QgsProject.instance().addMapLayer(l2)
 
-        m.setFilters(QgsMapLayerProxyModel.AnnotationLayer)
-        self.assertEqual(m.filters(), QgsMapLayerProxyModel.AnnotationLayer)
+        m.setFilters(Qgis.LayerFilter.AnnotationLayer)
+        self.assertEqual(m.filters(), Qgis.LayerFilter.AnnotationLayer)
 
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'annotation 1')
+        self.assertEqual(m.data(m.index(0, 0)), "annotation 1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
 
-        m.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        m.setFilters(Qgis.LayerFilter.VectorLayer)
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'l2')
+        self.assertEqual(m.data(m.index(0, 0)), "l2")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
 
-        m.setFilters(QgsMapLayerProxyModel.All)
+        m.setFilters(Qgis.LayerFilter.All)
         self.assertEqual(m.rowCount(), 2)
-        self.assertEqual(m.data(m.index(0, 0)), 'annotation 1')
-        self.assertEqual(m.data(m.index(1, 0)), 'l2')
+        self.assertEqual(m.data(m.index(0, 0)), "annotation 1")
+        self.assertEqual(m.data(m.index(1, 0)), "l2")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
 
     def testFilterGeometryType(self):
-        """ test filtering by geometry type """
+        """test filtering by geometry type"""
         QgsProject.instance().clear()
         m = QgsMapLayerProxyModel()
-        l1 = QgsVectorLayer("Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'layer 1', "memory")
+        l1 = QgsVectorLayer(
+            "Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "layer 1",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l1)
-        l2 = QgsVectorLayer("Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'layer 2', "memory")
+        l2 = QgsVectorLayer(
+            "Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "layer 2",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l2)
-        l3 = QgsVectorLayer("None?field=fldtxt:string&field=fldint:integer",
-                            'layer 3', "memory")
+        l3 = QgsVectorLayer(
+            "None?field=fldtxt:string&field=fldint:integer", "layer 3", "memory"
+        )
         QgsProject.instance().addMapLayer(l3)
-        l4 = QgsVectorLayer("LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'layer 4', "memory")
+        l4 = QgsVectorLayer(
+            "LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "layer 4",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l4)
 
-        m.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        m.setFilters(Qgis.LayerFilter.PolygonLayer)
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 2')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 2")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
         self.assertFalse(m.acceptsLayer(l3))
         self.assertFalse(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.PointLayer)
+        m.setFilters(Qgis.LayerFilter.PointLayer)
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 1')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
         self.assertFalse(m.acceptsLayer(l3))
         self.assertFalse(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.LineLayer)
+        m.setFilters(Qgis.LayerFilter.LineLayer)
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 4')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 4")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
         self.assertFalse(m.acceptsLayer(l3))
         self.assertTrue(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.NoGeometry)
+        m.setFilters(Qgis.LayerFilter.NoGeometry)
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 3')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 3")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
         self.assertTrue(m.acceptsLayer(l3))
         self.assertFalse(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.HasGeometry)
+        m.setFilters(Qgis.LayerFilter.HasGeometry)
         self.assertEqual(m.rowCount(), 3)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 1')
-        self.assertEqual(m.data(m.index(1, 0)), 'layer 2')
-        self.assertEqual(m.data(m.index(2, 0)), 'layer 4')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 1")
+        self.assertEqual(m.data(m.index(1, 0)), "layer 2")
+        self.assertEqual(m.data(m.index(2, 0)), "layer 4")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
         self.assertFalse(m.acceptsLayer(l3))
         self.assertTrue(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.VectorLayer)
+        m.setFilters(Qgis.LayerFilter.VectorLayer)
         self.assertEqual(m.rowCount(), 4)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 1')
-        self.assertEqual(m.data(m.index(1, 0)), 'layer 2')
-        self.assertEqual(m.data(m.index(2, 0)), 'layer 3')
-        self.assertEqual(m.data(m.index(3, 0)), 'layer 4')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 1")
+        self.assertEqual(m.data(m.index(1, 0)), "layer 2")
+        self.assertEqual(m.data(m.index(2, 0)), "layer 3")
+        self.assertEqual(m.data(m.index(3, 0)), "layer 4")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
         self.assertTrue(m.acceptsLayer(l3))
         self.assertTrue(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.PluginLayer)
+        m.setFilters(Qgis.LayerFilter.PluginLayer)
         self.assertEqual(m.rowCount(), 0)
 
         self.assertFalse(m.acceptsLayer(l1))
@@ -202,7 +225,7 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
         self.assertFalse(m.acceptsLayer(l3))
         self.assertFalse(m.acceptsLayer(l4))
 
-        m.setFilters(QgsMapLayerProxyModel.RasterLayer)
+        m.setFilters(Qgis.LayerFilter.RasterLayer)
         self.assertEqual(m.rowCount(), 0)
 
         self.assertFalse(m.acceptsLayer(l1))
@@ -211,58 +234,78 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
         self.assertFalse(m.acceptsLayer(l4))
 
     def testFilterString(self):
-        """ test filtering by string"""
+        """test filtering by string"""
         QgsProject.instance().clear()
         m = QgsMapLayerProxyModel()
-        l1 = QgsVectorLayer("Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'layer 1', "memory")
+        l1 = QgsVectorLayer(
+            "Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "layer 1",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l1)
-        l2 = QgsVectorLayer("Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'lAyEr 2', "memory")
+        l2 = QgsVectorLayer(
+            "Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "lAyEr 2",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l2)
-        l3 = QgsVectorLayer("None?field=fldtxt:string&field=fldint:integer",
-                            'another', "memory")
+        l3 = QgsVectorLayer(
+            "None?field=fldtxt:string&field=fldint:integer", "another", "memory"
+        )
         QgsProject.instance().addMapLayer(l3)
-        l4 = QgsVectorLayer("LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'final layer', "memory")
+        l4 = QgsVectorLayer(
+            "LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "final layer",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l4)
 
-        m.setFilterString('layer')
+        m.setFilterString("layer")
         self.assertEqual(m.rowCount(), 3)
-        self.assertEqual(m.data(m.index(0, 0)), 'final layer')
-        self.assertEqual(m.data(m.index(1, 0)), 'layer 1')
-        self.assertEqual(m.data(m.index(2, 0)), 'lAyEr 2')
+        self.assertEqual(m.data(m.index(0, 0)), "final layer")
+        self.assertEqual(m.data(m.index(1, 0)), "layer 1")
+        self.assertEqual(m.data(m.index(2, 0)), "lAyEr 2")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
         self.assertFalse(m.acceptsLayer(l3))
         self.assertTrue(m.acceptsLayer(l4))
 
-        m.setFilterString('')
+        m.setFilterString("")
         self.assertEqual(m.rowCount(), 4)
 
     def testFilterByLayer(self):
-        """ test filtering by layer"""
+        """test filtering by layer"""
         QgsProject.instance().clear()
         m = QgsMapLayerProxyModel()
-        l1 = QgsVectorLayer("Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'layer 1', "memory")
+        l1 = QgsVectorLayer(
+            "Point?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "layer 1",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l1)
-        l2 = QgsVectorLayer("Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'lAyEr 2', "memory")
+        l2 = QgsVectorLayer(
+            "Polygon?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "lAyEr 2",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l2)
-        l3 = QgsVectorLayer("None?field=fldtxt:string&field=fldint:integer",
-                            'another', "memory")
+        l3 = QgsVectorLayer(
+            "None?field=fldtxt:string&field=fldint:integer", "another", "memory"
+        )
         QgsProject.instance().addMapLayer(l3)
-        l4 = QgsVectorLayer("LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
-                            'final layer', "memory")
+        l4 = QgsVectorLayer(
+            "LineString?crs=EPSG:3111&field=fldtxt:string&field=fldint:integer",
+            "final layer",
+            "memory",
+        )
         QgsProject.instance().addMapLayer(l4)
 
         self.assertEqual(m.rowCount(), 4)
-        self.assertEqual(m.data(m.index(0, 0)), 'another')
-        self.assertEqual(m.data(m.index(1, 0)), 'final layer')
-        self.assertEqual(m.data(m.index(2, 0)), 'layer 1')
-        self.assertEqual(m.data(m.index(3, 0)), 'lAyEr 2')
+        self.assertEqual(m.data(m.index(0, 0)), "another")
+        self.assertEqual(m.data(m.index(1, 0)), "final layer")
+        self.assertEqual(m.data(m.index(2, 0)), "layer 1")
+        self.assertEqual(m.data(m.index(3, 0)), "lAyEr 2")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
@@ -271,8 +314,8 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
 
         m.setExceptedLayerList([l1, l3])
         self.assertEqual(m.rowCount(), 2)
-        self.assertEqual(m.data(m.index(0, 0)), 'final layer')
-        self.assertEqual(m.data(m.index(1, 0)), 'lAyEr 2')
+        self.assertEqual(m.data(m.index(0, 0)), "final layer")
+        self.assertEqual(m.data(m.index(1, 0)), "lAyEr 2")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
@@ -281,8 +324,8 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
 
         m.setExceptedLayerIds([l2.id(), l4.id()])
         self.assertEqual(m.rowCount(), 2)
-        self.assertEqual(m.data(m.index(0, 0)), 'another')
-        self.assertEqual(m.data(m.index(1, 0)), 'layer 1')
+        self.assertEqual(m.data(m.index(0, 0)), "another")
+        self.assertEqual(m.data(m.index(1, 0)), "layer 1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
@@ -291,7 +334,7 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
 
         m.setLayerAllowlist([l1])
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 1')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
@@ -300,7 +343,7 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
 
         m.setExceptedLayerIds([])
         self.assertEqual(m.rowCount(), 1)
-        self.assertEqual(m.data(m.index(0, 0)), 'layer 1')
+        self.assertEqual(m.data(m.index(0, 0)), "layer 1")
 
         self.assertTrue(m.acceptsLayer(l1))
         self.assertFalse(m.acceptsLayer(l2))
@@ -309,8 +352,8 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
 
         m.setLayerAllowlist([l2, l3])
         self.assertEqual(m.rowCount(), 2)
-        self.assertEqual(m.data(m.index(0, 0)), 'another')
-        self.assertEqual(m.data(m.index(1, 0)), 'lAyEr 2')
+        self.assertEqual(m.data(m.index(0, 0)), "another")
+        self.assertEqual(m.data(m.index(1, 0)), "lAyEr 2")
 
         self.assertFalse(m.acceptsLayer(l1))
         self.assertTrue(m.acceptsLayer(l2))
@@ -325,6 +368,136 @@ class TestQgsMapLayerProxyModel(unittest.TestCase):
         self.assertTrue(m.acceptsLayer(l3))
         self.assertTrue(m.acceptsLayer(l4))
 
+    def testWritableLayer(self):
+        m = QgsMapLayerProxyModel()
+        l1 = create_mesh_layer("l1")
+        QgsProject.instance().addMapLayer(l1)
+        l2 = create_layer("l2")
+        QgsProject.instance().addMapLayer(l2)
 
-if __name__ == '__main__':
+        # WritableLayer returns False if not combined with a layer or geometry type
+        m.setFilters(Qgis.LayerFilters(Qgis.LayerFilter.WritableLayer))
+        self.assertFalse(m.acceptsLayer(l1))
+        self.assertFalse(m.acceptsLayer(l2))
+
+        m.setFilters(
+            Qgis.LayerFilters(
+                Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.VectorLayer
+            )
+        )
+        self.assertTrue(l2.setReadOnly(True))
+        self.assertFalse(m.acceptsLayer(l1))
+        self.assertFalse(m.acceptsLayer(l2))
+
+        self.assertTrue(l2.setReadOnly(False))
+        self.assertFalse(m.acceptsLayer(l1))
+        self.assertTrue(m.acceptsLayer(l2))
+
+        m.setFilters(
+            Qgis.LayerFilters(
+                Qgis.LayerFilter.WritableLayer | Qgis.LayerFilter.MeshLayer
+            )
+        )
+        self.assertFalse(m.acceptsLayer(l1))
+        self.assertFalse(m.acceptsLayer(l2))
+
+    def testLayerMatchesFiltersStatic(self):
+        m = QgsMapLayerProxyModel
+        l1 = create_layer("l1")
+
+        self.assertTrue(m.layerMatchesFilters(l1, Qgis.LayerFilter.All))
+
+        self.assertTrue(m.layerMatchesFilters(l1, Qgis.LayerFilter.SpatialLayer))
+
+        self.assertFalse(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.RasterLayer
+                    | Qgis.LayerFilter.MeshLayer
+                    | Qgis.LayerFilter.VectorTileLayer
+                    | Qgis.LayerFilter.PointCloudLayer
+                    | Qgis.LayerFilter.AnnotationLayer
+                    | Qgis.LayerFilter.TiledSceneLayer
+                    | Qgis.LayerFilter.PluginLayer
+                ),
+            )
+        )
+
+        self.assertTrue(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.NoGeometry | Qgis.LayerFilter.HasGeometry
+                ),
+            )
+        )
+
+        self.assertFalse(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.NoGeometry
+                    | Qgis.LayerFilter.LineLayer
+                    | Qgis.LayerFilter.PolygonLayer
+                ),
+            )
+        )
+
+        # WritableLayer returns False if not combined with a layer or geometry type
+        self.assertFalse(
+            m.layerMatchesFilters(l1, Qgis.LayerFilters(Qgis.LayerFilter.WritableLayer))
+        )
+
+        self.assertTrue(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.All | Qgis.LayerFilter.WritableLayer
+                ),
+            )
+        )
+
+        self.assertTrue(l1.setReadOnly(True))
+        self.assertFalse(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.All | Qgis.LayerFilter.WritableLayer
+                ),
+            )
+        )
+
+        self.assertTrue(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.VectorLayer
+                    | Qgis.LayerFilter.NoGeometry
+                    | Qgis.LayerFilter.LineLayer
+                    | Qgis.LayerFilter.PolygonLayer
+                ),
+            )
+        )
+
+        self.assertFalse(
+            m.layerMatchesFilters(
+                l1,
+                Qgis.LayerFilters(
+                    Qgis.LayerFilter.RasterLayer
+                    | Qgis.LayerFilter.MeshLayer
+                    | Qgis.LayerFilter.VectorTileLayer
+                    | Qgis.LayerFilter.PointCloudLayer
+                    | Qgis.LayerFilter.AnnotationLayer
+                    | Qgis.LayerFilter.TiledSceneLayer
+                    | Qgis.LayerFilter.PluginLayer
+                    | Qgis.LayerFilter.NoGeometry
+                    | Qgis.LayerFilter.LineLayer
+                    | Qgis.LayerFilter.PolygonLayer
+                ),
+            )
+        )
+
+
+if __name__ == "__main__":
     unittest.main()

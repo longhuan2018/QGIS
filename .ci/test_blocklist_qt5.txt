@@ -1,7 +1,4 @@
-# black list
-PyQgsPalLabelingServer
-qgis_composerutils
-PyQgsAppStartup
+# block list
 test_gui_queryresultwidget
 
 # code layout tests are run on separate build
@@ -19,8 +16,4 @@ test_core_openclutils
 
 # Relies on a broken/unreliable 3rd party service
 test_core_layerdefinition
-
-# MSSQL requires the MSSQL docker
-PyQgsProviderConnectionMssql
-PyQgsStyleStorageMssql
 

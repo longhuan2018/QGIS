@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsmaplayerstore.h"
+#include "moc_qgsmaplayerstore.cpp"
 #include "qgsmaplayer.h"
 #include "qgslogger.h"
 #include "qgsthreadingutils.h"
@@ -85,7 +86,7 @@ QList<QgsMapLayer *> QgsMapLayerStore::addMapLayers( const QList<QgsMapLayer *> 
   {
     if ( !myLayer )
     {
-      QgsDebugMsg( QStringLiteral( "Cannot add null layers" ) );
+      QgsDebugError( QStringLiteral( "Cannot add null layers" ) );
       continue;
     }
 
@@ -260,7 +261,7 @@ void QgsMapLayerStore::onMapLayerDeleted( QObject *obj )
 
   if ( !id.isNull() )
   {
-    QgsDebugMsg( QStringLiteral( "Map layer deleted without unregistering! %1" ).arg( id ) );
+    QgsDebugError( QStringLiteral( "Map layer deleted without unregistering! %1" ).arg( id ) );
     mMapLayers.remove( id );
   }
 }

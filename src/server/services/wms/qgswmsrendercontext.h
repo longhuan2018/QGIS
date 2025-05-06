@@ -37,25 +37,22 @@ namespace QgsWms
       //! Available rendering options
       enum Flag
       {
-        UseScaleDenominator    = 0x01,
-        UseOpacity             = 0x02,
-        UseFilter              = 0x04,
-        UseSelection           = 0x08,
-        AddHighlightLayers     = 0x10,
-        UpdateExtent           = 0x20,
-        SetAccessControl       = 0x40,
-        AddQueryLayers         = 0x80,
-        UseWfsLayersOnly       = 0x100,
-        AddExternalLayers      = 0x200,
-        UseSrcWidthHeight      = 0x400,
-        UseTileBuffer          = 0x800,
-        AddAllLayers           = 0x1000 //!< For GetPrint: add layers from LAYER(S) parameter
+        UseScaleDenominator = 0x01,
+        UseOpacity = 0x02,
+        UseFilter = 0x04,
+        UseSelection = 0x08,
+        AddHighlightLayers = 0x10,
+        UpdateExtent = 0x20,
+        SetAccessControl = 0x40,
+        AddQueryLayers = 0x80,
+        UseWfsLayersOnly = 0x100,
+        AddExternalLayers = 0x200,
+        UseSrcWidthHeight = 0x400,
+        UseTileBuffer = 0x800,
+        AddAllLayers = 0x1000 //!< For GetPrint: add layers from LAYER(S) parameter
       };
       Q_DECLARE_FLAGS( Flags, Flag )
 
-      /**
-       * Destructor for QgsWmsRenderContext.
-       */
       ~QgsWmsRenderContext();
 
       /**
@@ -224,7 +221,7 @@ namespace QgsWms
        * Returns a map having layer group names as keys and a list of layers as values.
        * \since QGIS 3.8
        */
-      QMap<QString, QList<QgsMapLayer *> > layerGroups() const;
+      QMap<QString, QList<QgsMapLayer *>> layerGroups() const;
 
       /**
        * Returns the tile buffer in geographical units for the given map width in pixels.
@@ -270,6 +267,18 @@ namespace QgsWms
        */
       bool isExternalLayer( const QString &name ) const;
 
+      /**
+       * Sets the response feedback.
+       * \since QGIS 3.36
+       */
+      void setSocketFeedback( QgsFeedback *feedback );
+
+      /**
+       * Returns the response feedback if any
+       * \since QGIS 3.36
+       */
+      QgsFeedback *socketFeedback() const;
+
     private:
       void initNicknameLayers();
       void initRestrictedLayers();
@@ -280,7 +289,17 @@ namespace QgsWms
       void searchLayersToRenderStyle();
       void removeUnwantedLayers();
 
-      void checkLayerReadPermissions();
+      /**
+       * Adds the layer to the list of layers to be rendered if the layer is readable
+       * Returns true if the layer is readable, false otherwise
+       */
+      bool addLayerToRender( QgsMapLayer *layer );
+
+      /**
+       * Check layer read permissions
+       * Returns true if the layer is readable, false otherwise
+       */
+      bool checkLayerReadPermissions( QgsMapLayer *layer ) const;
 
       bool layerScaleVisibility( const QString &name ) const;
 
@@ -299,14 +318,16 @@ namespace QgsWms
       // list of layers which are not usable
       QStringList mRestrictedLayers;
 
-      QMap<QString, QList<QgsMapLayer *> > mLayerGroups;
+      QMap<QString, QList<QgsMapLayer *>> mLayerGroups;
 
       QMap<QString, QDomElement> mSlds;
       QMap<QString, QString> mStyles;
 
       // list for external layers
       QList<QgsMapLayer *> mExternalLayers;
+
+      QgsFeedback *mSocketFeedback = nullptr;
   };
-};
+}; // namespace QgsWms
 
 #endif

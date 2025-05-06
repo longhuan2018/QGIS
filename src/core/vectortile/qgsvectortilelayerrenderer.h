@@ -19,24 +19,25 @@
 #define SIP_NO_FILE
 
 #include "qgsmaplayerrenderer.h"
+#include "qgsvectortilerenderer.h"
+#include "qgsmapclippingregion.h"
+#include "qgsvectortilematrixset.h"
 
 class QgsVectorTileLayer;
 class QgsVectorTileRawData;
 class QgsVectorTileLabelProvider;
+class QgsVectorTileDataProvider;
 
-#include "qgsvectortilerenderer.h"
-#include "qgsmapclippingregion.h"
-#include "qgshttpheaders.h"
-#include "qgsvectortilematrixset.h"
 
 /**
  * \ingroup core
- * \brief This class provides map rendering functionality for vector tile layers.
+ * \brief Provides map rendering functionality for vector tile layers.
+ *
  * In render() function (assumed to be run in a worker thread) it will:
  *
- * # fetch vector tiles using QgsVectorTileLoader
- * # decode raw tiles into QgsFeature objects using QgsVectorTileDecoder
- * # render tiles using a class derived from QgsVectorTileRenderer
+ * - fetch vector tiles using QgsVectorTileLoader
+ * - decode raw tiles into QgsFeature objects using QgsVectorTileDecoder
+ * - render tiles using a class derived from QgsVectorTileRenderer
  *
  * \since QGIS 3.14
  */
@@ -45,6 +46,7 @@ class QgsVectorTileLayerRenderer : public QgsMapLayerRenderer
   public:
     //! Creates the renderer. Always called from main thread, should copy whatever necessary from the layer
     QgsVectorTileLayerRenderer( QgsVectorTileLayer *layer, QgsRenderContext &context );
+    ~QgsVectorTileLayerRenderer() override;
 
     virtual bool render() override;
     virtual QgsFeedback *feedback() const override { return mFeedback.get(); }
@@ -55,16 +57,14 @@ class QgsVectorTileLayerRenderer : public QgsMapLayerRenderer
 
     // data coming from the vector tile layer
 
-    //! Type of the source from which we will be loading tiles (e.g. "xyz" or "mbtiles")
-    QString mSourceType;
-    //! Path/URL of the source. Format depends on source type
-    QString mSourcePath;
+    QString mLayerName;
 
-    QString mAuthCfg;
-    QgsHttpHeaders mHeaders;
+    std::unique_ptr< QgsVectorTileDataProvider > mDataProvider;
 
     //! Tile renderer object to do rendering of individual tiles
     std::unique_ptr<QgsVectorTileRenderer> mRenderer;
+
+    QPainter::CompositionMode mLayerBlendMode = QPainter::CompositionMode::CompositionMode_SourceOver;
 
     /**
      * Label provider that handles registration of labels.
@@ -72,15 +72,24 @@ class QgsVectorTileLayerRenderer : public QgsMapLayerRenderer
      */
     QgsVectorTileLabelProvider *mLabelProvider = nullptr;
 
+    // Decoded tile data
+    QMap<QString, QgsVectorTileRendererData> mTileDataMap;
+
     //! Whether to draw boundaries of tiles (useful for debugging)
     bool mDrawTileBoundaries = false;
+
+    //! True if labels are enabled
+    bool mLabelsEnabled = true;
 
     // temporary data used during rendering process
 
     //! Feedback object that may be used by the caller to cancel the rendering
     std::unique_ptr<QgsFeedback> mFeedback;
+    //! Zoom level used to fetch tiles
+    int mTileZoomToFetch = 0;
     //! Zoom level at which we will be rendering
-    int mTileZoom = 0;
+    int mTileZoomToRender = 0;
+
     //! Definition of the tile matrix for our zoom level
     QgsTileMatrix mTileMatrix;
     //!< Block of tiles we will be rendering in that zoom level
@@ -103,6 +112,9 @@ class QgsVectorTileLayerRenderer : public QgsMapLayerRenderer
     double mLayerOpacity = 1.0;
 
     QgsVectorTileMatrixSet mTileMatrixSet;
+
+    bool mEnableProfile = false;
+    quint64 mPreparationTime = 0;
 
 };
 

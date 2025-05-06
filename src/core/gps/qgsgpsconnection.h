@@ -24,12 +24,17 @@
 #include <QString>
 
 #include "qgis_core.h"
-#include "qgssettingsentryenumflag.h"
-#include "qgssettingsentryimpl.h"
 #include "qgspoint.h"
 #include "qgsgpsinformation.h"
 
 class QIODevice;
+
+class QgsSettingsEntryBool;
+class QgsSettingsEntryDouble;
+class QgsSettingsEntryInteger;
+class QgsSettingsEntryString;
+template<class T> class QgsSettingsEntryEnumFlag;
+
 
 #ifdef SIP_RUN
 % ModuleHeaderCode
@@ -39,14 +44,12 @@ class QIODevice;
 
 /**
  * \ingroup core
- * \brief Abstract base class for connection to a GPS device
+ * \brief Abstract base class for connections to a GPS device.
 */
 class CORE_EXPORT QgsGpsConnection : public QObject
 {
-#ifdef SIP_RUN
-#include <qgsgpsdconnection.h>
-#include <qgsnmeaconnection.h>
-#endif
+    //SIP_TYPEHEADER_INCLUDE( "qgsgpsdconnection.h" );
+    //SIP_TYPEHEADER_INCLUDE( "qgsnmeaconnection.h" );
 
 
 #ifdef SIP_RUN
@@ -188,7 +191,7 @@ class CORE_EXPORT QgsGpsConnection : public QObject
 
   protected slots:
     //! Parse available data source content
-    virtual void parseData() = 0;
+    virtual void parseData() = 0;  // cppcheck-suppress pureVirtualCall
 
   private:
 

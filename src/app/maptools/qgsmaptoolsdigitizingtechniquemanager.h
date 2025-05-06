@@ -19,28 +19,25 @@
 #define QGSMAPTOOLSDIGITIZINGTECHNIQUEMANAGER_H
 
 #include "qgis_app.h"
-#include "qgssettingsentryimpl.h"
-#include "qgssettingsentryenumflag.h"
 #include "qgsmaptoolcapture.h"
 #include "qgsmaptoolshapeabstract.h"
-#include "qgsmaptoolshapecircle2points.h"
-
+#include "qgssettingstree.h"
 
 #include <QWidgetAction>
 
-
 class QgsSpinBox;
+class QgsSettingsEntryString;
+template<class T> class QgsSettingsEntryEnumFlag;
 
 class QAction;
 class QToolButton;
 
 
-class APP_EXPORT QgsStreamDigitizingSettingsAction: public QWidgetAction
+class APP_EXPORT QgsStreamDigitizingSettingsAction : public QWidgetAction
 {
     Q_OBJECT
 
   public:
-
     QgsStreamDigitizingSettingsAction( QWidget *parent = nullptr );
     ~QgsStreamDigitizingSettingsAction() override;
 
@@ -54,8 +51,7 @@ class APP_EXPORT QgsMapToolsDigitizingTechniqueManager : public QObject
   public:
     static const QgsSettingsEntryEnumFlag<Qgis::CaptureTechnique> *settingsDigitizingTechnique;
 
-
-    static inline QgsSettingsTreeNode *sTreeShapeMapTools = QgsSettings::sTreeDigitizing->createChildNode( QStringLiteral( "shape-map-tools" ) );
+    static inline QgsSettingsTreeNode *sTreeShapeMapTools = QgsSettingsTree::sTreeDigitizing->createChildNode( QStringLiteral( "shape-map-tools" ) );
     static const QgsSettingsEntryString *settingMapToolShapeCurrent;
     static inline QgsSettingsTreeNamedListNode *sTreeShapeMapToolsCategories = sTreeShapeMapTools->createNamedListNode( QStringLiteral( "categories" ) );
     static const QgsSettingsEntryString *settingMapToolShapeDefaultForCategory;
@@ -77,16 +73,16 @@ class APP_EXPORT QgsMapToolsDigitizingTechniqueManager : public QObject
   private:
     void setupTool( QgsMapToolCapture *tool );
 
+    void updateDigitizeModeButton( const Qgis::CaptureTechnique technique );
+
     QMap<Qgis::CaptureTechnique, QAction *> mTechniqueActions;
     QHash<QString, QAction *> mShapeActions;
     QMap<QgsMapToolShapeAbstract::ShapeCategory, QToolButton *> mShapeCategoryButtons;
 
-    QSet< QgsMapTool * > mInitializedTools;
+    QSet<QgsMapTool *> mInitializedTools;
 
     QToolButton *mDigitizeModeToolButton = nullptr;
     QgsStreamDigitizingSettingsAction *mStreamDigitizingSettingsAction = nullptr;
-
-
 };
 
 #endif // QGSMAPTOOLSDIGITIZINGTECHNIQUEMANAGER_H

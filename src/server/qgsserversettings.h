@@ -31,7 +31,6 @@
  * \ingroup server
  * \class QgsServerSettingsEnv
  * \brief Provides some enum describing the environment currently supported for configuration.
- * \since QGIS 3.0
  */
 class SERVER_EXPORT QgsServerSettingsEnv : public QObject
 {
@@ -60,28 +59,30 @@ class SERVER_EXPORT QgsServerSettingsEnv : public QObject
       QGIS_SERVER_IGNORE_BAD_LAYERS, //!< Do not consider the whole project unavailable if it contains bad layers
       QGIS_SERVER_CACHE_DIRECTORY,
       QGIS_SERVER_CACHE_SIZE,
-      QGIS_SERVER_SHOW_GROUP_SEPARATOR,  //!< Show group (thousands) separator when formatting numeric values, defaults to FALSE (since QGIS 3.8)
-      QGIS_SERVER_OVERRIDE_SYSTEM_LOCALE,  //!< Override system locale (since QGIS 3.8)
-      QGIS_SERVER_WMS_MAX_HEIGHT, //!< Maximum height for a WMS request. The most conservative between this and the project one is used (since QGIS 3.6.2)
-      QGIS_SERVER_WMS_MAX_WIDTH, //!< Maximum width for a WMS request. The most conservative between this and the project one is used (since QGIS 3.6.2)
-      QGIS_SERVER_API_RESOURCES_DIRECTORY, //!< Base directory where HTML templates and static assets (e.g. images, js and css files) are searched for (since QGIS 3.10).
-      QGIS_SERVER_API_WFS3_MAX_LIMIT, //!< Maximum value for "limit" in a features request, defaults to 10000 (since QGIS 3.10).
-      QGIS_SERVER_TRUST_LAYER_METADATA, //!< Trust layer metadata. Improves project read time. (since QGIS 3.16).
-      QGIS_SERVER_FORCE_READONLY_LAYERS, //!< Force to open layers in read-only mode. (since QGIS 3.28).
-      QGIS_SERVER_DISABLE_GETPRINT, //!< Disabled WMS GetPrint request and don't load layouts. Improves project read time. (since QGIS 3.16).
-      QGIS_SERVER_LANDING_PAGE_PROJECTS_DIRECTORIES, //!< Directories used by the landing page service to find .qgs and .qgz projects (since QGIS 3.16)
-      QGIS_SERVER_LANDING_PAGE_PROJECTS_PG_CONNECTIONS, //!< PostgreSQL connection strings used by the landing page service to find projects (since QGIS 3.16)
-      QGIS_SERVER_LOG_PROFILE, //!< When QGIS_SERVER_LOG_LEVEL is 0 this flag adds to the logs detailed information about the time taken by the different processing steps inside the QGIS Server request (since QGIS 3.16)
-      QGIS_SERVER_SERVICE_URL, //!< To set the service URL if it's not present in the project. (since QGIS 3.20).
-      QGIS_SERVER_WMS_SERVICE_URL, //!< To set the WMS service URL if it's not present in the project. (since QGIS 3.20).
-      QGIS_SERVER_WFS_SERVICE_URL, //!< To set the WFS service URL if it's not present in the project. (since QGIS 3.20).
-      QGIS_SERVER_WCS_SERVICE_URL, //!< To set the WCS service URL if it's not present in the project. (since QGIS 3.20).
-      QGIS_SERVER_WMTS_SERVICE_URL, //!< To set the WMTS service URL if it's not present in the project. (since QGIS 3.20).
-      QGIS_SERVER_LANDING_PAGE_PREFIX, //! Prefix of the path component of the landing page base URL, default is empty (since QGIS 3.20).
-      QGIS_SERVER_PROJECT_CACHE_CHECK_INTERVAL, //! Set the interval for cache invalidation strategy 'interval', default to 0 which select the legacy File system watcher  (since QGIS 3.26).
-      QGIS_SERVER_PROJECT_CACHE_STRATEGY, //! Set the project cache strategy. Possible values are 'filesystem', 'periodic' or 'off' (since QGIS 3.26).
-      QGIS_SERVER_ALLOWED_EXTRA_SQL_TOKENS, //! Adds these tokens to the list of allowed tokens that the services accept when filtering features (since QGIS 3.28).
-      QGIS_SERVER_APPLICATION_NAME, //! Define the QGIS Server application name (since QGIS 3.30).
+      QGIS_SERVER_SHOW_GROUP_SEPARATOR,                 //!< Show group (thousands) separator when formatting numeric values, defaults to FALSE \since QGIS 3.8
+      QGIS_SERVER_OVERRIDE_SYSTEM_LOCALE,               //!< Override system locale \since QGIS 3.8
+      QGIS_SERVER_WMS_MAX_HEIGHT,                       //!< Maximum height for a WMS request. The most conservative between this and the project one is used \since QGIS 3.6.2
+      QGIS_SERVER_WMS_MAX_WIDTH,                        //!< Maximum width for a WMS request. The most conservative between this and the project one is used \since QGIS 3.6.2
+      QGIS_SERVER_API_RESOURCES_DIRECTORY,              //!< Base directory where HTML templates and static assets (e.g. images, js and css files) are searched for \since QGIS 3.10
+      QGIS_SERVER_API_WFS3_MAX_LIMIT,                   //!< Maximum value for "limit" in a features request, defaults to 10000 \since QGIS 3.10
+      QGIS_SERVER_TRUST_LAYER_METADATA,                 //!< Trust layer metadata. Improves project read time. \since QGIS 3.16
+      QGIS_SERVER_FORCE_READONLY_LAYERS,                //!< Force to open layers in read-only mode. \since QGIS 3.28
+      QGIS_SERVER_DISABLE_GETPRINT,                     //!< Disabled WMS GetPrint request and don't load layouts. Improves project read time. \since QGIS 3.16
+      QGIS_SERVER_LANDING_PAGE_PROJECTS_DIRECTORIES,    //!< Directories used by the landing page service to find .qgs and .qgz projects \since QGIS 3.16
+      QGIS_SERVER_LANDING_PAGE_PROJECTS_PG_CONNECTIONS, //!< PostgreSQL connection strings used by the landing page service to find projects \since QGIS 3.16
+      QGIS_SERVER_LOG_PROFILE,                          //!< When QGIS_SERVER_LOG_LEVEL is 0 this flag adds to the logs detailed information about the time taken by the different processing steps inside the QGIS Server request \since QGIS 3.16
+      QGIS_SERVER_SERVICE_URL,                          //!< To set the service URL if it's not present in the project. \since QGIS 3.20
+      QGIS_SERVER_WMS_SERVICE_URL,                      //!< To set the WMS service URL if it's not present in the project. \since QGIS 3.20
+      QGIS_SERVER_WFS_SERVICE_URL,                      //!< To set the WFS service URL if it's not present in the project. \since QGIS 3.20
+      QGIS_SERVER_WCS_SERVICE_URL,                      //!< To set the WCS service URL if it's not present in the project. \since QGIS 3.20
+      QGIS_SERVER_WMTS_SERVICE_URL,                     //!< To set the WMTS service URL if it's not present in the project. \since QGIS 3.20
+      QGIS_SERVER_LANDING_PAGE_PREFIX,                  //!< Prefix of the path component of the landing page base URL, default is empty \since QGIS 3.20
+      QGIS_SERVER_PROJECT_CACHE_CHECK_INTERVAL,         //!< Set the interval in milliseconds for cache invalidation strategy 'interval', default to 0 which select the legacy File system watcher \since QGIS 3.26
+      QGIS_SERVER_PROJECT_CACHE_STRATEGY,               //!< Set the project cache strategy. Possible values are 'filesystem', 'periodic' or 'off' \since QGIS 3.26
+      QGIS_SERVER_PROJECT_CACHE_SIZE,                   //!< Set the project cache size, in number of projects \since QGIS 3.44
+      QGIS_SERVER_ALLOWED_EXTRA_SQL_TOKENS,             //!< Adds these tokens to the list of allowed tokens that the services accept when filtering features \since QGIS 3.28
+      QGIS_SERVER_APPLICATION_NAME,                     //!< Define the QGIS Server application name \since QGIS 3.30
+      QGIS_SERVER_CAPABILITIES_CACHE_SIZE,              //!< Define the QGIS Server capabilities cache size \since QGIS 3.31
     };
     Q_ENUM( EnvVar )
 };
@@ -90,20 +91,19 @@ class SERVER_EXPORT QgsServerSettingsEnv : public QObject
  * \ingroup server
  * \class QgsServerSettings
  * \brief Provides a way to retrieve settings by prioritizing according to environment variables, ini file and default values.
- * \since QGIS 3.0
  */
 class SERVER_EXPORT QgsServerSettings
 {
   public:
     struct Setting SIP_SKIP
     {
-      QgsServerSettingsEnv::EnvVar envVar;
-      QgsServerSettingsEnv::Source src;
-      QString descr;
-      QString iniKey;
-      QVariant::Type type;
-      QVariant defaultVal;
-      QVariant val;
+        QgsServerSettingsEnv::EnvVar envVar;
+        QgsServerSettingsEnv::Source src;
+        QString descr;
+        QString iniKey;
+        QMetaType::Type type;
+        QVariant defaultVal;
+        QVariant val;
     };
 
     /**
@@ -310,7 +310,7 @@ class SERVER_EXPORT QgsServerSettings
     QString serviceUrl( const QString &service ) const;
 
     /**
-     * Returns the config cache check interval for the 'periodic' strategy.
+     * Returns the config cache check interval (in ms) for the 'periodic' strategy.
      * \since QGIS 3.26
      */
     int projectCacheCheckInterval() const;
@@ -329,6 +329,15 @@ class SERVER_EXPORT QgsServerSettings
      * \since QGIS 3.26
      */
     QString projectCacheStrategy() const;
+
+    /**
+     * Returns the projects cache size
+     * The default value is 100, the value can be changed by setting the environment
+     * variable QGIS_SERVER_PROJECT_CACHE_SIZE.
+     *
+     * \since QGIS 3.44
+     */
+    int projectCacheSize() const;
 
     /**
      * Returns the list of strings that represent the allowed extra SQL tokens
@@ -356,6 +365,15 @@ class SERVER_EXPORT QgsServerSettings
      */
     static QString name( QgsServerSettingsEnv::EnvVar env );
 
+    /**
+     * Returns the maximum number of project capabilities to cache.
+     * The default value is 40 and the value can be changed
+     * by setting the environment variable QGIS_SERVER_CAPABILITIES_CACHE_SIZE.
+     *
+     * \since QGIS 3.31
+     */
+    int capabilitiesCacheSize() const;
+
   private:
     void initSettings();
     QVariant value( QgsServerSettingsEnv::EnvVar envVar, bool actual = false ) const;
@@ -363,7 +381,7 @@ class SERVER_EXPORT QgsServerSettings
     void loadQSettings( const QString &envOptPath ) const;
     void prioritize( const QMap<QgsServerSettingsEnv::EnvVar, QString> &env );
 
-    QMap< QgsServerSettingsEnv::EnvVar, Setting > mSettings;
+    QMap<QgsServerSettingsEnv::EnvVar, Setting> mSettings;
 };
 
 #endif

@@ -28,8 +28,6 @@
 #include "qgspoint.h"
 #include "qgscoordinatereferencesystem.h"
 #include "qgsvertexid.h"
-#include "qgssettingsentryimpl.h"
-#include "qgssettings.h"
 #include "qgspanelwidget.h"
 
 class QLabel;
@@ -40,12 +38,12 @@ class QgsLockedFeature;
 class QgsVectorLayer;
 class QCheckBox;
 class QStackedWidget;
+class QgsSettingsEntryBool;
 
 class APP_EXPORT QgsVertexEntry
 {
   public:
-    QgsVertexEntry( const QgsPoint &p,
-                    QgsVertexId vertexId )
+    QgsVertexEntry( const QgsPoint &p, QgsVertexId vertexId )
       : mSelected( false )
       , mPoint( p )
       , mVertexId( vertexId )
@@ -70,7 +68,6 @@ class APP_EXPORT QgsVertexEditorModel : public QAbstractTableModel
 {
     Q_OBJECT
   public:
-
     QgsVertexEditorModel( QgsMapCanvas *canvas, QObject *parent = nullptr );
 
     void setFeature( QgsLockedFeature *lockedFeature );
@@ -84,7 +81,6 @@ class APP_EXPORT QgsVertexEditorModel : public QAbstractTableModel
 
   private:
     QgsLockedFeature *mLockedFeature = nullptr;
-    QgsMapCanvas *mCanvas = nullptr;
 
     bool mHasZ = false;
     bool mHasM = false;
@@ -97,14 +93,12 @@ class APP_EXPORT QgsVertexEditorModel : public QAbstractTableModel
     QFont mWidgetFont;
 
     bool calcR( int row, double &r, double &minRadius ) const;
-
 };
 
 class APP_EXPORT QgsVertexEditorWidget : public QgsPanelWidget
 {
     Q_OBJECT
   public:
-
     QgsVertexEditorWidget( QgsMapCanvas *canvas );
 
     void updateEditor( QgsLockedFeature *lockedFeature );
@@ -127,7 +121,6 @@ class APP_EXPORT QgsVertexEditorWidget : public QgsPanelWidget
     void updateVertexSelection( const QItemSelection &, const QItemSelection &deselected );
 
   private:
-
     QLabel *mHintLabel = nullptr;
     QStackedWidget *mStackedWidget = nullptr;
     QWidget *mPageHint = nullptr;
@@ -143,7 +136,6 @@ class APP_EXPORT QgsVertexEditor : public QgsDockWidget
 {
     Q_OBJECT
   public:
-
     static const QgsSettingsEntryBool *settingAutoPopupVertexEditorDock;
 
     QgsVertexEditor( QgsMapCanvas *canvas );
@@ -158,9 +150,7 @@ class APP_EXPORT QgsVertexEditor : public QgsDockWidget
     void closeEvent( QCloseEvent *event ) override;
 
   private:
-
     QgsVertexEditorWidget *mWidget = nullptr;
-
 };
 
 
@@ -169,7 +159,6 @@ class APP_EXPORT CoordinateItemDelegate : public QStyledItemDelegate
     Q_OBJECT
 
   public:
-
     explicit CoordinateItemDelegate( const QgsCoordinateReferenceSystem &crs, QObject *parent = nullptr );
 
     QString displayText( const QVariant &value, const QLocale &locale ) const override;
@@ -184,7 +173,6 @@ class APP_EXPORT CoordinateItemDelegate : public QStyledItemDelegate
     int displayDecimalPlaces() const;
     QgsCoordinateReferenceSystem mCrs;
 };
-
 
 
 #endif // QGSVERTEXEDITOR_H

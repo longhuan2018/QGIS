@@ -24,11 +24,14 @@
 
 #include "qgis_core.h"
 #include "qgis_sip.h"
-#include "qgssettingsentryimpl.h"
+
+
+class QgsSettingsEntryStringList;
 
 /**
  * \ingroup core
  * \brief A registry class to hold localized data paths which can be used for basemaps, logos, etc.
+ *
  * Paths are meant to be absolute paths and are stored by order of preference.
  *
  * If a layer from one of the paths is loaded, it will be saved as localized in the project file.

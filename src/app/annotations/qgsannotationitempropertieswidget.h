@@ -29,13 +29,12 @@ class QgsAnnotationItemPropertiesWidget : public QgsMapLayerConfigWidget, public
 {
     Q_OBJECT
   public:
-
     QgsAnnotationItemPropertiesWidget( QgsAnnotationLayer *layer, QgsMapCanvas *canvas, QWidget *parent );
     ~QgsAnnotationItemPropertiesWidget() override;
 
-    void syncToLayer( QgsMapLayer *layer ) override;
+    void syncToLayer( QgsMapLayer *layer ) final;
     void setMapLayerConfigWidgetContext( const QgsMapLayerConfigWidgetContext &context ) override;
-    void setDockMode( bool dockMode ) override;
+    void setDockMode( bool dockMode ) final;
 
   public slots:
     void apply() override;
@@ -45,17 +44,16 @@ class QgsAnnotationItemPropertiesWidget : public QgsMapLayerConfigWidget, public
 
     void onChanged();
     void onLayerPropertyChanged();
-  private:
 
+  private:
     void setItemId( const QString &itemId );
 
-    QPointer< QgsAnnotationLayer > mLayer;
-    QPointer< QgsAnnotationItemBaseWidget > mItemWidget;
+    QPointer<QgsAnnotationLayer> mLayer;
+    QPointer<QgsAnnotationItemBaseWidget> mItemWidget;
     QWidget *mPageNoItem = nullptr;
     bool mBlockLayerUpdates = false;
 
-    std::unique_ptr< QgsPaintEffect > mPaintEffect;
-
+    std::unique_ptr<QgsPaintEffect> mPaintEffect;
 };
 
 
@@ -70,7 +68,6 @@ class QgsAnnotationItemPropertiesWidgetFactory : public QObject, public QgsMapLa
     bool supportsStyleDock() const override;
     bool supportsLayer( QgsMapLayer *layer ) const override;
 };
-
 
 
 #endif // QGSANNOTATIONITEMPROPERTIESWIDGET_H

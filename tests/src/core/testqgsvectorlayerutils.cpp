@@ -30,10 +30,10 @@ class TestQgsVectorLayerUtils : public QObject
 
   private slots:
 
-    void initTestCase(); // will be called before the first testfunction is executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
     void cleanupTestCase(); // will be called after the last testfunction was executed.
-    void init() {} // will be called before each testfunction is executed.
-    void cleanup() {} // will be called after every testfunction.
+    void init() {}          // will be called before each testfunction is executed.
+    void cleanup() {}       // will be called after every testfunction.
 
     void testGetFeatureSource();
 };
@@ -43,7 +43,6 @@ void TestQgsVectorLayerUtils::initTestCase()
   QgsApplication::init();
   QgsApplication::initQgis();
   QgsApplication::showSettings();
-
 }
 
 void TestQgsVectorLayerUtils::cleanupTestCase()
@@ -80,7 +79,7 @@ class FeatureFetcher : public QThread
 
 void TestQgsVectorLayerUtils::testGetFeatureSource()
 {
-  std::unique_ptr<QgsVectorLayer> vl = std::make_unique<QgsVectorLayer>( QStringLiteral( "Point?field=col1:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) );
+  auto vl = std::make_unique<QgsVectorLayer>( QStringLiteral( "Point?field=col1:integer" ), QStringLiteral( "vl" ), QStringLiteral( "memory" ) );
   vl->startEditing();
   QgsFeature f1( vl->fields(), 1 );
   f1.setAttribute( QStringLiteral( "col1" ), 10 );
@@ -97,8 +96,7 @@ void TestQgsVectorLayerUtils::testGetFeatureSource()
   bool finished = false;
   QVariant result;
 
-  auto onResultReady = [&finished, &result]( const QVariant & res )
-  {
+  auto onResultReady = [&finished, &result]( const QVariant &res ) {
     finished = true;
     result = res;
   };

@@ -33,7 +33,6 @@ class APP_EXPORT QgsDecorationItem : public QObject, public QgsMapDecoration
     Q_OBJECT
 
   public:
-
     //! Item placements
     enum Placement
     {
@@ -79,14 +78,13 @@ class APP_EXPORT QgsDecorationItem : public QObject, public QgsMapDecoration
     void update();
 
   protected:
-
     //! True if decoration item has to be displayed
     bool mEnabled = false;
 
     //! Placement of the decoration
     Placement mPlacement = TopLeft;
     //! Units used for the decoration placement margin
-    QgsUnitTypes::RenderUnit mMarginUnit = QgsUnitTypes::RenderMillimeters;
+    Qgis::RenderUnit mMarginUnit = Qgis::RenderUnit::Millimeters;
 
     QString mConfigurationName;
 };

@@ -43,13 +43,14 @@ class TestQgsRasterMarker : public QgsTest
     Q_OBJECT
 
   public:
-    TestQgsRasterMarker() : QgsTest( QStringLiteral( "Raster Marker Renderer Tests" ) ) {}
+    TestQgsRasterMarker()
+      : QgsTest( QStringLiteral( "Raster Marker Renderer Tests" ) ) {}
 
   private slots:
-    void initTestCase();// will be called before the first testfunction is executed.
-    void cleanupTestCase();// will be called after the last testfunction was executed.
-    void init(); // will be called before each testfunction is executed.
-    void cleanup();// will be called after every testfunction.
+    void initTestCase();    // will be called before the first testfunction is executed.
+    void cleanupTestCase(); // will be called after the last testfunction was executed.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
 
     void rasterMarkerSymbol();
     void anchor();
@@ -95,12 +96,12 @@ void TestQgsRasterMarker::initTestCase()
   //create a marker layer that will be used in all tests
   const QString pointFileName = mTestDataDir + "points.shp";
   const QFileInfo pointFileInfo( pointFileName );
-  mPointLayer = new QgsVectorLayer( pointFileInfo.filePath(),
-                                    pointFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
+  mPointLayer = new QgsVectorLayer( pointFileInfo.filePath(), pointFileInfo.completeBaseName(), QStringLiteral( "ogr" ) );
 
   // Register the layer with the registry
   QgsProject::instance()->addMapLayers(
-    QList<QgsMapLayer *>() << mPointLayer );
+    QList<QgsMapLayer *>() << mPointLayer
+  );
 
   //setup the raster marker symbol
   mRasterMarker = new QgsRasterMarkerSymbolLayer();
@@ -124,12 +125,11 @@ void TestQgsRasterMarker::init()
 {
   mRasterMarker->setPath( mTestDataDir + QStringLiteral( "sample_image.png" ) );
   mRasterMarker->setSize( 30.0 );
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPixels );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Pixels );
 }
 
 void TestQgsRasterMarker::cleanup()
 {
-
 }
 
 void TestQgsRasterMarker::rasterMarkerSymbol()
@@ -140,12 +140,12 @@ void TestQgsRasterMarker::rasterMarkerSymbol()
 
 void TestQgsRasterMarker::anchor()
 {
-  mRasterMarker->setHorizontalAnchorPoint( QgsMarkerSymbolLayer::Right );
-  mRasterMarker->setVerticalAnchorPoint( QgsMarkerSymbolLayer::Bottom );
+  mRasterMarker->setHorizontalAnchorPoint( Qgis::HorizontalAnchorPoint::Right );
+  mRasterMarker->setVerticalAnchorPoint( Qgis::VerticalAnchorPoint::Bottom );
   const bool result = imageCheck( QStringLiteral( "rastermarker_anchor" ) );
   QVERIFY( result );
-  mRasterMarker->setHorizontalAnchorPoint( QgsMarkerSymbolLayer::HCenter );
-  mRasterMarker->setVerticalAnchorPoint( QgsMarkerSymbolLayer::VCenter );
+  mRasterMarker->setHorizontalAnchorPoint( Qgis::HorizontalAnchorPoint::Center );
+  mRasterMarker->setVerticalAnchorPoint( Qgis::VerticalAnchorPoint::Center );
 }
 
 void TestQgsRasterMarker::alpha()
@@ -167,10 +167,10 @@ void TestQgsRasterMarker::symbolOpacity()
 
 void TestQgsRasterMarker::dataDefinedOpacity()
 {
-  mMarkerSymbol->setDataDefinedProperty( QgsSymbol::PropertyOpacity, QgsProperty::fromExpression( QStringLiteral( "if(\"Heading\" > 100, 25, 50)" ) ) );
+  mMarkerSymbol->setDataDefinedProperty( QgsSymbol::Property::Opacity, QgsProperty::fromExpression( QStringLiteral( "if(\"Heading\" > 100, 25, 50)" ) ) );
 
   const bool result = imageCheck( QStringLiteral( "rastermarker_ddopacity" ) );
-  mMarkerSymbol->setDataDefinedProperty( QgsSymbol::PropertyOpacity, QgsProperty() );
+  mMarkerSymbol->setDataDefinedProperty( QgsSymbol::Property::Opacity, QgsProperty() );
   QVERIFY( result );
 }
 
@@ -195,7 +195,7 @@ void TestQgsRasterMarker::percentage()
   mRasterMarker->setFixedAspectRatio( 0.0 );
   mRasterMarker->setOpacity( 1.0 );
 
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
   const bool result = imageCheck( QStringLiteral( "rastermarker_percentage" ) );
   QVERIFY( result );
@@ -203,19 +203,19 @@ void TestQgsRasterMarker::percentage()
 
 void TestQgsRasterMarker::percentageAnchor()
 {
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
-  mRasterMarker->setHorizontalAnchorPoint( QgsMarkerSymbolLayer::Right );
-  mRasterMarker->setVerticalAnchorPoint( QgsMarkerSymbolLayer::Bottom );
+  mRasterMarker->setHorizontalAnchorPoint( Qgis::HorizontalAnchorPoint::Right );
+  mRasterMarker->setVerticalAnchorPoint( Qgis::VerticalAnchorPoint::Bottom );
   const bool result = imageCheck( QStringLiteral( "rastermarker_anchor_percentage" ) );
-  mRasterMarker->setHorizontalAnchorPoint( QgsMarkerSymbolLayer::HCenter );
-  mRasterMarker->setVerticalAnchorPoint( QgsMarkerSymbolLayer::VCenter );
+  mRasterMarker->setHorizontalAnchorPoint( Qgis::HorizontalAnchorPoint::Center );
+  mRasterMarker->setVerticalAnchorPoint( Qgis::VerticalAnchorPoint::Center );
   QVERIFY( result );
 }
 
 void TestQgsRasterMarker::percentageAlpha()
 {
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
   mRasterMarker->setOpacity( 0.5 );
   const bool result = imageCheck( QStringLiteral( "rastermarker_alpha_percentage" ) );
@@ -225,7 +225,7 @@ void TestQgsRasterMarker::percentageAlpha()
 
 void TestQgsRasterMarker::percentageRotation()
 {
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
   mRasterMarker->setAngle( 45.0 );
   const bool result = imageCheck( QStringLiteral( "rastermarker_rotation_percentage" ) );
@@ -235,7 +235,7 @@ void TestQgsRasterMarker::percentageRotation()
 
 void TestQgsRasterMarker::percentageFixedAspectRatio()
 {
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
   mRasterMarker->setFixedAspectRatio( 1.0 );
   const bool result = imageCheck( QStringLiteral( "rastermarker_fixedaspectratio_percentage" ) );
@@ -245,9 +245,9 @@ void TestQgsRasterMarker::percentageFixedAspectRatio()
 
 void TestQgsRasterMarker::percentageOffset()
 {
-  mRasterMarker->setSizeUnit( QgsUnitTypes::RenderPercentage );
+  mRasterMarker->setSizeUnit( Qgis::RenderUnit::Percentage );
   mRasterMarker->setSize( 6.3 );
-  mRasterMarker->setOffsetUnit( QgsUnitTypes::RenderPixels );
+  mRasterMarker->setOffsetUnit( Qgis::RenderUnit::Pixels );
   mRasterMarker->setOffset( QPointF( 12, 15 ) );
   const bool result = imageCheck( QStringLiteral( "rastermarker_offset_percentage" ) );
   mRasterMarker->setOffset( QPointF( 0, 0 ) );

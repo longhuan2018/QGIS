@@ -46,21 +46,18 @@ SIP_IF_MODULE( HAVE_SERVER_PYTHON_PLUGINS )
 
 /**
  * \ingroup server
- * \brief QgsServerInterface
- * Class defining interfaces exposed by QGIS Server and
- * made available to plugins.
+ * \brief Defines interfaces exposed by QGIS Server and made available to plugins.
  *
  * This class provides methods to access the request handler and
  * the capabilities cache. A method to read the environment
  * variables set in the main FCGI loop is also available.
  * Plugins can add listeners (instances of QgsServerFilter) with
- * a certain priority through the registerFilter( QgsServerFilter* , int) method.
+ * a certain priority through the registerFilter() method.
  *
  */
 class SERVER_EXPORT QgsServerInterface
 {
   public:
-
     //! Constructor
     QgsServerInterface() SIP_SKIP;
 

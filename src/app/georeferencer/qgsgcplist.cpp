@@ -16,7 +16,6 @@
 #include "qgspointxy.h"
 #include "qgsgeorefdatapoint.h"
 #include "qgscoordinatereferencesystem.h"
-#include "qgscoordinatetransform.h"
 #include "qgsproject.h"
 #include "qgsgeoreftransform.h"
 
@@ -65,7 +64,7 @@ int QgsGCPList::countEnabledPoints() const
   return s;
 }
 
-void QgsGCPList::updateResiduals( QgsGeorefTransform *georefTransform, const QgsCoordinateReferenceSystem &targetCrs, const QgsCoordinateTransformContext &context, QgsUnitTypes::RenderUnit residualUnit )
+void QgsGCPList::updateResiduals( QgsGeorefTransform *georefTransform, const QgsCoordinateReferenceSystem &targetCrs, const QgsCoordinateTransformContext &context, Qgis::RenderUnit residualUnit )
 {
   bool bTransformUpdated = false;
   QVector<QgsPointXY> sourceCoordinates;
@@ -96,7 +95,7 @@ void QgsGCPList::updateResiduals( QgsGeorefTransform *georefTransform, const Qgs
     {
       QgsPointXY dst;
       const QgsPointXY pixel = georefTransform->toSourcePixel( p->sourcePoint() );
-      if ( residualUnit == QgsUnitTypes::RenderPixels )
+      if ( residualUnit == Qgis::RenderUnit::Pixels )
       {
         // Transform from world to raster coordinate:
         // This is the transform direction used by the warp operation.
@@ -108,7 +107,7 @@ void QgsGCPList::updateResiduals( QgsGeorefTransform *georefTransform, const Qgs
           dY = -( dst.y() - pixel.y() );
         }
       }
-      else if ( residualUnit == QgsUnitTypes::RenderMapUnits )
+      else if ( residualUnit == Qgis::RenderUnit::MapUnits )
       {
         if ( georefTransform->transformRasterToWorld( pixel, dst ) )
         {
@@ -142,7 +141,7 @@ bool QgsGCPList::saveGcps( const QString &filePath, const QgsCoordinateReference
     QTextStream points( &pointFile );
     if ( targetCrs.isValid() )
     {
-      points << QStringLiteral( "#CRS: %1" ).arg( targetCrs.toWkt( QgsCoordinateReferenceSystem::WKT_PREFERRED ) );
+      points << QStringLiteral( "#CRS: %1" ).arg( targetCrs.toWkt( Qgis::CrsWktVariant::Preferred ) );
       points << Qt::endl;
     }
 
@@ -153,14 +152,9 @@ bool QgsGCPList::saveGcps( const QString &filePath, const QgsCoordinateReference
     {
       const QgsPointXY transformedDestinationPoint = pt->transformedDestinationPoint( targetCrs, context );
       points << QStringLiteral( "%1,%2,%3,%4,%5,%6,%7,%8" )
-             .arg( qgsDoubleToString( transformedDestinationPoint.x() ),
-                   qgsDoubleToString( transformedDestinationPoint.y() ),
-                   qgsDoubleToString( pt->sourcePoint().x() ),
-                   qgsDoubleToString( pt->sourcePoint().y() ) )
-             .arg( pt->isEnabled() )
-             .arg( qgsDoubleToString( pt->residual().x() ),
-                   qgsDoubleToString( pt->residual().y() ),
-                   qgsDoubleToString( std::sqrt( pt->residual().x() * pt->residual().x() + pt->residual().y() * pt->residual().y() ) ) );
+                  .arg( qgsDoubleToString( transformedDestinationPoint.x() ), qgsDoubleToString( transformedDestinationPoint.y() ), qgsDoubleToString( pt->sourcePoint().x() ), qgsDoubleToString( pt->sourcePoint().y() ) )
+                  .arg( pt->isEnabled() )
+                  .arg( qgsDoubleToString( pt->residual().x() ), qgsDoubleToString( pt->residual().y() ), qgsDoubleToString( std::sqrt( pt->residual().x() * pt->residual().x() + pt->residual().y() * pt->residual().y() ) ) );
       points << Qt::endl;
     }
     return true;
@@ -187,7 +181,6 @@ QList<QgsGcpPoint> QgsGCPList::loadGcps( const QString &filePath, const QgsCoord
   QString line = points.readLine();
   lineNumber++;
 
-  int i = 0;
   if ( line.contains( QLatin1String( "#CRS: " ) ) )
   {
     const QString crsDef = line.remove( QStringLiteral( "#CRS: " ) );
@@ -212,7 +205,7 @@ QList<QgsGcpPoint> QgsGCPList::loadGcps( const QString &filePath, const QgsCoord
     lineNumber++;
     QStringList ls;
     if ( line.contains( ',' ) ) // in previous format "\t" is delimiter of points in new - ","
-      ls = line.split( ',' ); // points from new georeferencer
+      ls = line.split( ',' );   // points from new georeferencer
     else
       ls = line.split( '\t' ); // points from prev georeferencer
 
@@ -223,15 +216,13 @@ QList<QgsGcpPoint> QgsGCPList::loadGcps( const QString &filePath, const QgsCoord
     }
 
     const QgsPointXY destinationPoint( ls.at( 0 ).toDouble(), ls.at( 1 ).toDouble() ); // map x,y
-    const QgsPointXY sourcePoint( ls.at( 2 ).toDouble(), ls.at( 3 ).toDouble() ); // source x,y
+    const QgsPointXY sourcePoint( ls.at( 2 ).toDouble(), ls.at( 3 ).toDouble() );      // source x,y
     bool enable = true;
     if ( ls.count() >= 5 )
     {
       enable = ls.at( 4 ).toInt();
     }
     res.append( QgsGcpPoint( sourcePoint, destinationPoint, actualDestinationCrs, enable ) );
-
-    ++i;
   }
   return res;
 }

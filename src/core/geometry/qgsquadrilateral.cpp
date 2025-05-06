@@ -32,7 +32,7 @@ QgsQuadrilateral::QgsQuadrilateral( const QgsPointXY &p1, const QgsPointXY &p2, 
 
 QgsQuadrilateral QgsQuadrilateral::rectangleFrom3Points( const QgsPoint &p1, const QgsPoint &p2, const QgsPoint &p3, ConstructionOption mode )
 {
-  QgsWkbTypes::Type pType( QgsWkbTypes::Point );
+  Qgis::WkbType pType( Qgis::WkbType::Point );
 
   double z = std::numeric_limits< double >::quiet_NaN();
   double m = std::numeric_limits< double >::quiet_NaN();
@@ -69,7 +69,7 @@ QgsQuadrilateral QgsQuadrilateral::rectangleFrom3Points( const QgsPoint &p1, con
   QgsQuadrilateral rect;
   double inclination = 90.0;
   double distance = 0;
-  const double azimuth = point1.azimuth( point2 ) + 90.0 * QgsGeometryUtils::leftOfLine( point3.x(), point3.y(), point1.x(), point1.y(), point2.x(), point2.y() );
+  const double azimuth = point1.azimuth( point2 ) + 90.0 * QgsGeometryUtilsBase::leftOfLine( point3.x(), point3.y(), point1.x(), point1.y(), point2.x(), point2.y() );
   switch ( mode )
   {
     case Distance:
@@ -110,7 +110,7 @@ QgsQuadrilateral QgsQuadrilateral::rectangleFrom3Points( const QgsPoint &p1, con
   QgsPoint fp3 = point2.project( distance, azimuth, inclination );
   QgsPoint fp4 = point1.project( distance, azimuth, inclination ) ;
 
-  if ( pType != QgsWkbTypes::PointZ )
+  if ( pType != Qgis::WkbType::PointZ )
   {
     fp1.dropZValue();
     fp2.dropZValue();
@@ -385,7 +385,7 @@ QgsPointSequence QgsQuadrilateral::points() const
 
 QgsPolygon *QgsQuadrilateral::toPolygon( bool force2D ) const
 {
-  std::unique_ptr<QgsPolygon> polygon = std::make_unique< QgsPolygon >();
+  auto polygon = std::make_unique< QgsPolygon >();
   if ( !isValid() )
   {
     return polygon.release();
@@ -398,7 +398,7 @@ QgsPolygon *QgsQuadrilateral::toPolygon( bool force2D ) const
 
 QgsLineString *QgsQuadrilateral::toLineString( bool force2D ) const
 {
-  std::unique_ptr<QgsLineString> ext = std::make_unique< QgsLineString>();
+  auto ext = std::make_unique< QgsLineString>();
   if ( !isValid() )
   {
     return ext.release();
@@ -435,10 +435,12 @@ QString QgsQuadrilateral::toString( int pointPrecision ) const
 
 double QgsQuadrilateral::area() const
 {
-  return toPolygon()->area();
+  std::unique_ptr<QgsPolygon> polygon( toPolygon() );
+  return polygon->area();
 }
 
 double QgsQuadrilateral::perimeter() const
 {
-  return toPolygon()->perimeter();
+  std::unique_ptr<QgsPolygon> polygon( toPolygon() );
+  return polygon->perimeter();
 }

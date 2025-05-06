@@ -15,6 +15,7 @@
  *
  ***************************************************************************/
 #include "qgshanaconnectionstringbuilder.h"
+#include "qgis.h"
 #include <QRegularExpression>
 
 QgsHanaConnectionStringBuilder::QgsHanaConnectionStringBuilder( const QgsDataSourceUri &uri )
@@ -59,8 +60,7 @@ QString QgsHanaConnectionStringBuilder::toString() const
   // See notes for constructing connection string for HANA
   // https://help.sap.com/docs/SAP_HANA_CLIENT/f1b440ded6144a54ada97ff95dac7adf/7cab593774474f2f8db335710b2f5c50.html
   QRegularExpression rxSpecialChars( "\\[|\\]|\\{|\\}|\\(|\\)|\\,|\\;|\\?|\\*|\\=|\\!|\\@" );
-  auto addProperty = [&props, &rxSpecialChars]( const QString & name, const QString & value )
-  {
+  auto addProperty = [&props, &rxSpecialChars]( const QString &name, const QString &value ) {
     if ( value.isEmpty() )
       return;
 
@@ -115,6 +115,7 @@ QString QgsHanaConnectionStringBuilder::toString() const
   }
 
   addProperty( QStringLiteral( "CHAR_AS_UTF8" ), QStringLiteral( "1" ) );
+  addProperty( QStringLiteral( "sessionVariable:APPLICATION" ), QStringLiteral( "QGIS %1" ).arg( Qgis::version() ) );
 
   return props.join( QLatin1Char( ';' ) );
 }

@@ -23,8 +23,6 @@
 #include "qgsdistancearea.h"
 #include "qgscoordinatetransformcontext.h"
 #include "qgswkbtypes.h"
-#include "qgssettingsentryimpl.h"
-#include "qgssettingsentryenumflag.h"
 
 #include <QObject>
 #include <QPointer>
@@ -32,9 +30,12 @@
 #include "info.h"
 
 class QgsSettingsEntryBool;
-class QgsSettingsEntryString;
-class QgsSettingsEntryInteger;
 class QgsSettingsEntryDouble;
+class QgsSettingsEntryInteger;
+class QgsSettingsEntryString;
+template<class T> class QgsSettingsEntryEnumFlag;
+
+
 class QgsGpsConnection;
 class QgsGpsInformation;
 
@@ -144,7 +145,7 @@ class CORE_EXPORT QgsGpsLogger : public QObject
      *
      * \returns logged GPS positions as a geometry.
      */
-    QgsGeometry currentGeometry( QgsWkbTypes::Type type, QString &error SIP_OUT ) const;
+    QgsGeometry currentGeometry( Qgis::WkbType type, QString &error SIP_OUT ) const;
 
     /**
      * Returns the last recorded position of the device.

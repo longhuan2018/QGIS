@@ -16,13 +16,9 @@
  ***************************************************************************/
 
 #include "qgslayertreeviewtemporalindicator.h"
+#include "moc_qgslayertreeviewtemporalindicator.cpp"
 #include "qgslayertreeview.h"
 #include "qgslayertree.h"
-#include "qgslayertreemodel.h"
-#include "qgslayertreeutils.h"
-#include "qgsmeshlayer.h"
-#include "qgsrasterlayer.h"
-#include "qgsrasterlayerproperties.h"
 #include "qgsmaplayertemporalproperties.h"
 #include "qgisapp.h"
 
@@ -36,7 +32,7 @@ void QgsLayerTreeViewTemporalIndicatorProvider::connectSignals( QgsMapLayer *lay
   if ( !layer || !layer->temporalProperties() )
     return;
 
-  connect( layer->temporalProperties(), &QgsMapLayerTemporalProperties::changed, this, [ this, layer ]( ) { this->onLayerChanged( layer ); } );
+  connect( layer->temporalProperties(), &QgsMapLayerTemporalProperties::changed, this, [this, layer]() { this->onLayerChanged( layer ); } );
 }
 
 void QgsLayerTreeViewTemporalIndicatorProvider::onIndicatorClicked( const QModelIndex &index )
@@ -51,20 +47,21 @@ void QgsLayerTreeViewTemporalIndicatorProvider::onIndicatorClicked( const QModel
 
   switch ( layer->type() )
   {
-    case QgsMapLayerType::RasterLayer:
+    case Qgis::LayerType::Raster:
       QgisApp::instance()->showLayerProperties( layer, QStringLiteral( "mOptsPage_Temporal" ) );
       break;
-    case QgsMapLayerType::MeshLayer:
+    case Qgis::LayerType::Mesh:
       QgisApp::instance()->showLayerProperties( layer, QStringLiteral( "mOptsPage_Temporal" ) );
       break;
-    case QgsMapLayerType::VectorLayer:
+    case Qgis::LayerType::Vector:
       QgisApp::instance()->showLayerProperties( layer, QStringLiteral( "mOptsPage_Temporal" ) );
       break;
-    case QgsMapLayerType::PluginLayer:
-    case QgsMapLayerType::VectorTileLayer:
-    case QgsMapLayerType::AnnotationLayer:
-    case QgsMapLayerType::PointCloudLayer:
-    case QgsMapLayerType::GroupLayer:
+    case Qgis::LayerType::Plugin:
+    case Qgis::LayerType::VectorTile:
+    case Qgis::LayerType::Annotation:
+    case Qgis::LayerType::PointCloud:
+    case Qgis::LayerType::Group:
+    case Qgis::LayerType::TiledScene:
       break;
   }
 }
@@ -73,8 +70,7 @@ bool QgsLayerTreeViewTemporalIndicatorProvider::acceptLayer( QgsMapLayer *layer 
 {
   if ( !layer )
     return false;
-  if ( layer->temporalProperties() &&
-       layer->temporalProperties()->isActive() )
+  if ( layer->temporalProperties() && layer->temporalProperties()->isActive() )
     return true;
   return false;
 }

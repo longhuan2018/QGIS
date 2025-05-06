@@ -19,6 +19,7 @@
 #include "qgsimageoperation.h"
 #include "qgsrendercontext.h"
 #include "qgssymbollayerutils.h"
+#include "qgsunittypes.h"
 
 QgsPaintEffect *QgsBlurEffect::create( const QVariantMap &map )
 {
@@ -29,7 +30,7 @@ QgsPaintEffect *QgsBlurEffect::create( const QVariantMap &map )
 
 void QgsBlurEffect::draw( QgsRenderContext &context )
 {
-  if ( !source() || !enabled() || !context.painter() )
+  if ( !enabled() || !context.painter() || source().isNull() )
     return;
 
   switch ( mBlurMethod )
@@ -47,7 +48,7 @@ void QgsBlurEffect::drawStackBlur( QgsRenderContext &context )
 {
   const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale, Qgis::RenderSubcomponentProperty::BlurSize ) );
 
-  QImage im = sourceAsImage( context )->copy();
+  QImage im = sourceAsImage( context ).copy();
   QgsImageOperation::stackBlur( im, blurLevel, false, context.feedback() );
   drawBlurredImage( context, im );
 }
@@ -56,7 +57,8 @@ void QgsBlurEffect::drawGaussianBlur( QgsRenderContext &context )
 {
   const int blurLevel = std::round( context.convertToPainterUnits( mBlurLevel, mBlurUnit, mBlurMapUnitScale, Qgis::RenderSubcomponentProperty::BlurSize ) );
 
-  QImage *im = QgsImageOperation::gaussianBlur( *sourceAsImage( context ), blurLevel, context.feedback() );
+  QImage source = sourceAsImage( context ).copy();
+  QImage *im = QgsImageOperation::gaussianBlur( source, blurLevel, context.feedback() );
   if ( !im->isNull() )
     drawBlurredImage( context, *im );
   delete im;

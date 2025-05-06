@@ -16,7 +16,7 @@
 #include "qgselevationutils.h"
 #include "qgsproject.h"
 #include "qgsmaplayerelevationproperties.h"
-
+#include "qgsrasterlayerelevationproperties.h"
 
 QgsDoubleRange QgsElevationUtils::calculateZRangeForProject( QgsProject *project )
 {
@@ -52,5 +52,75 @@ QgsDoubleRange QgsElevationUtils::calculateZRangeForProject( QgsProject *project
 
   return QgsDoubleRange( std::isnan( min ) ? std::numeric_limits< double >::lowest() : min,
                          std::isnan( max ) ? std::numeric_limits< double >::max() : max );
+}
+
+QList<double> QgsElevationUtils::significantZValuesForProject( QgsProject *project )
+{
+  const QMap<QString, QgsMapLayer *> &mapLayers = project->mapLayers();
+  QList< QgsMapLayer * > layers;
+  for ( QMap<QString, QgsMapLayer *>::const_iterator it = mapLayers.constBegin(); it != mapLayers.constEnd(); ++it )
+  {
+    if ( it.value() )
+      layers << it.value();
+  }
+
+  return significantZValuesForLayers( layers );
+}
+
+QList<double> QgsElevationUtils::significantZValuesForLayers( const QList<QgsMapLayer *> &layers )
+{
+  QSet< double > values;
+
+  for ( QgsMapLayer *currentLayer  : layers )
+  {
+    if ( !currentLayer->elevationProperties() || !currentLayer->elevationProperties()->hasElevation() )
+      continue;
+
+    const QList< double > layerValues = currentLayer->elevationProperties()->significantZValues( currentLayer );
+    for ( double value : layerValues )
+    {
+      values.insert( value );
+    }
+  }
+
+  QList< double > res = qgis::setToList( values );
+  std::sort( res.begin(), res.end() );
+  return res;
+}
+
+bool QgsElevationUtils::canEnableElevationForLayer( QgsMapLayer *layer )
+{
+  return static_cast< bool >( layer->elevationProperties() );
+}
+
+bool QgsElevationUtils::enableElevationForLayer( QgsMapLayer *layer )
+{
+  switch ( layer->type() )
+  {
+    case Qgis::LayerType::Raster:
+    {
+      if ( QgsRasterLayerElevationProperties *properties = qobject_cast<QgsRasterLayerElevationProperties * >( layer->elevationProperties() ) )
+      {
+        properties->setEnabled( true );
+        properties->setMode( Qgis::RasterElevationMode::RepresentsElevationSurface );
+        // This could potentially be made smarter, eg by checking the data type of bands. But that's likely overkill..!
+        properties->setBandNumber( 1 );
+        return true;
+      }
+      break;
+    }
+
+    // can't automatically enable elevation for these layer types
+    case Qgis::LayerType::Vector:
+    case Qgis::LayerType::Plugin:
+    case Qgis::LayerType::Mesh:
+    case Qgis::LayerType::VectorTile:
+    case Qgis::LayerType::Annotation:
+    case Qgis::LayerType::PointCloud:
+    case Qgis::LayerType::Group:
+    case Qgis::LayerType::TiledScene:
+      break;
+  }
+  return false;
 }
 

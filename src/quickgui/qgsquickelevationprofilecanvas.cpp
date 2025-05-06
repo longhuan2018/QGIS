@@ -27,6 +27,7 @@
 #include "qgsprofilerequest.h"
 #include "qgsprojectelevationproperties.h"
 #include "qgsquickelevationprofilecanvas.h"
+#include "moc_qgsquickelevationprofilecanvas.cpp"
 #include "qgsterrainprovider.h"
 
 #include <QQuickWindow>
@@ -117,6 +118,10 @@ class QgsElevationProfilePlotItem : public Qgs2DPlot
           plotPainter.setRenderHint( QPainter::Antialiasing, true );
           QgsRenderContext plotRc = QgsRenderContext::fromQPainter( &plotPainter );
           plotRc.setDevicePixelRatio( devicePixelRatio );
+
+          const double mapUnitsPerPixel = ( xMaximum() - xMinimum() ) / plotArea.width();
+          plotRc.setMapToPixel( QgsMapToPixel( mapUnitsPerPixel ) );
+
           mRenderer->render( plotRc, plotArea.width(), plotArea.height(), xMinimum(), xMaximum(), yMinimum(), yMaximum(), source );
           plotPainter.end();
 
@@ -198,7 +203,7 @@ void QgsQuickElevationProfileCanvas::setupLayerConnections( QgsMapLayer *layer, 
 
   switch ( layer->type() )
   {
-    case QgsMapLayerType::VectorLayer:
+    case Qgis::LayerType::Vector:
     {
       QgsVectorLayer *vl = qobject_cast<QgsVectorLayer *>( layer );
       if ( isDisconnect )
@@ -217,13 +222,14 @@ void QgsQuickElevationProfileCanvas::setupLayerConnections( QgsMapLayer *layer, 
       }
       break;
     }
-    case QgsMapLayerType::RasterLayer:
-    case QgsMapLayerType::PluginLayer:
-    case QgsMapLayerType::MeshLayer:
-    case QgsMapLayerType::VectorTileLayer:
-    case QgsMapLayerType::AnnotationLayer:
-    case QgsMapLayerType::PointCloudLayer:
-    case QgsMapLayerType::GroupLayer:
+    case Qgis::LayerType::Raster:
+    case Qgis::LayerType::Plugin:
+    case Qgis::LayerType::Mesh:
+    case Qgis::LayerType::VectorTile:
+    case Qgis::LayerType::Annotation:
+    case Qgis::LayerType::PointCloud:
+    case Qgis::LayerType::Group:
+    case Qgis::LayerType::TiledScene:
       break;
   }
 }
@@ -445,11 +451,9 @@ void QgsQuickElevationProfileCanvas::refineResults()
 
     // for similar reasons we round the minimum distance off to multiples of the maximum error in map units
     const double distanceMin = std::floor( ( mPlotItem->xMinimum() - plotDistanceRange * 0.05 ) / context.maximumErrorMapUnits() ) * context.maximumErrorMapUnits();
-    context.setDistanceRange( QgsDoubleRange( std::max( 0.0, distanceMin ),
-                              mPlotItem->xMaximum() + plotDistanceRange * 0.05 ) );
+    context.setDistanceRange( QgsDoubleRange( std::max( 0.0, distanceMin ), mPlotItem->xMaximum() + plotDistanceRange * 0.05 ) );
 
-    context.setElevationRange( QgsDoubleRange( mPlotItem->yMinimum() - plotElevationRange * 0.05,
-                               mPlotItem->yMaximum() + plotElevationRange * 0.05 ) );
+    context.setElevationRange( QgsDoubleRange( mPlotItem->yMinimum() - plotElevationRange * 0.05, mPlotItem->yMaximum() + plotElevationRange * 0.05 ) );
     mCurrentJob->setContext( context );
   }
   scheduleDeferredRegeneration();
@@ -480,7 +484,7 @@ void QgsQuickElevationProfileCanvas::setProfileCurve( QgsGeometry curve )
   if ( mProfileCurve.equals( curve ) )
     return;
 
-  mProfileCurve = curve.type() == QgsWkbTypes::LineGeometry ? curve : QgsGeometry();
+  mProfileCurve = curve.type() == Qgis::GeometryType::Line ? curve : QgsGeometry();
 
   emit profileCurveChanged();
 }
@@ -512,22 +516,14 @@ void QgsQuickElevationProfileCanvas::populateLayersFromProject()
   // sort layers so that types which are more likely to obscure others are rendered below
   // e.g. vector features should be drawn above raster DEMS, or the DEM line may completely obscure
   // the vector feature
-  QList<QgsMapLayer *> sortedLayers = QgsMapLayerUtils::sortLayersByType( projectLayers,
-  {
-    QgsMapLayerType::RasterLayer,
-    QgsMapLayerType::MeshLayer,
-    QgsMapLayerType::VectorLayer,
-    QgsMapLayerType::PointCloudLayer
-  } );
+  QList<QgsMapLayer *> sortedLayers = QgsMapLayerUtils::sortLayersByType( projectLayers, { Qgis::LayerType::Raster, Qgis::LayerType::Mesh, Qgis::LayerType::Vector, Qgis::LayerType::PointCloud } );
 
   // filter list, removing null layers and invalid layers
   auto filteredList = sortedLayers;
-  filteredList.erase( std::remove_if( filteredList.begin(), filteredList.end(),
-                                      []( QgsMapLayer * layer )
-  {
-    return !layer || !layer->isValid() || !layer->elevationProperties() || !layer->elevationProperties()->showByDefaultInElevationProfilePlots();
-  } ),
-  filteredList.end() );
+  filteredList.erase( std::remove_if( filteredList.begin(), filteredList.end(), []( QgsMapLayer *layer ) {
+                        return !layer || !layer->isValid() || !layer->elevationProperties() || !layer->elevationProperties()->showByDefaultInElevationProfilePlots();
+                      } ),
+                      filteredList.end() );
 
   mLayers = _qgis_listRawToQPointer( filteredList );
   for ( QgsMapLayer *layer : std::as_const( mLayers ) )

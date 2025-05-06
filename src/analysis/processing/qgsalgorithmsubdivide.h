@@ -30,9 +30,7 @@
  */
 class QgsSubdivideAlgorithm : public QgsProcessingFeatureBasedAlgorithm
 {
-
   public:
-
     QgsSubdivideAlgorithm() = default;
     void initParameters( const QVariantMap &configuration = QVariantMap() ) override;
     QString name() const override;
@@ -46,13 +44,12 @@ class QgsSubdivideAlgorithm : public QgsProcessingFeatureBasedAlgorithm
   protected:
     QString outputName() const override;
 
-    QgsWkbTypes::Type outputWkbType( QgsWkbTypes::Type inputWkbType ) const override;
-    QgsFeatureList processFeature( const QgsFeature &feature,  QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
+    Qgis::WkbType outputWkbType( Qgis::WkbType inputWkbType ) const override;
+    QgsFeatureList processFeature( const QgsFeature &feature, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
 
     bool prepareAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback ) override;
 
   private:
-
     int mMaxNodes = -1;
     bool mDynamicMaxNodes = false;
     QgsProperty mMaxNodesProperty;
@@ -61,5 +58,3 @@ class QgsSubdivideAlgorithm : public QgsProcessingFeatureBasedAlgorithm
 ///@endcond PRIVATE
 
 #endif // QGSALGORITHMSUBDIVIDE_H
-
-

@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "qgsprocessingfeaturesourceoptionswidget.h"
+#include "moc_qgsprocessingfeaturesourceoptionswidget.cpp"
 #include "qgis.h"
 
 ///@cond NOT_STABLE
@@ -28,20 +29,26 @@ QgsProcessingFeatureSourceOptionsWidget::QgsProcessingFeatureSourceOptionsWidget
   mFeatureLimitSpinBox->clear();
 
   mComboInvalidFeatureFiltering->addItem( tr( "Use Default" ) );
-  mComboInvalidFeatureFiltering->addItem( tr( "Do not Filter (Better Performance)" ), QgsFeatureRequest::GeometryNoCheck );
-  mComboInvalidFeatureFiltering->addItem( tr( "Skip (Ignore) Features with Invalid Geometries" ), QgsFeatureRequest::GeometrySkipInvalid );
-  mComboInvalidFeatureFiltering->addItem( tr( "Stop Algorithm Execution When a Geometry is Invalid" ), QgsFeatureRequest::GeometryAbortOnInvalid );
+  mComboInvalidFeatureFiltering->addItem( tr( "Do not Filter (Better Performance)" ), QVariant::fromValue( Qgis::InvalidGeometryCheck::NoCheck ) );
+  mComboInvalidFeatureFiltering->addItem( tr( "Skip (Ignore) Features with Invalid Geometries" ), QVariant::fromValue( Qgis::InvalidGeometryCheck::SkipInvalid ) );
+  mComboInvalidFeatureFiltering->addItem( tr( "Stop Algorithm Execution When a Geometry is Invalid" ), QVariant::fromValue( Qgis::InvalidGeometryCheck::AbortOnInvalid ) );
 
   connect( mFeatureLimitSpinBox, qOverload<int>( &QSpinBox::valueChanged ), this, &QgsPanelWidget::widgetChanged );
   connect( mComboInvalidFeatureFiltering, qOverload<int>( &QComboBox::currentIndexChanged ), this, &QgsPanelWidget::widgetChanged );
+  connect( mFilterExpressionWidget, &QgsExpressionLineEdit::expressionChanged, this, &QgsPanelWidget::widgetChanged );
 }
 
-void QgsProcessingFeatureSourceOptionsWidget::setGeometryCheckMethod( bool isOverridden, QgsFeatureRequest::InvalidGeometryCheck check )
+void QgsProcessingFeatureSourceOptionsWidget::setLayer( QgsVectorLayer *layer )
+{
+  mFilterExpressionWidget->setLayer( layer );
+}
+
+void QgsProcessingFeatureSourceOptionsWidget::setGeometryCheckMethod( bool isOverridden, Qgis::InvalidGeometryCheck check )
 {
   if ( !isOverridden )
     mComboInvalidFeatureFiltering->setCurrentIndex( mComboInvalidFeatureFiltering->findData( QVariant() ) );
   else
-    mComboInvalidFeatureFiltering->setCurrentIndex( mComboInvalidFeatureFiltering->findData( check ) );
+    mComboInvalidFeatureFiltering->setCurrentIndex( mComboInvalidFeatureFiltering->findData( QVariant::fromValue( check ) ) );
 }
 
 void QgsProcessingFeatureSourceOptionsWidget::setFeatureLimit( int limit )
@@ -49,9 +56,14 @@ void QgsProcessingFeatureSourceOptionsWidget::setFeatureLimit( int limit )
   mFeatureLimitSpinBox->setValue( limit );
 }
 
-QgsFeatureRequest::InvalidGeometryCheck QgsProcessingFeatureSourceOptionsWidget::geometryCheckMethod() const
+void QgsProcessingFeatureSourceOptionsWidget::setFilterExpression( const QString &expression )
 {
-  return mComboInvalidFeatureFiltering->currentData().isValid() ? static_cast< QgsFeatureRequest::InvalidGeometryCheck >( mComboInvalidFeatureFiltering->currentData().toInt() ) : QgsFeatureRequest::GeometryAbortOnInvalid;
+  mFilterExpressionWidget->setExpression( expression );
+}
+
+Qgis::InvalidGeometryCheck QgsProcessingFeatureSourceOptionsWidget::geometryCheckMethod() const
+{
+  return mComboInvalidFeatureFiltering->currentData().isValid() ? mComboInvalidFeatureFiltering->currentData().value<Qgis::InvalidGeometryCheck>() : Qgis::InvalidGeometryCheck::AbortOnInvalid;
 }
 
 bool QgsProcessingFeatureSourceOptionsWidget::isOverridingInvalidGeometryCheck() const
@@ -62,6 +74,11 @@ bool QgsProcessingFeatureSourceOptionsWidget::isOverridingInvalidGeometryCheck()
 int QgsProcessingFeatureSourceOptionsWidget::featureLimit() const
 {
   return mFeatureLimitSpinBox->value() > 0 ? mFeatureLimitSpinBox->value() : -1;
+}
+
+QString QgsProcessingFeatureSourceOptionsWidget::filterExpression() const
+{
+  return mFilterExpressionWidget->expression();
 }
 
 ///@endcond

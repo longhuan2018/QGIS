@@ -9,53 +9,58 @@ it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or
 (at your option) any later version.
 """
+
 import os
-import re
-import string
-import sys
-from shutil import rmtree
-import tempfile
 import random
+import string
+import tempfile
+from shutil import rmtree
 
-from qgis.core import QgsAuthMethodConfig, QgsNetworkAccessManager, QgsSettings, QgsApplication
+from qgis.core import (
+    QgsApplication,
+    QgsAuthMethodConfig,
+)
 from qgis.gui import QgsAuthSettingsWidget
-from qgis.testing import start_app, unittest
+import unittest
+from qgis.testing import start_app, QgisTestCase
 
-from utilities import unitTestDataPath
-
-__author__ = 'Alessandro Pasotti'
-__date__ = '27/09/2017'
-__copyright__ = 'Copyright 2017, The QGIS Project'
+__author__ = "Alessandro Pasotti"
+__date__ = "27/09/2017"
+__copyright__ = "Copyright 2017, The QGIS Project"
 
 QGIS_AUTH_DB_DIR_PATH = tempfile.mkdtemp()
 
-os.environ['QGIS_AUTH_DB_DIR_PATH'] = QGIS_AUTH_DB_DIR_PATH
+os.environ["QGIS_AUTH_DB_DIR_PATH"] = QGIS_AUTH_DB_DIR_PATH
 
 qgis_app = start_app()
 
 
-class TestAuthenticationWidget(unittest.TestCase):
+class TestAuthenticationWidget(QgisTestCase):
 
     @classmethod
     def setUpClass(cls):
         """Run before all tests:
         Creates an auth configuration"""
+        super().setUpClass()
         # Enable auth
         # os.environ['QGIS_AUTH_PASSWORD_FILE'] = QGIS_AUTH_PASSWORD_FILE
         authm = QgsApplication.authManager()
-        assert (authm.setMasterPassword('masterpassword', True))
-        cls.auth_config = QgsAuthMethodConfig('Basic')
-        cls.auth_config.setName('test_auth_config')
-        cls.username = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+        assert authm.setMasterPassword("masterpassword", True)
+        cls.auth_config = QgsAuthMethodConfig("Basic")
+        cls.auth_config.setName("test_auth_config")
+        cls.username = "".join(
+            random.choice(string.ascii_uppercase + string.digits) for _ in range(6)
+        )
         cls.password = cls.username[::-1]  # reversed
-        cls.auth_config.setConfig('username', cls.username)
-        cls.auth_config.setConfig('password', cls.password)
-        assert (authm.storeAuthenticationConfig(cls.auth_config)[0])
+        cls.auth_config.setConfig("username", cls.username)
+        cls.auth_config.setConfig("password", cls.password)
+        assert authm.storeAuthenticationConfig(cls.auth_config)[0]
 
     @classmethod
     def tearDownClass(cls):
         """Run after all tests"""
         rmtree(QGIS_AUTH_DB_DIR_PATH)
+        super().tearDownClass()
 
     def setUp(self):
         """Run before each test."""
@@ -70,9 +75,9 @@ class TestAuthenticationWidget(unittest.TestCase):
         Test the widget with no args
         """
         w = QgsAuthSettingsWidget()
-        self.assertEqual(w.username(), '')
-        self.assertEqual(w.password(), '')
-        self.assertEqual(w.configId(), '')
+        self.assertEqual(w.username(), "")
+        self.assertEqual(w.password(), "")
+        self.assertEqual(w.configId(), "")
         self.assertTrue(w.configurationTabIsSelected())
         self.assertFalse(w.btnConvertToEncryptedIsEnabled())
 
@@ -81,8 +86,8 @@ class TestAuthenticationWidget(unittest.TestCase):
         Test the widget with configId
         """
         w = QgsAuthSettingsWidget(None, self.auth_config.id())
-        self.assertEqual(w.username(), '')
-        self.assertEqual(w.password(), '')
+        self.assertEqual(w.username(), "")
+        self.assertEqual(w.password(), "")
         self.assertEqual(w.configId(), self.auth_config.id())
         self.assertTrue(w.configurationTabIsSelected())
         self.assertFalse(w.btnConvertToEncryptedIsEnabled())
@@ -91,30 +96,30 @@ class TestAuthenticationWidget(unittest.TestCase):
         """
         Test the widget with username only
         """
-        w = QgsAuthSettingsWidget(None, None, 'username')
-        self.assertEqual(w.username(), 'username')
-        self.assertEqual(w.password(), '')
-        self.assertEqual(w.configId(), '')
+        w = QgsAuthSettingsWidget(None, None, "username")
+        self.assertEqual(w.username(), "username")
+        self.assertEqual(w.password(), "")
+        self.assertEqual(w.configId(), "")
         self.assertFalse(w.configurationTabIsSelected())
 
     def testWidgetPassword(self):
         """
         Test the widget with password only
         """
-        w = QgsAuthSettingsWidget(None, None, None, 'password')
-        self.assertEqual(w.username(), '')
-        self.assertEqual(w.password(), 'password')
-        self.assertEqual(w.configId(), '')
+        w = QgsAuthSettingsWidget(None, None, None, "password")
+        self.assertEqual(w.username(), "")
+        self.assertEqual(w.password(), "password")
+        self.assertEqual(w.configId(), "")
         self.assertFalse(w.configurationTabIsSelected())
 
     def testWidgetUsernameAndPassword(self):
         """
         Test the widget with username and password
         """
-        w = QgsAuthSettingsWidget(None, None, 'username', 'password')
-        self.assertEqual(w.username(), 'username')
-        self.assertEqual(w.password(), 'password')
-        self.assertEqual(w.configId(), '')
+        w = QgsAuthSettingsWidget(None, None, "username", "password")
+        self.assertEqual(w.username(), "username")
+        self.assertEqual(w.password(), "password")
+        self.assertEqual(w.configId(), "")
         self.assertFalse(w.configurationTabIsSelected())
         self.assertTrue(w.btnConvertToEncryptedIsEnabled())
 
@@ -122,16 +127,16 @@ class TestAuthenticationWidget(unittest.TestCase):
         """
         Test the widget to encrypted conversion
         """
-        w = QgsAuthSettingsWidget(None, None, 'username', 'password')
-        self.assertEqual(w.username(), 'username')
-        self.assertEqual(w.password(), 'password')
-        self.assertEqual(w.configId(), '')
+        w = QgsAuthSettingsWidget(None, None, "username", "password")
+        self.assertEqual(w.username(), "username")
+        self.assertEqual(w.password(), "password")
+        self.assertEqual(w.configId(), "")
         self.assertFalse(w.configurationTabIsSelected())
         self.assertTrue(w.btnConvertToEncryptedIsEnabled())
         self.assertTrue(w.convertToEncrypted())
-        self.assertNotEqual(w.configId(), '')
-        self.assertEqual(w.username(), '')
-        self.assertEqual(w.password(), '')
+        self.assertNotEqual(w.configId(), "")
+        self.assertEqual(w.username(), "")
+        self.assertEqual(w.password(), "")
         self.assertTrue(w.configurationTabIsSelected())
         self.assertFalse(w.btnConvertToEncryptedIsEnabled())
 
@@ -140,13 +145,13 @@ class TestAuthenticationWidget(unittest.TestCase):
         Test setters
         """
         w = QgsAuthSettingsWidget()
-        w.setUsername('username')
+        w.setUsername("username")
         self.assertFalse(w.configurationTabIsSelected())
-        self.assertEqual(w.username(), 'username')
+        self.assertEqual(w.username(), "username")
 
         w = QgsAuthSettingsWidget()
-        w.setPassword('password')
-        self.assertEqual(w.password(), 'password')
+        w.setPassword("password")
+        self.assertEqual(w.password(), "password")
         self.assertFalse(w.configurationTabIsSelected())
 
         w = QgsAuthSettingsWidget()
@@ -155,15 +160,15 @@ class TestAuthenticationWidget(unittest.TestCase):
         self.assertTrue(w.configurationTabIsSelected())
 
         w = QgsAuthSettingsWidget()
-        w.setUsername('username')
-        w.setPassword('password')
+        w.setUsername("username")
+        w.setPassword("password")
         w.setConfigId(self.auth_config.id())
         self.assertEqual(w.configId(), self.auth_config.id())
         self.assertTrue(w.configurationTabIsSelected())
 
         w = QgsAuthSettingsWidget()
-        w.setDataprovider('db2')
-        self.assertEqual(w.dataprovider(), 'db2')
+        w.setDataprovider("db2")
+        self.assertEqual(w.dataprovider(), "db2")
 
     def test_storeCheckBoxes(self):
         """
@@ -190,5 +195,5 @@ class TestAuthenticationWidget(unittest.TestCase):
         self.assertTrue(w.storeUsernameIsChecked())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

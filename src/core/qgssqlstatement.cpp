@@ -92,7 +92,7 @@ QString QgsSQLStatement::quotedIdentifierIfNeeded( const QString &name )
       return quotedIdentifier( name );
     }
   }
-  const thread_local QRegularExpression IDENTIFIER_RE( "^[A-Za-z_\x80-\xff][A-Za-z0-9_\x80-\xff]*$" );
+  const thread_local QRegularExpression IDENTIFIER_RE( "^[A-Za-z_\\x80-\\xff][A-Za-z0-9_\\x80-\\xff]*$" );
   return IDENTIFIER_RE.match( name ).hasMatch() ? name : quotedIdentifier( name );
 }
 
@@ -141,9 +141,10 @@ QgsSQLStatement::QgsSQLStatement( const QString &expr, bool allowFragments )
 }
 
 QgsSQLStatement::QgsSQLStatement( const QgsSQLStatement &other )
+  : mAllowFragments( other.mAllowFragments )
+  , mStatement( other.mStatement )
 {
-  mRootNode = ::parse( other.mStatement, mParserErrorString, other.mAllowFragments );
-  mStatement = other.mStatement;
+  mRootNode = ::parse( mStatement, mParserErrorString, mAllowFragments );
 }
 
 QgsSQLStatement &QgsSQLStatement::operator=( const QgsSQLStatement &other )
@@ -152,8 +153,9 @@ QgsSQLStatement &QgsSQLStatement::operator=( const QgsSQLStatement &other )
   {
     delete mRootNode;
     mParserErrorString.clear();
-    mRootNode = ::parse( other.mStatement, mParserErrorString, other.mAllowFragments );
     mStatement = other.mStatement;
+    mAllowFragments = other.mAllowFragments;
+    mRootNode = ::parse( mStatement, mParserErrorString, mAllowFragments );
   }
   return *this;
 }
@@ -483,17 +485,17 @@ QString QgsSQLStatement::NodeLiteral::dump() const
   if ( QgsVariantUtils::isNull( mValue ) )
     return QStringLiteral( "NULL" );
 
-  switch ( mValue.type() )
+  switch ( mValue.userType() )
   {
-    case QVariant::Int:
+    case QMetaType::Type::Int:
       return QString::number( mValue.toInt() );
-    case QVariant::LongLong:
+    case QMetaType::Type::LongLong:
       return QString::number( mValue.toLongLong() );
-    case QVariant::Double:
+    case QMetaType::Type::Double:
       return QString::number( mValue.toDouble() );
-    case QVariant::String:
+    case QMetaType::Type::QString:
       return quotedString( mValue.toString() );
-    case QVariant::Bool:
+    case QMetaType::Type::Bool:
       return mValue.toBool() ? "TRUE" : "FALSE";
     default:
       return tr( "[unsupported type: %1; value: %2]" ).arg( mValue.typeName(), mValue.toString() );

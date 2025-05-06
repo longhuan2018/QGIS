@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     i_in_spotvgt.py
@@ -17,13 +15,13 @@
 ***************************************************************************
 """
 
-__author__ = 'Médéric Ribreux'
-__date__ = 'April 2016'
-__copyright__ = '(C) 2016, Médéric Ribreux'
+__author__ = "Médéric Ribreux"
+__date__ = "April 2016"
+__copyright__ = "(C) 2016, Médéric Ribreux"
 
 
 def processInputs(alg, parameters, context, feedback):
     # Here, we apply directly the algorithm
     # So we just need to get the projection of the layer !
-    layer = alg.parameterAsRasterLayer(parameters, 'input', context)
-    alg.setSessionProjectionFromLayer(layer)
+    layer = alg.parameterAsRasterLayer(parameters, "input", context)
+    alg.setSessionProjectionFromLayer(layer, context)

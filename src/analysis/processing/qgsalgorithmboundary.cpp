@@ -42,7 +42,7 @@ QString QgsBoundaryAlgorithm::group() const
 
 QString QgsBoundaryAlgorithm::groupId() const
 {
-  return  QStringLiteral( "vectorgeometry" );
+  return QStringLiteral( "vectorgeometry" );
 }
 
 QString QgsBoundaryAlgorithm::outputName() const
@@ -60,7 +60,7 @@ QString QgsBoundaryAlgorithm::shortHelpString() const
 
 QList<int> QgsBoundaryAlgorithm::inputLayerTypes() const
 {
-  return QList<int>() << QgsProcessing::TypeVectorLine << QgsProcessing::TypeVectorPolygon;
+  return QList<int>() << static_cast<int>( Qgis::ProcessingSourceType::VectorLine ) << static_cast<int>( Qgis::ProcessingSourceType::VectorPolygon );
 }
 
 bool QgsBoundaryAlgorithm::supportInPlaceEdit( const QgsMapLayer * ) const
@@ -73,28 +73,28 @@ QgsBoundaryAlgorithm *QgsBoundaryAlgorithm::createInstance() const
   return new QgsBoundaryAlgorithm();
 }
 
-QgsProcessingFeatureSource::Flag QgsBoundaryAlgorithm::sourceFlags() const
+Qgis::ProcessingFeatureSourceFlags QgsBoundaryAlgorithm::sourceFlags() const
 {
-  return QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks;
+  return Qgis::ProcessingFeatureSourceFlag::SkipGeometryValidityChecks;
 }
 
-QgsWkbTypes::Type QgsBoundaryAlgorithm::outputWkbType( QgsWkbTypes::Type inputWkbType ) const
+Qgis::WkbType QgsBoundaryAlgorithm::outputWkbType( Qgis::WkbType inputWkbType ) const
 {
-  QgsWkbTypes::Type outputWkb = QgsWkbTypes::Unknown;
+  Qgis::WkbType outputWkb = Qgis::WkbType::Unknown;
   switch ( QgsWkbTypes::geometryType( inputWkbType ) )
   {
-    case QgsWkbTypes::LineGeometry:
-      outputWkb = QgsWkbTypes::MultiPoint;
+    case Qgis::GeometryType::Line:
+      outputWkb = Qgis::WkbType::MultiPoint;
       break;
 
-    case QgsWkbTypes::PolygonGeometry:
-      outputWkb = QgsWkbTypes::MultiLineString;
+    case Qgis::GeometryType::Polygon:
+      outputWkb = Qgis::WkbType::MultiLineString;
       break;
 
-    case QgsWkbTypes::PointGeometry:
-    case QgsWkbTypes::UnknownGeometry:
-    case QgsWkbTypes::NullGeometry:
-      outputWkb = QgsWkbTypes::NoGeometry;
+    case Qgis::GeometryType::Point:
+    case Qgis::GeometryType::Unknown:
+    case Qgis::GeometryType::Null:
+      outputWkb = Qgis::WkbType::NoGeometry;
       break;
   }
 

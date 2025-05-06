@@ -34,7 +34,7 @@ class QgsMeshVertexCirculator;
 /**
  * \ingroup core
  *
- * \brief Class that wraps a QgsMesh to ensure the consistency of the mesh during editing and help to access to elements from other elements
+ * \brief Wraps a QgsMesh to ensure the consistency of the mesh during editing and helps to access elements from other elements.
  *
  *  A topological face need to:
  *
@@ -53,7 +53,7 @@ class CORE_EXPORT QgsTopologicalMesh
     /**
      * \ingroup core
      *
-     * \brief Class that contains independent faces an topological information about this faces
+     * \brief Contains independent faces and topological information about these faces.
      *
      * This class supports unique shared vertex between faces
      *
@@ -89,7 +89,7 @@ class CORE_EXPORT QgsTopologicalMesh
     /**
      * \ingroup core
      *
-     * \brief Class that contains topological differences between two states of a topological mesh, only accessible from the QgsTopologicalMesh class
+     * \brief Contains topological differences between two states of a topological mesh, only accessible from the QgsTopologicalMesh class.
      *
      * \since QGIS 3.22
      */
@@ -137,7 +137,7 @@ class CORE_EXPORT QgsTopologicalMesh
         QVector<FaceNeighbors> mFacesNeighborhoodToAdd;
         QVector<QgsMeshFace> mFacesToRemove;
         QVector<FaceNeighbors> mFacesNeighborhoodToRemove;
-        QList<std::array<int, 4>> mNeighborhoodChanges; // {index of concerned face, neigbor position, previous value, changed value}
+        QList<std::array<int, 4>> mNeighborhoodChanges; // {index of concerned face, neighbor position, previous value, changed value}
 
         QVector<QgsMeshVertex> mVerticesToAdd;
         QVector<int> mVertexToFaceToAdd;
@@ -233,6 +233,14 @@ class CORE_EXPORT QgsTopologicalMesh
     Changes flipEdge( int vertexIndex1, int vertexIndex2 );
 
     /**
+     * Check if Delaunay condition holds for given edge
+     * returns TRUE if delaunay condition holds FALSE otherwise
+     *
+     * \since QGIS 3.42
+     */
+    bool delaunayConditionForEdge( int vertexIndex1, int vertexIndex2 );
+
+    /**
      * Returns TRUE if faces separated by vertices with indexes \a vertexIndex1 and \a vertexIndex2 can be merged
      */
     bool canBeMerged( int vertexIndex1, int vertexIndex2 ) const;
@@ -267,7 +275,7 @@ class CORE_EXPORT QgsTopologicalMesh
     Changes insertVertexInFacesEdge( int faceIndex, int position, const QgsMeshVertex &vertex );
 
     /**
-     * Adds a free \a vertex in the face, that is a vertex tha tis not included or linked with any faces.
+     * Adds a free \a vertex in the face, that is a vertex that is not included or linked with any faces.
      * The method returns a instance of the class QgsTopologicalMesh::Change that can be used to reverse or reapply the operation.
      */
     Changes addFreeVertex( const QgsMeshVertex &vertex );
@@ -331,6 +339,15 @@ class CORE_EXPORT QgsTopologicalMesh
     //! Checks the topology of the mesh \a mesh, if error occurs, this mesh can't be edited
     static QgsMeshEditingError checkTopology( const QgsMesh &mesh, int maxVerticesPerFace );
 
+    //! Returns vertex position in face
+    static inline int vertexPositionInFace( int vertexIndex, const QgsMeshFace &face )
+    {
+      return face.indexOf( vertexIndex );
+    }
+
+    //! Returns vertex position in face
+    static int vertexPositionInFace( const QgsMesh &mesh, int vertexIndex, int faceIndex );
+
   private:
 
     //! Creates topological faces from mesh faces
@@ -380,7 +397,7 @@ class CORE_EXPORT QgsTopologicalMesh
 /**
  * \ingroup core
  *
- * \brief  Convenient class that turn around a vertex and provide information about faces and vertices
+ * \brief Convenience class that turns around a vertex and provides information about faces and vertices.
  *
  * \since QGIS 3.22
  */

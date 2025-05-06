@@ -19,7 +19,7 @@
 #include <QObject>
 
 #include "qgis_core.h"
-#include "qgis_sip.h"
+#include "qgis.h"
 
 class QgsMapSettings;
 class QgsMapLayer;
@@ -27,7 +27,7 @@ class QgsPointXY;
 
 /**
  * \ingroup core
- * \brief This is the class is providing tolerance value in map unit values.
+ * \brief Provides calculations for tolerance values in map units.
  */
 class CORE_EXPORT QgsTolerance
 {
@@ -35,25 +35,9 @@ class CORE_EXPORT QgsTolerance
   public:
 
     /**
-     * Type of unit of tolerance value from settings.
-     * For map (project) units, use ProjectUnits.
-    */
-    enum UnitType
-    {
-      //! Layer unit value
-      LayerUnits,
-      //! Pixels unit of tolerance
-      Pixels,
-      //! Map (project) units. Added in 2.8
-      ProjectUnits
-    };
-    Q_ENUM( UnitType )
-
-    /**
      * Static function to get vertex tolerance value.
      * The value is read from settings and transformed if necessary.
      * \returns value of vertex tolerance in map units (not layer units)
-     * \since QGIS 2.8
      */
     static double vertexSearchRadius( const QgsMapSettings &mapSettings );
 
@@ -78,9 +62,8 @@ class CORE_EXPORT QgsTolerance
      * \param mapSettings settings of the map
      * \param units type of units to be translated
      * \returns value of tolerance in map units
-     * \since QGIS 2.8
      */
-    static double toleranceInProjectUnits( double tolerance, QgsMapLayer *layer, const QgsMapSettings &mapSettings, QgsTolerance::UnitType units );
+    static double toleranceInProjectUnits( double tolerance, QgsMapLayer *layer, const QgsMapSettings &mapSettings, Qgis::MapToolUnit units );
 
     /**
      * Static function to translate tolerance value into layer units
@@ -90,7 +73,7 @@ class CORE_EXPORT QgsTolerance
      * \param units type of units to be translated
      * \returns value of tolerance in layer units
      */
-    static double toleranceInMapUnits( double tolerance, QgsMapLayer *layer, const QgsMapSettings &mapSettings, UnitType units = LayerUnits );
+    static double toleranceInMapUnits( double tolerance, QgsMapLayer *layer, const QgsMapSettings &mapSettings, Qgis::MapToolUnit units = Qgis::MapToolUnit::Layer );
 
   private:
     static double computeMapUnitPerPixel( QgsMapLayer *layer, const QgsMapSettings &mapSettings );

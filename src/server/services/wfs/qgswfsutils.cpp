@@ -23,7 +23,6 @@
 #include "qgswfsutils.h"
 #include "qgsogcutils.h"
 #include "qgsserverprojectutils.h"
-#include "qgswfsparameters.h"
 #include "qgsvectorlayer.h"
 #include "qgsproject.h"
 
@@ -42,9 +41,7 @@ namespace QgsWfs
     // Build default url
     if ( href.isEmpty() )
     {
-
-      static QSet<QString> sFilter
-      {
+      static QSet<QString> sFilter {
         QStringLiteral( "REQUEST" ),
         QStringLiteral( "VERSION" ),
         QStringLiteral( "SERVICE" ),
@@ -63,14 +60,14 @@ namespace QgsWfs
       href.setQuery( q );
     }
 
-    return  href.toString();
+    return href.toString();
   }
 
   QString layerTypeName( const QgsMapLayer *layer )
   {
     QString name = layer->name();
-    if ( !layer->shortName().isEmpty() )
-      name = layer->shortName();
+    if ( !layer->serverProperties()->shortName().isEmpty() )
+      name = layer->serverProperties()->shortName();
     name = name.replace( ' ', '_' ).replace( ':', '-' );
     return name;
   }
@@ -85,7 +82,7 @@ namespace QgsWfs
       {
         continue;
       }
-      if ( layer->type() != QgsMapLayerType::VectorLayer )
+      if ( layer->type() != Qgis::LayerType::Vector )
       {
         continue;
       }
@@ -140,7 +137,7 @@ namespace QgsWfs
       }
       // update server feature ids
       serverFids.append( collectedServerFids );
-      request.setFlags( QgsFeatureRequest::NoFlags );
+      request.setFlags( Qgis::FeatureRequestFlag::NoFlags );
       return request;
     }
     else if ( !goidNodes.isEmpty() )
@@ -174,7 +171,7 @@ namespace QgsWfs
       }
       // update server feature ids
       serverFids.append( collectedServerFids );
-      request.setFlags( QgsFeatureRequest::NoFlags );
+      request.setFlags( Qgis::FeatureRequestFlag::NoFlags );
       return request;
     }
     else if ( filterElem.firstChildElement().tagName() == QLatin1String( "BBOX" ) )
@@ -197,12 +194,11 @@ namespace QgsWfs
         childElem = childElem.nextSiblingElement();
       }
 
-      request.setFlags( QgsFeatureRequest::ExactIntersect | QgsFeatureRequest::NoFlags );
+      request.setFlags( Qgis::FeatureRequestFlag::ExactIntersect | Qgis::FeatureRequestFlag::NoFlags );
       return request;
     }
     // Apply BBOX through filterRect even inside an And to use spatial index
-    else if ( filterElem.firstChildElement().tagName() == QLatin1String( "And" ) &&
-              !filterElem.firstChildElement().firstChildElement( QLatin1String( "BBOX" ) ).isNull() )
+    else if ( filterElem.firstChildElement().tagName() == QLatin1String( "And" ) && !filterElem.firstChildElement().firstChildElement( QLatin1String( "BBOX" ) ).isNull() )
     {
       int nbChildElem = filterElem.firstChildElement().childNodes().size();
 
@@ -267,13 +263,13 @@ namespace QgsWfs
       // Update expression
       request.setFilterExpression( childRequest.filterExpression()->expression() );
 
-      request.setFlags( QgsFeatureRequest::ExactIntersect | QgsFeatureRequest::NoFlags );
+      request.setFlags( Qgis::FeatureRequestFlag::ExactIntersect | Qgis::FeatureRequestFlag::NoFlags );
       return request;
     }
     else
     {
       QgsVectorLayer *layer = nullptr;
-      if ( project != nullptr )
+      if ( project )
       {
         layer = layerByTypeName( project, typeName );
       }
@@ -287,7 +283,7 @@ namespace QgsWfs
 
         if ( filter->needsGeometry() )
         {
-          request.setFlags( QgsFeatureRequest::NoFlags );
+          request.setFlags( Qgis::FeatureRequestFlag::NoFlags );
         }
         request.setFilterExpression( filter->expression() );
         return request;
@@ -297,5 +293,3 @@ namespace QgsWfs
   }
 
 } // namespace QgsWfs
-
-

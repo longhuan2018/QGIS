@@ -15,12 +15,11 @@
  ***************************************************************************/
 
 #include "qgslayoutitemnodeitem.h"
-#include "qgssymbollayerutils.h"
+#include "moc_qgslayoutitemnodeitem.cpp"
 #include "qgssymbol.h"
-#include "qgsmapsettings.h"
 #include "qgslayout.h"
-#include "qgslayoututils.h"
 #include "qgsmarkersymbol.h"
+#include "qgslayoutrendercontext.h"
 
 #include <limits>
 #include <cmath>
@@ -85,6 +84,11 @@ void QgsLayoutNodesItem::draw( QgsLayoutItemRenderContext &context )
 
   if ( mDrawNodes && layout()->renderContext().isPreviewRender() )
     drawNodes( context );
+}
+
+QgsLayoutItem::Flags QgsLayoutNodesItem::itemFlags() const
+{
+  return QgsLayoutItem::FlagDisableSceneCaching;
 }
 
 double QgsLayoutNodesItem::computeDistance( QPointF pt1,
@@ -175,8 +179,7 @@ void QgsLayoutNodesItem::drawNodes( QgsLayoutItemRenderContext &context ) const
   properties.insert( QStringLiteral( "name" ), QStringLiteral( "cross" ) );
   properties.insert( QStringLiteral( "color_border" ), QStringLiteral( "red" ) );
 
-  std::unique_ptr<QgsMarkerSymbol> symbol;
-  symbol.reset( QgsMarkerSymbol::createSimple( properties ) );
+  std::unique_ptr<QgsMarkerSymbol> symbol = QgsMarkerSymbol::createSimple( properties );
   symbol->setSize( rectSize );
   symbol->setAngle( 45 );
 
@@ -199,8 +202,7 @@ void QgsLayoutNodesItem::drawSelectedNode( QgsLayoutItemRenderContext &context )
   properties.insert( QStringLiteral( "color_border" ), QStringLiteral( "blue" ) );
   properties.insert( QStringLiteral( "width_border" ), QStringLiteral( "4" ) );
 
-  std::unique_ptr<QgsMarkerSymbol> symbol;
-  symbol.reset( QgsMarkerSymbol::createSimple( properties ) );
+  std::unique_ptr<QgsMarkerSymbol> symbol = QgsMarkerSymbol::createSimple( properties );
   symbol->setSize( rectSize );
 
   symbol->startRender( context.renderContext() );
@@ -346,10 +348,10 @@ void QgsLayoutNodesItem::updateBoundingRect()
 {
   QRectF br = rect();
   br.adjust( -mMaxSymbolBleed, -mMaxSymbolBleed, mMaxSymbolBleed, mMaxSymbolBleed );
+  prepareGeometryChange();
   mCurrentRectangle = br;
 
   // update
-  prepareGeometryChange();
   update();
 }
 

@@ -25,6 +25,8 @@ endif()
 # static library
 add_library(provider_wms_a STATIC ${WMS_SRCS})
 
+set_target_properties(provider_wms_a PROPERTIES UNITY_BUILD ${ENABLE_UNITY_BUILDS})
+
 target_include_directories(provider_wms_a PUBLIC
   ${CMAKE_SOURCE_DIR}/src/providers/wms
 )
@@ -33,13 +35,11 @@ target_include_directories(provider_wms_a PUBLIC
 target_compile_features(provider_wms_a PRIVATE cxx_std_17)
 
 if (WITH_GUI)
-  if (BUILD_WITH_QT6)
-    QT6_WRAP_UI(WMS_UIS_H ${WMS_UIS})
-  else()
-    QT5_WRAP_UI(WMS_UIS_H ${WMS_UIS})
-  endif()
+  qt_wrap_ui(WMS_UIS_H ${WMS_UIS})
 
   add_library(provider_wms_gui_a STATIC ${WMS_GUI_SRCS} ${WMS_UIS_H})
+
+  set_target_properties(provider_wms_gui_a PROPERTIES UNITY_BUILD ${ENABLE_UNITY_BUILDS})
 
   target_include_directories (provider_wms_gui_a PUBLIC
     ${CMAKE_BINARY_DIR}/src/providers/wms
@@ -55,6 +55,9 @@ endif()
 target_link_libraries(provider_wms_a
   qgis_core
 )
+
+# We use private headers from core that need this
+target_compile_definitions(provider_wms_a PRIVATE "CMAKE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 target_compile_definitions(provider_wms_a PRIVATE "-DQT_NO_FOREACH")
 
 if (WITH_GUI)
@@ -75,12 +78,13 @@ else()
   # dynamically loaded module
   add_library(provider_wms MODULE ${WMS_SRCS} ${WMS_GUI_SRCS})
 
+  set_target_properties(provider_wms PROPERTIES UNITY_BUILD ${ENABLE_UNITY_BUILDS})
+
   # require c++17
   target_compile_features(provider_wms PRIVATE cxx_std_17)
 
   target_link_libraries(provider_wms
     qgis_core
-    ${GDAL_LIBRARY}  # for OGR_G_CreateGeometryFromJson()
   )
 
   if (WITH_GUI)
@@ -91,6 +95,8 @@ else()
   endif()
 
   target_compile_definitions(provider_wms PRIVATE "-DQT_NO_FOREACH")
+  # We use private headers from core that need this
+  target_compile_definitions(provider_wms PRIVATE "CMAKE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
   install (TARGETS provider_wms
     RUNTIME DESTINATION ${QGIS_PLUGIN_DIR}

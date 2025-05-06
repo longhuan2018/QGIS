@@ -14,10 +14,10 @@
  ***************************************************************************/
 
 #include "qgsmaprenderercache.h"
+#include "moc_qgsmaprenderercache.cpp"
 
 #include "qgsmaplayer.h"
 #include "qgsmaplayerlistutils_p.h"
-#include "qgsapplication.h"
 
 #include <QImage>
 #include <QPainter>
@@ -36,7 +36,7 @@ void QgsMapRendererCache::clear()
 
 void QgsMapRendererCache::clearInternal()
 {
-  mExtent.setMinimal();
+  mExtent.setNull();
   mScale = 0;
 
   // make sure we are disconnected from all layers
@@ -98,7 +98,7 @@ bool QgsMapRendererCache::init( const QgsRectangle &extent, double scale )
   // set new params
   mExtent = extent;
   mScale = scale;
-  mMtp = QgsMapToPixel::fromScale( scale, QgsUnitTypes::DistanceUnit::DistanceUnknownUnit );
+  mMtp = QgsMapToPixel::fromScale( scale, Qgis::DistanceUnit::Unknown );
 
   return false;
 }

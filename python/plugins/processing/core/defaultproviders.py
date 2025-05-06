@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     defaultproviders.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'May 2016'
-__copyright__ = '(C) 2016, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "May 2016"
+__copyright__ = "(C) 2016, Victor Olaya"
 
 
 def loadDefaultProviders():

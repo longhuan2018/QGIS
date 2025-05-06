@@ -34,8 +34,11 @@
 
 
 #include <QList>
+#include <QLinkedList>
 #include <vector>
 #include <memory>
+
+typedef struct GEOSGeom_t GEOSGeometry;
 
 namespace pal
 {
@@ -53,7 +56,7 @@ namespace pal
   class Feats
   {
     public:
-      //! Constructor for Feats
+
       Feats() = default;
 
       FeaturePart *feature = nullptr;

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     v_net_spanningtree.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Médéric Ribreux'
-__date__ = 'December 2017'
-__copyright__ = '(C) 2017, Médéric Ribreux'
+__author__ = "Médéric Ribreux"
+__date__ = "December 2017"
+__copyright__ = "(C) 2017, Médéric Ribreux"
 
 from .v_net import incorporatePoints, variableOutput
 
@@ -29,5 +27,5 @@ def processCommand(alg, parameters, context, feedback):
 
 
 def processOutputs(alg, parameters, context, feedback):
-    outputParameter = {'output': ['output', 'line', 1, True]}
+    outputParameter = {"output": ["output", "line", 1, True]}
     variableOutput(alg, outputParameter, parameters, context)

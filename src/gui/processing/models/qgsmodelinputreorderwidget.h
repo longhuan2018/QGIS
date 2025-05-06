@@ -21,7 +21,7 @@
 #include "qgis.h"
 #include "qgis_gui.h"
 #include "ui_qgsmodelinputreorderwidgetbase.h"
-#include "processing/models/qgsprocessingmodelparameter.h"
+#include "qgsprocessingmodelparameter.h"
 #include <QDialog>
 
 class QStandardItemModel;
@@ -40,7 +40,6 @@ class GUI_EXPORT QgsModelInputReorderWidget : public QWidget, private Ui::QgsMod
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsModelInputReorderWidget.
      */
@@ -57,9 +56,8 @@ class GUI_EXPORT QgsModelInputReorderWidget : public QWidget, private Ui::QgsMod
     QStringList inputOrder() const;
 
   private:
-
     QgsProcessingModelAlgorithm *mModel;
-    QList< QgsProcessingModelParameter > mParameters;
+    QList<QgsProcessingModelParameter> mParameters;
     QStandardItemModel *mItemModel = nullptr;
 };
 
@@ -75,7 +73,6 @@ class GUI_EXPORT QgsModelInputReorderDialog : public QDialog
     Q_OBJECT
 
   public:
-
     /**
      * Constructor for QgsModelInputReorderDialog.
      */
@@ -92,7 +89,6 @@ class GUI_EXPORT QgsModelInputReorderDialog : public QDialog
     QStringList inputOrder() const;
 
   private:
-
     QgsModelInputReorderWidget *mWidget = nullptr;
 };
 

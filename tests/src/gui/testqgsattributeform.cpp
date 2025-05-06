@@ -17,6 +17,7 @@
 #include "qgstest.h"
 #include <QPushButton>
 #include <QLineEdit>
+#include <QSignalSpy>
 
 #include <editorwidgets/core/qgseditorwidgetregistry.h>
 #include "qgsattributeform.h"
@@ -32,7 +33,7 @@
 #include "qgsmultiedittoolbutton.h"
 #include "qgsattributeeditorfield.h"
 #include "qgsattributeeditorcontainer.h"
-#include <QSignalSpy>
+#include "qgsspinbox.h"
 
 class TestQgsAttributeForm : public QObject
 {
@@ -41,10 +42,10 @@ class TestQgsAttributeForm : public QObject
     TestQgsAttributeForm() = default;
 
   private slots:
-    void initTestCase(); // will be called before the first testfunction is executed.
+    void initTestCase();    // will be called before the first testfunction is executed.
     void cleanupTestCase(); // will be called after the last testfunction was executed.
-    void init(); // will be called before each testfunction is executed.
-    void cleanup(); // will be called after every testfunction.
+    void init();            // will be called before each testfunction is executed.
+    void cleanup();         // will be called after every testfunction.
 
     void testFieldConstraint();
     void testFieldMultiConstraints();
@@ -57,8 +58,11 @@ class TestQgsAttributeForm : public QObject
     void testAttributeFormInterface();
     void testDefaultValueUpdate();
     void testDefaultValueUpdateRecursion();
+    void testParentFeatureUpdate();
     void testSameFieldSync();
     void testZeroDoubles();
+    void testMinimumWidth();
+    void testFieldConstraintDuplicateField();
 
   private:
     QLabel *constraintsLabel( QgsAttributeForm *form, QgsEditorWidgetWrapper *ww )
@@ -393,11 +397,11 @@ void TestQgsAttributeForm::testDynamicForm()
 
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[1] );
   QCOMPARE( ww->field().name(), QString( "layerB_col0" ) );
-  QCOMPARE( ww->value(), QVariant( QVariant::Int ) );
+  QCOMPARE( ww->value(), QgsVariantUtils::createNullVariant( QMetaType::Type::Int ) );
 
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[2] );
   QCOMPARE( ww->field().name(), QString( "layerC_col0" ) );
-  QCOMPARE( ww->value(), QVariant( QVariant::Int ) );
+  QCOMPARE( ww->value(), QgsVariantUtils::createNullVariant( QMetaType::Type::Int ) );
 
   // change layerA join id field to join with layerB
   form.changeAttribute( QStringLiteral( "id_a" ), QVariant( 30 ) );
@@ -412,7 +416,7 @@ void TestQgsAttributeForm::testDynamicForm()
 
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[2] );
   QCOMPARE( ww->field().name(), QString( "layerC_col0" ) );
-  QCOMPARE( ww->value(), QVariant( QVariant::Int ) );
+  QCOMPARE( ww->value(), QgsVariantUtils::createNullVariant( QMetaType::Type::Int ) );
 
   // change layerA join id field to join with layerC
   form.changeAttribute( QStringLiteral( "id_a" ), QVariant( 32 ) );
@@ -423,7 +427,7 @@ void TestQgsAttributeForm::testDynamicForm()
 
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[1] );
   QCOMPARE( ww->field().name(), QString( "layerB_col0" ) );
-  QCOMPARE( ww->value(), QVariant( QVariant::Int ) );
+  QCOMPARE( ww->value(), QgsVariantUtils::createNullVariant( QMetaType::Type::Int ) );
 
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[2] );
   QCOMPARE( ww->field().name(), QString( "layerC_col0" ) );
@@ -600,15 +604,15 @@ void TestQgsAttributeForm::testEditableJoin()
 
   // test if widget is enabled for layerA
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[0] );
-  QCOMPARE( ww->widget()->isEnabled(), true );
+  QCOMPARE( qobject_cast<QgsSpinBox *>( ww->widget() )->isReadOnly(), false );
 
   // test if widget is enabled for layerB
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[1] );
-  QCOMPARE( ww->widget()->isEnabled(), true );
+  QCOMPARE( qobject_cast<QgsSpinBox *>( ww->widget() )->isReadOnly(), false );
 
   // test if widget is disabled for layerC
   ww = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[2] );
-  QCOMPARE( ww->widget()->isEnabled(), false );
+  QCOMPARE( qobject_cast<QgsSpinBox *>( ww->widget() )->isReadOnly(), true );
 
   // change attributes
   form.changeAttribute( QStringLiteral( "layerB_col0" ), QVariant( 333 ) );
@@ -727,9 +731,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   form.setFeature( ft0A );
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 1 );
-  QCOMPARE( ( int )layerB->featureCount(), 1 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 1 );
+  QCOMPARE( ( int ) layerB->featureCount(), 1 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // add a new feature with null joined fields. Joined feature should not be
   // added
@@ -744,9 +748,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   layerC->commitChanges();
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 2 );
-  QCOMPARE( ( int )layerB->featureCount(), 1 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 2 );
+  QCOMPARE( ( int ) layerB->featureCount(), 1 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // start editing layers
   layerA->startEditing();
@@ -770,9 +774,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   layerC->commitChanges();
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 3 );
-  QCOMPARE( ( int )layerB->featureCount(), 2 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 3 );
+  QCOMPARE( ( int ) layerB->featureCount(), 2 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // check joined feature value
   filter = QgsExpression::createFieldEqualityExpression( QStringLiteral( "id_a" ), 34 );
@@ -804,9 +808,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   layerC->commitChanges();
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 4 );
-  QCOMPARE( ( int )layerB->featureCount(), 2 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 4 );
+  QCOMPARE( ( int ) layerB->featureCount(), 2 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // check joined feature value
   filter = QgsExpression::createFieldEqualityExpression( QStringLiteral( "id_a" ), 33 );
@@ -838,9 +842,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   layerC->commitChanges();
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 4 );
-  QCOMPARE( ( int )layerB->featureCount(), 2 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 4 );
+  QCOMPARE( ( int ) layerB->featureCount(), 2 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // start editing layers
   layerA->startEditing();
@@ -863,9 +867,9 @@ void TestQgsAttributeForm::testUpsertOnEdit()
   layerC->commitChanges();
 
   // count features
-  QCOMPARE( ( int )layerA->featureCount(), 4 );
-  QCOMPARE( ( int )layerB->featureCount(), 3 );
-  QCOMPARE( ( int )layerC->featureCount(), 1 );
+  QCOMPARE( ( int ) layerA->featureCount(), 4 );
+  QCOMPARE( ( int ) layerB->featureCount(), 3 );
+  QCOMPARE( ( int ) layerC->featureCount(), 1 );
 
   // check joined feature value
   filter = QgsExpression::createFieldEqualityExpression( QStringLiteral( "id_a" ), 31 );
@@ -912,7 +916,7 @@ void TestQgsAttributeForm::testFixAttributeForm()
   // now save the feature and enjoy its new value, but don't update the layer
   QVERIFY( form.save() );
   QCOMPARE( form.feature().attribute( QStringLiteral( "col1" ) ), QVariant( 630 ) );
-  QCOMPARE( ( int )layer->featureCount(), 0 );
+  QCOMPARE( ( int ) layer->featureCount(), 0 );
 
   delete layer;
 }
@@ -953,10 +957,7 @@ void TestQgsAttributeForm::testAttributeFormInterface()
   form.addInterface( new MyInterface( &form ) );
 
   bool set = false;
-  connect( &form, &QgsAttributeForm::widgetValueChanged, this,
-           [&set]( const QString & attribute, const QVariant & newValue, bool attributeChanged )
-  {
-
+  connect( &form, &QgsAttributeForm::widgetValueChanged, this, [&set]( const QString &attribute, const QVariant &newValue, bool attributeChanged ) {
     // Check that our value set by the QgsAttributeFormInterface has correct parameters.
     // attributeChanged has to be true because it won't be taken into account by others
     // (QgsValueRelationWidgetWrapper for instance)
@@ -982,9 +983,9 @@ void TestQgsAttributeForm::testDefaultValueUpdate()
   //col3 - "col2"
 
   // set constraints for each field
-  layer->setDefaultValueDefinition( 1, QgsDefaultValue( QStringLiteral( "\"col0\"+1" ) ) );
-  layer->setDefaultValueDefinition( 2, QgsDefaultValue( QStringLiteral( "\"col0\"+\"col1\"" ) ) );
-  layer->setDefaultValueDefinition( 3, QgsDefaultValue( QStringLiteral( "\"col2\"" ) ) );
+  layer->setDefaultValueDefinition( 1, QgsDefaultValue( QStringLiteral( "\"col0\"+1" ), true ) );
+  layer->setDefaultValueDefinition( 2, QgsDefaultValue( QStringLiteral( "\"col0\"+\"col1\"" ), true ) );
+  layer->setDefaultValueDefinition( 3, QgsDefaultValue( QStringLiteral( "\"col2\"" ), true ) );
 
   layer->startEditing();
 
@@ -1044,10 +1045,10 @@ void TestQgsAttributeForm::testDefaultValueUpdateRecursion()
   //col3 - COALESCE( 0, "col2"+1)
 
   // set constraints for each field
-  layer->setDefaultValueDefinition( 0, QgsDefaultValue( QStringLiteral( "\"col3\"+1" ) ) );
-  layer->setDefaultValueDefinition( 1, QgsDefaultValue( QStringLiteral( "\"col0\"+1" ) ) );
-  layer->setDefaultValueDefinition( 2, QgsDefaultValue( QStringLiteral( "\"col1\"+1" ) ) );
-  layer->setDefaultValueDefinition( 3, QgsDefaultValue( QStringLiteral( "\"col2\"+1" ) ) );
+  layer->setDefaultValueDefinition( 0, QgsDefaultValue( QStringLiteral( "\"col3\"+1" ), true ) );
+  layer->setDefaultValueDefinition( 1, QgsDefaultValue( QStringLiteral( "\"col0\"+1" ), true ) );
+  layer->setDefaultValueDefinition( 2, QgsDefaultValue( QStringLiteral( "\"col1\"+1" ), true ) );
+  layer->setDefaultValueDefinition( 3, QgsDefaultValue( QStringLiteral( "\"col2\"+1" ), true ) );
 
   layer->startEditing();
 
@@ -1108,6 +1109,38 @@ void TestQgsAttributeForm::testDefaultValueUpdateRecursion()
   QCOMPARE( ww3->value().toInt(), 43 );
 }
 
+void TestQgsAttributeForm::testParentFeatureUpdate()
+{
+  // make a temporary layer to check through
+  const QString def = QStringLiteral( "Point?field=col0:integer" );
+  QgsVectorLayer *layer = new QgsVectorLayer( def, QStringLiteral( "test" ), QStringLiteral( "memory" ) );
+  layer->setDefaultValueDefinition( 0, QgsDefaultValue( QStringLiteral( "current_parent_value('colZero\')" ), true ) );
+  layer->startEditing();
+
+  // initialize parent feature
+  QgsFields parentFields;
+  parentFields.append( QgsField( QStringLiteral( "colZero" ), QMetaType::Type::Int ) );
+
+  QgsFeature parentFeature( parentFields, 1 );
+  parentFeature.setAttribute( QStringLiteral( "colZero" ), 10 );
+
+  // initialize child feature
+  QgsFeature feature( layer->dataProvider()->fields(), 1 );
+
+  // build a form
+  QgsAttributeEditorContext context;
+  context.setParentFormFeature( parentFeature );
+  QgsAttributeForm form( layer, feature, context );
+
+  // get wrappers for each widget
+  QgsEditorWidgetWrapper *ww0;
+  ww0 = qobject_cast<QgsEditorWidgetWrapper *>( form.mWidgets[0] );
+
+  form.parentFormValueChanged( QStringLiteral( "colZero" ), 20 );
+
+  QCOMPARE( ww0->value().toInt(), 20 );
+}
+
 void TestQgsAttributeForm::testSameFieldSync()
 {
   // Check that widget synchronisation works when a form contains the same field several times
@@ -1127,7 +1160,7 @@ void TestQgsAttributeForm::testSameFieldSync()
   editFormConfig.clearTabs();
   editFormConfig.addTab( new QgsAttributeEditorField( "col0", 0, editFormConfig.invisibleRootContainer() ) );
   editFormConfig.addTab( new QgsAttributeEditorField( "col0", 0, editFormConfig.invisibleRootContainer() ) );
-  editFormConfig.setLayout( QgsEditFormConfig::TabLayout );
+  editFormConfig.setLayout( Qgis::AttributeFormLayout::DragAndDrop );
   layer->setEditFormConfig( editFormConfig );
 
   layer->startEditing();
@@ -1162,6 +1195,85 @@ void TestQgsAttributeForm::testZeroDoubles()
   const QList<QLineEdit *> les = form.findChildren<QLineEdit *>( "col0" );
   QCOMPARE( les.count(), 1 );
   QCOMPARE( les.at( 0 )->text(), QStringLiteral( "0" ) );
+}
+
+void TestQgsAttributeForm::testMinimumWidth()
+{
+  // ensure that the minimum width of editor widgets is as small as possible for the actual attribute form mode.
+  const QString def = QStringLiteral( "Point?field=col0:double" );
+  QgsVectorLayer layer { def, QStringLiteral( "test" ), QStringLiteral( "memory" ) };
+  layer.setEditorWidgetSetup( 0, QgsEditorWidgetSetup( QStringLiteral( "TextEdit" ), QVariantMap() ) );
+  QgsFeature ft( layer.dataProvider()->fields(), 1 );
+  ft.setAttribute( QStringLiteral( "col0" ), 0.0 );
+  QgsAttributeEditorContext context;
+  context.setAttributeFormMode( QgsAttributeEditorContext::SingleEditMode );
+  auto form = std::make_unique<QgsAttributeForm>( &layer, QgsFeature(), context );
+  form->setFeature( ft );
+  form->show();
+  // we don't want the larger width requirement of the search wrappers to be enforced when the attribute form
+  // is not in search modes
+  QLineEdit le;
+  const QFontMetrics leMetrics( le.fontMetrics() );
+  QGSVERIFYLESSTHAN( form->minimumWidth(), leMetrics.horizontalAdvance( 'x' ) * 20 );
+
+  form->setMode( QgsAttributeEditorContext::SearchMode );
+  QGSVERIFYLESSTHAN( form->minimumWidth(), leMetrics.horizontalAdvance( 'x' ) * 150 );
+
+  context.setAttributeFormMode( QgsAttributeEditorContext::AddFeatureMode );
+  form = std::make_unique<QgsAttributeForm>( &layer, QgsFeature(), context );
+  form->setFeature( ft );
+  form->show();
+  form->setMode( QgsAttributeEditorContext::AddFeatureMode );
+  QGSVERIFYLESSTHAN( form->minimumWidth(), leMetrics.horizontalAdvance( 'x' ) * 20 );
+
+  context.setAttributeFormMode( QgsAttributeEditorContext::AggregateSearchMode );
+  form = std::make_unique<QgsAttributeForm>( &layer, QgsFeature(), context );
+  form->setFeature( ft );
+  form->show();
+  form->setMode( QgsAttributeEditorContext::AggregateSearchMode );
+  QGSVERIFYLESSTHAN( form->minimumWidth(), leMetrics.horizontalAdvance( 'x' ) * 150 );
+
+  context.setAttributeFormMode( QgsAttributeEditorContext::MultiEditMode );
+  form = std::make_unique<QgsAttributeForm>( &layer, QgsFeature(), context );
+  form->setFeature( ft );
+  form->setMode( QgsAttributeEditorContext::MultiEditMode );
+  form->show();
+  QGSVERIFYLESSTHAN( form->minimumWidth(), leMetrics.horizontalAdvance( 'x' ) * 100 );
+}
+
+void TestQgsAttributeForm::testFieldConstraintDuplicateField()
+{
+  // make a temporary vector layer
+  const QString def = QStringLiteral( "Point?field=col0:integer" );
+  QgsVectorLayer *layer = new QgsVectorLayer( def, QStringLiteral( "test" ), QStringLiteral( "memory" ) );
+  layer->setEditorWidgetSetup( 0, QgsEditorWidgetSetup( QStringLiteral( "Range" ), QVariantMap() ) );
+
+  // add same field twice so they get synced
+  QgsEditFormConfig editFormConfig = layer->editFormConfig();
+  editFormConfig.clearTabs();
+  editFormConfig.invisibleRootContainer()->addChildElement( new QgsAttributeEditorField( "col0", 0, editFormConfig.invisibleRootContainer() ) );
+  editFormConfig.invisibleRootContainer()->addChildElement( new QgsAttributeEditorField( "col0", 0, editFormConfig.invisibleRootContainer() ) );
+  editFormConfig.setLayout( Qgis::AttributeFormLayout::DragAndDrop );
+  layer->setEditFormConfig( editFormConfig );
+
+  // add a feature to the vector layer
+  QgsFeature ft( layer->dataProvider()->fields(), 1 );
+  ft.setAttribute( QStringLiteral( "col0" ), 1 );
+
+  // set a not null constraint
+  layer->setConstraintExpression( 0, QStringLiteral( "col0 > 10" ) );
+
+  // build a form for this feature
+  QgsAttributeForm form( layer );
+  form.setFeature( ft );
+
+  const QList<QgsAttributeFormEditorWidget *> formEditorWidgets = form.mFormEditorWidgets.values( 0 );
+  QCOMPARE( formEditorWidgets[0]->editorWidget()->constraintResult(), QgsEditorWidgetWrapper::ConstraintResultFailHard );
+  QCOMPARE( formEditorWidgets[1]->editorWidget()->constraintResult(), QgsEditorWidgetWrapper::ConstraintResultFailHard );
+
+  formEditorWidgets[0]->editorWidget()->setValues( 20, QVariantList() );
+  QCOMPARE( formEditorWidgets[0]->editorWidget()->constraintResult(), QgsEditorWidgetWrapper::ConstraintResultPass );
+  QCOMPARE( formEditorWidgets[1]->editorWidget()->constraintResult(), QgsEditorWidgetWrapper::ConstraintResultPass );
 }
 
 QGSTEST_MAIN( TestQgsAttributeForm )

@@ -33,7 +33,7 @@ class QgsPointCloudAttributeCollection;
  * \ingroup core
  *
  * \brief Attribute for point cloud data
- * pair of name and size in bytes
+ * pair of name and size in bytes.
  *
  * \since QGIS 3.18
  */
@@ -55,7 +55,6 @@ class CORE_EXPORT QgsPointCloudAttribute
       Double, //!< Double 8 bytes
     };
 
-    //! Ctor
     QgsPointCloudAttribute();
     //! Ctor
     QgsPointCloudAttribute( const QString &name, DataType type );
@@ -78,7 +77,7 @@ class CORE_EXPORT QgsPointCloudAttribute
      *
      * \see type()
      */
-    QVariant::Type variantType() const;
+    QMetaType::Type variantType() const;
 
     /**
      * Returns the type to use when displaying this field.
@@ -128,20 +127,20 @@ class CORE_EXPORT QgsPointCloudAttribute
 
     QString mName;
     int mSize = 0;
-    DataType mType;
+    DataType mType = DataType::Char;
 };
 
 /**
  * \ingroup core
  *
- * \brief Collection of point cloud attributes
+ * \brief A collection of point cloud attributes.
  *
  * \since QGIS 3.18
  */
 class CORE_EXPORT QgsPointCloudAttributeCollection
 {
   public:
-    //! Ctor
+
     QgsPointCloudAttributeCollection();
     //! Ctor with given attributes
     QgsPointCloudAttributeCollection( const QVector<QgsPointCloudAttribute> &attributes );

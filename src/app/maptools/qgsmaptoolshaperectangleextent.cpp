@@ -15,10 +15,8 @@
  ***************************************************************************/
 
 #include "qgsmaptoolshaperectangleextent.h"
+#include "moc_qgsmaptoolshaperectangleextent.cpp"
 #include "qgsgeometryrubberband.h"
-#include "qgsgeometryutils.h"
-#include "qgsmapcanvas.h"
-#include "qgslinestring.h"
 #include "qgspoint.h"
 #include "qgsmapmouseevent.h"
 #include "qgsmaptoolcapture.h"
@@ -63,7 +61,7 @@ bool QgsMapToolShapeRectangleExtent::cadCanvasReleaseEvent( QgsMapMouseEvent *e,
 
     if ( !mTempRubberBand )
     {
-      QgsWkbTypes::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? QgsWkbTypes::PolygonGeometry : QgsWkbTypes::LineGeometry;
+      Qgis::GeometryType type = mode == QgsMapToolCapture::CapturePolygon ? Qgis::GeometryType::Polygon : Qgis::GeometryType::Line;
       mTempRubberBand = mParentTool->createGeometryRubberBand( type, true );
       mTempRubberBand->show();
     }

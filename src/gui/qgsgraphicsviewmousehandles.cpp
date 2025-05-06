@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsgraphicsviewmousehandles.h"
+#include "moc_qgsgraphicsviewmousehandles.cpp"
 #include "qgsrendercontext.h"
 #include "qgis.h"
 #include <QGraphicsView>
@@ -63,7 +64,6 @@ QRectF QgsGraphicsViewMouseHandles::storedItemRect( QGraphicsItem *item ) const
 
 void QgsGraphicsViewMouseHandles::previewItemMove( QGraphicsItem *, double, double )
 {
-
 }
 
 QRectF QgsGraphicsViewMouseHandles::previewSetItemRect( QGraphicsItem *, QRectF )
@@ -73,22 +73,18 @@ QRectF QgsGraphicsViewMouseHandles::previewSetItemRect( QGraphicsItem *, QRectF 
 
 void QgsGraphicsViewMouseHandles::startMacroCommand( const QString & )
 {
-
 }
 
 void QgsGraphicsViewMouseHandles::endMacroCommand()
 {
-
 }
 
 void QgsGraphicsViewMouseHandles::endItemCommand( QGraphicsItem * )
 {
-
 }
 
 void QgsGraphicsViewMouseHandles::createItemCommand( QGraphicsItem * )
 {
-
 }
 
 QPointF QgsGraphicsViewMouseHandles::snapPoint( QPointF originalPoint, QgsGraphicsViewMouseHandles::SnapGuideMode, bool, bool )
@@ -141,6 +137,15 @@ void QgsGraphicsViewMouseHandles::drawSelectedItemBounds( QPainter *painter )
     return;
   }
 
+  QList<QGraphicsItem *> itemsToDraw;
+  expandItemList( selectedItems, itemsToDraw );
+
+  if ( itemsToDraw.size() <= 1 )
+  {
+    // Single item selected. The items bounds are drawn by the MouseHandles itself.
+    return;
+  }
+
   //use difference mode so that they are visible regardless of item colors
   QgsScopedQPainterState painterState( painter );
   painter->setCompositionMode( QPainter::CompositionMode_Difference );
@@ -151,9 +156,6 @@ void QgsGraphicsViewMouseHandles::drawSelectedItemBounds( QPainter *painter )
   selectedItemPen.setWidth( 0 );
   painter->setPen( selectedItemPen );
   painter->setBrush( Qt::NoBrush );
-
-  QList< QGraphicsItem * > itemsToDraw;
-  expandItemList( selectedItems, itemsToDraw );
 
   for ( QGraphicsItem *item : std::as_const( itemsToDraw ) )
   {
@@ -173,24 +175,16 @@ void QgsGraphicsViewMouseHandles::drawSelectedItemBounds( QPainter *painter )
     else if ( isResizing() && !itemIsLocked( item ) )
     {
       //if currently resizing, calculate relative resize of this item
-      if ( selectedItems.size() > 1 )
-      {
-        //get item bounds in mouse handle item's coordinate system
-        QRectF thisItemRect = mapRectFromItem( item, itemRect( item ) );
-        //now, resize it relative to the current resized dimensions of the mouse handles
-        relativeResizeRect( thisItemRect, QRectF( -mResizeMoveX, -mResizeMoveY, mBeginHandleWidth, mBeginHandleHeight ), mResizeRect );
-        itemBounds = QPolygonF( thisItemRect );
-      }
-      else
-      {
-        //single item selected
-        itemBounds = rect();
-      }
+      //get item bounds in mouse handle item's coordinate system
+      QRectF thisItemRect = mapRectFromItem( item, itemRect( item ) );
+      //now, resize it relative to the current resized dimensions of the mouse handles
+      relativeResizeRect( thisItemRect, QRectF( -mResizeMoveX, -mResizeMoveY, mBeginHandleWidth, mBeginHandleHeight ), mResizeRect );
+      itemBounds = QPolygonF( thisItemRect );
     }
     else
     {
-      //not resizing or moving, so just map from scene bounds
-      itemBounds = mapRectFromItem( item, itemRect( item ) );
+      // not resizing or moving, so just map the item's bounds to the mouse handle item's coordinate system
+      itemBounds = item->mapToItem( this, itemRect( item ) );
     }
 
     // drawPolygon causes issues on windows - corners of path may be missing resulting in triangles being drawn
@@ -227,25 +221,30 @@ double QgsGraphicsViewMouseHandles::rectHandlerBorderTolerance()
 
 Qt::CursorShape QgsGraphicsViewMouseHandles::cursorForPosition( QPointF itemCoordPos )
 {
-  QgsGraphicsViewMouseHandles::MouseAction mouseAction = mouseActionForPosition( itemCoordPos );
+  Qgis::MouseHandlesAction mouseAction = mouseActionForPosition( itemCoordPos );
+  double normalizedRotation = std::fmod( rotation(), 360 );
+  if ( normalizedRotation < 0 )
+  {
+    normalizedRotation += 360;
+  }
   switch ( mouseAction )
   {
-    case NoAction:
+    case Qgis::MouseHandlesAction::NoAction:
       return Qt::ForbiddenCursor;
-    case MoveItem:
+    case Qgis::MouseHandlesAction::MoveItem:
       return Qt::SizeAllCursor;
-    case ResizeUp:
-    case ResizeDown:
+    case Qgis::MouseHandlesAction::ResizeUp:
+    case Qgis::MouseHandlesAction::ResizeDown:
       //account for rotation
-      if ( ( rotation() <= 22.5 || rotation() >= 337.5 ) || ( rotation() >= 157.5 && rotation() <= 202.5 ) )
+      if ( ( normalizedRotation <= 22.5 || normalizedRotation >= 337.5 ) || ( normalizedRotation >= 157.5 && normalizedRotation <= 202.5 ) )
       {
         return Qt::SizeVerCursor;
       }
-      else if ( ( rotation() >= 22.5 && rotation() <= 67.5 ) || ( rotation() >= 202.5 && rotation() <= 247.5 ) )
+      else if ( ( normalizedRotation >= 22.5 && normalizedRotation <= 67.5 ) || ( normalizedRotation >= 202.5 && normalizedRotation <= 247.5 ) )
       {
         return Qt::SizeBDiagCursor;
       }
-      else if ( ( rotation() >= 67.5 && rotation() <= 112.5 ) || ( rotation() >= 247.5 && rotation() <= 292.5 ) )
+      else if ( ( normalizedRotation >= 67.5 && normalizedRotation <= 112.5 ) || ( normalizedRotation >= 247.5 && normalizedRotation <= 292.5 ) )
       {
         return Qt::SizeHorCursor;
       }
@@ -253,18 +252,18 @@ Qt::CursorShape QgsGraphicsViewMouseHandles::cursorForPosition( QPointF itemCoor
       {
         return Qt::SizeFDiagCursor;
       }
-    case ResizeLeft:
-    case ResizeRight:
+    case Qgis::MouseHandlesAction::ResizeLeft:
+    case Qgis::MouseHandlesAction::ResizeRight:
       //account for rotation
-      if ( ( rotation() <= 22.5 || rotation() >= 337.5 ) || ( rotation() >= 157.5 && rotation() <= 202.5 ) )
+      if ( ( normalizedRotation <= 22.5 || normalizedRotation >= 337.5 ) || ( normalizedRotation >= 157.5 && normalizedRotation <= 202.5 ) )
       {
         return Qt::SizeHorCursor;
       }
-      else if ( ( rotation() >= 22.5 && rotation() <= 67.5 ) || ( rotation() >= 202.5 && rotation() <= 247.5 ) )
+      else if ( ( normalizedRotation >= 22.5 && normalizedRotation <= 67.5 ) || ( normalizedRotation >= 202.5 && normalizedRotation <= 247.5 ) )
       {
         return Qt::SizeFDiagCursor;
       }
-      else if ( ( rotation() >= 67.5 && rotation() <= 112.5 ) || ( rotation() >= 247.5 && rotation() <= 292.5 ) )
+      else if ( ( normalizedRotation >= 67.5 && normalizedRotation <= 112.5 ) || ( normalizedRotation >= 247.5 && normalizedRotation <= 292.5 ) )
       {
         return Qt::SizeVerCursor;
       }
@@ -273,18 +272,18 @@ Qt::CursorShape QgsGraphicsViewMouseHandles::cursorForPosition( QPointF itemCoor
         return Qt::SizeBDiagCursor;
       }
 
-    case ResizeLeftUp:
-    case ResizeRightDown:
+    case Qgis::MouseHandlesAction::ResizeLeftUp:
+    case Qgis::MouseHandlesAction::ResizeRightDown:
       //account for rotation
-      if ( ( rotation() <= 22.5 || rotation() >= 337.5 ) || ( rotation() >= 157.5 && rotation() <= 202.5 ) )
+      if ( ( normalizedRotation <= 22.5 || normalizedRotation >= 337.5 ) || ( normalizedRotation >= 157.5 && normalizedRotation <= 202.5 ) )
       {
         return Qt::SizeFDiagCursor;
       }
-      else if ( ( rotation() >= 22.5 && rotation() <= 67.5 ) || ( rotation() >= 202.5 && rotation() <= 247.5 ) )
+      else if ( ( normalizedRotation >= 22.5 && normalizedRotation <= 67.5 ) || ( normalizedRotation >= 202.5 && normalizedRotation <= 247.5 ) )
       {
         return Qt::SizeVerCursor;
       }
-      else if ( ( rotation() >= 67.5 && rotation() <= 112.5 ) || ( rotation() >= 247.5 && rotation() <= 292.5 ) )
+      else if ( ( normalizedRotation >= 67.5 && normalizedRotation <= 112.5 ) || ( normalizedRotation >= 247.5 && normalizedRotation <= 292.5 ) )
       {
         return Qt::SizeBDiagCursor;
       }
@@ -292,18 +291,18 @@ Qt::CursorShape QgsGraphicsViewMouseHandles::cursorForPosition( QPointF itemCoor
       {
         return Qt::SizeHorCursor;
       }
-    case ResizeRightUp:
-    case ResizeLeftDown:
+    case Qgis::MouseHandlesAction::ResizeRightUp:
+    case Qgis::MouseHandlesAction::ResizeLeftDown:
       //account for rotation
-      if ( ( rotation() <= 22.5 || rotation() >= 337.5 ) || ( rotation() >= 157.5 && rotation() <= 202.5 ) )
+      if ( ( normalizedRotation <= 22.5 || normalizedRotation >= 337.5 ) || ( normalizedRotation >= 157.5 && normalizedRotation <= 202.5 ) )
       {
         return Qt::SizeBDiagCursor;
       }
-      else if ( ( rotation() >= 22.5 && rotation() <= 67.5 ) || ( rotation() >= 202.5 && rotation() <= 247.5 ) )
+      else if ( ( normalizedRotation >= 22.5 && normalizedRotation <= 67.5 ) || ( normalizedRotation >= 202.5 && normalizedRotation <= 247.5 ) )
       {
         return Qt::SizeHorCursor;
       }
-      else if ( ( rotation() >= 67.5 && rotation() <= 112.5 ) || ( rotation() >= 247.5 && rotation() <= 292.5 ) )
+      else if ( ( normalizedRotation >= 67.5 && normalizedRotation <= 112.5 ) || ( normalizedRotation >= 247.5 && normalizedRotation <= 292.5 ) )
       {
         return Qt::SizeFDiagCursor;
       }
@@ -311,14 +310,14 @@ Qt::CursorShape QgsGraphicsViewMouseHandles::cursorForPosition( QPointF itemCoor
       {
         return Qt::SizeVerCursor;
       }
-    case SelectItem:
+    case Qgis::MouseHandlesAction::SelectItem:
       return Qt::ArrowCursor;
   }
 
   return Qt::ArrowCursor;
 }
 
-QgsGraphicsViewMouseHandles::MouseAction QgsGraphicsViewMouseHandles::mouseActionForPosition( QPointF itemCoordPos )
+Qgis::MouseHandlesAction QgsGraphicsViewMouseHandles::mouseActionForPosition( QPointF itemCoordPos )
 {
   bool nearLeftBorder = false;
   bool nearRightBorder = false;
@@ -357,35 +356,35 @@ QgsGraphicsViewMouseHandles::MouseAction QgsGraphicsViewMouseHandles::mouseActio
 
   if ( nearLeftBorder && nearUpperBorder )
   {
-    return QgsGraphicsViewMouseHandles::ResizeLeftUp;
+    return Qgis::MouseHandlesAction::ResizeLeftUp;
   }
   else if ( nearLeftBorder && nearLowerBorder )
   {
-    return QgsGraphicsViewMouseHandles::ResizeLeftDown;
+    return Qgis::MouseHandlesAction::ResizeLeftDown;
   }
   else if ( nearRightBorder && nearUpperBorder )
   {
-    return QgsGraphicsViewMouseHandles::ResizeRightUp;
+    return Qgis::MouseHandlesAction::ResizeRightUp;
   }
   else if ( nearRightBorder && nearLowerBorder )
   {
-    return QgsGraphicsViewMouseHandles::ResizeRightDown;
+    return Qgis::MouseHandlesAction::ResizeRightDown;
   }
   else if ( nearLeftBorder && withinHeight )
   {
-    return QgsGraphicsViewMouseHandles::ResizeLeft;
+    return Qgis::MouseHandlesAction::ResizeLeft;
   }
   else if ( nearRightBorder && withinHeight )
   {
-    return QgsGraphicsViewMouseHandles::ResizeRight;
+    return Qgis::MouseHandlesAction::ResizeRight;
   }
   else if ( nearUpperBorder && withinWidth )
   {
-    return QgsGraphicsViewMouseHandles::ResizeUp;
+    return Qgis::MouseHandlesAction::ResizeUp;
   }
   else if ( nearLowerBorder && withinWidth )
   {
-    return QgsGraphicsViewMouseHandles::ResizeDown;
+    return Qgis::MouseHandlesAction::ResizeDown;
   }
 
   //find out if cursor position is over a selected item
@@ -394,22 +393,22 @@ QgsGraphicsViewMouseHandles::MouseAction QgsGraphicsViewMouseHandles::mouseActio
   if ( itemsAtCursorPos.isEmpty() )
   {
     //no items at cursor position
-    return QgsGraphicsViewMouseHandles::SelectItem;
+    return Qgis::MouseHandlesAction::SelectItem;
   }
   for ( QGraphicsItem *graphicsItem : itemsAtCursorPos )
   {
     if ( graphicsItem && graphicsItem->isSelected() )
     {
       //cursor is over a selected layout item
-      return QgsGraphicsViewMouseHandles::MoveItem;
+      return Qgis::MouseHandlesAction::MoveItem;
     }
   }
 
   //default
-  return QgsGraphicsViewMouseHandles::SelectItem;
+  return Qgis::MouseHandlesAction::SelectItem;
 }
 
-QgsGraphicsViewMouseHandles::MouseAction QgsGraphicsViewMouseHandles::mouseActionForScenePos( QPointF sceneCoordPos )
+Qgis::MouseHandlesAction QgsGraphicsViewMouseHandles::mouseActionForScenePos( QPointF sceneCoordPos )
 {
   // convert sceneCoordPos to item coordinates
   QPointF itemPos = mapFromScene( sceneCoordPos );
@@ -419,6 +418,26 @@ QgsGraphicsViewMouseHandles::MouseAction QgsGraphicsViewMouseHandles::mouseActio
 bool QgsGraphicsViewMouseHandles::shouldBlockEvent( QInputEvent * ) const
 {
   return mIsDragging || mIsResizing;
+}
+
+void QgsGraphicsViewMouseHandles::startMove( QPointF sceneCoordPos )
+{
+  //save current cursor position
+  mMouseMoveStartPos = sceneCoordPos;
+  //save current item geometry
+  mBeginMouseEventPos = sceneCoordPos;
+  mBeginHandlePos = scenePos();
+  mBeginHandleWidth = rect().width();
+  mBeginHandleHeight = rect().height();
+  mCurrentMouseMoveAction = Qgis::MouseHandlesAction::MoveItem;
+  mIsDragging = true;
+  hideAlignItems();
+
+  // Explicitly call grabMouse to ensure the mouse handles receive the subsequent mouse move events.
+  if ( mView->scene()->mouseGrabberItem() != this )
+  {
+    grabMouse();
+  }
 }
 
 void QgsGraphicsViewMouseHandles::selectedItemSizeChanged()
@@ -460,7 +479,6 @@ void QgsGraphicsViewMouseHandles::mousePressEvent( QGraphicsSceneMouseEvent *eve
 
   //save current cursor position
   mMouseMoveStartPos = event->lastScenePos();
-  mLastMouseEventPos = event->lastScenePos();
   //save current item geometry
   mBeginMouseEventPos = event->lastScenePos();
   mBeginHandlePos = scenePos();
@@ -471,13 +489,12 @@ void QgsGraphicsViewMouseHandles::mousePressEvent( QGraphicsSceneMouseEvent *eve
 
   hideAlignItems();
 
-  if ( mCurrentMouseMoveAction == MoveItem )
+  if ( mCurrentMouseMoveAction == Qgis::MouseHandlesAction::MoveItem )
   {
     //moving items
     mIsDragging = true;
   }
-  else if ( mCurrentMouseMoveAction != SelectItem &&
-            mCurrentMouseMoveAction != NoAction )
+  else if ( mCurrentMouseMoveAction != Qgis::MouseHandlesAction::SelectItem && mCurrentMouseMoveAction != Qgis::MouseHandlesAction::NoAction )
   {
     //resizing items
     mIsResizing = true;
@@ -485,7 +502,6 @@ void QgsGraphicsViewMouseHandles::mousePressEvent( QGraphicsSceneMouseEvent *eve
     mResizeMoveX = 0;
     mResizeMoveY = 0;
     mCursorOffset = calcCursorEdgeOffset( mMouseMoveStartPos );
-
   }
 }
 
@@ -521,8 +537,6 @@ void QgsGraphicsViewMouseHandles::mouseMoveEvent( QGraphicsSceneMouseEvent *even
     //resize from center if alt depressed
     resizeMouseMove( event->lastScenePos(), event->modifiers() & Qt::ShiftModifier, event->modifiers() & Qt::AltModifier );
   }
-
-  mLastMouseEventPos = event->lastScenePos();
 }
 
 void QgsGraphicsViewMouseHandles::mouseReleaseEvent( QGraphicsSceneMouseEvent *event )
@@ -532,6 +546,17 @@ void QgsGraphicsViewMouseHandles::mouseReleaseEvent( QGraphicsSceneMouseEvent *e
     event->ignore();
     return;
   }
+
+  if ( mDoubleClickInProgress )
+  {
+    mDoubleClickInProgress = false;
+    event->accept();
+    return;
+  }
+
+  // Mouse may have been grabbed from the QgsLayoutViewSelectTool, so we need to release it explicitly
+  // otherwise, hover events will not be received
+  ungrabMouse();
 
   QPointF mouseMoveStopPoint = event->lastScenePos();
   double diffX = mouseMoveStopPoint.x() - mMouseMoveStartPos.x();
@@ -547,7 +572,7 @@ void QgsGraphicsViewMouseHandles::mouseReleaseEvent( QGraphicsSceneMouseEvent *e
     return;
   }
 
-  if ( mCurrentMouseMoveAction == MoveItem )
+  if ( mCurrentMouseMoveAction == Qgis::MouseHandlesAction::MoveItem )
   {
     //move selected items
     startMacroCommand( tr( "Move Items" ) );
@@ -573,7 +598,7 @@ void QgsGraphicsViewMouseHandles::mouseReleaseEvent( QGraphicsSceneMouseEvent *e
     }
     endMacroCommand();
   }
-  else if ( mCurrentMouseMoveAction != NoAction )
+  else if ( mCurrentMouseMoveAction != Qgis::MouseHandlesAction::NoAction )
   {
     //resize selected items
     startMacroCommand( tr( "Resize Items" ) );
@@ -623,8 +648,7 @@ void QgsGraphicsViewMouseHandles::mouseReleaseEvent( QGraphicsSceneMouseEvent *e
   }
 
   //reset default action
-  mCurrentMouseMoveAction = MoveItem;
-  setViewportCursor( Qt::ArrowCursor );
+  mCurrentMouseMoveAction = Qgis::MouseHandlesAction::MoveItem;
   //redraw handles
   resetTransform();
   updateHandles();
@@ -773,19 +797,9 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
   {
     //snapping only occurs if handles are not rotated for now
 
-    bool snapVertical = mCurrentMouseMoveAction == ResizeLeft ||
-                        mCurrentMouseMoveAction == ResizeRight ||
-                        mCurrentMouseMoveAction == ResizeLeftUp ||
-                        mCurrentMouseMoveAction == ResizeRightUp ||
-                        mCurrentMouseMoveAction == ResizeLeftDown ||
-                        mCurrentMouseMoveAction == ResizeRightDown;
+    bool snapVertical = mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeLeft || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeRight || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeLeftUp || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeRightUp || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeLeftDown || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeRightDown;
 
-    bool snapHorizontal = mCurrentMouseMoveAction == ResizeUp ||
-                          mCurrentMouseMoveAction == ResizeDown ||
-                          mCurrentMouseMoveAction == ResizeLeftUp ||
-                          mCurrentMouseMoveAction == ResizeRightUp ||
-                          mCurrentMouseMoveAction == ResizeLeftDown ||
-                          mCurrentMouseMoveAction == ResizeRightDown;
+    bool snapHorizontal = mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeUp || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeDown || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeLeftUp || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeRightUp || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeLeftDown || mCurrentMouseMoveAction == Qgis::MouseHandlesAction::ResizeRightDown;
 
     //subtract cursor edge offset from begin mouse event and current cursor position, so that snapping occurs to edge of mouse handles
     //rather then cursor position
@@ -812,7 +826,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
   switch ( mCurrentMouseMoveAction )
   {
     //vertical resize
-    case ResizeUp:
+    case Qgis::MouseHandlesAction::ResizeUp:
     {
       if ( ratio )
       {
@@ -832,7 +846,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case ResizeDown:
+    case Qgis::MouseHandlesAction::ResizeDown:
     {
       if ( ratio )
       {
@@ -853,7 +867,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
     }
 
     //horizontal resize
-    case ResizeLeft:
+    case Qgis::MouseHandlesAction::ResizeLeft:
     {
       if ( ratio )
       {
@@ -872,7 +886,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case ResizeRight:
+    case Qgis::MouseHandlesAction::ResizeRight:
     {
       if ( ratio )
       {
@@ -892,7 +906,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
     }
 
     //diagonal resize
-    case ResizeLeftUp:
+    case Qgis::MouseHandlesAction::ResizeLeftUp:
     {
       if ( ratio )
       {
@@ -912,7 +926,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case ResizeRightDown:
+    case Qgis::MouseHandlesAction::ResizeRightDown:
     {
       if ( ratio )
       {
@@ -932,7 +946,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case ResizeRightUp:
+    case Qgis::MouseHandlesAction::ResizeRightUp:
     {
       if ( ratio )
       {
@@ -951,7 +965,7 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case ResizeLeftDown:
+    case Qgis::MouseHandlesAction::ResizeLeftDown:
     {
       if ( ratio )
       {
@@ -971,9 +985,9 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
       break;
     }
 
-    case MoveItem:
-    case SelectItem:
-    case NoAction:
+    case Qgis::MouseHandlesAction::MoveItem:
+    case Qgis::MouseHandlesAction::SelectItem:
+    case Qgis::MouseHandlesAction::NoAction:
       break;
   }
 
@@ -1037,7 +1051,6 @@ void QgsGraphicsViewMouseHandles::resizeMouseMove( QPointF currentPosition, bool
 
   //show current size of selection in status bar
   showStatusMessage( tr( "width: %1 mm height: %2 mm" ).arg( rect().width() ).arg( rect().height() ) );
-
 }
 
 void QgsGraphicsViewMouseHandles::setHandleSize( double size )
@@ -1048,6 +1061,8 @@ void QgsGraphicsViewMouseHandles::setHandleSize( double size )
 void QgsGraphicsViewMouseHandles::mouseDoubleClickEvent( QGraphicsSceneMouseEvent *event )
 {
   Q_UNUSED( event )
+
+  mDoubleClickInProgress = true;
 }
 
 QSizeF QgsGraphicsViewMouseHandles::calcCursorEdgeOffset( QPointF cursorPos )
@@ -1058,35 +1073,35 @@ QSizeF QgsGraphicsViewMouseHandles::calcCursorEdgeOffset( QPointF cursorPos )
   switch ( mCurrentMouseMoveAction )
   {
     //vertical resize
-    case QgsGraphicsViewMouseHandles::ResizeUp:
+    case Qgis::MouseHandlesAction::ResizeUp:
       return QSizeF( 0, sceneMousePos.y() );
 
-    case QgsGraphicsViewMouseHandles::ResizeDown:
+    case Qgis::MouseHandlesAction::ResizeDown:
       return QSizeF( 0, sceneMousePos.y() - rect().height() );
 
     //horizontal resize
-    case QgsGraphicsViewMouseHandles::ResizeLeft:
+    case Qgis::MouseHandlesAction::ResizeLeft:
       return QSizeF( sceneMousePos.x(), 0 );
 
-    case QgsGraphicsViewMouseHandles::ResizeRight:
+    case Qgis::MouseHandlesAction::ResizeRight:
       return QSizeF( sceneMousePos.x() - rect().width(), 0 );
 
     //diagonal resize
-    case QgsGraphicsViewMouseHandles::ResizeLeftUp:
+    case Qgis::MouseHandlesAction::ResizeLeftUp:
       return QSizeF( sceneMousePos.x(), sceneMousePos.y() );
 
-    case QgsGraphicsViewMouseHandles::ResizeRightDown:
+    case Qgis::MouseHandlesAction::ResizeRightDown:
       return QSizeF( sceneMousePos.x() - rect().width(), sceneMousePos.y() - rect().height() );
 
-    case QgsGraphicsViewMouseHandles::ResizeRightUp:
+    case Qgis::MouseHandlesAction::ResizeRightUp:
       return QSizeF( sceneMousePos.x() - rect().width(), sceneMousePos.y() );
 
-    case QgsGraphicsViewMouseHandles::ResizeLeftDown:
+    case Qgis::MouseHandlesAction::ResizeLeftDown:
       return QSizeF( sceneMousePos.x(), sceneMousePos.y() - rect().height() );
 
-    case MoveItem:
-    case SelectItem:
-    case NoAction:
+    case Qgis::MouseHandlesAction::MoveItem:
+    case Qgis::MouseHandlesAction::SelectItem:
+    case Qgis::MouseHandlesAction::NoAction:
       return QSizeF();
   }
 

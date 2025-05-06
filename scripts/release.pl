@@ -56,6 +56,7 @@ my $dopoint;
 my $doltr = 0;
 my $dopremajor = 0;
 my $skipts = 0;
+my $ignoretsdrop = 0;
 
 my $result = GetOptions(
 		"major" => \$domajor,
@@ -67,6 +68,7 @@ my $result = GetOptions(
 		"dryrun" => \$dryrun,
 		"premajor" => \$dopremajor,
 		"skipts" => \$skipts,
+		"ignoretsdrop" => \$ignoretsdrop,
 	);
 
 pod2usage(1) if $help;
@@ -136,7 +138,13 @@ if( $domajor ) {
 
 my $splashwidth;
 unless( defined $dopoint ) {
-	pod2usage("Splash images/splash/splash-$newmajor.$newminor.png not found") unless -r "images/splash/splash-$newmajor.$newminor.png";
+	pod2usage("Splash images/splash/splash-${newmajor}.${newminor}rc.png not found") unless -r "images/splash/splash-${newmajor}.${newminor}rc.png";
+} elsif($newpatch == 1) {
+	pod2usage("Splash images/splash/splash-${newmajor}.${newminor}.png not found") unless -r "images/splash/splash-${newmajor}.${newminor}.png";
+} elsif($newpatch == 4) {	# TODO handle EPRs
+	if( system("git tag -l | grep -q '^ltr-${newmajor}_${newminor}'") == 0) {
+		pod2usage("Splash images/splash/splash-${newmajor}.${newminor}ltr.png not found") unless -r "images/splash/splash-${newmajor}.${newminor}ltr.png";
+	}
 }
 
 print "Last pull rebase...\n";
@@ -150,7 +158,8 @@ my $reltag = "final-${newmajor}_${newminor}_${newpatch}";
 
 unless( $skipts ) {
 	print "Pulling transifex translations...\n";
-	run( "scripts/pull_ts.sh", "pull_ts.sh failed" );
+	my $o = $ignoretsdrop ? "" : "CONSIDER_TS_DROP_FATAL=1";
+	run( "$o scripts/pull_ts.sh", "pull_ts.sh failed" );
 	run( "git add i18n/*.ts", "adding translations failed" );
 	run( "git commit -n -a -m \"translation update for $version from transifex\"", "could not commit translation updates" );
 } else {
@@ -162,7 +171,7 @@ run( "scripts/create_changelog.sh", "create_changelog.sh failed" );
 run( "perl -i -pe 's#<releases>#<releases>\n    <release version=\"$newmajor.$newminor.$newpatch\" date=\"" . strftime("%Y-%m-%d", localtime) . "\" />#' linux/org.qgis.qgis.appdata.xml.in", "appdata update failed" );
 
 unless( defined $dopoint ) {
-	run( "scripts/update_news.pl $newmajor.$newminor '$newreleasename'", "could not update news" ) if $major>2 || ($major==2 && $minor>14);
+	run( "scripts/update_news.pl $newmajor.$newminor \"$newreleasename\"", "could not update news" ) if $major>2 || ($major==2 && $minor>14);
 
 	run( "git commit -n -a -m \"changelog and news update for $release\"", "could not commit changelog and news update" );
 
@@ -180,11 +189,19 @@ run( "cp debian/changelog /tmp", "backup changelog failed" );
 unless( defined $dopoint ) {
 	run( "perl -i -pe 's/qgis-dev-deps/qgis-ltr-deps/;' INSTALL.md", "could not update osgeo4w deps package" ) if $doltr;
 	run( "perl -i -pe 's/qgis-dev-deps/qgis-rel-deps/;' INSTALL.md", "could not update osgeo4w deps package" ) unless $doltr;
-	run( "cp -v images/splash/splash-$newmajor.$newminor.png images/splash/splash.png", "splash png switch failed" );
-	run( "git commit -n -a -m 'Release of $release ($newreleasename)'", "release commit failed" );
+	run( "cp -v images/splash/splash-${newmajor}.${newminor}rc.png images/splash/splash.png", "splash png switch failed" );
+	run( "sed -i -e 's/r:qgis-application/r:$relbranch-qgis-application/' .tx/config", "update of transifex update failed" );
+	run( "git commit -n -a -m \"Release of $release ($newreleasename)\"", "release commit failed" );
 	run( "git tag $reltag -m 'Version $release'", "release tag failed" );
-	run( "for i in \$(seq 20); do tx push -s -b $relbranch && exit 0; echo \"Retry \$i/20...\"; done; exit 1", "push translation for $relbranch branch" );
+	run( "for i in \$(seq 20); do tx push -s && exit 0; echo \"Retry \$i/20...\"; done; exit 1", "push translation for $relbranch branch" );
 } else {
+	if($newpatch == 1) {
+		run( "cp -v images/splash/splash-${newmajor}.${newminor}.png images/splash/splash.png", "splash png switch failed" );
+	} elsif($newpatch == 4) {	# TODO handle EPRs
+		if( system("git tag -l | grep -q '^ltr-${newmajor}_${newminor}'") == 0) {
+			run( "cp -v images/splash/splash-${newmajor}.${newminor}ltr.png images/splash/splash.png", "splash png switch failed" );
+		}
+	}
 	run( "git commit -n -a -m 'Release of $version'", "release commit failed" );
 	run( "git tag $reltag -m 'Version $version'", "tag failed" );
 }
@@ -218,7 +235,7 @@ unless( defined $dopoint ) {
 		$newminor=99;
 	}
 
-	run( "perl -i -pe \"s#Earlier versions of the documentation are also available on the QGIS website:#\$&\\n<a href=\\\"https://qgis.org/api/$apiv\\\">$apiv" . ($doltr ? " (LTR)" : "") . "</a>#\" doc/index.dox", "index.dox update failed");
+	run( "perl -i -pe \"s#Earlier versions of the documentation are also available on the QGIS website:#\$&\\n<a href=\\\"https://qgis.org/api/$apiv\\\">$apiv" . ($doltr ? " (LTR)" : "") . "</a>,#\" doc/index.dox", "index.dox update failed");
 
 	updateCMakeLists($newmajor,$newminor,0,"Master");
 	run( "cp /tmp/changelog debian", "restore changelog failed" );
@@ -259,11 +276,20 @@ release.pl {{-major|-minor [-premajor]} [-skipts] -releasename=releasename|-poin
     -ltr                new release is a long term release
     -dryrun             just echo but don't run any commands
     -skipts		skip transifex update
+    -ignoretsdrop	drop error out when a translation is dropped
     -premajor           branch off a second "master" branch before
 			a major release
 
   Major and minor releases also require a new splash screen
-  images/splash/splash-M.N.png.
+  images/splash/splash-M.Nrc.png, which should have a label
+  "release candidate".
+
+  The first point release also requires a new splash screen
+  images/splash/splash-M.N.png without that label.
+
+  The fourth point release of a ltr branch requires a new splash screen
+  images/splash/splash-M.Nltr.png with the label "long-term
+  release".
 
   A pre-major minor release also produces a second branch
   master_$currentmajor to allow more interim minor releases

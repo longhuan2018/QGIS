@@ -69,12 +69,12 @@ QString QgsSplitGeometryAtAntimeridianAlgorithm::shortHelpString() const
 
 QList<int> QgsSplitGeometryAtAntimeridianAlgorithm::inputLayerTypes() const
 {
-  return QList<int>() << QgsProcessing::TypeVectorLine;
+  return QList<int>() << static_cast<int>( Qgis::ProcessingSourceType::VectorLine );
 }
 
-QgsProcessing::SourceType QgsSplitGeometryAtAntimeridianAlgorithm::outputLayerType() const
+Qgis::ProcessingSourceType QgsSplitGeometryAtAntimeridianAlgorithm::outputLayerType() const
 {
-  return QgsProcessing::TypeVectorLine;
+  return Qgis::ProcessingSourceType::VectorLine;
 }
 
 QgsSplitGeometryAtAntimeridianAlgorithm *QgsSplitGeometryAtAntimeridianAlgorithm::createInstance() const
@@ -87,7 +87,7 @@ QString QgsSplitGeometryAtAntimeridianAlgorithm::outputName() const
   return QObject::tr( "Split" );
 }
 
-QgsWkbTypes::Type QgsSplitGeometryAtAntimeridianAlgorithm::outputWkbType( QgsWkbTypes::Type inputWkbType ) const
+Qgis::WkbType QgsSplitGeometryAtAntimeridianAlgorithm::outputWkbType( Qgis::WkbType inputWkbType ) const
 {
   return QgsWkbTypes::multiType( inputWkbType );
 }
@@ -121,6 +121,3 @@ QgsFeatureList QgsSplitGeometryAtAntimeridianAlgorithm::processFeature( const Qg
 
 
 ///@endcond
-
-
-

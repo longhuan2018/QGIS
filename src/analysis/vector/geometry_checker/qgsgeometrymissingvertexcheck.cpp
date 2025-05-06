@@ -14,13 +14,13 @@
  ***************************************************************************/
 
 #include "qgsgeometrymissingvertexcheck.h"
+#include "moc_qgsgeometrymissingvertexcheck.cpp"
 
 #include "qgsfeedback.h"
 #include "qgsgeometrycollection.h"
 #include "qgsmultipolygon.h"
 #include "qgscurvepolygon.h"
 #include "qgscurve.h"
-#include "qgslinestring.h"
 #include "qgsgeometryengine.h"
 #include "qgsgeometryutils.h"
 #include "qgsapplication.h"
@@ -52,16 +52,16 @@ void QgsGeometryMissingVertexCheck::collectErrors( const QMap<QString, QgsFeatur
     const QgsGeometry geometry = layerFeature.geometry();
     const QgsAbstractGeometry *geom = geometry.constGet();
 
-    if ( QgsCurvePolygon *polygon = qgsgeometry_cast<QgsCurvePolygon *>( geom ) )
+    if ( const QgsCurvePolygon *polygon = qgsgeometry_cast<const QgsCurvePolygon *>( geom ) )
     {
       processPolygon( polygon, featurePool, errors, layerFeature, feedback );
     }
-    else if ( QgsGeometryCollection *collection = qgsgeometry_cast<QgsGeometryCollection *>( geom ) )
+    else if ( const QgsGeometryCollection *collection = qgsgeometry_cast<const QgsGeometryCollection *>( geom ) )
     {
       const int numGeometries = collection->numGeometries();
       for ( int i = 0; i < numGeometries; ++i )
       {
-        if ( QgsCurvePolygon *polygon = qgsgeometry_cast<QgsCurvePolygon *>( collection->geometryN( i ) ) )
+        if ( const QgsCurvePolygon *polygon = qgsgeometry_cast<const QgsCurvePolygon *>( collection->geometryN( i ) ) )
         {
           processPolygon( polygon, featurePool, errors, layerFeature, feedback );
         }
@@ -91,7 +91,7 @@ void QgsGeometryMissingVertexCheck::fixError( const QMap<QString, QgsFeaturePool
 
       case AddMissingVertex:
       {
-        QgsFeaturePool *featurePool = featurePools[ error->layerId() ];
+        QgsFeaturePool *featurePool = featurePools[error->layerId()];
 
         QgsFeature feature;
         featurePool->getFeature( error->featureId(), feature );
@@ -129,19 +129,19 @@ QString QgsGeometryMissingVertexCheck::description() const
 void QgsGeometryMissingVertexCheck::processPolygon( const QgsCurvePolygon *polygon, QgsFeaturePool *featurePool, QList<QgsGeometryCheckError *> &errors, const QgsGeometryCheckerUtils::LayerFeature &layerFeature, QgsFeedback *feedback ) const
 {
   const QgsFeature &currentFeature = layerFeature.feature();
-  std::unique_ptr<QgsMultiPolygon> boundaries = std::make_unique<QgsMultiPolygon>();
+  auto boundaries = std::make_unique<QgsMultiPolygon>();
 
-  std::unique_ptr< QgsGeometryEngine > geomEngine = QgsGeometryCheckerUtils::createGeomEngine( polygon->exteriorRing()->clone(), mContext->tolerance );
+  std::unique_ptr<QgsGeometryEngine> geomEngine( QgsGeometry::createGeometryEngine( polygon->exteriorRing()->clone(), mContext->tolerance ) );
   boundaries->addGeometry( geomEngine->buffer( mContext->tolerance, 5 ) );
 
   const int numRings = polygon->numInteriorRings();
   for ( int i = 0; i < numRings; ++i )
   {
-    geomEngine = QgsGeometryCheckerUtils::createGeomEngine( polygon->interiorRing( i ), mContext->tolerance );
+    geomEngine.reset( QgsGeometry::createGeometryEngine( polygon->interiorRing( i ), mContext->tolerance ) );
     boundaries->addGeometry( geomEngine->buffer( mContext->tolerance, 5 ) );
   }
 
-  geomEngine = QgsGeometryCheckerUtils::createGeomEngine( boundaries.get(), mContext->tolerance );
+  geomEngine.reset( QgsGeometry::createGeometryEngine( boundaries.get(), mContext->tolerance ) );
   geomEngine->prepareGeometry();
 
   const QgsFeatureIds fids = featurePool->getIntersects( boundaries->boundingBox() );
@@ -181,7 +181,7 @@ void QgsGeometryMissingVertexCheck::processPolygon( const QgsCurvePolygon *polyg
             }
             if ( !alreadyReported )
             {
-              std::unique_ptr<QgsGeometryMissingVertexCheckError> error = std::make_unique<QgsGeometryMissingVertexCheckError>( this, layerFeature, QgsPointXY( pt ) );
+              auto error = std::make_unique<QgsGeometryMissingVertexCheckError>( this, layerFeature, QgsPointXY( pt ) );
               error->setAffectedAreaBBox( contextBoundingBox( polygon, vertexId, pt ) );
               QMap<QString, QgsFeatureIds> involvedFeatures;
               involvedFeatures[layerFeature.layerId()].insert( layerFeature.feature().id() );
@@ -219,7 +219,7 @@ QString QgsGeometryMissingVertexCheck::id() const
   return factoryId();
 }
 
-QList<QgsWkbTypes::GeometryType> QgsGeometryMissingVertexCheck::compatibleGeometryTypes() const
+QList<Qgis::GeometryType> QgsGeometryMissingVertexCheck::compatibleGeometryTypes() const
 {
   return factoryCompatibleGeometryTypes();
 }
@@ -235,9 +235,9 @@ QgsGeometryCheck::CheckType QgsGeometryMissingVertexCheck::checkType() const
 }
 
 ///@cond private
-QList<QgsWkbTypes::GeometryType> QgsGeometryMissingVertexCheck::factoryCompatibleGeometryTypes()
+QList<Qgis::GeometryType> QgsGeometryMissingVertexCheck::factoryCompatibleGeometryTypes()
 {
-  return {QgsWkbTypes::PolygonGeometry};
+  return { Qgis::GeometryType::Polygon };
 }
 
 bool QgsGeometryMissingVertexCheck::factoryIsCompatible( QgsVectorLayer *layer ) SIP_SKIP
@@ -293,7 +293,6 @@ void QgsGeometryMissingVertexCheckError::setInvolvedFeatures( const QMap<QString
 
 QIcon QgsGeometryMissingVertexCheckError::icon() const
 {
-
   if ( status() == QgsGeometryCheckError::StatusFixed )
     return QgsApplication::getThemeIcon( QStringLiteral( "/algorithms/mAlgorithmCheckGeometry.svg" ) );
   else

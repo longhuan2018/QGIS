@@ -27,6 +27,8 @@
 #include "qgsmultipoint.h"
 #include "qgsmultipolygon.h"
 #include "qgsmultisurface.h"
+#include "qgspolyhedralsurface.h"
+#include "qgstriangulatedsurface.h"
 #include "qgstriangle.h"
 #include "qgswkbtypes.h"
 #include "qgslogger.h"
@@ -37,7 +39,7 @@ std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkb( QgsConstWk
     return nullptr;
 
   //find out type (bytes 2-5)
-  QgsWkbTypes::Type type = QgsWkbTypes::Unknown;
+  Qgis::WkbType type = Qgis::WkbType::Unknown;
   try
   {
     type = wkbPtr.readHeader();
@@ -45,7 +47,7 @@ std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkb( QgsConstWk
   catch ( const QgsWkbException &e )
   {
     Q_UNUSED( e )
-    QgsDebugMsg( "WKB exception while reading header: " + e.what() );
+    QgsDebugError( "WKB exception while reading header: " + e.what() );
     return nullptr;
   }
   wkbPtr -= 1 + sizeof( int );
@@ -61,7 +63,7 @@ std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkb( QgsConstWk
     catch ( const QgsWkbException &e )
     {
       Q_UNUSED( e )
-      QgsDebugMsg( "WKB exception: " + e.what() );
+      QgsDebugError( "WKB exception: " + e.what() );
       geom.reset();
     }
   }
@@ -125,6 +127,14 @@ std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkt( const QStr
   {
     geom = std::make_unique< QgsGeometryCollection >();
   }
+  else if ( trimmed.startsWith( QLatin1String( "PolyhedralSurface" ), Qt::CaseInsensitive ) )
+  {
+    geom = std::make_unique< QgsPolyhedralSurface >();
+  }
+  else if ( trimmed.startsWith( QLatin1String( "TIN" ), Qt::CaseInsensitive ) )
+  {
+    geom = std::make_unique< QgsTriangulatedSurface >();
+  }
 
   if ( geom )
   {
@@ -143,7 +153,7 @@ std::unique_ptr< QgsAbstractGeometry > QgsGeometryFactory::fromPointXY( const Qg
 
 std::unique_ptr<QgsMultiPoint> QgsGeometryFactory::fromMultiPointXY( const QgsMultiPointXY &multipoint )
 {
-  std::unique_ptr< QgsMultiPoint > mp = std::make_unique< QgsMultiPoint >();
+  auto mp = std::make_unique< QgsMultiPoint >();
   QgsMultiPointXY::const_iterator ptIt = multipoint.constBegin();
   mp->reserve( multipoint.size() );
   for ( ; ptIt != multipoint.constEnd(); ++ptIt )
@@ -161,7 +171,7 @@ std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::fromPolylineXY( const Q
 
 std::unique_ptr<QgsMultiLineString> QgsGeometryFactory::fromMultiPolylineXY( const QgsMultiPolylineXY &multiline )
 {
-  std::unique_ptr< QgsMultiLineString > mLine = std::make_unique< QgsMultiLineString >();
+  auto mLine = std::make_unique< QgsMultiLineString >();
   mLine->reserve( multiline.size() );
   for ( int i = 0; i < multiline.size(); ++i )
   {
@@ -172,7 +182,7 @@ std::unique_ptr<QgsMultiLineString> QgsGeometryFactory::fromMultiPolylineXY( con
 
 std::unique_ptr<QgsPolygon> QgsGeometryFactory::fromPolygonXY( const QgsPolygonXY &polygon )
 {
-  std::unique_ptr< QgsPolygon > poly = std::make_unique< QgsPolygon >();
+  auto poly = std::make_unique< QgsPolygon >();
 
   QVector<QgsCurve *> holes;
   holes.reserve( polygon.size() );
@@ -196,7 +206,7 @@ std::unique_ptr<QgsPolygon> QgsGeometryFactory::fromPolygonXY( const QgsPolygonX
 
 std::unique_ptr< QgsMultiPolygon > QgsGeometryFactory::fromMultiPolygonXY( const QgsMultiPolygonXY &multipoly )
 {
-  std::unique_ptr< QgsMultiPolygon > mp = std::make_unique< QgsMultiPolygon >();
+  auto mp = std::make_unique< QgsMultiPolygon >();
   mp->reserve( multipoly.size() );
   for ( int i = 0; i < multipoly.size(); ++i )
   {
@@ -221,68 +231,72 @@ std::unique_ptr<QgsLineString> QgsGeometryFactory::linestringFromPolyline( const
     *destY++ = src->y();
     src++;
   }
-  std::unique_ptr< QgsLineString > line = std::make_unique< QgsLineString >( x, y );
+  auto line = std::make_unique< QgsLineString >( x, y );
   return line;
 }
 
-std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkbType( QgsWkbTypes::Type t )
+std::unique_ptr<QgsAbstractGeometry> QgsGeometryFactory::geomFromWkbType( Qgis::WkbType t )
 {
-  const QgsWkbTypes::Type type = QgsWkbTypes::flatType( t );
+  const Qgis::WkbType type = QgsWkbTypes::flatType( t );
   switch ( type )
   {
-    case QgsWkbTypes::Point:
+    case Qgis::WkbType::Point:
       return std::make_unique< QgsPoint >();
-    case QgsWkbTypes::LineString:
+    case Qgis::WkbType::LineString:
       return std::make_unique< QgsLineString >();
-    case QgsWkbTypes::CircularString:
+    case Qgis::WkbType::CircularString:
       return std::make_unique< QgsCircularString >();
-    case QgsWkbTypes::CompoundCurve:
+    case Qgis::WkbType::CompoundCurve:
       return std::make_unique< QgsCompoundCurve >();
-    case QgsWkbTypes::Polygon:
+    case Qgis::WkbType::Polygon:
       return std::make_unique< QgsPolygon >();
-    case QgsWkbTypes::CurvePolygon:
+    case Qgis::WkbType::CurvePolygon:
       return std::make_unique< QgsCurvePolygon >();
-    case QgsWkbTypes::MultiLineString:
+    case Qgis::WkbType::MultiLineString:
       return std::make_unique< QgsMultiLineString >();
-    case QgsWkbTypes::MultiPolygon:
+    case Qgis::WkbType::MultiPolygon:
       return std::make_unique< QgsMultiPolygon >();
-    case QgsWkbTypes::MultiPoint:
+    case Qgis::WkbType::MultiPoint:
       return std::make_unique< QgsMultiPoint >();
-    case QgsWkbTypes::MultiCurve:
+    case Qgis::WkbType::MultiCurve:
       return std::make_unique< QgsMultiCurve >();
-    case QgsWkbTypes::MultiSurface:
+    case Qgis::WkbType::MultiSurface:
       return std::make_unique< QgsMultiSurface >();
-    case QgsWkbTypes::GeometryCollection:
+    case Qgis::WkbType::GeometryCollection:
       return std::make_unique< QgsGeometryCollection >();
-    case QgsWkbTypes::Triangle:
+    case Qgis::WkbType::Triangle:
       return std::make_unique< QgsTriangle >();
+    case Qgis::WkbType::PolyhedralSurface:
+      return std::make_unique< QgsPolyhedralSurface >();
+    case Qgis::WkbType::TIN:
+      return std::make_unique< QgsTriangulatedSurface >();
     default:
       return nullptr;
   }
 }
 
-std::unique_ptr<QgsGeometryCollection> QgsGeometryFactory::createCollectionOfType( QgsWkbTypes::Type t )
+std::unique_ptr<QgsGeometryCollection> QgsGeometryFactory::createCollectionOfType( Qgis::WkbType t )
 {
-  const QgsWkbTypes::Type type = QgsWkbTypes::flatType( QgsWkbTypes::multiType( t ) );
+  const Qgis::WkbType type = QgsWkbTypes::flatType( QgsWkbTypes::multiType( t ) );
   std::unique_ptr< QgsGeometryCollection > collect;
   switch ( type )
   {
-    case QgsWkbTypes::MultiPoint:
+    case Qgis::WkbType::MultiPoint:
       collect = std::make_unique< QgsMultiPoint >();
       break;
-    case QgsWkbTypes::MultiLineString:
+    case Qgis::WkbType::MultiLineString:
       collect = std::make_unique< QgsMultiLineString >();
       break;
-    case QgsWkbTypes::MultiCurve:
+    case Qgis::WkbType::MultiCurve:
       collect = std::make_unique< QgsMultiCurve >();
       break;
-    case QgsWkbTypes::MultiPolygon:
+    case Qgis::WkbType::MultiPolygon:
       collect = std::make_unique< QgsMultiPolygon >();
       break;
-    case QgsWkbTypes::MultiSurface:
+    case Qgis::WkbType::MultiSurface:
       collect = std::make_unique< QgsMultiSurface >();
       break;
-    case QgsWkbTypes::GeometryCollection:
+    case Qgis::WkbType::GeometryCollection:
       collect = std::make_unique< QgsGeometryCollection >();
       break;
     default:

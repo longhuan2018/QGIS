@@ -24,11 +24,9 @@
 class QgsPostgresExpressionCompiler : public QgsSqlExpressionCompiler
 {
   public:
-
     explicit QgsPostgresExpressionCompiler( QgsPostgresFeatureSource *source, bool ignoreStaticNodes = false );
 
   protected:
-
     QString quotedIdentifier( const QString &identifier ) override;
     QString quotedValue( const QVariant &value, bool &ok ) override;
     Result compileNode( const QgsExpressionNode *node, QString &str ) override;
@@ -40,8 +38,8 @@ class QgsPostgresExpressionCompiler : public QgsSqlExpressionCompiler
 
     QString mGeometryColumn;
     QgsPostgresGeometryColumnType mSpatialColType;
-    QgsWkbTypes::Type mDetectedGeomType;
-    QgsWkbTypes::Type mRequestedGeomType;
+    Qgis::WkbType mDetectedGeomType;
+    Qgis::WkbType mRequestedGeomType;
     QString mRequestedSrid;
     QString mDetectedSrid;
 };

@@ -67,11 +67,33 @@ class CORE_EXPORT QgsAbstractStyleEntityIconGenerator : public QObject
     void setIconSizes( const QList< QSize > &sizes );
 
     /**
-     * Returns the list of icon \a sizes to generate.
+     * Returns the list of icon sizes to generate.
      *
      * \see setIconSizes()
      */
     QList< QSize > iconSizes() const;
+
+    /**
+     * Sets the target screen \a properties to use when generating icons.
+     *
+     * This allows style icons to be generated at an icon device pixel ratio and DPI which
+     * corresponds exactly to the view's screen properties in which this model is used.
+     *
+     * \see targetScreenProperties()
+     * \since QGIS 3.32
+     */
+    void setTargetScreenProperties( const QSet< QgsScreenProperties > &properties );
+
+    /**
+     * Returns the target screen properties to use when generating icons.
+     *
+     * This allows style icons to be generated at an icon device pixel ratio and DPI which
+     * corresponds exactly to the view's screen properties in which this model is used.
+     *
+     * \see setTargetScreenProperties()
+     * \since QGIS 3.32
+     */
+    QSet< QgsScreenProperties > targetScreenProperties() const;
 
   signals:
 
@@ -84,6 +106,7 @@ class CORE_EXPORT QgsAbstractStyleEntityIconGenerator : public QObject
   private:
 
     QList< QSize > mIconSizes;
+    QSet< QgsScreenProperties > mTargetScreenProperties;
 
 };
 
@@ -117,20 +140,29 @@ class CORE_EXPORT QgsStyleModel: public QAbstractItemModel
       Tags, //!< Tags column
     };
 
-    //! Custom model roles
-    enum Role
+    // *INDENT-OFF*
+
+    /**
+     * Custom model roles.
+     *
+     * \note Prior to QGIS 3.36 this was available as QgsStyleModel::Role
+     * \since QGIS 3.36
+     */
+    enum class CustomRole SIP_MONKEYPATCH_SCOPEENUM_UNNEST( QgsStyleModel, Role ) : int
     {
-      TypeRole = Qt::UserRole + 1, //!< Style entity type, see QgsStyle::StyleEntity
-      TagRole, //!< String list of tags
-      EntityName, //!< Entity name (since QGIS 3.26)
-      SymbolTypeRole, //!< Symbol type (for symbol or legend patch shape entities)
-      IsFavoriteRole, //!< Whether entity is flagged as a favorite
-      LayerTypeRole, //!< Layer type (for label settings entities)
-      CompatibleGeometryTypesRole, //!< Compatible layer geometry types (for 3D symbols)
-      StyleName, //!< Name of associated QgsStyle (QgsStyle::name()) (since QGIS 3.26)
-      StyleFileName, //!< File name of associated QgsStyle (QgsStyle::fileName()) (since QGIS 3.26)
-      IsTitleRole, //!< True if the index corresponds to a title item (since QGIS 3.26)
+      Type SIP_MONKEYPATCH_COMPAT_NAME(TypeRole) = Qt::UserRole + 1, //!< Style entity type, see QgsStyle::StyleEntity
+      Tag SIP_MONKEYPATCH_COMPAT_NAME(TagRole), //!< String list of tags
+      EntityName, //!< Entity name \since QGIS 3.26
+      SymbolType SIP_MONKEYPATCH_COMPAT_NAME(SymbolTypeRole), //!< Symbol type (for symbol or legend patch shape entities)
+      IsFavorite SIP_MONKEYPATCH_COMPAT_NAME(IsFavoriteRole), //!< Whether entity is flagged as a favorite
+      LayerType SIP_MONKEYPATCH_COMPAT_NAME(LayerTypeRole), //!< Layer type (for label settings entities)
+      CompatibleGeometryTypes SIP_MONKEYPATCH_COMPAT_NAME(CompatibleGeometryTypesRole), //!< Compatible layer geometry types (for 3D symbols)
+      StyleName, //!< Name of associated QgsStyle (QgsStyle::name()) \since QGIS 3.26
+      StyleFileName, //!< File name of associated QgsStyle (QgsStyle::fileName()) \since QGIS 3.26
+      IsTitle SIP_MONKEYPATCH_COMPAT_NAME(IsTitleRole), //!< True if the index corresponds to a title item \since QGIS 3.26
     };
+    Q_ENUM( CustomRole )
+    // *INDENT-ON*
 
     /**
      * Constructor for QgsStyleModel, for the specified \a style and \a parent object.
@@ -166,6 +198,16 @@ class CORE_EXPORT QgsStyleModel: public QAbstractItemModel
     void addDesiredIconSize( QSize size );
 
     /**
+     * Adds additional target screen \a properties to use when generating icons for Qt::DecorationRole data.
+     *
+     * This allows style icons to be generated at an icon device pixel ratio and DPI which
+     * corresponds exactly to the view's screen properties in which this model is used.
+     *
+     * \since QGIS 3.32
+     */
+    void addTargetScreenProperties( const QgsScreenProperties &properties );
+
+    /**
      * Sets the icon \a generator to use for deferred style entity icon generation.
      *
      * Currently this is used for 3D symbol icons only.
@@ -188,9 +230,13 @@ class CORE_EXPORT QgsStyleModel: public QAbstractItemModel
 
   private:
 
+    void initStyleModel();
+
     QgsStyle *mStyle = nullptr;
 
     QHash< QgsStyle::StyleEntity, QStringList > mEntityNames;
+
+    QSet< QgsScreenProperties > mTargetScreenProperties;
 
     QList< QSize > mAdditionalSizes;
     mutable std::unique_ptr< QgsExpressionContext > mExpressionContext;
@@ -344,22 +390,22 @@ class CORE_EXPORT QgsStyleProxyModel: public QSortFilterProxyModel
     void setSymbolTypeFilterEnabled( bool enabled );
 
     /**
-     * Returns the layer type filter, or QgsWkbTypes::UnknownGeometry if no
+     * Returns the layer type filter, or Qgis::GeometryType::Unknown if no
      * layer type filter is present.
      *
      * This setting has an effect on label settings entities and 3d symbols only.
      *
      * \see setLayerType()
      */
-    QgsWkbTypes::GeometryType layerType() const;
+    Qgis::GeometryType layerType() const;
 
     /**
-     * Sets the layer \a type filter. Set \a type to QgsWkbTypes::UnknownGeometry if no
+     * Sets the layer \a type filter. Set \a type to Qgis::GeometryType::Unknown if no
      * layer type filter is desired.
      *
      * \see layerType()
      */
-    void setLayerType( QgsWkbTypes::GeometryType type );
+    void setLayerType( Qgis::GeometryType type );
 
     /**
      * Sets a tag \a id to filter style entities by. Only entities with the given
@@ -453,6 +499,16 @@ class CORE_EXPORT QgsStyleProxyModel: public QSortFilterProxyModel
      */
     void addDesiredIconSize( QSize size );
 
+    /**
+     * Adds additional target screen \a properties to use when generating icons for Qt::DecorationRole data.
+     *
+     * This allows style icons to be generated at an icon device pixel ratio and DPI which
+     * corresponds exactly to the view's screen properties in which this model is used.
+     *
+     * \since QGIS 3.32
+     */
+    void addTargetScreenProperties( const QgsScreenProperties &properties );
+
   public slots:
 
     /**
@@ -489,7 +545,7 @@ class CORE_EXPORT QgsStyleProxyModel: public QSortFilterProxyModel
     bool mSymbolTypeFilterEnabled = false;
     Qgis::SymbolType mSymbolType = Qgis::SymbolType::Marker;
 
-    QgsWkbTypes::GeometryType mLayerType = QgsWkbTypes::UnknownGeometry;
+    Qgis::GeometryType mLayerType = Qgis::GeometryType::Unknown;
 
 };
 

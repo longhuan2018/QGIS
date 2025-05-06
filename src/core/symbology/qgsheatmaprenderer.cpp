@@ -18,17 +18,12 @@
 #include "qgssymbol.h"
 #include "qgssymbollayerutils.h"
 
-#include "qgslogger.h"
 #include "qgsfeature.h"
-#include "qgsvectorlayer.h"
-#include "qgssymbollayer.h"
-#include "qgsogcutils.h"
 #include "qgscolorramp.h"
 #include "qgscolorrampimpl.h"
 #include "qgsrendercontext.h"
-#include "qgspainteffect.h"
-#include "qgspainteffectregistry.h"
 #include "qgsstyleentityvisitor.h"
+#include "qgscolorramplegendnode.h"
 
 #include <QDomDocument>
 #include <QDomElement>
@@ -37,6 +32,8 @@ QgsHeatmapRenderer::QgsHeatmapRenderer()
   : QgsFeatureRenderer( QStringLiteral( "heatmapRenderer" ) )
 {
   mGradientRamp = new QgsGradientColorRamp( QColor( 255, 255, 255 ), QColor( 0, 0, 0 ) );
+  mLegendSettings.setMinimumLabel( QObject::tr( "Minimum" ) );
+  mLegendSettings.setMaximumLabel( QObject::tr( "Maximum" ) );
 }
 
 QgsHeatmapRenderer::~QgsHeatmapRenderer()
@@ -71,6 +68,15 @@ void QgsHeatmapRenderer::startRender( QgsRenderContext &context, const QgsFields
     mWeightExpression->prepare( &context.expressionContext() );
   }
 
+  bool ok = false;
+  const double dataDefinedExplicitMax = dataDefinedProperties().valueAsDouble( Property::HeatmapMaximum, context.expressionContext(), mExplicitMax, &ok );
+  if ( ok )
+    mExplicitMax = dataDefinedExplicitMax;
+
+  const double dataDefinedRadius = dataDefinedProperties().valueAsDouble( Property::HeatmapRadius, context.expressionContext(), mRadius, &ok );
+  if ( ok )
+    mRadius = dataDefinedRadius;
+
   initializeValues( context );
 }
 
@@ -100,7 +106,7 @@ bool QgsHeatmapRenderer::renderFeature( const QgsFeature &feature, QgsRenderCont
     return false;
   }
 
-  if ( !feature.hasGeometry() || feature.geometry().type() != QgsWkbTypes::PointGeometry )
+  if ( !feature.hasGeometry() || feature.geometry().type() != Qgis::GeometryType::Point )
   {
     //can only render point type
     return false;
@@ -290,6 +296,7 @@ QgsHeatmapRenderer *QgsHeatmapRenderer::clone() const
   newRenderer->setMaximumValue( mExplicitMax );
   newRenderer->setRenderQuality( mRenderQuality );
   newRenderer->setWeightExpression( mWeightExpressionString );
+  newRenderer->setLegendSettings( mLegendSettings );
   copyRendererData( newRenderer );
 
   return newRenderer;
@@ -311,7 +318,7 @@ QgsFeatureRenderer *QgsHeatmapRenderer::create( QDomElement &element, const QgsR
   Q_UNUSED( context )
   QgsHeatmapRenderer *r = new QgsHeatmapRenderer();
   r->setRadius( element.attribute( QStringLiteral( "radius" ), QStringLiteral( "50.0" ) ).toFloat() );
-  r->setRadiusUnit( static_cast< QgsUnitTypes::RenderUnit >( element.attribute( QStringLiteral( "radius_unit" ), QStringLiteral( "0" ) ).toInt() ) );
+  r->setRadiusUnit( static_cast< Qgis::RenderUnit >( element.attribute( QStringLiteral( "radius_unit" ), QStringLiteral( "0" ) ).toInt() ) );
   r->setRadiusMapUnitScale( QgsSymbolLayerUtils::decodeMapUnitScale( element.attribute( QStringLiteral( "radius_map_unit_scale" ), QString() ) ) );
   r->setMaximumValue( element.attribute( QStringLiteral( "max_value" ), QStringLiteral( "0.0" ) ).toFloat() );
   r->setRenderQuality( element.attribute( QStringLiteral( "quality" ), QStringLiteral( "0" ) ).toInt() );
@@ -320,18 +327,22 @@ QgsFeatureRenderer *QgsHeatmapRenderer::create( QDomElement &element, const QgsR
   QDomElement sourceColorRampElem = element.firstChildElement( QStringLiteral( "colorramp" ) );
   if ( !sourceColorRampElem.isNull() && sourceColorRampElem.attribute( QStringLiteral( "name" ) ) == QLatin1String( "[source]" ) )
   {
-    r->setColorRamp( QgsSymbolLayerUtils::loadColorRamp( sourceColorRampElem ) );
+    r->setColorRamp( QgsSymbolLayerUtils::loadColorRamp( sourceColorRampElem ).release() );
   }
+
+  QgsColorRampLegendNodeSettings legendSettings;
+  legendSettings.readXml( element, context );
+  r->setLegendSettings( legendSettings );
+
   return r;
 }
 
 QDomElement QgsHeatmapRenderer::save( QDomDocument &doc, const QgsReadWriteContext &context )
 {
-  Q_UNUSED( context )
   QDomElement rendererElem = doc.createElement( RENDERER_TAG_NAME );
   rendererElem.setAttribute( QStringLiteral( "type" ), QStringLiteral( "heatmapRenderer" ) );
   rendererElem.setAttribute( QStringLiteral( "radius" ), QString::number( mRadius ) );
-  rendererElem.setAttribute( QStringLiteral( "radius_unit" ), QString::number( mRadiusUnit ) );
+  rendererElem.setAttribute( QStringLiteral( "radius_unit" ), QString::number( static_cast< int >( mRadiusUnit ) ) );
   rendererElem.setAttribute( QStringLiteral( "radius_map_unit_scale" ), QgsSymbolLayerUtils::encodeMapUnitScale( mRadiusMapUnitScale ) );
   rendererElem.setAttribute( QStringLiteral( "max_value" ), QString::number( mExplicitMax ) );
   rendererElem.setAttribute( QStringLiteral( "quality" ), QString::number( mRenderQuality ) );
@@ -342,6 +353,7 @@ QDomElement QgsHeatmapRenderer::save( QDomDocument &doc, const QgsReadWriteConte
     const QDomElement colorRampElem = QgsSymbolLayerUtils::saveColorRamp( QStringLiteral( "[source]" ), mGradientRamp, doc );
     rendererElem.appendChild( colorRampElem );
   }
+  mLegendSettings.writeXml( doc, rendererElem, context );
 
   saveRendererData( doc, rendererElem, context );
 
@@ -384,7 +396,7 @@ QgsHeatmapRenderer *QgsHeatmapRenderer::convertFromRenderer( const QgsFeatureRen
   }
   else
   {
-    std::unique_ptr< QgsHeatmapRenderer > res = std::make_unique< QgsHeatmapRenderer >();
+    auto res = std::make_unique< QgsHeatmapRenderer >();
     renderer->copyRendererData( res.get() );
     return res.release();
   }
@@ -401,8 +413,25 @@ bool QgsHeatmapRenderer::accept( QgsStyleEntityVisitorInterface *visitor ) const
   return true;
 }
 
+QList<QgsLayerTreeModelLegendNode *> QgsHeatmapRenderer::createLegendNodes( QgsLayerTreeLayer *nodeLayer ) const
+{
+  return
+  {
+    new QgsColorRampLegendNode( nodeLayer,
+                                mGradientRamp->clone(),
+                                mLegendSettings,
+                                0,
+                                1 )
+  };
+}
+
 void QgsHeatmapRenderer::setColorRamp( QgsColorRamp *ramp )
 {
   delete mGradientRamp;
   mGradientRamp = ramp;
+}
+
+void QgsHeatmapRenderer::setLegendSettings( const QgsColorRampLegendNodeSettings &settings )
+{
+  mLegendSettings = settings;
 }

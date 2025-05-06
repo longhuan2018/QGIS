@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     CreateNewScriptAction.py
@@ -17,15 +15,15 @@
 ***************************************************************************
 """
 
-__author__ = 'Victor Olaya'
-__date__ = 'August 2012'
-__copyright__ = '(C) 2012, Victor Olaya'
+__author__ = "Victor Olaya"
+__date__ = "August 2012"
+__copyright__ = "(C) 2012, Victor Olaya"
 
 import os
 
 from qgis.PyQt.QtCore import QCoreApplication
 
-from qgis.core import QgsApplication
+from qgis.utils import iface
 
 from processing.gui.ToolboxAction import ToolboxAction
 
@@ -35,9 +33,11 @@ from processing.script.ScriptEditorDialog import ScriptEditorDialog
 class CreateNewScriptAction(ToolboxAction):
 
     def __init__(self):
-        self.name = QCoreApplication.translate("CreateNewScriptAction", "Create New Script…")
+        self.name = QCoreApplication.translate(
+            "CreateNewScriptAction", "Create New Script…"
+        )
         self.group = self.tr("Tools")
 
     def execute(self):
-        dlg = ScriptEditorDialog(None)
+        dlg = ScriptEditorDialog(parent=iface.mainWindow())
         dlg.show()

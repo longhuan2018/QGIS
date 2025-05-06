@@ -25,13 +25,12 @@
 
 /**
  * \ingroup server
- * \brief Stores layer ids of bad layers
+ * \brief Stores layer IDs for bad (broken) layers.
  * \since QGIS 3.6
  */
-class SERVER_EXPORT QgsStoreBadLayerInfo: public QgsProjectBadLayerHandler
+class SERVER_EXPORT QgsStoreBadLayerInfo : public QgsProjectBadLayerHandler
 {
   public:
-
     /**
      * Default constructor
      */

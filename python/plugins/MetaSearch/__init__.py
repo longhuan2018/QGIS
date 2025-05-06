@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 ###############################################################################
 #
 # Copyright (C) 2010 NextGIS (http://nextgis.org),
@@ -27,4 +26,5 @@
 def classFactory(iface):
     """invoke plugin"""
     from MetaSearch.plugin import MetaSearchPlugin
+
     return MetaSearchPlugin(iface)

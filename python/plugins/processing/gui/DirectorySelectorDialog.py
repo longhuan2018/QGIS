@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     DirectorySelectorDialog.py
@@ -17,45 +15,53 @@
 ***************************************************************************
 """
 
-__author__ = 'Alexander Bruy'
-__date__ = 'May 2016'
-__copyright__ = '(C) 2016, Victor Olaya'
+__author__ = "Alexander Bruy"
+__date__ = "May 2016"
+__copyright__ = "(C) 2016, Victor Olaya"
 
 import os
 import warnings
 
 from qgis.PyQt import uic
 from qgis.core import QgsSettings
-from qgis.PyQt.QtWidgets import QDialog, QAbstractItemView, QPushButton, QDialogButtonBox, QFileDialog
+from qgis.PyQt.QtWidgets import (
+    QDialog,
+    QAbstractItemView,
+    QPushButton,
+    QDialogButtonBox,
+    QFileDialog,
+)
 from qgis.PyQt.QtGui import QStandardItemModel, QStandardItem
 
 pluginPath = os.path.split(os.path.dirname(__file__))[0]
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     WIDGET, BASE = uic.loadUiType(
-        os.path.join(pluginPath, 'ui', 'DlgMultipleSelection.ui'))
+        os.path.join(pluginPath, "ui", "DlgMultipleSelection.ui")
+    )
 
 
 class DirectorySelectorDialog(BASE, WIDGET):
 
     def __init__(self, parent, options):
-        super(DirectorySelectorDialog, self).__init__(None)
+        super().__init__(None)
         self.setupUi(self)
 
-        self.lstLayers.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        self.lstLayers.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
 
         self.options = options
 
         # Additional buttons
-        self.btnAdd = QPushButton(self.tr('Add'))
-        self.buttonBox.addButton(self.btnAdd,
-                                 QDialogButtonBox.ActionRole)
-        self.btnRemove = QPushButton(self.tr('Remove'))
-        self.buttonBox.addButton(self.btnRemove,
-                                 QDialogButtonBox.ActionRole)
-        self.btnRemoveAll = QPushButton(self.tr('Remove all'))
-        self.buttonBox.addButton(self.btnRemoveAll,
-                                 QDialogButtonBox.ActionRole)
+        self.btnAdd = QPushButton(self.tr("Add"))
+        self.buttonBox.addButton(self.btnAdd, QDialogButtonBox.ButtonRole.ActionRole)
+        self.btnRemove = QPushButton(self.tr("Remove"))
+        self.buttonBox.addButton(self.btnRemove, QDialogButtonBox.ButtonRole.ActionRole)
+        self.btnRemoveAll = QPushButton(self.tr("Remove all"))
+        self.buttonBox.addButton(
+            self.btnRemoveAll, QDialogButtonBox.ButtonRole.ActionRole
+        )
 
         self.btnAdd.clicked.connect(self.addDirectory)
         self.btnRemove.clicked.connect(lambda: self.removeRows())
@@ -84,25 +90,23 @@ class DirectorySelectorDialog(BASE, WIDGET):
 
     def addDirectory(self):
         settings = QgsSettings()
-        if settings.contains('/Processing/lastDirectory'):
-            path = settings.value('/Processing/lastDirectory')
+        if settings.contains("/Processing/lastDirectory"):
+            path = settings.value("/Processing/lastDirectory")
         else:
-            path = ''
+            path = ""
 
-        folder = QFileDialog.getExistingDirectory(self,
-                                                  self.tr('Select directory'),
-                                                  path,
-                                                  QFileDialog.ShowDirsOnly)
+        folder = QFileDialog.getExistingDirectory(
+            self, self.tr("Select directory"), path, QFileDialog.Option.ShowDirsOnly
+        )
 
-        if folder == '':
+        if folder == "":
             return
 
         model = self.lstLayers.model()
         item = QStandardItem(folder)
         model.appendRow(item)
 
-        settings.setValue('/Processing/lastDirectory',
-                          os.path.dirname(folder))
+        settings.setValue("/Processing/lastDirectory", os.path.dirname(folder))
 
     def removeRows(self, removeAll=False):
         if removeAll:
@@ -120,4 +124,4 @@ class DirectorySelectorDialog(BASE, WIDGET):
         for i in range(model.rowCount()):
             folders.append(model.item(i).text())
 
-        return ';'.join(folders)
+        return ";".join(folders)

@@ -63,11 +63,11 @@ class GRASS_LIB_EXPORT QgsGrassProvider : public QgsVectorDataProvider
 
     ~QgsGrassProvider() override;
 
-    QgsVectorDataProvider::Capabilities capabilities() const override;
+    Qgis::VectorProviderCapabilities capabilities() const override;
     QgsAbstractFeatureSource *featureSource() const override;
     QString storageType() const override;
     QgsFeatureIterator getFeatures( const QgsFeatureRequest &request ) const override;
-    QgsWkbTypes::Type wkbType() const override;
+    Qgis::WkbType wkbType() const override;
     long long featureCount() const override;
     QgsRectangle extent() const override;
     QgsFields fields() const override;
@@ -103,12 +103,29 @@ class GRASS_LIB_EXPORT QgsGrassProvider : public QgsVectorDataProvider
     // ----------------------------------- New edit --------------------------------
     // Changes are written during editing.
     // TODO: implement also these functions but disable during manual layer editing
-    bool addFeatures( QgsFeatureList &flist, QgsFeatureSink::Flags flags = QgsFeatureSink::Flags() ) override { Q_UNUSED( flist ) Q_UNUSED( flags ); return true; }
-    bool deleteFeatures( const QgsFeatureIds &id ) override { Q_UNUSED( id ) return true; }
+    bool addFeatures( QgsFeatureList &flist, QgsFeatureSink::Flags flags = QgsFeatureSink::Flags() ) override
+    {
+      Q_UNUSED( flist )
+      Q_UNUSED( flags );
+      return true;
+    }
+    bool deleteFeatures( const QgsFeatureIds &id ) override
+    {
+      Q_UNUSED( id )
+      return true;
+    }
     bool addAttributes( const QList<QgsField> &attributes ) override;
     bool deleteAttributes( const QgsAttributeIds &attributes ) override;
-    bool changeAttributeValues( const QgsChangedAttributesMap &attr_map ) override  { Q_UNUSED( attr_map ) return true; }
-    bool changeGeometryValues( const QgsGeometryMap &geometry_map ) override { Q_UNUSED( geometry_map ) return true; }
+    bool changeAttributeValues( const QgsChangedAttributesMap &attr_map ) override
+    {
+      Q_UNUSED( attr_map )
+      return true;
+    }
+    bool changeGeometryValues( const QgsGeometryMap &geometry_map ) override
+    {
+      Q_UNUSED( geometry_map )
+      return true;
+    }
 
 
     //----------------------------------------------------------------------------
@@ -367,19 +384,19 @@ class GRASS_LIB_EXPORT QgsGrassProvider : public QgsVectorDataProvider
     QString description() const override;
 
     // Layer type (layerType)
-    enum Type      // layer name:
+    enum Type // layer name:
     {
-      Point = 1,   //!< <field>_point
-      Line,        //!< <field>_line
-      Face,        //!< <field>_face
-      Polygon,     //!< <field>_polygon
-      Boundary,    //!< Boundary (currently not used)
-      Centroid,    //!< Centroid (currently not used)
+      Point = 1, //!< <field>_point
+      Line,      //!< <field>_line
+      Face,      //!< <field>_face
+      Polygon,   //!< <field>_polygon
+      Boundary,  //!< Boundary (currently not used)
+      Centroid,  //!< Centroid (currently not used)
       // topology layers, may be used to display internal GRASS topology info
       // useful for debugging of GRASS topology and modules using topology
-      TopoPoint,  //!< All points with topology id
-      TopoLine,   //!< All lines with topology id
-      TopoNode    //!< Topology nodes
+      TopoPoint, //!< All points with topology id
+      TopoLine,  //!< All lines with topology id
+      TopoNode   //!< Topology nodes
     };
 
     // Set type for next digitized feature (GV_POINT,GV_LINE, GV_BOUNDARY, GV_CENTROID, GV_AREA)
@@ -426,7 +443,7 @@ class GRASS_LIB_EXPORT QgsGrassProvider : public QgsVectorDataProvider
     // grass feature type: GV_POINT, GV_LINE | GV_BOUNDARY, GV_AREA, ( GV_BOUNDARY, GV_CENTROID )
     int mGrassType = 0;
     // WKBPoint, WKBLineString, ...
-    QgsWkbTypes::Type mQgisType = QgsWkbTypes::Unknown;
+    Qgis::WkbType mQgisType = Qgis::WkbType::Unknown;
     QString mLayerName;
     QgsGrassVectorMapLayer *mLayer = nullptr;
     // The version of the map for which the instance was last time updated

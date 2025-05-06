@@ -25,6 +25,7 @@
 #include <QNetworkReply>
 #include <QFile>
 #include <QTemporaryFile>
+#include <QPointer>
 
 #include "qgis_core.h"
 #include "qgstaskmanager.h"
@@ -33,7 +34,7 @@
 /**
  * \class QgsFetchedContent
  * \ingroup core
- * \brief FetchedContent holds useful information about a network content being fetched
+ * \brief Holds information about fetched network content.
  * \see QgsNetworkContentFetcherRegistry
  * \since QGIS 3.2
  */
@@ -117,7 +118,7 @@ class CORE_EXPORT QgsFetchedContent : public QObject
     QString mUrl;
     QTemporaryFile *mFile = nullptr;
     QString mFilePath;
-    QgsNetworkContentFetcherTask *mFetchingTask = nullptr;
+    QPointer< QgsNetworkContentFetcherTask > mFetchingTask;
     ContentStatus mStatus = NotStarted;
     QNetworkReply::NetworkError mError = QNetworkReply::NoError;
     QString mAuthConfig;
@@ -127,7 +128,7 @@ class CORE_EXPORT QgsFetchedContent : public QObject
 /**
  * \class QgsNetworkContentFetcherRegistry
  * \ingroup core
- * \brief Registry for temporary fetched files
+ * \brief Registry for temporary fetched files.
  *
  * This provides a simple way of downloading and accessing
  * remote files during QGIS application running.

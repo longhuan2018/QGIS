@@ -22,11 +22,12 @@
 #include "qgsfeature.h"
 #include "qgsfeatureiterator.h"
 #include "qgsgeometry.h"
-#include "qgsproviderregistry.h"
 #include "qgsrasterdataprovider.h"
 #include "qgsrasteriterator.h"
-
 #include "qgsgrassimport.h"
+#include "moc_qgsgrassimport.cpp"
+
+#include <QFileInfo>
 
 extern "C"
 {
@@ -73,7 +74,7 @@ void QgsGrassImportProgress::onReadyReadStandardError()
     QString output = QString::fromLocal8Bit( mProcess->readAllStandardError() );
     for ( const QString &line : output.split( "\n" ) )
     {
-      QgsDebugMsg( "line = '" + line + "'" );
+      QgsDebugMsgLevel( "line = '" + line + "'", 3 );
       QString text, html;
       int value;
       QgsGrass::ModuleOutput type = QgsGrass::parseModuleOutput( line, text, html, value );
@@ -99,7 +100,7 @@ void QgsGrassImportProgress::onReadyReadStandardError()
 
 void QgsGrassImportProgress::append( const QString &html )
 {
-  QgsDebugMsg( "html = " + html );
+  QgsDebugMsgLevel( "html = " + html, 3 );
   if ( !mProgressHtml.isEmpty() )
   {
     mProgressHtml += QLatin1String( "<br>" );
@@ -137,7 +138,7 @@ QgsGrassImport::~QgsGrassImport()
 {
   if ( mFutureWatcher && !mFutureWatcher->isFinished() )
   {
-    QgsDebugMsg( "mFutureWatcher not finished -> waitForFinished()" );
+    QgsDebugMsgLevel( "mFutureWatcher not finished -> waitForFinished()", 3 );
     mFutureWatcher->waitForFinished();
   }
   QgsGrassImportIcon::instance()->disconnectFrameChanged( this, &QgsGrassImport::frameChanged );
@@ -145,7 +146,7 @@ QgsGrassImport::~QgsGrassImport()
 
 void QgsGrassImport::setError( const QString &error )
 {
-  QgsDebugMsg( "error: " + error );
+  QgsDebugError( "error: " + error );
   mError = error;
 }
 
@@ -190,8 +191,7 @@ void QgsGrassImport::cancel()
 }
 
 //------------------------------ QgsGrassRasterImport ------------------------------------
-QgsGrassRasterImport::QgsGrassRasterImport( QgsRasterPipe *pipe, const QgsGrassObject &grassObject,
-    const QgsRectangle &extent, int xSize, int ySize )
+QgsGrassRasterImport::QgsGrassRasterImport( QgsRasterPipe *pipe, const QgsGrassObject &grassObject, const QgsRectangle &extent, int xSize, int ySize )
   : QgsGrassImport( grassObject )
   , mPipe( pipe )
   , mExtent( extent )
@@ -204,7 +204,7 @@ QgsGrassRasterImport::~QgsGrassRasterImport()
 {
   if ( mFutureWatcher && !mFutureWatcher->isFinished() )
   {
-    QgsDebugMsg( "mFutureWatcher not finished -> waitForFinished()" );
+    QgsDebugMsgLevel( "mFutureWatcher not finished -> waitForFinished()", 3 );
     mFutureWatcher->waitForFinished();
   }
   delete mPipe;
@@ -244,7 +244,7 @@ bool QgsGrassRasterImport::import()
   int blueBand = 0;
   for ( int band = 1; band <= provider->bandCount(); band++ )
   {
-    QgsDebugMsg( QString( "band = %1" ).arg( band ) );
+    QgsDebugMsgLevel( QString( "band = %1" ).arg( band ), 3 );
     Qgis::RasterColorInterpretation colorInterpretation = provider->colorInterpretation( band );
     if ( colorInterpretation == Qgis::RasterColorInterpretation::RedBand )
     {
@@ -267,6 +267,7 @@ bool QgsGrassRasterImport::import()
     {
       case Qgis::DataType::Byte:
       case Qgis::DataType::UInt16:
+      case Qgis::DataType::Int8:
       case Qgis::DataType::Int16:
       case Qgis::DataType::UInt32:
       case Qgis::DataType::Int32:
@@ -280,18 +281,18 @@ bool QgsGrassRasterImport::import()
         break;
       case Qgis::DataType::ARGB32:
       case Qgis::DataType::ARGB32_Premultiplied:
-        qgis_out_type = Qgis::DataType::Int32;  // split to multiple bands?
+        qgis_out_type = Qgis::DataType::Int32; // split to multiple bands?
         break;
       case Qgis::DataType::CInt16:
       case Qgis::DataType::CInt32:
       case Qgis::DataType::CFloat32:
       case Qgis::DataType::CFloat64:
       case Qgis::DataType::UnknownDataType:
-        setError( tr( "Data type %1 not supported" ).arg( static_cast< int >( provider->dataType( band ) ) ) );
+        setError( tr( "Data type %1 not supported" ).arg( static_cast<int>( provider->dataType( band ) ) ) );
         return false;
     }
 
-    QgsDebugMsg( QString( "data_type = %1" ).arg( data_type ) );
+    QgsDebugMsgLevel( QString( "data_type = %1" ).arg( data_type ), 3 );
 
     QString module = QgsGrass::qgisGrassModulePath() + "/qgis.r.in";
     QStringList arguments;
@@ -301,7 +302,7 @@ bool QgsGrassRasterImport::import()
       // raster.<band> to keep in sync with r.in.gdal
       name += QStringLiteral( ".%1" ).arg( band );
     }
-    arguments.append( "output=" + name );    // get list of all output names
+    arguments.append( "output=" + name ); // get list of all output names
     QTemporaryFile gisrcFile;
     try
     {
@@ -326,8 +327,8 @@ bool QgsGrassRasterImport::import()
 
     outStream << ( qint32 ) defaultWindow.proj;
     outStream << ( qint32 ) defaultWindow.zone;
-    outStream << mExtent << ( qint32 )mXSize << ( qint32 )mYSize;
-    outStream << ( qint32 )qgis_out_type;
+    outStream << mExtent << ( qint32 ) mXSize << ( qint32 ) mYSize;
+    outStream << ( qint32 ) qgis_out_type;
 
     // calculate reasonable block size (5MB)
     int maximumTileHeight = 5000000 / mXSize;
@@ -359,7 +360,7 @@ bool QgsGrassRasterImport::import()
 
         if ( !block->convert( qgis_out_type ) )
         {
-          setError( tr( "Cannot convert block (%1) to data type %2" ).arg( block->toString() ).arg( qgsEnumValueToKey< Qgis::DataType >( qgis_out_type ) ) );
+          setError( tr( "Cannot convert block (%1) to data type %2" ).arg( block->toString() ).arg( qgsEnumValueToKey<Qgis::DataType>( qgis_out_type ) ) );
           delete block;
           return false;
         }
@@ -385,7 +386,7 @@ bool QgsGrassRasterImport::import()
             default: // should not happen
               noDataValue = std::numeric_limits<double>::max() * -1.0;
           }
-          for ( qgssize i = 0; i < ( qgssize )block->width()*block->height(); i++ )
+          for ( qgssize i = 0; i < ( qgssize ) block->width() * block->height(); i++ )
           {
             if ( block->isNoData( i ) )
             {
@@ -436,10 +437,11 @@ bool QgsGrassRasterImport::import()
 #ifdef QGISDEBUG
     QString stdoutString = mProcess->readAllStandardOutput().constData();
     QString processResult = QStringLiteral( "exitStatus=%1, exitCode=%2, error=%3, errorString=%4 stdout=%5, stderr=%6" )
-                            .arg( mProcess->exitStatus() ).arg( mProcess->exitCode() )
-                            .arg( mProcess->error() ).arg( mProcess->errorString(),
-                                stdoutString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ), stderrString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ) );
-    QgsDebugMsg( "processResult: " + processResult );
+                              .arg( mProcess->exitStatus() )
+                              .arg( mProcess->exitCode() )
+                              .arg( mProcess->error() )
+                              .arg( mProcess->errorString(), stdoutString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ), stderrString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ) );
+    QgsDebugMsgLevel( "processResult: " + processResult, 3 );
 #endif
 
     if ( mProcess->exitStatus() != QProcess::NormalExit )
@@ -460,7 +462,7 @@ bool QgsGrassRasterImport::import()
     delete mProcess;
     mProcess = nullptr;
   }
-  QgsDebugMsg( QString( "redBand = %1 greenBand = %2 blueBand = %3" ).arg( redBand ).arg( greenBand ).arg( blueBand ) );
+  QgsDebugMsgLevel( QString( "redBand = %1 greenBand = %2 blueBand = %3" ).arg( redBand ).arg( greenBand ).arg( blueBand ), 3 );
   if ( redBand > 0 && greenBand > 0 && blueBand > 0 )
   {
     // TODO: check if the group exists
@@ -482,7 +484,7 @@ bool QgsGrassRasterImport::import()
     }
     G_CATCH( QgsGrass::Exception & e )
     {
-      QgsDebugMsg( QString( "Cannot create group: %1" ).arg( e.what() ) );
+      QgsDebugError( QString( "Cannot create group: %1" ).arg( e.what() ) );
     }
   }
   return true;
@@ -540,7 +542,7 @@ QgsGrassVectorImport::~QgsGrassVectorImport()
 {
   if ( mFutureWatcher && !mFutureWatcher->isFinished() )
   {
-    QgsDebugMsg( "mFutureWatcher not finished -> waitForFinished()" );
+    QgsDebugMsgLevel( "mFutureWatcher not finished -> waitForFinished()", 3 );
     mFutureWatcher->waitForFinished();
   }
   delete mProvider;
@@ -548,7 +550,6 @@ QgsGrassVectorImport::~QgsGrassVectorImport()
 
 bool QgsGrassVectorImport::import()
 {
-
   if ( !mProvider )
   {
     setError( QStringLiteral( "Provider is null." ) );
@@ -563,8 +564,8 @@ bool QgsGrassVectorImport::import()
 
   QgsCoordinateReferenceSystem providerCrs = mProvider->crs();
   QgsCoordinateReferenceSystem mapsetCrs = QgsGrass::crsDirect( mGrassObject.gisdbase(), mGrassObject.location() );
-  QgsDebugMsg( "providerCrs = " + providerCrs.toWkt() );
-  QgsDebugMsg( "mapsetCrs = " + mapsetCrs.toWkt() );
+  QgsDebugMsgLevel( "providerCrs = " + providerCrs.toWkt(), 3 );
+  QgsDebugMsgLevel( "mapsetCrs = " + mapsetCrs.toWkt(), 3 );
   QgsCoordinateTransform coordinateTransform;
   bool doTransform = false;
   if ( providerCrs.isValid() && mapsetCrs.isValid() && providerCrs != mapsetCrs )
@@ -593,9 +594,9 @@ bool QgsGrassVectorImport::import()
   QDataStream outStream( mProcess );
   mProcess->setReadChannel( QProcess::StandardOutput );
 
-  QgsWkbTypes::Type wkbType = mProvider->wkbType();
-  bool isPolygon = QgsWkbTypes::singleType( QgsWkbTypes::flatType( wkbType ) ) == QgsWkbTypes::Polygon;
-  outStream << ( qint32 )wkbType;
+  Qgis::WkbType wkbType = mProvider->wkbType();
+  bool isPolygon = QgsWkbTypes::singleType( QgsWkbTypes::flatType( wkbType ) ) == Qgis::WkbType::Polygon;
+  outStream << ( qint32 ) wkbType;
 
   outStream << mProvider->fields();
 
@@ -624,7 +625,7 @@ bool QgsGrassVectorImport::import()
       iterator.rewind();
     }
 #endif
-    QgsDebugMsg( "send features" );
+    QgsDebugMsgLevel( "send features", 3 );
     // Better to get real progress from module (without buffer)
 #if 0
     mProgress->setRange( 1, featureCount );
@@ -678,22 +679,22 @@ bool QgsGrassVectorImport::import()
       // get some feedback for large datasets
       if ( count % 10000 == 0 )
       {
-        QgsDebugMsg( QString( "%1 features written" ).arg( count ) );
+        QgsDebugMsgLevel( QString( "%1 features written" ).arg( count ), 3 );
       }
     }
 
     feature = QgsFeature(); // indicate end by invalid feature
-    outStream << false; // not canceled
+    outStream << false;     // not canceled
     outStream << feature;
 
     mProcess->waitForBytesWritten( -1 );
-    QgsDebugMsg( "features sent" );
+    QgsDebugMsgLevel( "features sent", 3 );
 #ifndef Q_OS_WIN
 #if 0
     mProcess->waitForReadyRead();
     bool result;
     outStream >> result;
-    QgsDebugMsg( "got feedback" );
+    QgsDebugMsgLevel( "got feedback", 3 );
 #endif
 #endif
     iterator.close();
@@ -702,13 +703,13 @@ bool QgsGrassVectorImport::import()
   // Close write channel before waiting for response to avoid stdin buffer problem on Windows
   mProcess->closeWriteChannel();
 
-  QgsDebugMsg( "waitForReadyRead" );
+  QgsDebugMsgLevel( "waitForReadyRead", 3 );
   bool result;
   mProcess->waitForReadyRead();
   outStream >> result;
-  QgsDebugMsg( QString( "result = %1" ).arg( result ) );
+  QgsDebugMsgLevel( QString( "result = %1" ).arg( result ), 3 );
 
-  QgsDebugMsg( "waitForFinished" );
+  QgsDebugMsgLevel( "waitForFinished", 3 );
   mProcess->waitForFinished( 30000 );
 
 #ifdef QGISDEBUG
@@ -718,10 +719,11 @@ bool QgsGrassVectorImport::import()
 
 #ifdef QGISDEBUG
   QString processResult = QStringLiteral( "exitStatus=%1, exitCode=%2, error=%3, errorString=%4 stdout=%5, stderr=%6" )
-                          .arg( mProcess->exitStatus() ).arg( mProcess->exitCode() )
-                          .arg( mProcess->error() ).arg( mProcess->errorString(),
-                              stdoutString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ), stderrString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ) );
-  QgsDebugMsg( "processResult: " + processResult );
+                            .arg( mProcess->exitStatus() )
+                            .arg( mProcess->exitCode() )
+                            .arg( mProcess->error() )
+                            .arg( mProcess->errorString(), stdoutString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ), stderrString.replace( QLatin1String( "\n" ), QLatin1String( ", " ) ) );
+  QgsDebugMsgLevel( "processResult: " + processResult, 3 );
 #endif
 
   if ( mProcess->exitStatus() != QProcess::NormalExit )
@@ -763,7 +765,6 @@ QgsGrassCopy::QgsGrassCopy( const QgsGrassObject &srcObject, const QgsGrassObjec
 
 bool QgsGrassCopy::import()
 {
-
   try
   {
     QgsGrass::copyObject( mSrcObject, mGrassObject );
@@ -792,7 +793,6 @@ QgsGrassExternal::QgsGrassExternal( const QString &gdalSource, const QgsGrassObj
 
 bool QgsGrassExternal::import()
 {
-
   try
   {
     QString cmd = QgsGrass::gisbase() + "/bin/r.external";

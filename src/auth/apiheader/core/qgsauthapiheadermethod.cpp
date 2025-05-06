@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "qgsauthapiheadermethod.h"
+#include "moc_qgsauthapiheadermethod.cpp"
 
 #include "qgsauthmanager.h"
 #include "qgslogger.h"
@@ -40,11 +41,8 @@ QgsAuthApiHeaderMethod::QgsAuthApiHeaderMethod()
 {
   setVersion( 2 );
   setExpansions( QgsAuthMethod::NetworkRequest );
-  setDataProviders( QStringList()
-                    << QStringLiteral( "ows" )
-                    << QStringLiteral( "wfs" )  // convert to lowercase
-                    << QStringLiteral( "wcs" )
-                    << QStringLiteral( "wms" ) );
+  setDataProviders( QStringList() << QStringLiteral( "ows" ) << QStringLiteral( "wfs" ) // convert to lowercase
+                                  << QStringLiteral( "wcs" ) << QStringLiteral( "wms" ) );
 }
 
 QString QgsAuthApiHeaderMethod::key() const
@@ -62,14 +60,13 @@ QString QgsAuthApiHeaderMethod::displayDescription() const
   return AUTH_METHOD_DISPLAY_DESCRIPTION;
 }
 
-bool QgsAuthApiHeaderMethod::updateNetworkRequest( QNetworkRequest &request, const QString &authcfg,
-    const QString &dataprovider )
+bool QgsAuthApiHeaderMethod::updateNetworkRequest( QNetworkRequest &request, const QString &authcfg, const QString &dataprovider )
 {
   Q_UNUSED( dataprovider )
   const QgsAuthMethodConfig config = getMethodConfig( authcfg );
   if ( !config.isValid() )
   {
-    QgsDebugMsg( QStringLiteral( "Update request config FAILED for authcfg: %1: config invalid" ).arg( authcfg ) );
+    QgsDebugError( QStringLiteral( "Update request config FAILED for authcfg: %1: config invalid" ).arg( authcfg ) );
     return false;
   }
 
@@ -85,12 +82,11 @@ bool QgsAuthApiHeaderMethod::updateNetworkRequest( QNetworkRequest &request, con
 
     if ( !headerKey.isEmpty() )
     {
-      request.setRawHeader( QStringLiteral( "%1" ).arg( headerKey ).toLocal8Bit(),
-                            QStringLiteral( "%1" ).arg( headerValue ).toLocal8Bit() );
+      request.setRawHeader( QStringLiteral( "%1" ).arg( headerKey ).toLocal8Bit(), QStringLiteral( "%1" ).arg( headerValue ).toLocal8Bit() );
     }
     else
     {
-      QgsDebugMsg( QStringLiteral( "The header key was empty, we shouldn't have empty header keys at this point" ) );
+      QgsDebugError( QStringLiteral( "The header key was empty, we shouldn't have empty header keys at this point" ) );
     }
   }
 
@@ -124,7 +120,7 @@ QgsAuthMethodConfig QgsAuthApiHeaderMethod::getMethodConfig( const QString &auth
   // else build basic bundle
   if ( !QgsApplication::authManager()->loadAuthenticationConfig( authcfg, config, fullconfig ) )
   {
-    QgsDebugMsg( QStringLiteral( "Retrieve config FAILED for authcfg: %1" ).arg( authcfg ) );
+    QgsDebugError( QStringLiteral( "Retrieve config FAILED for authcfg: %1" ).arg( authcfg ) );
     return QgsAuthMethodConfig();
   }
 

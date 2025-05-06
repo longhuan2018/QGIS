@@ -14,6 +14,7 @@
  ***************************************************************************/
 
 #include "qgsvectorlayergpslogger.h"
+#include "moc_qgsvectorlayergpslogger.cpp"
 #include "qgsvectorlayer.h"
 #include "qgsvectorlayerutils.h"
 #include "qgsgpsconnection.h"
@@ -104,7 +105,7 @@ void QgsVectorLayerGpsLogger::endCurrentTrack()
     }
     catch ( QgsCsException & )
     {
-      QgsDebugMsg( QStringLiteral( "Error transforming GPS track" ) );
+      QgsDebugError( QStringLiteral( "Error transforming GPS track" ) );
     }
 
     if ( geometry.constGet()->is3D() && !QgsWkbTypes::hasZ( mTracksLayer->wkbType() ) )
@@ -212,7 +213,7 @@ void QgsVectorLayerGpsLogger::gpsStateChanged( const QgsGpsInformation &info )
     }
     catch ( QgsCsException & )
     {
-      QgsDebugMsg( QStringLiteral( "Error transforming GPS point" ) );
+      QgsDebugError( QStringLiteral( "Error transforming GPS point" ) );
     }
 
     QgsAttributeMap attributes;
@@ -295,10 +296,10 @@ QVariant QgsVectorLayerGpsLogger::timestamp( QgsVectorLayer *vlayer, int idx, co
     // Only string and datetime fields are supported
     switch ( vlayer->fields().at( idx ).type() )
     {
-      case QVariant::String:
+      case QMetaType::Type::QString:
         value = time.toString( Qt::DateFormat::ISODate );
         break;
-      case QVariant::DateTime:
+      case QMetaType::Type::QDateTime:
         value = time;
         break;
       default:

@@ -22,6 +22,8 @@ set(TESTS
  testqgsinterpolator.cpp
  testqgsprocessingalgspt1.cpp
  testqgsprocessingalgspt2.cpp
+ testqgsprocessingcheckgeometry.cpp
+ testqgsprocessingfixgeometry.cpp
  testqgsprocessingmodelalgorithm.cpp
  testqgszonalstatistics.cpp
  testqgsrastercalculator.cpp
@@ -35,6 +37,10 @@ set(TESTS
 )
 if(HAVE_GSL)
   set(TESTS ${TESTS} testqgsgcptransformer.cpp)
+endif()
+
+if (WITH_PDAL AND PDAL_2_5_OR_HIGHER)
+  set(TESTS ${TESTS} testqgsprocessingpdalalgs.cpp)
 endif()
 
 foreach(TESTSRC ${TESTS})

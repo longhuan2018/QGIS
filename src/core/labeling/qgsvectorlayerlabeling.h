@@ -31,12 +31,12 @@ class QgsReadWriteContext;
 class QgsVectorLayer;
 class QgsVectorLayerLabelProvider;
 class QgsStyleEntityVisitorInterface;
+class QgsSldExportContext;
 
 /**
  * \ingroup core
  * \brief Abstract base class - its implementations define different approaches to the labeling of a vector layer.
  *
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsAbstractVectorLayerLabeling
 {
@@ -53,7 +53,7 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
 #endif
 
   public:
-    //! Default constructor
+
     QgsAbstractVectorLayerLabeling() = default;
     virtual ~QgsAbstractVectorLayerLabeling() = default;
 
@@ -87,7 +87,6 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
      * \param settings Pal layer settings
      * \param providerId The id of the provider
      *
-     * \since QGIS 3.0
      */
     virtual void setSettings( QgsPalLayerSettings *settings SIP_TRANSFER, const QString &providerId = QString() ) = 0;
 
@@ -95,9 +94,19 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
      * Returns TRUE if drawing labels requires advanced effects like composition
      * modes, which could prevent it being used as an isolated cached image
      * or exported to a vector format.
-     * \since QGIS 3.0
      */
     virtual bool requiresAdvancedEffects() const = 0;
+
+    /**
+     * Multiply opacity by \a opacityFactor.
+     *
+     * This method multiplies the opacity of the labeling elements (text, shadow, buffer etc.)
+     * by \a opacity effectively changing the opacity of the whole labeling elements.
+     *
+     * \since QGIS 3.32
+     */
+    virtual void multiplyOpacity( double opacityFactor ) { Q_UNUSED( opacityFactor ); };
+
 
     // static stuff
 
@@ -106,14 +115,17 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
 
     /**
      * Writes the SE 1.1 TextSymbolizer element based on the current layer labeling settings
+     *
+     * \deprecated QGIS 3.44. Use the version with QgsSldExportContext instead.
      */
-    virtual void toSld( QDomNode &parent, const QVariantMap &props ) const
-    {
-      Q_UNUSED( parent )
-      Q_UNUSED( props )
-      QDomDocument doc = parent.ownerDocument();
-      parent.appendChild( doc.createComment( QStringLiteral( "SE Export for %1 not implemented yet" ).arg( type() ) ) );
-    }
+    Q_DECL_DEPRECATED virtual void toSld( QDomNode &parent, const QVariantMap &props ) const SIP_DEPRECATED;
+
+    /**
+     * Writes the SE 1.1 TextSymbolizer element based on the current layer labeling settings.
+     *
+     * \since QGIS 3.44
+     */
+    virtual bool toSld( QDomNode &parent, QgsSldExportContext &context ) const;
 
     /**
      * Accepts the specified symbology \a visitor, causing it to visit all symbols associated
@@ -140,8 +152,18 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
      * \param parent the node that will have the text symbolizer element added to it
      * \param settings the settings getting translated to a TextSymbolizer
      * \param props a open ended set of properties that can drive/inform the SLD encoding
+     * \deprecated QGIS 3.44. Use the version with QgsSldExportContext instead.
      */
-    virtual void writeTextSymbolizer( QDomNode &parent, QgsPalLayerSettings &settings, const QVariantMap &props ) const;
+    Q_DECL_DEPRECATED virtual void writeTextSymbolizer( QDomNode &parent, QgsPalLayerSettings &settings, const QVariantMap &props ) const SIP_DEPRECATED;
+
+    /**
+     * Writes a TextSymbolizer element contents based on the provided labeling settings
+     * \param parent the node that will have the text symbolizer element added to it
+     * \param settings the settings getting translated to a TextSymbolizer
+     * \param context export context
+     * \since QGIS 3.44
+     */
+    virtual bool writeTextSymbolizer( QDomNode &parent, QgsPalLayerSettings &settings, QgsSldExportContext &context ) const;
 
   private:
     Q_DISABLE_COPY( QgsAbstractVectorLayerLabeling )
@@ -158,7 +180,6 @@ class CORE_EXPORT QgsAbstractVectorLayerLabeling
  *
  * The configuration is kept in layer's custom properties for backward compatibility.
  *
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsVectorLayerSimpleLabeling : public QgsAbstractVectorLayerLabeling
 {
@@ -180,15 +201,15 @@ class CORE_EXPORT QgsVectorLayerSimpleLabeling : public QgsAbstractVectorLayerLa
      * \param settings Pal layer settings
      * \param providerId Unused parameter
      *
-     * \since QGIS 3.0
      */
     void setSettings( QgsPalLayerSettings *settings SIP_TRANSFER, const QString &providerId = QString() ) override;
 
     bool requiresAdvancedEffects() const override;
-    void toSld( QDomNode &parent, const QVariantMap &props ) const override;
-
+    Q_DECL_DEPRECATED void toSld( QDomNode &parent, const QVariantMap &props ) const override SIP_DEPRECATED;
+    bool toSld( QDomNode &parent, QgsSldExportContext &context ) const override;
+    void multiplyOpacity( double opacityFactor ) override;
     //! Create the instance from a DOM element with saved configuration
-    static QgsVectorLayerSimpleLabeling *create( const QDomElement &element, const QgsReadWriteContext &context );
+    static QgsVectorLayerSimpleLabeling *create( const QDomElement &element, const QgsReadWriteContext &context ); // cppcheck-suppress duplInheritedMember
 
   private:
     std::unique_ptr<QgsPalLayerSettings> mSettings;

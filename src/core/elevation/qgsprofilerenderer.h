@@ -19,6 +19,7 @@
 
 #include "qgis_core.h"
 #include "qgis_sip.h"
+#include "qgslinesymbol.h"
 #include "qgsprofilerequest.h"
 #include "qgsabstractprofilegenerator.h"
 #include "qgsrange.h"
@@ -68,6 +69,17 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
      */
     QgsProfilePlotRenderer( const QList< QgsAbstractProfileSource * > &sources,
                             const QgsProfileRequest &request );
+
+    /**
+     * Constructor for QgsProfilePlotRenderer, using the provided list of profile \a generators to generate the
+     * results.
+     *
+     * \note Not available in Python bindings
+     *
+     * \since QGIS 3.32
+     */
+    QgsProfilePlotRenderer( std::vector<std::unique_ptr<QgsAbstractProfileGenerator> > generators,
+                            const QgsProfileRequest &request ) SIP_SKIP;
 
     ~QgsProfilePlotRenderer() override;
 
@@ -163,7 +175,7 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
      *
      * If \a sourceId is empty then all sources will be rendered, otherwise only the matching source will be rendered.
      */
-    QImage renderToImage( int width, int height, double distanceMin, double distanceMax, double zMin, double zMax, const QString &sourceId = QString() );
+    QImage renderToImage( int width, int height, double distanceMin, double distanceMax, double zMin, double zMax, const QString &sourceId = QString(), double devicePixelRatio = 1.0 );
 
     /**
      * Renders a portion of the profile using the specified render \a context.
@@ -171,6 +183,40 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
      * If \a sourceId is empty then all sources will be rendered, otherwise only the matching source will be rendered.
      */
     void render( QgsRenderContext &context, double width, double height, double distanceMin, double distanceMax, double zMin, double zMax, const QString &sourceId = QString() );
+
+    /**
+     * Returns the default line symbol to use for subsections lines.
+     *
+     * \see setSubsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    static std::unique_ptr<QgsLineSymbol> defaultSubSectionsSymbol() SIP_FACTORY;
+
+    /**
+     * Returns the line symbol used to draw the subsections.
+     *
+     * \see setSubsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    QgsLineSymbol *subsectionsSymbol();
+
+    /**
+     * Sets the \a symbol used to draw the subsections. If \a symbol is NULLPTR, the subsections are not drawn.
+     * Ownership of \a symbol is transferred.
+     *
+     * \see subsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    void setSubsectionsSymbol( QgsLineSymbol *symbol SIP_TRANSFER );
+
+    /**
+     * Renders the vertices of the profile curve as vertical lines using the specified render \a context.
+     * The style of the lines the style corresponds to the symbol defined by setSubsectionsSymbol().
+     *
+     * \see setSubsectionsSymbol()
+     * \since QGIS 3.44
+     */
+    void renderSubsectionsIndicator( QgsRenderContext &context, const QRectF &plotArea, double distanceMin, double distanceMax, double zMin, double zMax );
 
     /**
      * Snap a \a point to the results.
@@ -187,6 +233,13 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
      */
     QVector<QgsProfileIdentifyResults> identify( const QgsDoubleRange &distanceRange, const QgsDoubleRange &elevationRange, const QgsProfileIdentifyContext &context );
 
+    /**
+     * Exports the profile results as a set of features.
+     *
+     * \since QGIS 3.32
+     */
+    QVector< QgsAbstractProfileResults::Feature > asFeatures( Qgis::ProfileExportType type, QgsFeedback *feedback = nullptr );
+
   signals:
 
     //! Emitted when the profile generation is finished (or canceled).
@@ -197,6 +250,8 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
     void onGeneratingFinished();
 
   private:
+
+    static QTransform computeRenderTransform( double width, double height, double distanceMin, double distanceMax, double zMin, double zMax );
 
     struct ProfileJob
     {
@@ -221,6 +276,8 @@ class CORE_EXPORT QgsProfilePlotRenderer : public QObject
     QFutureWatcher<void> mFutureWatcher;
 
     enum { Idle, Generating } mStatus = Idle;
+
+    std::unique_ptr<QgsLineSymbol> mSubsectionsSymbol;
 
 };
 

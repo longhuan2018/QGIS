@@ -1,5 +1,9 @@
 name: 🪟 MingW64 Windows 64bit Build
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -17,18 +21,27 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   mingw64-build:
     name: MinGW64 Windows Build
     runs-on: ubuntu-latest
     container:
-      image: fedora:rawhide
+      image: fedora:40
       options: --security-opt seccomp=unconfined
       volumes:
         - ${{ github.workspace }}:/w
     steps:
 
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+
+      # To be removed
+      # Workaround a bug where the initial /etc/dnf/dnf.conf file contains
+      # just the "tsflags=nodocs" line
+      - name: Replace broken dnf.conf
+        run: printf '[main]\ngpgcheck=True\ninstallonly_limit=3\nclean_requirements_on_remove=True\nbest=False\nskip_if_unavailable=True\ntsflags=nodocs' > /etc/dnf/dnf.conf
 
       - name: Update system
         run: dnf -y update
@@ -40,9 +53,9 @@ jobs:
         run: ./ms-windows/mingw/mingwdeps.sh
 
       # Node.js and Yarn for server landingpage webapp
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: '17'
+          node-version: '22'
 
       - name: Make yarn available
         run: corepack enable
@@ -50,34 +63,23 @@ jobs:
       - name: Create ccache dir
         run: mkdir -p /w/.ccache/QGIS
 
-      - name: Prepare build cache for pull request
-        uses: pat-s/always-upload-cache@v3.0.11
-        if: github.event_name == 'pull_request'
+      - name: Restore build cache
+        uses: actions/cache/restore@v4
         with:
           path: /w/.ccache/QGIS
-          key: mingw64-ccache-${{ github.actor }}-${{ github.head_ref }}-${{ github.sha }}
-          # The head_ref or source branch of the pull request in a workflow run.
-          # The base_ref or target branch of the pull request in a workflow run.
+          key: build-ccache-mingw64-${{ github.event.pull_request.base.ref || github.ref_name }}
           restore-keys: |
-            mingw64-ccache-${{ github.actor }}-${{ github.head_ref }}-
-            mingw64-ccache-${{ github.base_ref }}-
-            mingw64-ccache-refs/heads/master-
-
-      - name: Prepare build cache for branch/tag
-        # use a fork of actions/cache@v2 to upload cache even when the build or test failed
-        uses: pat-s/always-upload-cache@v3.0.11
-        if: github.event_name != 'pull_request'
-        with:
-          path: /w/.ccache/QGIS
-          # The branch or tag ref that triggered the workflow run. For branches this in the format refs/heads/<branch_name>, and for tags it is refs/tags/<tag_name>
-          key: mingw64-ccache-${{ github.ref }}-${{ github.sha }}
-          restore-keys: |
-            mingw64-ccache-${{ github.ref }}-
-            mingw64-ccache-refs/heads/master-
+            build-ccache-mingw64-master
 
       - name: Build QGIS Application
-        run: |
-          CCACHE_DIR=/w/.ccache/QGIS ./ms-windows/mingw/build.sh x86_64 nodebug 4
+        run: CCACHE_DIR=/w/.ccache/QGIS ./ms-windows/mingw/build.sh x86_64 nodebug 4
+
+      - name: Save build cache for push only
+        uses: actions/cache/save@v4
+        if: ${{ github.event_name == 'push' }}
+        with:
+          path: /w/.ccache/QGIS
+          key: build-ccache-mingw64-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Create Portable zip
         run: |
@@ -92,14 +94,37 @@ jobs:
           zip -r qgis-portable-win64.zip QGIS-Portable
           (cd $DEBUGROOT && zip -r - *) > qgis-portable-win64-debugsym.zip
 
+      - name: Save PR number to zips
+        run: |
+          echo ${{ github.event.number }} | tee pr_number
+          zip -u qgis-portable-win64.zip pr_number
+          zip -u qgis-portable-win64-debugsym.zip pr_number
+          echo ${{ github.event.pull_request.head.sha }} | tee git_commit
+          zip -u qgis-portable-win64.zip git_commit
+          zip -u qgis-portable-win64-debugsym.zip git_commit
+
       - name: Upload QGIS for Windows 64bit
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
+        id: artifact-win64
         with:
           name: QGIS for Windows 64bit
           path: qgis-portable-win64.zip
 
       - name: Upload QGIS for Windows 64bit Debug Symbols
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
+        id: artifact-win64-debug
         with:
           name: QGIS for Windows 64bit Debug Symbols
           path: qgis-portable-win64-debugsym.zip
+
+      - name: Schedule download comment
+        uses: ./.github/actions/post_sticky_comment
+        if: github.event_name == 'pull_request'
+        with:
+          marker: mingw64
+          body: |
+            ### 🪟 Windows builds
+            Download [Windows builds of this PR for testing](${{ steps.artifact-win64.outputs.artifact-url }}).
+            Debug symbols for this build are available [here](${{ steps.artifact-win64-debug.outputs.artifact-url }}).
+            *(Built from commit ${{ github.event.pull_request.head.sha }})*
+          pr: ${{ github.event.number }}

@@ -10,9 +10,9 @@ else ()
 
   target_link_libraries(crssync
     qgis_core
-    ${PROJ_LIBRARY}
-    ${GDAL_LIBRARY}
   )
+
+  target_compile_definitions(crssync PRIVATE "CMAKE_INSTALL_PREFIX=\"${CMAKE_INSTALL_PREFIX}\"")
 
   if(MSVC AND NOT USING_NMAKE)
     add_custom_target(synccrsdb

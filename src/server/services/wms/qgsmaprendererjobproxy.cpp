@@ -21,17 +21,15 @@
 #include "qgsmaprendererparalleljob.h"
 #include "qgsmaprenderercustompainterjob.h"
 #include "qgsapplication.h"
+#include <QThread>
 
 namespace QgsWms
 {
 
   QgsMapRendererJobProxy::QgsMapRendererJobProxy(
-    bool parallelRendering
-    , int maxThreads
-    , QgsFeatureFilterProvider *featureFilterProvider
+    bool parallelRendering, int maxThreads, QgsFeatureFilterProvider *featureFilterProvider
   )
-    :
-    mParallelRendering( parallelRendering )
+    : mParallelRendering( parallelRendering )
     , mFeatureFilterProvider( featureFilterProvider )
   {
 #ifndef HAVE_SERVER_PYTHON_PLUGINS
@@ -48,7 +46,7 @@ namespace QgsWms
     }
   }
 
-  void QgsMapRendererJobProxy::render( const QgsMapSettings &mapSettings, QImage *image )
+  void QgsMapRendererJobProxy::render( const QgsMapSettings &mapSettings, QImage *image, const QgsFeedback *feedback )
   {
     if ( mParallelRendering )
     {
@@ -61,7 +59,12 @@ namespace QgsWms
       // threads (see discussion in https://github.com/qgis/QGIS/issues/26819).
       QEventLoop loop;
       QObject::connect( &renderJob, &QgsMapRendererParallelJob::finished, &loop, &QEventLoop::quit );
-      renderJob.start();
+      if ( feedback )
+        QObject::connect( feedback, &QgsFeedback::canceled, &renderJob, &QgsMapRendererParallelJob::cancel );
+
+      if ( !feedback || !feedback->isCanceled() )
+        renderJob.start();
+
       if ( renderJob.isActive() )
       {
         loop.exec();
@@ -72,16 +75,26 @@ namespace QgsWms
       }
 
       mErrors = renderJob.errors();
+
+      if ( feedback )
+        QObject::disconnect( feedback, &QgsFeedback::canceled, &renderJob, &QgsMapRendererParallelJob::cancel );
     }
     else
     {
       mPainter.reset( new QPainter( image ) );
       QgsMapRendererCustomPainterJob renderJob( mapSettings, mPainter.get() );
+      if ( feedback )
+        QObject::connect( feedback, &QgsFeedback::canceled, &renderJob, &QgsMapRendererCustomPainterJob::cancel );
 #ifdef HAVE_SERVER_PYTHON_PLUGINS
       renderJob.setFeatureFilterProvider( mFeatureFilterProvider );
 #endif
-      renderJob.renderSynchronously();
+      if ( !feedback || !feedback->isCanceled() )
+        renderJob.renderSynchronously();
+
       mErrors = renderJob.errors();
+
+      if ( feedback )
+        QObject::disconnect( feedback, &QgsFeedback::canceled, &renderJob, &QgsMapRendererCustomPainterJob::cancel );
     }
   }
 
@@ -89,4 +102,4 @@ namespace QgsWms
   {
     return mPainter.release();
   }
-} // namespace qgsws
+} // namespace QgsWms

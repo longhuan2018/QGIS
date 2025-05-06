@@ -16,6 +16,7 @@
  ***************************************************************************/
 
 #include "qgsanimationexportdialog.h"
+#include "moc_qgsanimationexportdialog.cpp"
 #include "qgsmapcanvas.h"
 #include "qgsexpressioncontextutils.h"
 #include "qgshelp.h"
@@ -23,13 +24,12 @@
 #include "qgsprojecttimesettings.h"
 #include "qgstemporalutils.h"
 #include "qgsmapdecoration.h"
+#include "qgsunittypes.h"
 
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
 
-Q_GUI_EXPORT extern int qt_defaultDpiX();
-
-QgsAnimationExportDialog::QgsAnimationExportDialog( QWidget *parent, QgsMapCanvas *mapCanvas, const QList< QgsMapDecoration * > &decorations )
+QgsAnimationExportDialog::QgsAnimationExportDialog( QWidget *parent, QgsMapCanvas *mapCanvas, const QList<QgsMapDecoration *> &decorations )
   : QDialog( parent )
   , mMapCanvas( mapCanvas )
 {
@@ -65,16 +65,13 @@ QgsAnimationExportDialog::QgsAnimationExportDialog( QWidget *parent, QgsMapCanva
 
   const QgsSettings settings;
 
-  const QString templateText = settings.value( QStringLiteral( "ExportAnimation/fileNameTemplate" ),
-                               QStringLiteral( "%1####.png" ).arg( QgsProject::instance()->baseName() )
-                               , QgsSettings::App ).toString();
+  const QString templateText = settings.value( QStringLiteral( "ExportAnimation/fileNameTemplate" ), QStringLiteral( "%1####.png" ).arg( QgsProject::instance()->baseName() ), QgsSettings::App ).toString();
   mTemplateLineEdit->setText( templateText );
-  const QRegularExpression rx( QStringLiteral( "^\\w+#+\\.{1}\\w+$" ) ); //e.g. anyprefix#####.png
+  const thread_local QRegularExpression rx( QStringLiteral( "^\\w+#+\\.{1}\\w+$" ) ); //e.g. anyprefix#####.png
   QValidator *validator = new QRegularExpressionValidator( rx, this );
   mTemplateLineEdit->setValidator( validator );
 
-  connect( mTemplateLineEdit, &QLineEdit::textChanged, this, [ = ]
-  {
+  connect( mTemplateLineEdit, &QLineEdit::textChanged, this, [=] {
     QgsSettings settings;
     settings.setValue( QStringLiteral( "ExportAnimation/fileNameTemplate" ), mTemplateLineEdit->text() );
   } );
@@ -85,53 +82,50 @@ QgsAnimationExportDialog::QgsAnimationExportDialog( QWidget *parent, QgsMapCanva
   mOutputDirFileWidget->setDefaultRoot( settings.value( QStringLiteral( "ExportAnimation/lastDir" ), QString(), QgsSettings::App ).toString() );
   mOutputDirFileWidget->setFilePath( settings.value( QStringLiteral( "ExportAnimation/lastDir" ), QString(), QgsSettings::App ).toString() );
 
-  connect( mOutputDirFileWidget, &QgsFileWidget::fileChanged, this, [ = ]
-  {
+  connect( mOutputDirFileWidget, &QgsFileWidget::fileChanged, this, [=] {
     QgsSettings settings;
     settings.setValue( QStringLiteral( "ExportAnimation/lastDir" ), mOutputDirFileWidget->filePath(), QgsSettings::App );
   } );
 
-  for ( const QgsUnitTypes::TemporalUnit u :
+  for ( const Qgis::TemporalUnit u :
         {
-          QgsUnitTypes::TemporalMilliseconds,
-          QgsUnitTypes::TemporalSeconds,
-          QgsUnitTypes::TemporalMinutes,
-          QgsUnitTypes::TemporalHours,
-          QgsUnitTypes::TemporalDays,
-          QgsUnitTypes::TemporalWeeks,
-          QgsUnitTypes::TemporalMonths,
-          QgsUnitTypes::TemporalYears,
-          QgsUnitTypes::TemporalDecades,
-          QgsUnitTypes::TemporalCenturies,
-          QgsUnitTypes::TemporalIrregularStep
+          Qgis::TemporalUnit::Milliseconds,
+          Qgis::TemporalUnit::Seconds,
+          Qgis::TemporalUnit::Minutes,
+          Qgis::TemporalUnit::Hours,
+          Qgis::TemporalUnit::Days,
+          Qgis::TemporalUnit::Weeks,
+          Qgis::TemporalUnit::Months,
+          Qgis::TemporalUnit::Years,
+          Qgis::TemporalUnit::Decades,
+          Qgis::TemporalUnit::Centuries,
+          Qgis::TemporalUnit::IrregularStep
         } )
   {
-    mTimeStepsComboBox->addItem( QgsUnitTypes::toString( u ), u );
+    mTimeStepsComboBox->addItem( QgsUnitTypes::toString( u ), static_cast<int>( u ) );
   }
 
-  if ( const QgsTemporalNavigationObject *controller = qobject_cast< const QgsTemporalNavigationObject * >( mMapCanvas->temporalController() ) )
+  if ( const QgsTemporalNavigationObject *controller = qobject_cast<const QgsTemporalNavigationObject *>( mMapCanvas->temporalController() ) )
   {
     mStartDateTime->setDateTime( controller->temporalExtents().begin() );
     mEndDateTime->setDateTime( controller->temporalExtents().end() );
   }
   mFrameDurationSpinBox->setClearValue( 1 );
   mFrameDurationSpinBox->setValue( QgsProject::instance()->timeSettings()->timeStep() );
-  mTimeStepsComboBox->setCurrentIndex( QgsProject::instance()->timeSettings()->timeStepUnit() );
+  mTimeStepsComboBox->setCurrentIndex( mTimeStepsComboBox->findData( static_cast<int>( QgsProject::instance()->timeSettings()->timeStepUnit() ) ) );
 
-  connect( mOutputWidthSpinBox, &QSpinBox::editingFinished, this, [ = ] { updateOutputWidth( mOutputWidthSpinBox->value() );} );
-  connect( mOutputHeightSpinBox, &QSpinBox::editingFinished, this, [ = ] { updateOutputHeight( mOutputHeightSpinBox->value() );} );
+  connect( mOutputWidthSpinBox, &QSpinBox::editingFinished, this, [=] { updateOutputWidth( mOutputWidthSpinBox->value() ); } );
+  connect( mOutputHeightSpinBox, &QSpinBox::editingFinished, this, [=] { updateOutputHeight( mOutputHeightSpinBox->value() ); } );
   connect( mExtentGroupBox, &QgsExtentGroupBox::extentChanged, this, &QgsAnimationExportDialog::updateExtent );
   connect( mLockAspectRatio, &QgsRatioLockButton::lockChanged, this, &QgsAnimationExportDialog::lockChanged );
 
   connect( mSetToProjectTimeButton, &QPushButton::clicked, this, &QgsAnimationExportDialog::setToProjectTime );
 
-  connect( buttonBox, &QDialogButtonBox::helpRequested, this, [ = ]
-  {
-    QgsHelp::openHelp( QStringLiteral( "introduction/qgis_gui.html#time-based-control-on-the-map-canvas" ) );
+  connect( buttonBox, &QDialogButtonBox::helpRequested, this, [=] {
+    QgsHelp::openHelp( QStringLiteral( "map_views/map_view.html#maptimecontrol" ) );
   } );
 
-  connect( buttonBox, &QDialogButtonBox::accepted, this, [ = ]
-  {
+  connect( buttonBox, &QDialogButtonBox::accepted, this, [=] {
     emit startExport();
     accept();
   } );
@@ -237,7 +231,7 @@ QgsDateTimeRange QgsAnimationExportDialog::animationRange() const
 
 QgsInterval QgsAnimationExportDialog::frameInterval() const
 {
-  return QgsInterval( mFrameDurationSpinBox->value(), static_cast< QgsUnitTypes::TemporalUnit>( mTimeStepsComboBox->currentData().toInt() ) );
+  return QgsInterval( mFrameDurationSpinBox->value(), static_cast<Qgis::TemporalUnit>( mTimeStepsComboBox->currentData().toInt() ) );
 }
 
 void QgsAnimationExportDialog::applyMapSettings( QgsMapSettings &mapSettings )

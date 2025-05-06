@@ -31,14 +31,12 @@ class QgsPostgresRasterTemporalSettingsWidget : public QgsMapLayerConfigWidget, 
   public:
     QgsPostgresRasterTemporalSettingsWidget( QgsMapLayer *layer, QgsMapCanvas *canvas, QWidget *parent = nullptr );
 
-    void syncToLayer( QgsMapLayer *layer ) override;
+    void syncToLayer( QgsMapLayer *layer ) final;
     void apply() override;
   private slots:
 
   private:
-
     QgsRasterLayer *mRasterLayer = nullptr;
-
 };
 
 class QgsPostgresRasterTemporalSettingsConfigWidgetFactory : public QgsMapLayerConfigWidgetFactory
@@ -48,7 +46,6 @@ class QgsPostgresRasterTemporalSettingsConfigWidgetFactory : public QgsMapLayerC
     bool supportsLayer( QgsMapLayer *layer ) const override;
     ParentPage parentPage() const override;
     QgsMapLayerConfigWidget *createWidget( QgsMapLayer *layer, QgsMapCanvas *canvas, bool dockWidget = true, QWidget *parent = nullptr ) const override;
-
 };
 
 #endif // QGSPOSTGRESRASTERTEMPORALSETTINGSWIDGET_H

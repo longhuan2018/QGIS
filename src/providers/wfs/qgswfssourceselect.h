@@ -19,7 +19,6 @@
 #define QGSWFSSOURCESELECT_H
 
 #include "ui_qgswfssourceselectbase.h"
-#include "qgshelp.h"
 #include "qgswfscapabilities.h"
 #include "qgsoapiflandingpagerequest.h"
 #include "qgsoapifcollection.h"
@@ -31,7 +30,7 @@
 #include <QSortFilterProxyModel>
 
 class QgsProjectionSelectionDialog;
-class QgsWfsCapabilities;
+class QgsWfsGetCapabilitiesRequest;
 class QgsSubsetStringEditorInterface;
 
 class QgsWFSItemDelegate : public QItemDelegate
@@ -39,19 +38,18 @@ class QgsWFSItemDelegate : public QItemDelegate
     Q_OBJECT
 
   public:
-    explicit QgsWFSItemDelegate( QObject *parent = nullptr ) : QItemDelegate( parent ) { }
+    explicit QgsWFSItemDelegate( QObject *parent = nullptr )
+      : QItemDelegate( parent ) {}
 
     QSize sizeHint( const QStyleOptionViewItem &option, const QModelIndex &index ) const override;
-
 };
 
-class QgsWFSSourceSelect: public QgsAbstractDataSourceWidget, private Ui::QgsWFSSourceSelectBase
+class QgsWFSSourceSelect : public QgsAbstractDataSourceWidget, private Ui::QgsWFSSourceSelectBase
 {
     Q_OBJECT
 
   public:
-
-    QgsWFSSourceSelect( QWidget *parent = nullptr, Qt::WindowFlags fl = QgsGuiUtils::ModalDialogFlags, QgsProviderRegistry::WidgetMode widgetMode = QgsProviderRegistry::WidgetMode::None );
+    QgsWFSSourceSelect( QWidget *parent = nullptr, Qt::WindowFlags fl = QgsGuiUtils::ModalDialogFlags, QgsProviderRegistry::WidgetMode widgetMode = QgsProviderRegistry::WidgetMode::Standalone );
     ~QgsWFSSourceSelect() override;
 
     void reset() override;
@@ -65,30 +63,29 @@ class QgsWFSSourceSelect: public QgsAbstractDataSourceWidget, private Ui::QgsWFS
      * The first string is the typename, the corresponding list
      * stores the CRS for the typename in the form 'EPSG:XXXX'
     */
-    QMap<QString, QStringList > mAvailableCRS;
-    std::unique_ptr<QgsWfsCapabilities> mCapabilities;
+    QMap<QString, QStringList> mAvailableCRS;
+    std::unique_ptr<QgsWfsGetCapabilitiesRequest> mCapabilities;
     std::unique_ptr<QgsOapifLandingPageRequest> mOAPIFLandingPage;
     std::unique_ptr<QgsOapifCollectionsRequest> mOAPIFCollections;
-    QString mUri;            // data source URI
+    QString mUri; // data source URI
     QgsWFSItemDelegate *mItemDelegate = nullptr;
     QStandardItemModel *mModel = nullptr;
     QSortFilterProxyModel *mModelProxy = nullptr;
     QPushButton *mBuildQueryButton = nullptr;
-    QgsWfsCapabilities::Capabilities mCaps;
+    QgsWfsCapabilities mCaps;
     QModelIndex mSQLIndex;
     QgsSubsetStringEditorInterface *mSQLComposerDialog = nullptr;
     QString mVersion;
 
     /**
-     * Returns the best suited CRS from a set of authority ids
+     * Returns the best suited CRS from a list of authority ids
      *
-     * 1. project CRS if contained in the set
-     * 2. WGS84 if contained in the set
-     * 3. the first entry in the set else
+     * 1. project CRS if contained in the list and the project is not empty
+     * 2. the first entry in the list else
      *
      * \returns the authority id of the crs or an empty string in case of error
     */
-    QString getPreferredCrs( const QSet<QString> &crsSet ) const;
+    QString getPreferredCrs( const QList<QString> &crsList ) const;
 
     void showHelp();
 

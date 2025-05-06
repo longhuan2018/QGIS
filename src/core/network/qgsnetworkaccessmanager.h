@@ -34,17 +34,9 @@
 
 #include "qgis_core.h"
 #include "qgis_sip.h"
-#include "qgssettingsentryimpl.h"
 
 class QgsFeedback;
-
-#ifndef SIP_RUN
-#include "qgsconfig.h"
-constexpr int sFilePrefixLength = CMAKE_SOURCE_DIR[sizeof( CMAKE_SOURCE_DIR ) - 1] == '/' ? sizeof( CMAKE_SOURCE_DIR ) + 1 : sizeof( CMAKE_SOURCE_DIR );
-
-#define QgsSetRequestInitiatorClass(request, _class) request.setAttribute( static_cast< QNetworkRequest::Attribute >( QgsNetworkRequestParameters::AttributeInitiatorClass ), _class ); request.setAttribute( static_cast< QNetworkRequest::Attribute >( QgsNetworkRequestParameters::AttributeInitiatorRequestId ), QString(QString( __FILE__ ).mid( sFilePrefixLength ) + ':' + QString::number( __LINE__ ) + " (" + __FUNCTION__ + ")") );
-#define QgsSetRequestInitiatorId(request, str) request.setAttribute( static_cast< QNetworkRequest::Attribute >( QgsNetworkRequestParameters::AttributeInitiatorRequestId ), QString(QString( __FILE__ ).mid( sFilePrefixLength ) + ':' + QString::number( __LINE__ ) + " (" + __FUNCTION__ + "): " + str) );
-#endif
+class QgsSettingsEntryInteger;
 
 /**
  * \class QgsNetworkRequestParameters
@@ -63,9 +55,6 @@ class CORE_EXPORT QgsNetworkRequestParameters
       AttributeInitiatorRequestId, //!< Internal ID used by originator object to identify requests
     };
 
-    /**
-     * Default constructor.
-     */
     QgsNetworkRequestParameters() = default;
 
     /**
@@ -251,7 +240,7 @@ class CORE_EXPORT QgsNetworkAuthenticationHandler
 
 /**
  * \class QgsNetworkAccessManager
- * \brief network access manager for QGIS
+ * \brief QNetworkAccessManager with additional QGIS specific logic.
  * \ingroup core
  *
  * \brief This class implements the QGIS network access manager.  It's a singleton
@@ -263,8 +252,6 @@ class CORE_EXPORT QgsNetworkAuthenticationHandler
  * If no proxy factories are there or none returns a proxy for an URL a
  * fallback proxy can be set.  There's also a exclude list that defines URLs
  * that the fallback proxy should not be used for, then no proxy will be used.
- *
- * \since 1.5
  */
 class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
 {
@@ -534,9 +521,10 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
     static QString setRequestPreprocessor( SIP_PYCALLABLE / AllowNone / );
     % MethodCode
     PyObject *s = 0;
-    Py_BEGIN_ALLOW_THREADS
+    QString id;
     Py_XINCREF( a0 );
-    QString id = QgsNetworkAccessManager::setRequestPreprocessor( [a0]( QNetworkRequest *arg )->QString
+    Py_BEGIN_ALLOW_THREADS
+    id = QgsNetworkAccessManager::setRequestPreprocessor( [a0]( QNetworkRequest *arg )->QString
     {
       QString res;
       SIP_BLOCK_THREADS
@@ -552,9 +540,9 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
       SIP_UNBLOCK_THREADS
       return res;
     } );
+    Py_END_ALLOW_THREADS
 
     s = sipConvertFromNewType( new QString( id ), sipType_QString, 0 );
-    Py_END_ALLOW_THREADS
     return s;
     % End
 #endif
@@ -583,6 +571,99 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
 #endif
 
     /**
+     * Sets an advanced request pre-processor function, which allows manipulation of a network request before it is processed.
+     *
+     * The \a processor function takes the QNetworkRequest, network operation (a QNetworkAccessManager::Operation cast to an integer value),
+     * and request data as its arguments, and can mutate the request if necessary.
+     *
+     * It should return the desired operation (as a QNetworkAccessManager::Operation cast to an integer value) and request data as a tuple,
+     * transforming as desired.
+     *
+     * \returns An auto-generated string uniquely identifying the preprocessor, which can later be
+     * used to remove the preprocessor (via a call to removeAdvancedRequestPreprocessor()).
+     *
+     * \see removeAdvancedRequestPreprocessor()
+     * \since QGIS 3.44
+     */
+#ifndef SIP_RUN
+    static QString setAdvancedRequestPreprocessor( const std::function< void( QNetworkRequest *, int &op, QByteArray *data )> &processor );
+#else
+    static QString setAdvancedRequestPreprocessor( SIP_PYCALLABLE / AllowNone / );
+    % MethodCode
+    PyObject *s = 0;
+    QString id;
+    Py_XINCREF( a0 );
+    Py_BEGIN_ALLOW_THREADS
+    id = QgsNetworkAccessManager::setAdvancedRequestPreprocessor( [a0]( QNetworkRequest *reqArg, int &op, QByteArray *data )
+    {
+      SIP_BLOCK_THREADS
+
+      PyObject *requestObj = sipConvertFromType( reqArg, sipType_QNetworkRequest, NULL );
+      PyObject *postDataObj = sipConvertFromType( new QByteArray( *data ), sipType_QByteArray, Py_None );
+
+      PyObject *result = sipCallMethod( NULL, a0, "RiR", requestObj, op, postDataObj );
+
+      Py_XDECREF( requestObj );
+      Py_XDECREF( postDataObj );
+
+      if ( result && PyTuple_Check( result ) && PyTuple_Size( result ) == 2 )
+      {
+        // Extract modified operation
+        PyObject *opObj = PyTuple_GetItem( result, 0 );
+        if ( opObj && PyLong_Check( opObj ) )
+        {
+          op = static_cast<int>( PyLong_AsLong( opObj ) );
+        }
+        PyObject *dataObj = PyTuple_GetItem( result, 1 );
+        if ( dataObj && dataObj != Py_None )
+        {
+          int dataState;
+          int sipIsErr = 0;
+          QByteArray *modifiedData = reinterpret_cast<QByteArray *>( sipConvertToType( dataObj, sipType_QByteArray, 0, SIP_NOT_NONE, &dataState, &sipIsErr ) );
+          if ( sipIsErr == 0 )
+          {
+            data->clear();
+            data->append( *modifiedData );
+            sipReleaseType( modifiedData, sipType_QByteArray, dataState );
+          }
+        }
+      }
+
+      Py_XDECREF( result );
+      SIP_UNBLOCK_THREADS
+    } );
+    Py_END_ALLOW_THREADS
+
+    s = sipConvertFromNewType( new QString( id ), sipType_QString, 0 );
+    return s;
+    % End
+#endif
+
+    /**
+     * Removes an advanced request pre-processor function with matching \a id.
+     *
+     * The \a id must correspond to a pre-processor previously added via a call to setAdvancedRequestPreprocessor().
+     *
+     * Returns TRUE if processor existed and was removed.
+     *
+     * \see setAdvancedRequestPreprocessor()
+     * \since QGIS 3.44
+     */
+#ifndef SIP_RUN
+    static bool removeAdvancedRequestPreprocessor( const QString &id );
+#else
+    static void removeAdvancedRequestPreprocessor( const QString &id );
+    % MethodCode
+    if ( !QgsNetworkAccessManager::removeAdvancedRequestPreprocessor( *a0 ) )
+    {
+      PyErr_SetString( PyExc_KeyError, QStringLiteral( "No processor with id %1 exists." ).arg( *a0 ).toUtf8().constData() );
+      sipIsErr = 1;
+    }
+    % End
+#endif
+
+
+    /**
      * Sets a reply pre-processor function, which allows manipulation of QNetworkReply objects after they are created (but before they are fetched).
      *
      * The \a processor function takes a QNetworkRequest request and a QNetworkReply as arguments, and can connect to QNetworkReply signals directly as desired.
@@ -599,17 +680,18 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
     static QString setReplyPreprocessor( SIP_PYCALLABLE / AllowNone / );
     % MethodCode
     PyObject *s = 0;
-    Py_BEGIN_ALLOW_THREADS
+    QString id;
     Py_XINCREF( a0 );
-    QString id = QgsNetworkAccessManager::setReplyPreprocessor( [a0]( const QNetworkRequest &request, QNetworkReply *reply )
+    Py_BEGIN_ALLOW_THREADS
+    id = QgsNetworkAccessManager::setReplyPreprocessor( [a0]( const QNetworkRequest &request, QNetworkReply *reply )
     {
       SIP_BLOCK_THREADS
       Py_XDECREF( sipCallMethod( NULL, a0, "ND", new QNetworkRequest( request ), sipType_QNetworkRequest, NULL, reply, sipType_QNetworkReply, NULL ) );
       SIP_UNBLOCK_THREADS
     } );
 
-    s = sipConvertFromNewType( new QString( id ), sipType_QString, 0 );
     Py_END_ALLOW_THREADS
+    s = sipConvertFromNewType( new QString( id ), sipType_QString, 0 );
     return s;
     % End
 #endif
@@ -677,9 +759,9 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
   signals:
 
     /**
-     * \deprecated Use the thread-safe requestAboutToBeCreated( QgsNetworkRequestParameters ) signal instead.
+     * \deprecated QGIS 3.40. Use the thread-safe requestAboutToBeCreated( QgsNetworkRequestParameters ) signal instead.
      */
-    Q_DECL_DEPRECATED void requestAboutToBeCreated( QNetworkAccessManager::Operation, const QNetworkRequest &, QIODevice * ) SIP_DEPRECATED;
+    Q_DECL_DEPRECATED void requestAboutToBeCreated( QNetworkAccessManager::Operation operation, const QNetworkRequest &request, QIODevice *device ) SIP_DEPRECATED;
 
     /**
      * Emitted when a network request is about to be created.
@@ -688,11 +770,26 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
      * only to connect to the main thread's signal in order to receive notifications about requests
      * created in any thread.
      *
+     * \see requestCreated( const QgsNetworkRequestParameters & )
      * \see finished( QgsNetworkReplyContent )
      * \see requestTimedOut( QgsNetworkRequestParameters )
      * \since QGIS 3.6
      */
     void requestAboutToBeCreated( QgsNetworkRequestParameters request );
+
+    /**
+     * Emitted when a network request has been created.
+     *
+     * This signal is propagated to the main thread QgsNetworkAccessManager instance, so it is necessary
+     * only to connect to the main thread's signal in order to receive notifications about requests
+     * created in any thread.
+     *
+     * \see requestAboutToBeCreated( QgsNetworkRequestParameters )
+     * \see finished( QgsNetworkReplyContent )
+     * \see requestTimedOut( QgsNetworkRequestParameters )
+     * \since QGIS 3.38
+     */
+    void requestCreated( const QgsNetworkRequestParameters &request );
 
     /**
      * Emitted whenever a pending network reply is finished.
@@ -802,11 +899,14 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
 #endif
 
     /**
-     * \deprecated Use the thread-safe requestAboutToBeCreated( QgsNetworkRequestParameters ) signal instead.
+     * \deprecated QGIS 3.40. Use the thread-safe requestAboutToBeCreated( QgsNetworkRequestParameters ) signal instead.
      */
-    Q_DECL_DEPRECATED void requestCreated( QNetworkReply * ) SIP_DEPRECATED;
+    Q_DECL_DEPRECATED void requestCreated( QNetworkReply *reply ) SIP_DEPRECATED;
 
-    void requestTimedOut( QNetworkReply * );
+    /**
+     * Emitted when a request times out.
+     */
+    void requestTimedOut( QNetworkReply *reply );
 
 #ifndef SIP_RUN
 ///@cond PRIVATE
@@ -878,6 +978,8 @@ class CORE_EXPORT QgsNetworkAccessManager : public QNetworkAccessManager
     std::unique_ptr< QgsNetworkAuthenticationHandler > mAuthHandler;
     // Used by worker threads to wait for authentication handler run in main thread
     QSemaphore mAuthRequestHandlerSemaphore;
+
+    friend class TestQgsNetworkAccessManager;
 };
 
 #endif // QGSNETWORKACCESSMANAGER_H

@@ -22,9 +22,7 @@
 #include "qgsexpressioncontextgenerator.h"
 #include "qgslayoutgridsettings.h"
 #include "qgslayoutguidecollection.h"
-#include "qgslayoutexporter.h"
 #include "qgsmasterlayoutinterface.h"
-#include "qgssettingsentry.h"
 
 class QgsLayoutItemMap;
 class QgsLayoutModel;
@@ -33,6 +31,7 @@ class QgsLayoutPageCollection;
 class QgsLayoutUndoStack;
 class QgsLayoutRenderContext;
 class QgsLayoutReportContext;
+class QgsSettingsEntryStringList;
 
 /**
  * \ingroup core
@@ -45,7 +44,6 @@ class QgsLayoutReportContext;
  * preparing the layout and paint devices for correct exports, respecting various
  * user settings such as the layout context DPI.
  *
- * \since QGIS 3.0
  */
 class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContextGenerator, public QgsLayoutUndoObjectInterface
 {
@@ -304,14 +302,16 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
     /**
      * Returns the topmost layout item at a specified \a position. Ignores paper items.
      * If \a ignoreLocked is set to TRUE any locked items will be ignored.
+     * Since QGIS 3.34 the \a searchTolerance parameter was added, which can be used to specify a search tolerance in layout units.
      */
-    QgsLayoutItem *layoutItemAt( QPointF position, bool ignoreLocked = false ) const;
+    QgsLayoutItem *layoutItemAt( QPointF position, bool ignoreLocked = false, double searchTolerance = 0 ) const;
 
     /**
      * Returns the topmost layout item at a specified \a position which is below a specified \a item. Ignores paper items.
      * If \a ignoreLocked is set to TRUE any locked items will be ignored.
+     * Since QGIS 3.34 the \a searchTolerance parameter was added, which can be used to specify a search tolerance in layout units.
      */
-    QgsLayoutItem *layoutItemAt( QPointF position, const QgsLayoutItem *belowItem, bool ignoreLocked = false ) const;
+    QgsLayoutItem *layoutItemAt( QPointF position, const QgsLayoutItem *belowItem, bool ignoreLocked = false, double searchTolerance = 0 ) const;
 
     /**
      * Sets the native measurement \a units for the layout. These also form the default unit
@@ -319,14 +319,14 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
      * \see units()
      * \see convertToLayoutUnits()
     */
-    void setUnits( QgsUnitTypes::LayoutUnit units ) { mUnits = units; }
+    void setUnits( Qgis::LayoutUnit units ) { mUnits = units; }
 
     /**
      * Returns the native units for the layout.
      * \see setUnits()
      * \see convertToLayoutUnits()
     */
-    QgsUnitTypes::LayoutUnit units() const { return mUnits; }
+    Qgis::LayoutUnit units() const { return mUnits; }
 
     /**
      * Converts a measurement into the layout's native units.
@@ -358,7 +358,7 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
      * \see convertToLayoutUnits()
      * \see units()
     */
-    QgsLayoutMeasurement convertFromLayoutUnits( double length, QgsUnitTypes::LayoutUnit unit ) const;
+    QgsLayoutMeasurement convertFromLayoutUnits( double length, Qgis::LayoutUnit unit ) const;
 
     /**
      * Converts a \a size from the layout's native units to a specified target \a unit.
@@ -366,7 +366,7 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
      * \see convertToLayoutUnits()
      * \see units()
     */
-    QgsLayoutSize convertFromLayoutUnits( QSizeF size, QgsUnitTypes::LayoutUnit unit ) const;
+    QgsLayoutSize convertFromLayoutUnits( QSizeF size, Qgis::LayoutUnit unit ) const;
 
     /**
      * Converts a \a point from the layout's native units to a specified target \a unit.
@@ -374,7 +374,7 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
      * \see convertToLayoutUnits()
      * \see units()
     */
-    QgsLayoutPoint convertFromLayoutUnits( QPointF point, QgsUnitTypes::LayoutUnit unit ) const;
+    QgsLayoutPoint convertFromLayoutUnits( QPointF point, Qgis::LayoutUnit unit ) const;
 
     /**
      * Returns a reference to the layout's render context, which stores information relating to the
@@ -730,7 +730,7 @@ class CORE_EXPORT QgsLayout : public QGraphicsScene, public QgsExpressionContext
 
     QgsObjectCustomProperties mCustomProperties;
 
-    QgsUnitTypes::LayoutUnit mUnits = QgsUnitTypes::LayoutMillimeters;
+    Qgis::LayoutUnit mUnits = Qgis::LayoutUnit::Millimeters;
     QgsLayoutRenderContext *mRenderContext = nullptr;
     QgsLayoutReportContext *mReportContext = nullptr;
     QgsLayoutSnapper mSnapper;

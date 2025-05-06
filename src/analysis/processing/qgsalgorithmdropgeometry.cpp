@@ -67,22 +67,22 @@ QgsCoordinateReferenceSystem QgsDropGeometryAlgorithm::outputCrs( const QgsCoord
 
 bool QgsDropGeometryAlgorithm::supportInPlaceEdit( const QgsMapLayer *l ) const
 {
-  return qobject_cast< const QgsVectorLayer * >( l );
+  return qobject_cast<const QgsVectorLayer *>( l );
 }
 
-QgsWkbTypes::Type QgsDropGeometryAlgorithm::outputWkbType( QgsWkbTypes::Type ) const
+Qgis::WkbType QgsDropGeometryAlgorithm::outputWkbType( Qgis::WkbType ) const
 {
-  return QgsWkbTypes::NoGeometry;
+  return Qgis::WkbType::NoGeometry;
 }
 
-QgsProcessingFeatureSource::Flag QgsDropGeometryAlgorithm::sourceFlags() const
+Qgis::ProcessingFeatureSourceFlags QgsDropGeometryAlgorithm::sourceFlags() const
 {
-  return QgsProcessingFeatureSource::FlagSkipGeometryValidityChecks;
+  return Qgis::ProcessingFeatureSourceFlag::SkipGeometryValidityChecks;
 }
 
 QgsFeatureRequest QgsDropGeometryAlgorithm::request() const
 {
-  return QgsFeatureRequest().setFlags( QgsFeatureRequest::NoGeometry );
+  return QgsFeatureRequest().setFlags( Qgis::FeatureRequestFlag::NoGeometry );
 }
 
 QgsFeatureList QgsDropGeometryAlgorithm::processFeature( const QgsFeature &feature, QgsProcessingContext &, QgsProcessingFeedback * )

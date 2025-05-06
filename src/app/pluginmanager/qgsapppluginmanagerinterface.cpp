@@ -15,6 +15,7 @@
  ***************************************************************************/
 
 #include "qgsapppluginmanagerinterface.h"
+#include "moc_qgsapppluginmanagerinterface.cpp"
 #include "qgspluginmanager.h"
 #include "qgslogger.h"
 
@@ -47,7 +48,7 @@ void QgsAppPluginManagerInterface::addPluginMetadata( const QMap<QString, QStrin
 {
   if ( metadata.isEmpty() || !metadata.contains( QStringLiteral( "id" ) ) )
   {
-    QgsDebugMsg( QStringLiteral( "Warning: incomplete metadata" ) );
+    QgsDebugError( QStringLiteral( "Warning: incomplete metadata" ) );
     return;
   }
   mPluginManager->addPluginMetadata( metadata.value( QStringLiteral( "id" ) ), metadata );

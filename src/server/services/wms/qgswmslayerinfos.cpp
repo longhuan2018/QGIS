@@ -34,7 +34,8 @@ QgsRectangle QgsWmsLayerInfos::transformExtent(
   const QgsCoordinateReferenceSystem &source,
   const QgsCoordinateReferenceSystem &destination,
   const QgsCoordinateTransformContext &context,
-  const bool &ballparkTransformsAreAppropriate )
+  const bool &ballparkTransformsAreAppropriate
+)
 {
   QgsCoordinateTransform transformer { source, destination, context };
   transformer.setBallparkTransformsAreAppropriate( ballparkTransformsAreAppropriate );
@@ -42,13 +43,14 @@ QgsRectangle QgsWmsLayerInfos::transformExtent(
   return transformer.transformBoundingBox( extent );
 }
 
-QMap< QString, QgsRectangle > QgsWmsLayerInfos::transformExtentToCrsList(
+QMap<QString, QgsRectangle> QgsWmsLayerInfos::transformExtentToCrsList(
   const QgsRectangle &extent,
   const QgsCoordinateReferenceSystem &source,
   const QList<QgsCoordinateReferenceSystem> &destinations,
-  const QgsCoordinateTransformContext &context )
+  const QgsCoordinateTransformContext &context
+)
 {
-  QMap< QString, QgsRectangle > crsExtents;
+  QMap<QString, QgsRectangle> crsExtents;
   if ( extent.isEmpty() )
   {
     return crsExtents;
@@ -57,7 +59,7 @@ QMap< QString, QgsRectangle > QgsWmsLayerInfos::transformExtentToCrsList(
   {
     // Transform extent and do not catch exception
     QgsCoordinateTransform crsTransform { source, destination, context };
-    crsExtents[ destination.authid() ] = crsTransform.transformBoundingBox( extent );
+    crsExtents[destination.authid()] = crsTransform.transformBoundingBox( extent );
   }
   return crsExtents;
 }
@@ -69,7 +71,8 @@ bool setBoundingRect(
   QgsMapLayer *ml,
   const QgsRectangle &wmsExtent,
   const QgsCoordinateReferenceSystem &wgs84,
-  const QList<QgsCoordinateReferenceSystem> &outputCrsList )
+  const QList<QgsCoordinateReferenceSystem> &outputCrsList
+)
 {
   QgsRectangle layerExtent = ml->extent();
   if ( layerExtent.isEmpty() )
@@ -118,8 +121,8 @@ bool setBoundingRect(
   try
   {
     pLayer.crsExtents = QgsWmsLayerInfos::transformExtentToCrsList(
-                          layerExtent, ml->crs(), outputCrsList, project->transformContext()
-                        );
+      layerExtent, ml->crs(), outputCrsList, project->transformContext()
+    );
   }
   catch ( QgsCsException &cse )
   {
@@ -133,22 +136,23 @@ bool setBoundingRect(
 // ===================================
 // Get wms layer infos
 // ===================================
-QMap< QString, QgsWmsLayerInfos > QgsWmsLayerInfos::buildWmsLayerInfos(
+QMap<QString, QgsWmsLayerInfos> QgsWmsLayerInfos::buildWmsLayerInfos(
   QgsServerInterface *serverIface,
   const QgsProject *project,
-  const QList<QgsCoordinateReferenceSystem> &outputCrsList )
+  const QList<QgsCoordinateReferenceSystem> &outputCrsList
+)
 {
-  QMap< QString, QgsWmsLayerInfos > wmsLayers;
+  QMap<QString, QgsWmsLayerInfos> wmsLayers;
 #ifdef HAVE_SERVER_PYTHON_PLUGINS
   QgsAccessControl *accessControl = serverIface->accessControls();
 #else
-  ( void )serverIface;
+  ( void ) serverIface;
 #endif
 
   bool useLayerIds = QgsServerProjectUtils::wmsUseLayerIds( *project );
   const QStringList restrictedLayers = QgsServerProjectUtils::wmsRestrictedLayers( *project );
   const QgsRectangle wmsExtent = QgsServerProjectUtils::wmsExtent( *project );
-  const QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( geoEpsgCrsAuthId() );
+  const QgsCoordinateReferenceSystem wgs84 = QgsCoordinateReferenceSystem::fromOgcWmsCrs( Qgis::geographicCrsAuthId() );
 
   for ( QgsMapLayer *ml : project->mapLayers() )
   {
@@ -171,10 +175,10 @@ QMap< QString, QgsWmsLayerInfos > QgsWmsLayerInfos::buildWmsLayerInfos(
     // First define if the layer has an extent
     // Vector layer with No Geometry has no extent the other has one
     bool hasExtent = true;
-    if ( ml->type() == QgsMapLayerType::VectorLayer )
+    if ( ml->type() == Qgis::LayerType::Vector )
     {
       QgsVectorLayer *vLayer = qobject_cast<QgsVectorLayer *>( ml );
-      if ( !vLayer || vLayer->wkbType() == QgsWkbTypes::NoGeometry )
+      if ( !vLayer || vLayer->wkbType() == Qgis::WkbType::NoGeometry )
       {
         hasExtent = false;
       }
@@ -192,31 +196,18 @@ QMap< QString, QgsWmsLayerInfos > QgsWmsLayerInfos::buildWmsLayerInfos(
     {
       pLayer.name = ml->id();
     }
-    else if ( !ml->shortName().isEmpty() )
+    else if ( !ml->serverProperties()->shortName().isEmpty() )
     {
-      pLayer.name = ml->shortName();
+      pLayer.name = ml->serverProperties()->shortName();
     }
-    // layer title
-    pLayer.title = ml->title();
-    if ( pLayer.title.isEmpty() )
-    {
-      pLayer.title = ml->name();
-    }
-    // layer abstract
-    pLayer.abstract = ml->abstract();
     // layer is queryable
     pLayer.queryable = ml->flags().testFlag( QgsMapLayer::Identifiable );
-    // layer keywords
-    if ( !ml->keywordList().isEmpty() )
-    {
-      pLayer.keywords = ml->keywordList().split( ',' );
-    }
     // layer styles
     pLayer.styles = ml->styleManager()->styles();
     // layer legend URL
-    pLayer.legendUrl = ml->legendUrl();
+    pLayer.legendUrl = ml->serverProperties()->legendUrl();
     // layer legend URL format
-    pLayer.legendUrlFormat = ml->legendUrlFormat();
+    pLayer.legendUrlFormat = ml->serverProperties()->legendUrlFormat();
     // layer min/max scales
     if ( ml->hasScaleBasedVisibility() )
     {
@@ -224,17 +215,9 @@ QMap< QString, QgsWmsLayerInfos > QgsWmsLayerInfos::buildWmsLayerInfos(
       pLayer.maxScale = ml->maximumScale();
       pLayer.minScale = ml->minimumScale();
     }
-    // layer data URL
-    pLayer.dataUrl = ml->dataUrl();
-    // layer attribution
-    pLayer.attribution = ml->attribution();
-    pLayer.attributionUrl = ml->attributionUrl();
-    // layer metadata URLs
-    pLayer.metadataUrls = ml->serverProperties()->metadataUrls();
 
     wmsLayers[pLayer.id] = pLayer;
   }
 
   return wmsLayers;
 }
-

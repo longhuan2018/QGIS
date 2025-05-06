@@ -13,10 +13,12 @@
  *                                                                         *
  ***************************************************************************/
 #include "qgsmapcanvassnappingutils.h"
+#include "moc_qgsmapcanvassnappingutils.cpp"
 
 #include "qgsmapcanvas.h"
 #include "qgsvectorlayer.h"
 #include "qgssettingsregistrycore.h"
+#include "qgssettingsentryimpl.h"
 
 #include <QApplication>
 #include <QProgressDialog>

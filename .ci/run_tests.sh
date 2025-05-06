@@ -2,17 +2,26 @@
 
 set -e
 
-# check for docker-compose and docker availability
-command -v docker > /dev/null || {
-	echo "Please install docker" >&2
-	exit 1
-}
-command -v docker-compose > /dev/null || {
-	echo "Please install docker-compose" >&2
+DOCKER=$(command -v podman docker | head -1)
+
+# check for docker availability
+test -n "${DOCKER}" || {
+	echo "Please install podman or docker" >&2
 	exit 1
 }
 
-IMAGE_BUILD_DEPS=qgis/qgis3-build-deps:latest
+DOCKER_COMPOSE=$(command -v podman-compose docker-compose | head -1)
+test -n "${DOCKER_COMPOSE}" || {
+  DOCKER_COMPOSE="${DOCKER} compose"
+  # check if supported
+  ${DOCKER_COMPOSE} > /dev/null || {
+    echo "Cannot find podman-compose or docker-compose, and '${DOCKER_COMPOSE}' fails" >&2
+    echo "HINT: try installing podman-compose" >&2
+    exit 1
+  }
+}
+
+IMAGE_BUILD_DEPS=docker.io/qgis/qgis3-build-deps:latest
 UPDATE_IMAGES=yes
 INTERACTIVE=no
 FORCE_REBUILD=no
@@ -74,22 +83,25 @@ echo "--=[ QGIS_COMMON_GIT_DIR is $QGIS_COMMON_GIT_DIR"
 # Make qgis3-build-deps-binary-image available, building it if needed
 #
 
-if test "$(docker images -q ${IMAGE_BUILD_DEPS})" = ""; then
+if test "$(${DOCKER} images -q ${IMAGE_BUILD_DEPS})" = ""; then
   echo "--=[ Fetching qgis build dependencies image"
-  docker pull ${IMAGE_BUILD_DEPS}
+  ${DOCKER} pull ${IMAGE_BUILD_DEPS}
 elif test "${UPDATE_IMAGES}" = "yes"; then
   echo "--=[ Updating qgis build dependencies image"
-  docker pull ${IMAGE_BUILD_DEPS}
+  ${DOCKER} pull ${IMAGE_BUILD_DEPS}
 fi
 
 if test -d ${QGIS_BUILDDIR} -a "${FORCE_REBUILD}" = "no"; then
   echo "--=[ Testing against pre-existing build directory ${QGIS_BUILDDIR}. To rebuild use --force-rebuild or move it away"
 else
   echo "--=[ Building qgis inside the dependencies container"
-  docker run -t --name qgis_container \
+  VOLUMES="-v ${QGIS_WORKSPACE}:${QGIS_WORKSPACE}:z"
+  if test "${QGIS_WORKSPACE}" != "${QGIS_COMMON_GIT_DIR}"; then
+    VOLUMES="${VOLUMES} -v ${QGIS_COMMON_GIT_DIR}:${QGIS_COMMON_GIT_DIR}:z"
+  fi
+  ${DOCKER} run -t --name qgis_container \
     --rm \
-    -v ${QGIS_WORKSPACE}:${QGIS_WORKSPACE} \
-    -v ${QGIS_COMMON_GIT_DIR}:${QGIS_COMMON_GIT_DIR} \
+    ${VOLUMES} \
     --env-file .docker/docker-variables.env \
     --env PUSH_TO_CDASH=false \
     --env WITH_QT5=true \
@@ -109,13 +121,13 @@ else
   }
 fi
 
-if test "$(docker images -q qgis3-build-deps-binary-image)" = ""; then
+if test "$(${DOCKER} images -q qgis3-build-deps-binary-image)" = ""; then
   echo "--=[ Tagging qgis build dependencies image as required by .docker/docker-compose-testing.yml"
-  docker tag ${IMAGE_BUILD_DEPS} qgis3-build-deps-binary-image
+  ${DOCKER} tag ${IMAGE_BUILD_DEPS} qgis3-build-deps-binary-image
 fi
 
 if test "${INTERACTIVE}" = "no"; then
-  echo "--=[ Running tests via docker-compose"
+  echo "--=[ Running tests via docker compose"
   COMMAND=${QGIS_WORKSPACE_MOUNTPOINT}/.docker/docker-qgis-test.sh
   COMMAND_ARGS="${TESTS_TO_RUN}"
 else
@@ -124,12 +136,12 @@ else
 fi
 
 # Create an empty minio folder with appropriate permissions so www user can write inside it
-mkdir -p /tmp/minio_tests/test_bucket && chmod -R 777 /tmp/minio_tests
+mkdir -p /tmp/minio_tests/test-bucket && chmod -R 777 /tmp/minio_tests
 
 # Create an empty webdav folder with appropriate permissions so www user can write inside it
 mkdir -p /tmp/webdav_tests && chmod 777 /tmp/webdav_tests
 
-docker-compose \
+${DOCKER_COMPOSE} \
   -f .docker/docker-compose-testing.yml \
   run \
   -w "${QGIS_WORKSPACE_MOUNTPOINT}" \

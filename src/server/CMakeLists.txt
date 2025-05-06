@@ -86,6 +86,12 @@ endif()
 
 add_library(qgis_server SHARED ${QGIS_SERVER_SRCS} ${QGIS_SERVER_HDRS})
 
+if (USE_PRECOMPILED_HEADERS)
+  target_precompile_headers(qgis_server PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${CMAKE_SOURCE_DIR}/src/core/qgis.h>)
+endif()
+
+set_target_properties(qgis_server PROPERTIES UNITY_BUILD ${ENABLE_UNITY_BUILDS})
+
 # require c++17
 target_compile_features(qgis_server PRIVATE cxx_std_17)
 
@@ -113,10 +119,7 @@ endif()
 
 target_link_libraries(qgis_server
   qgis_core
-  ${PROJ_LIBRARY}
   ${FCGI_LIBRARY}
-  ${POSTGRES_LIBRARY}
-  ${GDAL_LIBRARY}
   ${QCA_LIBRARY}
 )
 
@@ -181,8 +184,6 @@ install(TARGETS
 )
 
 install(FILES
-  admin.sld
-  wms_metadata.xml
   DESTINATION ${QGIS_CGIBIN_DIR}
 )
 add_custom_target(qgis_server_full

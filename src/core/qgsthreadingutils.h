@@ -26,6 +26,7 @@
 #include <QThread>
 #if defined(QGISDEBUG) || defined(AGGRESSIVE_SAFE_MODE)
 #include <QDebug>
+#include <QMutex>
 #endif
 #include <QSemaphore>
 #include <QCoreApplication>
@@ -46,7 +47,7 @@
 #ifdef __clang_analyzer__
 #define QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL do {} while(false);
 #elif defined(QGISDEBUG)
-#define QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL if ( QThread::currentThread() != thread() ) {qWarning() << QStringLiteral("%2 (%1:%3) is run from a different thread than the object %4 lives in [0x%5 vs 0x%6]" ).arg( QString( __FILE__ ), QString( __FUNCTION__ ), QString::number( __LINE__  ), objectName() ).arg( reinterpret_cast< qint64 >( QThread::currentThread() ), 0, 16 ).arg( reinterpret_cast< qint64 >( thread() ), 0, 16 ).toLocal8Bit().constData(); }
+#define QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL if ( QThread::currentThread() != thread() ) { const QString location = QStringLiteral("%1 (%2:%3)").arg( QString( __FUNCTION__ ) ,QString( __FILE__ ), QString::number( __LINE__  ) ); QgsThreadingUtils::sEmittedWarningMutex.lock(); if ( !QgsThreadingUtils::sEmittedWarnings.contains( location ) ) { qWarning() << QStringLiteral("%1 is run from a different thread than the object %2 lives in [0x%3 vs 0x%4]" ).arg( location, objectName() ).arg( reinterpret_cast< qint64 >( QThread::currentThread() ), 0, 16 ).arg( reinterpret_cast< qint64 >( thread() ), 0, 16 ).toLocal8Bit().constData(); QgsThreadingUtils::sEmittedWarnings.insert( location ); } QgsThreadingUtils::sEmittedWarningMutex.unlock(); }
 #else
 #define QGIS_PROTECT_QOBJECT_THREAD_ACCESS_NON_FATAL do {} while(false);
 #endif
@@ -61,6 +62,53 @@
 #define QGIS_CHECK_QOBJECT_THREAD_EQUALITY(other) do {} while(false);(void)other;
 #endif
 
+#ifdef __clang_analyzer__
+#define QGIS_CHECK_OTHER_QOBJECT_THREAD_ACCESS(other) do {} while(false);(void)other;
+#elif defined(AGGRESSIVE_SAFE_MODE)
+#define QGIS_CHECK_OTHER_QOBJECT_THREAD_ACCESS(other) if ( other->thread() != QThread::currentThread() ) {qFatal( "%s", QStringLiteral("%2 (%1:%3) Access from a different thread than the object %4 lives in [0x%5 vs 0x%6]" ).arg( QString( __FILE__ ), QString( __FUNCTION__ ), QString::number( __LINE__  ), other->objectName() ).arg( reinterpret_cast< qint64 >( QThread::currentThread() ), 0, 16 ).arg( reinterpret_cast< qint64 >( other->thread() ), 0, 16 ).toLocal8Bit().constData() ); }
+#elif defined(QGISDEBUG)
+#define QGIS_CHECK_OTHER_QOBJECT_THREAD_ACCESS(other) if ( other->thread() != QThread::currentThread() ) {qWarning() << QStringLiteral("%2 (%1:%3) Access from a different thread than the object %4 lives in [0x%5 vs 0x%6]" ).arg( QString( __FILE__ ), QString( __FUNCTION__ ), QString::number( __LINE__  ), other->objectName() ).arg( reinterpret_cast< qint64 >( QThread::currentThread() ), 0, 16 ).arg( reinterpret_cast< qint64 >( other->thread() ), 0, 16 ).toLocal8Bit().constData(); }
+#else
+#define QGIS_CHECK_OTHER_QOBJECT_THREAD_ACCESS(other) do {} while(false);(void)other;
+#endif
+
+
+/**
+ * \ingroup core
+ * \brief Temporarily moves a QObject to the current thread, then resets it back to nullptr thread on destruction.
+ *
+ * \since QGIS 3.32
+ */
+class QgsScopedAssignObjectToCurrentThread
+{
+  public:
+
+    /**
+     * Assigns \a object to the current thread.
+     *
+     * If \a object is already assigned to the current thread, no action will be taken.
+     *
+     * \warning \a object must be assigned to the nullptr thread or the current thread, or this class will assert.
+     */
+    QgsScopedAssignObjectToCurrentThread( QObject *object )
+      : mObject( object )
+    {
+      Q_ASSERT_X( mObject->thread() == nullptr || mObject->thread() == QThread::currentThread(), "QgsScopedAssignObjectToCurrentThread", "QObject was already assigned to a different thread!" );
+      if ( mObject->thread() != QThread::currentThread() )
+        mObject->moveToThread( QThread::currentThread() );
+    }
+
+    ~QgsScopedAssignObjectToCurrentThread()
+    {
+      mObject->moveToThread( nullptr );
+    }
+
+    QgsScopedAssignObjectToCurrentThread( const QgsScopedAssignObjectToCurrentThread &other ) = delete;
+    QgsScopedAssignObjectToCurrentThread &operator =( const QgsScopedAssignObjectToCurrentThread & ) = delete;
+
+  private:
+    QObject *mObject = nullptr;
+};
 
 /**
  * \ingroup core
@@ -153,6 +201,12 @@ class CORE_EXPORT QgsThreadingUtils
         return true;
       }
     }
+#if defined(QGISDEBUG)
+    //! Contains a set of already emitted thread related warnings, to avoid spamming with multiple duplicate warnings
+    static QSet< QString > sEmittedWarnings;
+    //! Mutex protecting sEmittedWarnings
+    static QMutex sEmittedWarningMutex;
+#endif
 
 };
 

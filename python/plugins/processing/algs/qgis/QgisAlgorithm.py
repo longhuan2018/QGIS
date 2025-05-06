@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 ***************************************************************************
     QgisAlgorithm.py
@@ -17,9 +15,9 @@
 ***************************************************************************
 """
 
-__author__ = 'Nyall Dawson'
-__date__ = 'May2017'
-__copyright__ = '(C) 2017, Nyall Dawson'
+__author__ = "Nyall Dawson"
+__date__ = "May2017"
+__copyright__ = "(C) 2017, Nyall Dawson"
 
 from qgis.core import QgsProcessingAlgorithm, QgsProcessingFeatureBasedAlgorithm
 from qgis.PyQt.QtCore import QCoreApplication
@@ -34,15 +32,10 @@ class QgisAlgorithm(QgsProcessingAlgorithm):
     def shortHelpString(self):
         return shortHelp.get(self.id(), None)
 
-    def tr(self, string, context=''):
-        if context == '':
+    def tr(self, string, context=""):
+        if context == "":
             context = self.__class__.__name__
         return QCoreApplication.translate(context, string)
-
-    def trAlgorithm(self, string, context=''):
-        if context == '':
-            context = self.__class__.__name__
-        return string, QCoreApplication.translate(context, string)
 
     def createInstance(self):
         return type(self)()
@@ -56,15 +49,10 @@ class QgisFeatureBasedAlgorithm(QgsProcessingFeatureBasedAlgorithm):
     def shortHelpString(self):
         return shortHelp.get(self.id(), None)
 
-    def tr(self, string, context=''):
-        if context == '':
+    def tr(self, string, context=""):
+        if context == "":
             context = self.__class__.__name__
         return QCoreApplication.translate(context, string)
-
-    def trAlgorithm(self, string, context=''):
-        if context == '':
-            context = self.__class__.__name__
-        return string, QCoreApplication.translate(context, string)
 
     def createInstance(self):
         return type(self)()

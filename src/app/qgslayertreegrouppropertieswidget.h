@@ -29,13 +29,12 @@ class QgsLayerTreeGroupPropertiesWidget : public QgsMapLayerConfigWidget, public
 {
     Q_OBJECT
   public:
-
     QgsLayerTreeGroupPropertiesWidget( QgsMapCanvas *canvas, QWidget *parent );
     ~QgsLayerTreeGroupPropertiesWidget() override;
 
-    void syncToLayer( QgsMapLayer *layer ) override;
+    void syncToLayer( QgsMapLayer *layer ) final;
     void setMapLayerConfigWidgetContext( const QgsMapLayerConfigWidgetContext &context ) override;
-    void setDockMode( bool dockMode ) override;
+    void setDockMode( bool dockMode ) final;
 
   public slots:
     void apply() override;
@@ -43,13 +42,12 @@ class QgsLayerTreeGroupPropertiesWidget : public QgsMapLayerConfigWidget, public
   private slots:
 
     void onLayerPropertyChanged();
-  private:
 
-    QPointer< QgsLayerTreeGroup > mLayerTreeGroup;
+  private:
+    QPointer<QgsLayerTreeGroup> mLayerTreeGroup;
     bool mBlockLayerUpdates = false;
 
-    std::unique_ptr< QgsPaintEffect > mPaintEffect;
-
+    std::unique_ptr<QgsPaintEffect> mPaintEffect;
 };
 
 
@@ -65,7 +63,6 @@ class QgsLayerTreeGroupPropertiesWidgetFactory : public QObject, public QgsMapLa
     bool supportsLayer( QgsMapLayer *layer ) const override;
     bool supportsLayerTreeGroup( QgsLayerTreeGroup *group ) const override;
 };
-
 
 
 #endif // QGSLAYERTREEGROUPPROPERTIESWIDGET_H
