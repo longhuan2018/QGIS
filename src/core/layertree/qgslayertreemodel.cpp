@@ -185,6 +185,11 @@ QVariant QgsLayerTreeModel::data( const QModelIndex &index, int role ) const
       }
       return name;
     }
+
+    if ( QgsLayerTree::isCustomNode( node ) )
+    {
+      return QgsLayerTree::toCustomNode( node )->name();
+    }
   }
   else if ( role == Qt::DecorationRole && index.column() == 0 )
   {
@@ -242,10 +247,14 @@ QVariant QgsLayerTreeModel::data( const QModelIndex &index, int role ) const
       QgsLayerTreeGroup *nodeGroup = QgsLayerTree::toGroup( node );
       return nodeGroup->itemVisibilityChecked() ? Qt::Checked : Qt::Unchecked;
     }
+    else if ( QgsLayerTree::isCustomNode( node ) )
+    {
+      return node->itemVisibilityChecked() ? Qt::Checked : Qt::Unchecked;
+    }
   }
   else if ( role == Qt::FontRole && testFlag( UseTextFormatting ) )
   {
-    QFont f( QgsLayerTree::isLayer( node ) ? mFontLayer : ( QgsLayerTree::isGroup( node ) ? mFontGroup : QFont() ) );
+    QFont f( QgsLayerTree::isLayer( node ) ? mFontLayer : ( QgsLayerTree::isGroup( node ) || QgsLayerTree::isCustomNode( node ) ? mFontGroup : QFont() ) );
     if ( index == mCurrentIndex )
       f.setUnderline( true );
     if ( QgsLayerTree::isLayer( node ) )
@@ -367,7 +376,7 @@ Qt::ItemFlags QgsLayerTreeModel::flags( const QModelIndex &index ) const
       f |= Qt::ItemIsDragEnabled;
   }
 
-  if ( testFlag( AllowNodeChangeVisibility ) && ( QgsLayerTree::isLayer( node ) || QgsLayerTree::isGroup( node ) ) )
+  if ( testFlag( AllowNodeChangeVisibility ) && ( QgsLayerTree::isLayer( node ) || QgsLayerTree::isGroup( node ) || QgsLayerTree::isCustomNode( node ) ) )
     f |= Qt::ItemIsUserCheckable;
 
   if ( testFlag( AllowNodeReorder ) && QgsLayerTree::isGroup( node ) && !isEmbedded )
@@ -433,6 +442,11 @@ bool QgsLayerTreeModel::setData( const QModelIndex &index, const QVariant &value
     else if ( QgsLayerTree::isGroup( node ) )
     {
       QgsLayerTree::toGroup( node )->setName( value.toString() );
+      emit dataChanged( index, index );
+    }
+    else if ( QgsLayerTree::isCustomNode( node ) )
+    {
+      QgsLayerTree::toCustomNode( node )->setName( value.toString() );
       emit dataChanged( index, index );
     }
   }
@@ -663,14 +677,9 @@ void QgsLayerTreeModel::setFilterSettings( const QgsLayerTreeFilterSettings *set
       hitTestWasRunning = true;
     }
 
-    std::unique_ptr< QgsMapHitTest > blockingHitTest;
     if ( mFlags & QgsLayerTreeModel::Flag::UseThreadedHitTest )
-      mHitTestTask = new QgsMapHitTestTask( *mFilterSettings );
-    else
-      blockingHitTest = std::make_unique< QgsMapHitTest >( *mFilterSettings );
-
-    if ( mHitTestTask )
     {
+      mHitTestTask = new QgsMapHitTestTask( *mFilterSettings );
       connect( mHitTestTask, &QgsTask::taskCompleted, this, &QgsLayerTreeModel::hitTestTaskCompleted );
       QgsApplication::taskManager()->addTask( mHitTestTask );
 
@@ -679,6 +688,7 @@ void QgsLayerTreeModel::setFilterSettings( const QgsLayerTreeFilterSettings *set
     }
     else
     {
+      auto blockingHitTest = std::make_unique< QgsMapHitTest >( *mFilterSettings );
       blockingHitTest->run();
       mHitTestResults = blockingHitTest->results();
       handleHitTestResults();
@@ -1554,10 +1564,11 @@ QgsRenderContext *QgsLayerTreeModel::createTemporaryRenderContext() const
 
   context->setRendererScale( scale );
   context->setMapToPixel( QgsMapToPixel( mupp ) );
-  context->setFlag( Qgis::RenderContextFlag::RenderSymbolPreview );
+  context->setFlag( Qgis::RenderContextFlag::Antialiasing, true );
+  context->setFlag( Qgis::RenderContextFlag::RenderSymbolPreview, true );
+  context->setFlag( Qgis::RenderContextFlag::RenderLayerTree, true );
   return validData ? context.release() : nullptr;
 }
-
 
 QgsLayerTreeModelLegendNode *QgsLayerTreeModel::index2legendNode( const QModelIndex &index )
 {

@@ -306,7 +306,7 @@ bool QgsMeshLayer::addDatasets( QgsMeshDatasetGroup *datasetGroup )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  if ( mDatasetGroupStore->addDatasetGroup( datasetGroup ) )
+  if ( mDatasetGroupStore->addDatasetGroup( std::unique_ptr< QgsMeshDatasetGroup >( datasetGroup ) ) )
   {
     emit dataChanged();
     return true;
@@ -1168,9 +1168,7 @@ bool QgsMeshLayer::startFrameEditing( const QgsCoordinateTransform &transform, Q
   mExtraDatasetUri.clear();
   mDatasetGroupStore.reset( new QgsMeshDatasetGroupStore( this ) );
 
-  std::unique_ptr<QgsMeshDatasetGroup> zValueDatasetGroup( mMeshEditor->createZValueDatasetGroup() );
-  if ( mDatasetGroupStore->addDatasetGroup( zValueDatasetGroup.get() ) )
-    zValueDatasetGroup.release();
+  mDatasetGroupStore->addDatasetGroup( mMeshEditor->createZValueDatasetGroup() );
 
   resetDatasetGroupTreeItem();
 
@@ -1881,6 +1879,17 @@ bool QgsMeshLayer::readSymbology( const QDomNode &node, QString &errorMessage,
     }
   }
 
+  if ( categories.testFlag( Legend ) )
+  {
+    QgsReadWriteContextCategoryPopper p = context.enterCategory( tr( "Legend" ) );
+
+    const QDomElement legendElem = node.firstChildElement( QStringLiteral( "legend" ) );
+    if ( QgsMapLayerLegend *l = legend(); !legendElem.isNull() )
+    {
+      l->readXml( legendElem, context );
+    }
+  }
+
   return true;
 }
 
@@ -1935,6 +1944,13 @@ bool QgsMeshLayer::writeSymbology( QDomNode &node, QDomDocument &doc, QString &e
     const QDomText layerOpacityText = doc.createTextNode( QString::number( opacity() ) );
     layerOpacityElem.appendChild( layerOpacityText );
     node.appendChild( layerOpacityElem );
+  }
+
+  if ( categories.testFlag( Legend ) && legend() )
+  {
+    QDomElement legendElement = legend()->writeXml( doc, context );
+    if ( !legendElement.isNull() )
+      node.appendChild( legendElement );
   }
 
   return true;

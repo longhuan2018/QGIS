@@ -177,7 +177,7 @@ QString QgsExportMeshVerticesAlgorithm::shortHelpString() const
 
 QString QgsExportMeshVerticesAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Exports mesh vertices to a point vector layer" );
+  return QObject::tr( "Exports mesh vertices to a point vector layer." );
 }
 
 QString QgsExportMeshVerticesAlgorithm::name() const
@@ -403,7 +403,7 @@ QString QgsExportMeshFacesAlgorithm::shortHelpString() const
 
 QString QgsExportMeshFacesAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Exports mesh faces to a polygon vector layer" );
+  return QObject::tr( "Exports mesh faces to a polygon vector layer." );
 }
 
 QString QgsExportMeshFacesAlgorithm::name() const
@@ -439,7 +439,7 @@ QString QgsExportMeshEdgesAlgorithm::shortHelpString() const
 
 QString QgsExportMeshEdgesAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Exports mesh edges to a line vector layer" );
+  return QObject::tr( "Exports mesh edges to a line vector layer." );
 }
 
 QString QgsExportMeshEdgesAlgorithm::name() const
@@ -484,7 +484,7 @@ QString QgsExportMeshOnGridAlgorithm::shortHelpString() const
 
 QString QgsExportMeshOnGridAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Exports mesh dataset values to a gridded point vector layer" );
+  return QObject::tr( "Exports mesh dataset values to a gridded point vector layer." );
 }
 
 QgsProcessingAlgorithm *QgsExportMeshOnGridAlgorithm::createInstance() const
@@ -690,7 +690,10 @@ QVariantMap QgsExportMeshOnGridAlgorithm::processAlgorithm( const QVariantMap &p
         feat.setGeometry( geom );
         feat.setAttributes( attributes );
 
-        sink->addFeature( feat );
+        if ( !sink->addFeature( feat, QgsFeatureSink::FastInsert ) )
+        {
+          throw QgsProcessingException( writeFeatureError( sink.get(), parameters, QString() ) );
+        }
       }
     }
   }
@@ -741,7 +744,7 @@ QString QgsMeshRasterizeAlgorithm::shortHelpString() const
 
 QString QgsMeshRasterizeAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Creates a raster layer from a mesh dataset" );
+  return QObject::tr( "Creates a raster layer from a mesh dataset." );
 }
 
 QgsProcessingAlgorithm *QgsMeshRasterizeAlgorithm::createInstance() const
@@ -961,7 +964,7 @@ QString QgsMeshContoursAlgorithm::shortHelpString() const
 
 QString QgsMeshContoursAlgorithm::shortDescription() const
 {
-  return QObject::tr( "Creates contours as vector layer from mesh scalar dataset" );
+  return QObject::tr( "Creates contours as vector layer from mesh scalar dataset." );
 }
 
 QgsProcessingAlgorithm *QgsMeshContoursAlgorithm::createInstance() const
@@ -1263,7 +1266,7 @@ QString QgsMeshExportCrossSection::shortHelpString() const
 
 QString QgsMeshExportCrossSection::shortDescription() const
 {
-  return QObject::tr( "Extracts a mesh dataset's values from lines contained in a vector layer" );
+  return QObject::tr( "Extracts a mesh dataset's values from lines contained in a vector layer." );
 }
 
 QgsProcessingAlgorithm *QgsMeshExportCrossSection::createInstance() const
@@ -1486,7 +1489,7 @@ QString QgsMeshExportTimeSeries::shortHelpString() const
 
 QString QgsMeshExportTimeSeries::shortDescription() const
 {
-  return QObject::tr( "Extracts a mesh dataset's time series values from points contained in a vector layer" );
+  return QObject::tr( "Extracts a mesh dataset's time series values from points contained in a vector layer." );
 }
 
 QgsProcessingAlgorithm *QgsMeshExportTimeSeries::createInstance() const

@@ -38,6 +38,7 @@ class QgsSingleSidedBufferAlgorithm : public QgsProcessingFeatureBasedAlgorithm
     QString group() const override;
     QString groupId() const override;
     QString shortHelpString() const override;
+    QString shortDescription() const override;
     QList<int> inputLayerTypes() const override;
     QgsSingleSidedBufferAlgorithm *createInstance() const override SIP_FACTORY;
     void initParameters( const QVariantMap &configuration = QVariantMap() ) override;
@@ -55,8 +56,8 @@ class QgsSingleSidedBufferAlgorithm : public QgsProcessingFeatureBasedAlgorithm
     QgsProperty mDistanceProperty;
 
     int mSegments = 0;
-    Qgis::BufferSide mSide;
-    Qgis::JoinStyle mJoinStyle;
+    Qgis::BufferSide mSide = Qgis::BufferSide::Left;
+    Qgis::JoinStyle mJoinStyle = Qgis::JoinStyle::Round;
     double mMiterLimit = 0.0;
 };
 

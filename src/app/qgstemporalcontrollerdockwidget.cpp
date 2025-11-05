@@ -59,7 +59,7 @@ bool QgsTemporalControllerDockWidget::eventFilter( QObject *object, QEvent *even
 {
   if ( event->type() == QEvent::Wheel )
   {
-    QWheelEvent *wheelEvent = dynamic_cast<QWheelEvent *>( event );
+    QWheelEvent *wheelEvent = qgis::down_cast<QWheelEvent *>( event );
     // handle horizontal wheel events by scrubbing timeline
     if ( wheelEvent->angleDelta().x() != 0 )
     {
@@ -74,7 +74,7 @@ bool QgsTemporalControllerDockWidget::eventFilter( QObject *object, QEvent *even
 void QgsTemporalControllerDockWidget::exportAnimation()
 {
   QgsAnimationExportDialog *dlg = new QgsAnimationExportDialog( this, QgisApp::instance()->mapCanvas(), QgisApp::instance()->activeDecorations() );
-  connect( dlg, &QgsAnimationExportDialog::startExport, this, [=] {
+  connect( dlg, &QgsAnimationExportDialog::startExport, this, [this, dlg] {
     QgsMapSettings s = QgisApp::instance()->mapCanvas()->mapSettings();
     dlg->applyMapSettings( s );
 

@@ -44,6 +44,8 @@ QgsLayoutMouseHandles::QgsLayoutMouseHandles( QgsLayout *layout, QgsLayoutView *
   , mLayout( layout )
   , mView( view )
 {
+  setRotationEnabled( true );
+
   //listen for selection changes, and update handles accordingly
   connect( mLayout, &QGraphicsScene::selectionChanged, this, &QgsLayoutMouseHandles::selectionChanged );
 
@@ -251,9 +253,19 @@ void QgsLayoutMouseHandles::moveItem( QGraphicsItem *item, double deltaX, double
   qgis::down_cast<QgsLayoutItem *>( item )->attemptMoveBy( deltaX, deltaY );
 }
 
+void QgsLayoutMouseHandles::rotateItem( QGraphicsItem *item, double deltaDegree, double deltaCenterX, double deltaCenterY )
+{
+  QgsLayoutItem *itm = qgis::down_cast<QgsLayoutItem *>( item );
+  QgsLayoutItem::ReferencePoint previousReferencePoint = itm->referencePoint();
+  itm->setReferencePoint( QgsLayoutItem::Middle );
+  itm->attemptMoveBy( deltaCenterX, deltaCenterY );
+  itm->setItemRotation( itm->itemRotation() + deltaDegree, true );
+  itm->setReferencePoint( previousReferencePoint );
+}
+
 void QgsLayoutMouseHandles::setItemRect( QGraphicsItem *item, QRectF rect )
 {
-  QgsLayoutItem *layoutItem = dynamic_cast<QgsLayoutItem *>( item );
+  QgsLayoutItem *layoutItem = qgis::down_cast<QgsLayoutItem *>( item );
   layoutItem->attemptSetSceneRect( rect, true );
 }
 

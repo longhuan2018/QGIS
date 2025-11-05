@@ -57,7 +57,9 @@ class CORE_EXPORT QgsDistanceArea
     ~QgsDistanceArea();
 
     QgsDistanceArea( const QgsDistanceArea &other );
+    SIP_SKIP QgsDistanceArea( QgsDistanceArea &&other );
     QgsDistanceArea &operator=( const QgsDistanceArea &other );
+    QgsDistanceArea &operator=( QgsDistanceArea &&other );
 
     /**
      * Returns whether calculations will use the ellipsoid. Calculations will only use the
@@ -360,10 +362,7 @@ class CORE_EXPORT QgsDistanceArea
 
   private:
 
-    /**
-     * Calculates area of polygon on ellipsoid
-     * algorithm has been taken from GRASS: gis/area_poly1.c
-     */
+    // Calculates area of polygon on ellipsoid
     double computePolygonArea( const QVector<QgsPointXY> &points ) const;
 
     double computePolygonFlatArea( const QVector<QgsPointXY> &points ) const;

@@ -74,6 +74,7 @@ QgsDiagramLayerSettings::QgsDiagramLayerSettings()
 }
 
 QgsDiagramLayerSettings::QgsDiagramLayerSettings( const QgsDiagramLayerSettings &rh )
+//****** IMPORTANT! editing this? make sure you update the move constructor too! *****
   : mCt( rh.mCt )
   , mPlacement( rh.mPlacement )
   , mPlacementFlags( rh.mPlacementFlags )
@@ -84,37 +85,75 @@ QgsDiagramLayerSettings::QgsDiagramLayerSettings( const QgsDiagramLayerSettings 
   , mRenderer( rh.mRenderer ? rh.mRenderer->clone() : nullptr )
   , mShowAll( rh.mShowAll )
   , mDataDefinedProperties( rh.mDataDefinedProperties )
+    //****** IMPORTANT! editing this? make sure you update the move constructor too! *****
 {
   initPropertyDefinitions();
 }
 
+QgsDiagramLayerSettings::QgsDiagramLayerSettings( QgsDiagramLayerSettings &&rh )
+  : mCt( std::move( rh.mCt ) )
+  , mPlacement( rh.mPlacement )
+  , mPlacementFlags( rh.mPlacementFlags )
+  , mPriority( rh.mPriority )
+  , mZIndex( rh.mZIndex )
+  , mObstacle( rh.mObstacle )
+  , mDistance( rh.mDistance )
+  , mRenderer( std::move( rh.mRenderer ) )
+  , mShowAll( rh.mShowAll )
+  , mDataDefinedProperties( std::move( rh.mDataDefinedProperties ) )
+{
+}
+
 QgsDiagramLayerSettings &QgsDiagramLayerSettings::operator=( const QgsDiagramLayerSettings &rh )
 {
+  if ( &rh == this )
+    return *this;
+
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
   mPlacement = rh.mPlacement;
   mPlacementFlags = rh.mPlacementFlags;
   mPriority = rh.mPriority;
   mZIndex = rh.mZIndex;
   mObstacle = rh.mObstacle;
   mDistance = rh.mDistance;
-  mRenderer = rh.mRenderer ? rh.mRenderer->clone() : nullptr;
+  mRenderer.reset( rh.mRenderer ? rh.mRenderer->clone() : nullptr );
   mCt = rh.mCt;
   mShowAll = rh.mShowAll;
   mDataDefinedProperties = rh.mDataDefinedProperties;
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
+  return *this;
+}
+
+QgsDiagramLayerSettings &QgsDiagramLayerSettings::operator=( QgsDiagramLayerSettings &&rh )
+{
+  if ( &rh == this )
+    return *this;
+
+  mPlacement = rh.mPlacement;
+  mPlacementFlags = rh.mPlacementFlags;
+  mPriority = rh.mPriority;
+  mZIndex = rh.mZIndex;
+  mObstacle = rh.mObstacle;
+  mDistance = rh.mDistance;
+  mRenderer = std::move( rh.mRenderer );
+  mCt = std::move( rh.mCt );
+  mShowAll = rh.mShowAll;
+  mDataDefinedProperties = std::move( rh.mDataDefinedProperties );
   return *this;
 }
 
 QgsDiagramLayerSettings::~QgsDiagramLayerSettings()
 {
-  delete mRenderer;
+
 }
 
 void QgsDiagramLayerSettings::setRenderer( QgsDiagramRenderer *diagramRenderer )
 {
-  if ( diagramRenderer == mRenderer )
+  if ( diagramRenderer == mRenderer.get() )
     return;
 
-  delete mRenderer;
-  mRenderer = diagramRenderer;
+  mRenderer.reset( diagramRenderer );
+
 }
 
 void QgsDiagramLayerSettings::setCoordinateTransform( const QgsCoordinateTransform &transform )
@@ -486,6 +525,9 @@ QgsDiagramRenderer::QgsDiagramRenderer( const QgsDiagramRenderer &other )
 
 QgsDiagramRenderer &QgsDiagramRenderer::operator=( const QgsDiagramRenderer &other )
 {
+  if ( &other == this )
+    return *this;
+
   mDiagram.reset( other.mDiagram ? other.mDiagram->clone() : nullptr );
   mShowAttributeLegend = other.mShowAttributeLegend;
   return *this;
@@ -717,7 +759,7 @@ QgsLinearlyInterpolatedDiagramRenderer::QgsLinearlyInterpolatedDiagramRenderer( 
 
 QgsLinearlyInterpolatedDiagramRenderer::~QgsLinearlyInterpolatedDiagramRenderer()
 {
-  delete mDataDefinedSizeLegend;
+
 }
 
 QgsLinearlyInterpolatedDiagramRenderer &QgsLinearlyInterpolatedDiagramRenderer::operator=( const QgsLinearlyInterpolatedDiagramRenderer &other )
@@ -728,8 +770,8 @@ QgsLinearlyInterpolatedDiagramRenderer &QgsLinearlyInterpolatedDiagramRenderer::
   }
   mSettings = other.mSettings;
   mInterpolationSettings = other.mInterpolationSettings;
-  delete mDataDefinedSizeLegend;
-  mDataDefinedSizeLegend = new QgsDataDefinedSizeLegend( *other.mDataDefinedSizeLegend );
+  mDataDefinedSizeLegend = std::make_unique<QgsDataDefinedSizeLegend>( *other.mDataDefinedSizeLegend );
+
   return *this;
 }
 
@@ -804,19 +846,19 @@ void QgsLinearlyInterpolatedDiagramRenderer::readXml( const QDomElement &elem, c
     mSettings.readXml( settingsElem );
   }
 
-  delete mDataDefinedSizeLegend;
+  mDataDefinedSizeLegend.reset( );
 
   const QDomElement ddsLegendSizeElem = elem.firstChildElement( QStringLiteral( "data-defined-size-legend" ) );
   if ( !ddsLegendSizeElem.isNull() )
   {
-    mDataDefinedSizeLegend = QgsDataDefinedSizeLegend::readXml( ddsLegendSizeElem, context );
+    mDataDefinedSizeLegend.reset( QgsDataDefinedSizeLegend::readXml( ddsLegendSizeElem, context ) );
   }
   else
   {
     // pre-3.0 projects
     if ( elem.attribute( QStringLiteral( "sizeLegend" ), QStringLiteral( "0" ) ) != QLatin1String( "0" ) )
     {
-      mDataDefinedSizeLegend = new QgsDataDefinedSizeLegend();
+      mDataDefinedSizeLegend = std::make_unique<QgsDataDefinedSizeLegend>();
       const QDomElement sizeLegendSymbolElem = elem.firstChildElement( QStringLiteral( "symbol" ) );
       if ( !sizeLegendSymbolElem.isNull() && sizeLegendSymbolElem.attribute( QStringLiteral( "name" ) ) == QLatin1String( "sizeSymbol" ) )
       {
@@ -878,6 +920,9 @@ QgsStackedDiagramRenderer::QgsStackedDiagramRenderer( const QgsStackedDiagramRen
 
 QgsStackedDiagramRenderer &QgsStackedDiagramRenderer::operator=( const QgsStackedDiagramRenderer &other )
 {
+  if ( &other == this )
+    return *this;
+
   mSettings = other.mSettings;
   qDeleteAll( mDiagramRenderers );
   mDiagramRenderers.clear();
@@ -1258,6 +1303,9 @@ QgsDiagramSettings::QgsDiagramSettings( const QgsDiagramSettings &other )
 
 QgsDiagramSettings &QgsDiagramSettings::operator=( const QgsDiagramSettings &other )
 {
+  if ( &other == this )
+    return *this;
+
   enabled = other.enabled;
   font = other.font;
   categoryColors = other.categoryColors;
@@ -1378,11 +1426,11 @@ QList< QgsLayerTreeModelLegendNode * > QgsLinearlyInterpolatedDiagramRenderer::l
 
 void QgsLinearlyInterpolatedDiagramRenderer::setDataDefinedSizeLegend( QgsDataDefinedSizeLegend *settings )
 {
-  delete mDataDefinedSizeLegend;
-  mDataDefinedSizeLegend = settings;
+  mDataDefinedSizeLegend.reset( settings );
+
 }
 
 QgsDataDefinedSizeLegend *QgsLinearlyInterpolatedDiagramRenderer::dataDefinedSizeLegend() const
 {
-  return mDataDefinedSizeLegend;
+  return mDataDefinedSizeLegend.get();
 }

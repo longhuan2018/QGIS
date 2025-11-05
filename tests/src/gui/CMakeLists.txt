@@ -31,9 +31,11 @@ set(TESTS
   testqgsmaptooledit.cpp
   testqgscategorizedrendererwidget.cpp
   testqgsdatumtransformdialog.cpp
+  testqgsdiagramproperties.cpp
   testqgsdoublespinbox.cpp
   testqgsdualview.cpp
   testqgsattributeform.cpp
+  testqgsattributesformmodel.cpp
   testqgsattributesformproperties.cpp
   testqgsdatetimeedit.cpp
   testqgsdockwidget.cpp

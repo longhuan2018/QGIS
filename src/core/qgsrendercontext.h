@@ -65,7 +65,9 @@ class CORE_EXPORT QgsRenderContext : public QgsTemporalRangeObject
     ~QgsRenderContext() override;
 
     QgsRenderContext( const QgsRenderContext &rh );
+    SIP_SKIP QgsRenderContext( QgsRenderContext &&rh );
     QgsRenderContext &operator=( const QgsRenderContext &rh );
+    QgsRenderContext &operator=( QgsRenderContext &&rh );
 
     /**
      * Set combination of flags that will be used for rendering.
@@ -363,22 +365,25 @@ class CORE_EXPORT QgsRenderContext : public QgsTemporalRangeObject
      * of any faster raster shortcuts.
      *
      * \see setForceVectorOutput()
+     * \deprecated QGIS 3.44. Use rasterizedRenderingPolicy() instead.
      */
-    bool forceVectorOutput() const;
+    Q_DECL_DEPRECATED bool forceVectorOutput() const SIP_DEPRECATED;
 
     /**
      * Returns TRUE if advanced effects such as blend modes such be used
      *
      * \see setUseAdvancedEffects()
+     * \deprecated QGIS 3.44. Use rasterizedRenderingPolicy() instead.
      */
-    bool useAdvancedEffects() const;
+    Q_DECL_DEPRECATED bool useAdvancedEffects() const SIP_DEPRECATED;
 
     /**
      * Used to enable or disable advanced effects such as blend modes
      *
      * \see useAdvancedEffects()
+     * \deprecated QGIS 3.44. Use setRasterizedRenderingPolicy() instead.
      */
-    void setUseAdvancedEffects( bool enabled );
+    Q_DECL_DEPRECATED void setUseAdvancedEffects( bool enabled ) SIP_DEPRECATED;
 
     /**
      * Returns TRUE if edit markers should be drawn during the render operation.
@@ -587,8 +592,9 @@ class CORE_EXPORT QgsRenderContext : public QgsTemporalRangeObject
      * of any faster raster shortcuts.
      *
      * \see forceVectorOutput()
+     * \deprecated QGIS 3.44. Use setRasterizedRenderingPolicy() instead.
      */
-    void setForceVectorOutput( bool force );
+    Q_DECL_DEPRECATED void setForceVectorOutput( bool force ) SIP_DEPRECATED;
 
     /**
      * Assigns the labeling engine
@@ -1130,6 +1136,22 @@ class CORE_EXPORT QgsRenderContext : public QgsTemporalRangeObject
     QImage::Format imageFormat() const { return mImageFormat; }
 
     /**
+     * Returns the policy controlling when rasterisation of content during renders is permitted.
+     *
+     * \see setRasterizedRenderingPolicy()
+     * \since QGIS 3.44
+     */
+    Qgis::RasterizedRenderingPolicy rasterizedRenderingPolicy() const;
+
+    /**
+     * Sets the \a policy controlling when rasterisation of content during renders is permitted.
+     *
+     * \see rasterizedRenderingPolicy()
+     * \since QGIS 3.44
+     */
+    void setRasterizedRenderingPolicy( Qgis::RasterizedRenderingPolicy policy );
+
+    /**
     * Returns the renderer usage
     *
     * \see setRendererUsage()
@@ -1209,7 +1231,10 @@ class CORE_EXPORT QgsRenderContext : public QgsTemporalRangeObject
 
   private:
 
+    void matchRasterizedRenderingPolicyToFlags();
+
     Qgis::RenderContextFlags mFlags;
+    Qgis::RasterizedRenderingPolicy mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::Default;
 
     //! Painter for rendering operations
     QPainter *mPainter = nullptr;

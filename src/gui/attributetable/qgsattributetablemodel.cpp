@@ -67,7 +67,7 @@ QgsAttributeTableModel::QgsAttributeTableModel( QgsVectorLayerCache *layerCache,
 
   connect( mLayer, &QgsVectorLayer::editCommandStarted, this, &QgsAttributeTableModel::bulkEditCommandStarted );
   connect( mLayer, &QgsVectorLayer::beforeRollBack, this, &QgsAttributeTableModel::bulkEditCommandStarted );
-  connect( mLayer, &QgsVectorLayer::afterRollBack, this, [=] {
+  connect( mLayer, &QgsVectorLayer::afterRollBack, this, [this] {
     mIsCleaningUpAfterRollback = true;
     bulkEditCommandEnded();
     mIsCleaningUpAfterRollback = false;
@@ -75,7 +75,7 @@ QgsAttributeTableModel::QgsAttributeTableModel( QgsVectorLayerCache *layerCache,
 
   connect( mLayer, &QgsVectorLayer::editCommandEnded, this, &QgsAttributeTableModel::editCommandEnded );
   connect( mLayerCache, &QgsVectorLayerCache::attributeValueChanged, this, &QgsAttributeTableModel::attributeValueChanged );
-  connect( mLayerCache, &QgsVectorLayerCache::featureAdded, this, [=]( QgsFeatureId id ) { featureAdded( id ); } );
+  connect( mLayerCache, &QgsVectorLayerCache::featureAdded, this, [this]( QgsFeatureId id ) { featureAdded( id ); } );
   connect( mLayerCache, &QgsVectorLayerCache::cachedLayerDeleted, this, &QgsAttributeTableModel::layerDeleted );
 }
 
@@ -196,10 +196,7 @@ bool QgsAttributeTableModel::removeRows( int row, int count, const QModelIndex &
     beginRemoveRows( parent, row, row + count - 1 );
   }
 
-#ifdef QGISDEBUG
-  if ( 3 <= QgsLogger::debugLevel() )
-    QgsDebugMsgLevel( QStringLiteral( "remove %2 rows at %1 (rows %3, ids %4)" ).arg( row ).arg( count ).arg( mRowIdMap.size() ).arg( mIdRowMap.size() ), 3 );
-#endif
+  QgsDebugMsgLevel( QStringLiteral( "remove %2 rows at %1 (rows %3, ids %4)" ).arg( row ).arg( count ).arg( mRowIdMap.size() ).arg( mIdRowMap.size() ), 3 );
 
   if ( mBulkEditCommandRunning && !mResettingModel )
   {
@@ -994,6 +991,9 @@ void QgsAttributeTableModel::prefetchColumnData( int column )
 
 void QgsAttributeTableModel::prefetchSortData( const QString &expressionString, unsigned long cacheIndex )
 {
+  if ( !mLayer )
+    return;
+
   if ( cacheIndex >= mSortCaches.size() )
   {
     mSortCaches.resize( cacheIndex + 1 );

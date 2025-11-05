@@ -114,11 +114,31 @@ Creates a configuration widget
 
     QString name( const QString &widgetId );
 %Docstring
-Gets the human readable name for a widget type
+Returns the human readable name for a widget type
 
 :param widgetId: The widget type to get the name for
 
 :return: A human readable name
+%End
+
+    QIcon icon( const QString &widgetId );
+%Docstring
+Returns the icon for a widget type
+
+:param widgetId: The widget type to get the icon for
+
+:return: An icon
+
+.. versionadded:: 4.0
+%End
+
+    bool isReadOnly( const QString &widgetId );
+%Docstring
+Gets the widget's read-only flag
+
+:param widgetId: The widget type to get the read-only flag for
+
+.. versionadded:: 3.44
 %End
 
     QMap<QString, QgsEditorWidgetFactory *> factories();

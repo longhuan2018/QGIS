@@ -56,7 +56,6 @@ class QgsMessageLog;
 class QgsProcessingRegistry;
 class QgsAnnotationRegistry;
 class QgsUserProfile;
-class QgsUserProfileManager;
 class QgsPageSizeRegistry;
 class QgsLayoutItemRegistry;
 class QgsAuthManager;
@@ -64,6 +63,7 @@ class QgsNetworkContentFetcherRegistry;
 class QgsValidityCheckRegistry;
 class QTranslator;
 class QgsCalloutRegistry;
+class QgsPlotRegistry;
 class QgsBookmarkManager;
 class QgsStyleModel;
 class QgsNumericFormatRegistry;
@@ -873,6 +873,12 @@ class CORE_EXPORT QgsApplication : public QApplication
     static QgsSensorRegistry *sensorRegistry() SIP_KEEPREFERENCE;
 
     /**
+     * Returns the application's plot registry, used for plot types.
+     * \since QGIS 4.0
+     */
+    static QgsPlotRegistry *plotRegistry() SIP_KEEPREFERENCE;
+
+    /**
      * Returns the application's message log.
      */
     static QgsMessageLog *messageLog();
@@ -1041,6 +1047,34 @@ class CORE_EXPORT QgsApplication : public QApplication
     static void setCustomVariable( const QString &name, const QVariant &value );
 
     /**
+     * Returns the list of projects and folders that have been temporarily determined as trusted by the user.
+     *
+     * \since QGIS 4.0
+     */
+    static QStringList temporarilyTrustedProjectsFolders();
+
+    /**
+     * Sets the list of projects and folders that have been temporarily determined as trusted by the user.
+     *
+     * \since QGIS 4.0
+     */
+    static void setTemporarilyTrustedProjectsFolders( const QStringList &trustedProjectsFolders );
+
+    /**
+     * Returns the list of projects and folders that have been temporarily determined as untrusted by the user.
+     *
+     * \since QGIS 4.0
+     */
+    static QStringList temporarilyUntrustedProjectsFolders();
+
+    /**
+     * Sets the list of projects and folders that have been temporarily determined as untrusted by the user.
+     *
+     * \since QGIS 4.0
+     */
+    static void setTemporarilyUntrustedProjectsFolders( const QStringList &untrustedProjectsFolders );
+
+    /**
      * Scales an icon size to compensate for display pixel density, making the icon
      * size hi-dpi friendly, whilst still resulting in pixel-perfect sizes for low-dpi
      * displays.
@@ -1156,72 +1190,17 @@ class CORE_EXPORT QgsApplication : public QApplication
     QMap<QString, QIcon> mIconCache;
     QMap<Cursor, QCursor> mCursorCache;
 
-    QTranslator *mQgisTranslator = nullptr;
-    QTranslator *mQtTranslator = nullptr;
-    QTranslator *mQtBaseTranslator = nullptr;
+    std::unique_ptr<QTranslator> mQgisTranslator;
+    std::unique_ptr<QTranslator> mQtTranslator;
+    std::unique_ptr<QTranslator> mQtBaseTranslator;
 
-    QgsDataItemProviderRegistry *mDataItemProviderRegistry = nullptr;
+    std::unique_ptr<QgsDataItemProviderRegistry> mDataItemProviderRegistry;
     QgsAuthManager *mAuthManager = nullptr;
 
-    struct ApplicationMembers
-    {
-      QgsSettingsRegistryCore *mSettingsRegistryCore = nullptr;
-      QgsCoordinateReferenceSystemRegistry *mCrsRegistry = nullptr;
-      Qgs3DRendererRegistry *m3DRendererRegistry = nullptr;
-      Qgs3DSymbolRegistry *m3DSymbolRegistry = nullptr;
-      QgsActionScopeRegistry *mActionScopeRegistry = nullptr;
-      QgsAnnotationRegistry *mAnnotationRegistry = nullptr;
-      QgsColorSchemeRegistry *mColorSchemeRegistry = nullptr;
-      QgsLocalizedDataPathRegistry *mLocalizedDataPathRegistry = nullptr;
-      QgsNumericFormatRegistry *mNumericFormatRegistry = nullptr;
-      QgsFieldFormatterRegistry *mFieldFormatterRegistry = nullptr;
-      QgsGpsConnectionRegistry *mGpsConnectionRegistry = nullptr;
-      QgsBabelFormatRegistry *mGpsBabelFormatRegistry = nullptr;
-      QgsNetworkContentFetcherRegistry *mNetworkContentFetcherRegistry = nullptr;
-      QgsScaleBarRendererRegistry *mScaleBarRendererRegistry = nullptr;
-      QgsLabelingEngineRuleRegistry *mLabelingEngineRuleRegistry = nullptr;
-      QgsValidityCheckRegistry *mValidityCheckRegistry = nullptr;
-      QgsMessageLog *mMessageLog = nullptr;
-      QgsPaintEffectRegistry *mPaintEffectRegistry = nullptr;
-      QgsPluginLayerRegistry *mPluginLayerRegistry = nullptr;
-      QgsClassificationMethodRegistry *mClassificationMethodRegistry = nullptr;
-      QgsProcessingRegistry *mProcessingRegistry = nullptr;
-      QgsConnectionRegistry *mConnectionRegistry = nullptr;
-      QgsProjectStorageRegistry *mProjectStorageRegistry = nullptr;
-      QgsLayerMetadataProviderRegistry *mLayerMetadataProviderRegistry = nullptr;
-      QgsExternalStorageRegistry *mExternalStorageRegistry = nullptr;
-      QgsProfileSourceRegistry *mProfileSourceRegistry = nullptr;
-      QgsPageSizeRegistry *mPageSizeRegistry = nullptr;
-      QgsRasterRendererRegistry *mRasterRendererRegistry = nullptr;
-      QgsRendererRegistry *mRendererRegistry = nullptr;
-      QgsPointCloudRendererRegistry *mPointCloudRendererRegistry = nullptr;
-      QgsTiledSceneRendererRegistry *mTiledSceneRendererRegistry = nullptr;
-      QgsSvgCache *mSvgCache = nullptr;
-      QgsImageCache *mImageCache = nullptr;
-      QgsSourceCache *mSourceCache = nullptr;
-      QgsSymbolLayerRegistry *mSymbolLayerRegistry = nullptr;
-      QgsCalloutRegistry *mCalloutRegistry = nullptr;
-      QgsTaskManager *mTaskManager = nullptr;
-      QgsLayoutItemRegistry *mLayoutItemRegistry = nullptr;
-      QgsAnnotationItemRegistry *mAnnotationItemRegistry = nullptr;
-      QgsSensorRegistry *mSensorRegistry = nullptr;
-      QgsUserProfileManager *mUserConfigManager = nullptr;
-      QgsBookmarkManager *mBookmarkManager = nullptr;
-      QgsTileDownloadManager *mTileDownloadManager = nullptr;
-      QgsStyleModel *mStyleModel = nullptr;
-      QgsRecentStyleHandler *mRecentStyleHandler = nullptr;
-      QgsDatabaseQueryLog *mQueryLogger = nullptr;
-      QgsFontManager *mFontManager;
-      QString mNullRepresentation;
-      QStringList mSvgPathCache;
-      bool mSvgPathCacheValid = false;
-
-      ApplicationMembers();
-      ~ApplicationMembers();
-    };
+    struct ApplicationMembers;
 
     // Applications members which belong to an instance of QgsApplication
-    ApplicationMembers *mApplicationMembers = nullptr;
+    std::unique_ptr<ApplicationMembers> mApplicationMembers;
     // ... but in case QgsApplication is never instantiated (eg with custom designer widgets), we fall back to static members
     static ApplicationMembers *sApplicationMembers;
 
@@ -1236,6 +1215,9 @@ class CORE_EXPORT QgsApplication : public QApplication
      * \since QGIS 3.22
     */
     void installTranslators() SIP_SKIP;
+
+    QStringList mTemporarilyTrustedProjectFolders;
+    QStringList mTemporarilyUntrustedProjectFolders;
 
     friend class TestQgsApplication;
 };

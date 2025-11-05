@@ -193,7 +193,7 @@ void QgsVectorLayerSaveAsDialog::setup()
   mFilename->setDialogTitle( tr( "Save Layer As" ) );
   mFilename->setDefaultRoot( settings.value( QStringLiteral( "UI/lastVectorFileFilterDir" ), QDir::homePath() ).toString() );
   mFilename->setConfirmOverwrite( false );
-  connect( mFilename, &QgsFileWidget::fileChanged, this, [=]( const QString &filePath ) {
+  connect( mFilename, &QgsFileWidget::fileChanged, this, [this]( const QString &filePath ) {
     QgsSettings settings;
     QFileInfo tmplFileInfo( filePath );
     settings.setValue( QStringLiteral( "UI/lastVectorFileFilterDir" ), tmplFileInfo.absolutePath() );
@@ -1005,7 +1005,7 @@ QStringList QgsVectorLayerSaveAsDialog::layerOptions() const
       {
         case QgsVectorFileWriter::Int:
         {
-          QgsVectorFileWriter::IntOption *opt = dynamic_cast<QgsVectorFileWriter::IntOption *>( *it );
+          QgsVectorFileWriter::IntOption *opt = qgis::down_cast<QgsVectorFileWriter::IntOption *>( *it );
           QSpinBox *sb = mLayerOptionsGroupBox->findChild<QSpinBox *>( it.key() );
           if ( opt && sb && sb->value() != opt->defaultValue )
             options << QStringLiteral( "%1=%2" ).arg( it.key() ).arg( sb->value() );
@@ -1014,7 +1014,7 @@ QStringList QgsVectorLayerSaveAsDialog::layerOptions() const
 
         case QgsVectorFileWriter::Set:
         {
-          QgsVectorFileWriter::SetOption *opt = dynamic_cast<QgsVectorFileWriter::SetOption *>( *it );
+          QgsVectorFileWriter::SetOption *opt = qgis::down_cast<QgsVectorFileWriter::SetOption *>( *it );
           QComboBox *cb = mLayerOptionsGroupBox->findChild<QComboBox *>( it.key() );
           if ( opt && cb && cb->itemData( cb->currentIndex() ) != opt->defaultValue )
             options << QStringLiteral( "%1=%2" ).arg( it.key(), cb->currentText() );
@@ -1023,7 +1023,7 @@ QStringList QgsVectorLayerSaveAsDialog::layerOptions() const
 
         case QgsVectorFileWriter::String:
         {
-          QgsVectorFileWriter::StringOption *opt = dynamic_cast<QgsVectorFileWriter::StringOption *>( *it );
+          QgsVectorFileWriter::StringOption *opt = qgis::down_cast<QgsVectorFileWriter::StringOption *>( *it );
           QLineEdit *le = mLayerOptionsGroupBox->findChild<QLineEdit *>( it.key() );
           if ( opt && le && le->text() != opt->defaultValue )
             options << QStringLiteral( "%1=%2" ).arg( it.key(), le->text() );
@@ -1032,7 +1032,7 @@ QStringList QgsVectorLayerSaveAsDialog::layerOptions() const
 
         case QgsVectorFileWriter::Hidden:
         {
-          QgsVectorFileWriter::HiddenOption *opt = dynamic_cast<QgsVectorFileWriter::HiddenOption *>( it.value() );
+          QgsVectorFileWriter::HiddenOption *opt = qgis::down_cast<QgsVectorFileWriter::HiddenOption *>( it.value() );
           if ( !opt->mValue.isEmpty() )
             options << QStringLiteral( "%1=%2" ).arg( it.key(), opt->mValue );
           break;
@@ -1198,17 +1198,23 @@ void QgsVectorLayerSaveAsDialog::mSymbologyExportComboBox_currentIndexChanged( c
 
 void QgsVectorLayerSaveAsDialog::mGeometryTypeComboBox_currentIndexChanged( int )
 {
-  Qgis::WkbType currentIndexData = static_cast<Qgis::WkbType>( mGeometryTypeComboBox->currentData().toInt() );
-
-  if ( mGeometryTypeComboBox->currentIndex() != -1 && currentIndexData != Qgis::WkbType::NoGeometry )
+  const int currentIndexData = mGeometryTypeComboBox->currentData().toInt();
+  if ( currentIndexData != -1 && static_cast<Qgis::WkbType>( currentIndexData ) != Qgis::WkbType::NoGeometry )
   {
     mForceMultiCheckBox->setEnabled( true );
     mIncludeZCheckBox->setEnabled( true );
   }
   else
   {
-    mForceMultiCheckBox->setEnabled( false );
-    mForceMultiCheckBox->setChecked( false );
+    if ( static_cast<Qgis::WkbType>( currentIndexData ) == Qgis::WkbType::NoGeometry )
+    {
+      mForceMultiCheckBox->setEnabled( false );
+      mForceMultiCheckBox->setChecked( false );
+    }
+    else
+    {
+      mForceMultiCheckBox->setEnabled( true );
+    }
     mIncludeZCheckBox->setEnabled( false );
     mIncludeZCheckBox->setChecked( false );
   }

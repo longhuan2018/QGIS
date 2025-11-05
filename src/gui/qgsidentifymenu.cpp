@@ -341,6 +341,8 @@ void QgsIdentifyMenu::addVectorLayer( QgsVectorLayer *layer, const QList<QgsMapT
     if ( !createMenu && mShowFeatureActions )
     {
       QgsActionMenu *featureActionMenu = new QgsActionMenu( layer, results[0].mFeature, QStringLiteral( "Feature" ), this );
+      connect( featureActionMenu, &QgsActionMenu::messageEmitted, this, &QgsIdentifyMenu::messageEmitted );
+      connect( featureActionMenu, &QgsActionMenu::messageDiscarded, this, &QgsIdentifyMenu::messageDiscarded );
       featureActionMenu->setMode( QgsAttributeEditorContext::IdentifyMode );
       createMenu = !featureActionMenu->actions().isEmpty();
       delete featureActionMenu;
@@ -418,6 +420,8 @@ void QgsIdentifyMenu::addVectorLayer( QgsVectorLayer *layer, const QList<QgsMapT
     if ( mShowFeatureActions )
     {
       featureActionMenu = new QgsActionMenu( layer, result.mFeature, QStringLiteral( "Feature" ), layerMenu );
+      connect( featureActionMenu, &QgsActionMenu::messageEmitted, this, &QgsIdentifyMenu::messageEmitted );
+      connect( featureActionMenu, &QgsActionMenu::messageDiscarded, this, &QgsIdentifyMenu::messageDiscarded );
       featureActionMenu->setMode( QgsAttributeEditorContext::IdentifyMode );
       featureActionMenu->setExpressionContextScope( mExpressionContextScope );
     }
@@ -427,6 +431,11 @@ void QgsIdentifyMenu::addVectorLayer( QgsVectorLayer *layer, const QList<QgsMapT
     QString featureTitle = exp.evaluate( &context ).toString();
     if ( featureTitle.isEmpty() )
       featureTitle = QString::number( result.mFeature.id() );
+
+    // if results are from the same layer we still add layer name to the feature
+    // title to be consistent with other cases, see https://github.com/qgis/QGIS/issues/50049
+    if ( layerMenu == this )
+      featureTitle = QStringLiteral( "%1 (%2)" ).arg( layer->name(), featureTitle );
 
     if ( customFeatureActions.isEmpty() && ( !featureActionMenu || featureActionMenu->actions().isEmpty() ) )
     {

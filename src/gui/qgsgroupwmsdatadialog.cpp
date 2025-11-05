@@ -14,6 +14,7 @@
 ***************************************************************************/
 
 #include "qgsgroupwmsdatadialog.h"
+#include "qgsgui.h"
 #include "moc_qgsgroupwmsdatadialog.cpp"
 #include "qgsmaplayerserverproperties.h"
 
@@ -29,6 +30,7 @@ QgsGroupWmsDataDialog::QgsGroupWmsDataDialog( const QgsMapLayerServerProperties 
   , mServerProperties( std::make_unique<QgsMapLayerServerProperties>() )
 {
   setupUi( this );
+  QgsGui::enableAutoGeometryRestore( this );
 
   serverProperties.copyTo( mServerProperties.get() );
 
@@ -86,4 +88,14 @@ void QgsGroupWmsDataDialog::accept()
 {
   mMapLayerServerPropertiesWidget->save();
   QDialog::accept();
+}
+
+bool QgsGroupWmsDataDialog::hasTimeDimension() const
+{
+  return mComputeTimeDimension->checkState() == Qt::Checked;
+}
+
+void QgsGroupWmsDataDialog::setHasTimeDimension( bool hasTimeDimension )
+{
+  mComputeTimeDimension->setCheckState( hasTimeDimension ? Qt::Checked : Qt::Unchecked );
 }

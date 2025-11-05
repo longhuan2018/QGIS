@@ -42,7 +42,9 @@ QgsRenderContext::~QgsRenderContext() = default;
 
 QgsRenderContext::QgsRenderContext( const QgsRenderContext &rh )
   : QgsTemporalRangeObject( rh )
+    //****** IMPORTANT! editing this? make sure you update the move constructor too! *****
   , mFlags( rh.mFlags )
+  , mRasterizedRenderingPolicy( rh.mRasterizedRenderingPolicy )
   , mPainter( rh.mPainter )
   , mPreviewRenderPainter( rh.mPreviewRenderPainter )
   , mMaskPainter( rh.mMaskPainter )
@@ -68,6 +70,7 @@ QgsRenderContext::QgsRenderContext( const QgsRenderContext &rh )
   , mSelectionColor( rh.mSelectionColor )
   , mVectorSimplifyMethod( rh.mVectorSimplifyMethod )
   , mExpressionContext( rh.mExpressionContext )
+    //****** IMPORTANT! editing this? make sure you update the move constructor too! *****
   , mGeometry( rh.mGeometry )
   , mFeatureFilterProvider( rh.mFeatureFilterProvider ? rh.mFeatureFilterProvider->clone() : nullptr )
   , mSegmentationTolerance( rh.mSegmentationTolerance )
@@ -95,12 +98,75 @@ QgsRenderContext::QgsRenderContext( const QgsRenderContext &rh )
   , mHasTransformContext( rh.mHasTransformContext )
 #endif
   , mElevationMap( rh.mElevationMap )
+    //****** IMPORTANT! editing this? make sure you update the move constructor too! *****
 {
+}
+
+QgsRenderContext::QgsRenderContext( QgsRenderContext &&rh )
+  : QgsTemporalRangeObject( rh )
+  , mFlags( rh.mFlags )
+  , mRasterizedRenderingPolicy( rh.mRasterizedRenderingPolicy )
+  , mPainter( rh.mPainter )
+  , mPreviewRenderPainter( rh.mPreviewRenderPainter )
+  , mMaskPainter( std::move( rh.mMaskPainter ) )
+  , mMaskIdProvider( rh.mMaskIdProvider )
+  , mCurrentMaskId( rh.mCurrentMaskId )
+  , mIsGuiPreview( rh.mIsGuiPreview )
+  , mCoordTransform( std::move( rh.mCoordTransform ) )
+  , mDistanceArea( std::move( rh.mDistanceArea ) )
+  , mExtent( std::move( rh.mExtent ) )
+  , mOriginalMapExtent( std::move( rh.mOriginalMapExtent ) )
+  , mMapToPixel( std::move( rh.mMapToPixel ) )
+  , mRenderingStopped( rh.mRenderingStopped )
+  , mFeedback( rh.mFeedback )
+  , mScaleFactor( rh.mScaleFactor )
+  , mDpiTarget( rh.mDpiTarget )
+  , mRendererScale( rh.mRendererScale )
+  , mSymbologyReferenceScale( rh.mSymbologyReferenceScale )
+  , mLabelingEngine( rh.mLabelingEngine )
+  , mLabelSink( rh.mLabelSink )
+  , mSelectionColor( std::move( rh.mSelectionColor ) )
+  , mVectorSimplifyMethod( std::move( rh.mVectorSimplifyMethod ) )
+  , mExpressionContext( std::move( rh.mExpressionContext ) )
+  , mGeometry( std::move( rh.mGeometry ) )
+  , mFeatureFilterProvider( std::move( rh.mFeatureFilterProvider ) )
+  , mSegmentationTolerance( rh.mSegmentationTolerance )
+  , mSegmentationToleranceType( rh.mSegmentationToleranceType )
+  , mTransformContext( std::move( rh.mTransformContext ) )
+  , mPathResolver( std::move( rh.mPathResolver ) )
+  , mTextRenderFormat( rh.mTextRenderFormat )
+  , mRenderedFeatureHandlers( std::move( rh.mRenderedFeatureHandlers ) )
+  , mHasRenderedFeatureHandlers( rh.mHasRenderedFeatureHandlers )
+  , mCustomProperties( std::move( rh.mCustomProperties ) )
+  , mDisabledSymbolLayers( std::move( rh.mDisabledSymbolLayers ) )
+  , mClippingRegions( std::move( rh.mClippingRegions ) )
+  , mFeatureClipGeometry( std::move( rh.mFeatureClipGeometry ) )
+  , mTextureOrigin( std::move( rh.mTextureOrigin ) )
+  , mZRange( std::move( rh.mZRange ) )
+  , mSize( std::move( rh.mSize ) )
+  , mDevicePixelRatio( rh.mDevicePixelRatio )
+  , mImageFormat( rh.mImageFormat )
+  , mRendererUsage( rh.mRendererUsage )
+  , mFrameRate( rh.mFrameRate )
+  , mCurrentFrame( rh.mCurrentFrame )
+  , mSymbolLayerClippingGeometries( std::move( rh.mSymbolLayerClippingGeometries ) )
+  , mMaskRenderSettings( std::move( rh.mMaskRenderSettings ) )
+#ifdef QGISDEBUG
+  , mHasTransformContext( rh.mHasTransformContext )
+#endif
+  , mElevationMap( rh.mElevationMap )
+{
+
 }
 
 QgsRenderContext &QgsRenderContext::operator=( const QgsRenderContext &rh )
 {
+  if ( &rh == this )
+    return *this;
+
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
   mFlags = rh.mFlags;
+  mRasterizedRenderingPolicy = rh.mRasterizedRenderingPolicy;
   mPainter = rh.mPainter;
   mPreviewRenderPainter = rh.mPreviewRenderPainter;
   mMaskPainter = rh.mMaskPainter;
@@ -126,6 +192,7 @@ QgsRenderContext &QgsRenderContext::operator=( const QgsRenderContext &rh )
   mGeometry = rh.mGeometry;
   mFeatureFilterProvider.reset( rh.mFeatureFilterProvider ? rh.mFeatureFilterProvider->clone() : nullptr );
   mSegmentationTolerance = rh.mSegmentationTolerance;
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
   mSegmentationToleranceType = rh.mSegmentationToleranceType;
   mDistanceArea = rh.mDistanceArea;
   mTransformContext = rh.mTransformContext;
@@ -153,6 +220,68 @@ QgsRenderContext &QgsRenderContext::operator=( const QgsRenderContext &rh )
   mHasTransformContext = rh.mHasTransformContext;
 #endif
   mElevationMap = rh.elevationMap();
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
+  return *this;
+}
+
+QgsRenderContext &QgsRenderContext::operator=( QgsRenderContext &&rh )
+{
+  if ( &rh == this )
+    return *this;
+
+  mFlags = rh.mFlags;
+  mRasterizedRenderingPolicy = rh.mRasterizedRenderingPolicy;
+  mPainter = rh.mPainter;
+  mPreviewRenderPainter = rh.mPreviewRenderPainter;
+  mMaskPainter = std::move( rh.mMaskPainter );
+  mMaskIdProvider = rh.mMaskIdProvider;
+  mCurrentMaskId = rh.mCurrentMaskId;
+  mIsGuiPreview = rh.mIsGuiPreview;
+  mCoordTransform = std::move( rh.mCoordTransform );
+  mExtent = std::move( rh.mExtent );
+  mOriginalMapExtent = std::move( rh.mOriginalMapExtent );
+  mMapToPixel = std::move( rh.mMapToPixel );
+  mRenderingStopped = rh.mRenderingStopped;
+  mFeedback = rh.mFeedback;
+  mScaleFactor = rh.mScaleFactor;
+  mDpiTarget = rh.mDpiTarget;
+  mRendererScale = rh.mRendererScale;
+  mSymbologyReferenceScale = rh.mSymbologyReferenceScale;
+  mLabelingEngine = rh.mLabelingEngine;
+  mLabelSink = rh.mLabelSink;
+  mSelectionColor = rh.mSelectionColor;
+  mVectorSimplifyMethod = std::move( rh.mVectorSimplifyMethod );
+  mExpressionContext = std::move( rh.mExpressionContext );
+  mGeometry = rh.mGeometry;
+  mFeatureFilterProvider = std::move( rh.mFeatureFilterProvider );
+  mSegmentationTolerance = rh.mSegmentationTolerance;
+  mSegmentationToleranceType = rh.mSegmentationToleranceType;
+  mDistanceArea = std::move( rh.mDistanceArea );
+  mTransformContext = std::move( rh.mTransformContext );
+  mPathResolver = std::move( rh.mPathResolver );
+  mTextRenderFormat = rh.mTextRenderFormat;
+  mRenderedFeatureHandlers = std::move( rh.mRenderedFeatureHandlers );
+  mHasRenderedFeatureHandlers = rh.mHasRenderedFeatureHandlers;
+  mCustomProperties = std::move( rh.mCustomProperties );
+  mClippingRegions = std::move( rh.mClippingRegions );
+  mFeatureClipGeometry = std::move( rh.mFeatureClipGeometry );
+  mTextureOrigin = std::move( rh.mTextureOrigin );
+  mZRange = std::move( rh.mZRange );
+  mSize = std::move( rh.mSize );
+  mDevicePixelRatio = rh.mDevicePixelRatio;
+  mImageFormat = rh.mImageFormat;
+  setIsTemporal( rh.isTemporal() );
+  mRendererUsage = rh.mRendererUsage;
+  mFrameRate = rh.mFrameRate;
+  mCurrentFrame = rh.mCurrentFrame;
+  mSymbolLayerClippingGeometries = std::move( rh.mSymbolLayerClippingGeometries );
+  mMaskRenderSettings = std::move( rh.mMaskRenderSettings );
+  if ( isTemporal() )
+    setTemporalRange( rh.temporalRange() );
+#ifdef QGISDEBUG
+  mHasTransformContext = rh.mHasTransformContext;
+#endif
+  mElevationMap = rh.mElevationMap;
 
   return *this;
 }
@@ -223,6 +352,7 @@ QgsFeedback *QgsRenderContext::feedback() const
 void QgsRenderContext::setFlags( Qgis::RenderContextFlags flags )
 {
   mFlags = flags;
+  matchRasterizedRenderingPolicyToFlags();
 }
 
 void QgsRenderContext::setFlag( Qgis::RenderContextFlag flag, bool on )
@@ -231,6 +361,7 @@ void QgsRenderContext::setFlag( Qgis::RenderContextFlag flag, bool on )
     mFlags |= flag;
   else
     mFlags &= ~( static_cast< int >( flag ) );
+  matchRasterizedRenderingPolicyToFlags();
 }
 
 Qgis::RenderContextFlags QgsRenderContext::flags() const
@@ -270,6 +401,9 @@ QgsRenderContext QgsRenderContext::fromMapSettings( const QgsMapSettings &mapSet
   ctx.setFlag( Qgis::RenderContextFlag::SkipSymbolRendering, mapSettings.testFlag( Qgis::MapSettingsFlag::SkipSymbolRendering ) );
   ctx.setFlag( Qgis::RenderContextFlag::RecordProfile, mapSettings.testFlag( Qgis::MapSettingsFlag::RecordProfile ) );
   ctx.setFlag( Qgis::RenderContextFlag::AlwaysUseGlobalMasks, mapSettings.testFlag( Qgis::MapSettingsFlag::AlwaysUseGlobalMasks ) );
+
+  ctx.setRasterizedRenderingPolicy( mapSettings.rasterizedRenderingPolicy() );
+
   ctx.setScaleFactor( mapSettings.outputDpi() / 25.4 ); // = pixels per mm
   ctx.setDpiTarget( mapSettings.dpiTarget() >= 0.0 ? mapSettings.dpiTarget() : -1.0 );
   ctx.setRendererScale( mapSettings.scale() );
@@ -314,17 +448,26 @@ QgsRenderContext QgsRenderContext::fromMapSettings( const QgsMapSettings &mapSet
 
 bool QgsRenderContext::forceVectorOutput() const
 {
-  return mFlags.testFlag( Qgis::RenderContextFlag::ForceVectorOutput );
+  return mRasterizedRenderingPolicy != Qgis::RasterizedRenderingPolicy::Default;
 }
 
 bool QgsRenderContext::useAdvancedEffects() const
 {
-  return mFlags.testFlag( Qgis::RenderContextFlag::UseAdvancedEffects );
+  return mRasterizedRenderingPolicy != Qgis::RasterizedRenderingPolicy::ForceVector;
 }
 
 void QgsRenderContext::setUseAdvancedEffects( bool enabled )
 {
   setFlag( Qgis::RenderContextFlag::UseAdvancedEffects, enabled );
+
+  if ( enabled && mRasterizedRenderingPolicy == Qgis::RasterizedRenderingPolicy::ForceVector )
+  {
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::PreferVector;
+  }
+  else if ( !enabled )
+  {
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::ForceVector;
+  }
 }
 
 bool QgsRenderContext::drawEditingInformation() const
@@ -350,6 +493,23 @@ void QgsRenderContext::setDrawEditingInformation( bool b )
 void QgsRenderContext::setForceVectorOutput( bool force )
 {
   setFlag( Qgis::RenderContextFlag::ForceVectorOutput, force );
+  if ( force && mRasterizedRenderingPolicy == Qgis::RasterizedRenderingPolicy::Default )
+  {
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::PreferVector;
+  }
+  else if ( !force )
+  {
+    switch ( mRasterizedRenderingPolicy )
+    {
+      case Qgis::RasterizedRenderingPolicy::Default:
+        break;
+
+      case Qgis::RasterizedRenderingPolicy::PreferVector:
+      case Qgis::RasterizedRenderingPolicy::ForceVector:
+        mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::Default;
+        break;
+    }
+  }
 }
 
 void QgsRenderContext::setShowSelection( const bool showSelection )
@@ -466,7 +626,7 @@ double QgsRenderContext::convertToPainterUnits( double size, Qgis::RenderUnit un
     convertedSize *= symbologyReferenceScaleFactor;
   }
 
-  if ( mFlags & Qgis::RenderContextFlag::RenderSymbolPreview )
+  if ( mFlags & Qgis::RenderContextFlag::RenderSymbolPreview || mFlags & Qgis::RenderContextFlag::RenderLayerTree )
   {
     // apply property based constraints in order to optimise symbol preview rendering
     switch ( property )
@@ -513,7 +673,7 @@ double QgsRenderContext::convertFromPainterUnits( double size, Qgis::RenderUnit 
     case Qgis::RenderUnit::MetersInMapUnits:
     {
       if ( mMapToPixel.isValid() )
-        size = 1 / convertMetersToMapUnits( size );
+        size = size / convertMetersToMapUnits( 1 );
       // Fall through to RenderMapUnits with size in meters converted to size in MapUnits
       [[fallthrough]];
     }
@@ -818,6 +978,31 @@ QSize QgsRenderContext::deviceOutputSize() const
   return outputSize() * mDevicePixelRatio;
 }
 
+Qgis::RasterizedRenderingPolicy QgsRenderContext::rasterizedRenderingPolicy() const
+{
+  return mRasterizedRenderingPolicy;
+}
+
+void QgsRenderContext::setRasterizedRenderingPolicy( Qgis::RasterizedRenderingPolicy policy )
+{
+  mRasterizedRenderingPolicy = policy;
+  switch ( mRasterizedRenderingPolicy )
+  {
+    case Qgis::RasterizedRenderingPolicy::Default:
+      mFlags.setFlag( Qgis::RenderContextFlag::ForceVectorOutput, false );
+      mFlags.setFlag( Qgis::RenderContextFlag::UseAdvancedEffects, true );
+      break;
+    case Qgis::RasterizedRenderingPolicy::PreferVector:
+      mFlags.setFlag( Qgis::RenderContextFlag::ForceVectorOutput, true );
+      mFlags.setFlag( Qgis::RenderContextFlag::UseAdvancedEffects, true );
+      break;
+    case Qgis::RasterizedRenderingPolicy::ForceVector:
+      mFlags.setFlag( Qgis::RenderContextFlag::ForceVectorOutput, true );
+      mFlags.setFlag( Qgis::RenderContextFlag::UseAdvancedEffects, false );
+      break;
+  }
+}
+
 double QgsRenderContext::frameRate() const
 {
   return mFrameRate;
@@ -846,6 +1031,19 @@ QgsElevationMap *QgsRenderContext::elevationMap() const
 void QgsRenderContext::setElevationMap( QgsElevationMap *map )
 {
   mElevationMap = map;
+}
+
+void QgsRenderContext::matchRasterizedRenderingPolicyToFlags()
+{
+  if ( !mFlags.testFlag( Qgis::RenderContextFlag::ForceVectorOutput )
+       && mFlags.testFlag( Qgis::RenderContextFlag::UseAdvancedEffects ) )
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::Default;
+  else if ( mFlags.testFlag( Qgis::RenderContextFlag::ForceVectorOutput )
+            && mFlags.testFlag( Qgis::RenderContextFlag::UseAdvancedEffects ) )
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::PreferVector;
+  else if ( mFlags.testFlag( Qgis::RenderContextFlag::ForceVectorOutput )
+            && !mFlags.testFlag( Qgis::RenderContextFlag::UseAdvancedEffects ) )
+    mRasterizedRenderingPolicy = Qgis::RasterizedRenderingPolicy::ForceVector;
 }
 
 void QgsRenderContext::addSymbolLayerClipPath( const QString &symbolLayerId, QPainterPath path )

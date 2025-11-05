@@ -254,6 +254,34 @@ QgsSymbolLayer::QgsSymbolLayer( Qgis::SymbolType type, bool locked )
 {
 }
 
+bool QgsSymbolLayer::rendersIdenticallyTo( const QgsSymbolLayer *other ) const
+{
+  if ( !other )
+    return false;
+
+  if ( layerType() != other->layerType() )
+    return false;
+
+  // TODO -- we could consider each property individually
+  if ( hasDataDefinedProperties() || other->hasDataDefinedProperties() )
+    return false;
+
+  // shortcut now that we know there's no randomness/changing overrides involved
+  if ( other == this )
+    return true;
+
+  if ( mEnabled != other->mEnabled
+       || mColor != other->mColor
+       || mRenderingPass != other->mRenderingPass
+
+       // TODO -- we could consider the actual settings of the paint effect
+       || ( mPaintEffect && !QgsPaintEffectRegistry::isDefaultStack( mPaintEffect.get() ) )
+       || ( other->mPaintEffect && !QgsPaintEffectRegistry::isDefaultStack( other->mPaintEffect.get() ) ) )
+    return false;
+
+  return properties() == other->properties();
+}
+
 Qgis::SymbolLayerFlags QgsSymbolLayer::flags() const
 {
   return Qgis::SymbolLayerFlags();
@@ -656,7 +684,7 @@ void QgsMarkerSymbolLayer::markerOffset( QgsSymbolRenderContext &context, double
   }
 
   double anchorPointCorrectionX = context.renderContext().convertToPainterUnits( width, widthUnit, widthMapUnitScale ) / 2.0;
-  if ( widthUnit == Qgis::RenderUnit::MetersInMapUnits && context.renderContext().flags() & Qgis::RenderContextFlag::RenderSymbolPreview )
+  if ( widthUnit == Qgis::RenderUnit::MetersInMapUnits && ( context.renderContext().flags() & Qgis::RenderContextFlag::RenderSymbolPreview || context.renderContext().flags() & Qgis::RenderContextFlag::RenderLayerTree ) )
   {
     // rendering for symbol previews -- an size in meters in map units can't be calculated, so treat the size as millimeters
     // and clamp it to a reasonable range. It's the best we can do in this situation!
@@ -664,7 +692,7 @@ void QgsMarkerSymbolLayer::markerOffset( QgsSymbolRenderContext &context, double
   }
 
   double anchorPointCorrectionY = context.renderContext().convertToPainterUnits( height, heightUnit, heightMapUnitScale ) / 2.0;
-  if ( heightUnit == Qgis::RenderUnit::MetersInMapUnits && context.renderContext().flags() & Qgis::RenderContextFlag::RenderSymbolPreview )
+  if ( heightUnit == Qgis::RenderUnit::MetersInMapUnits && ( context.renderContext().flags() & Qgis::RenderContextFlag::RenderSymbolPreview || context.renderContext().flags() & Qgis::RenderContextFlag::RenderLayerTree ) )
   {
     // rendering for symbol previews -- an size in meters in map units can't be calculated, so treat the size as millimeters
     // and clamp it to a reasonable range. It's the best we can do in this situation!

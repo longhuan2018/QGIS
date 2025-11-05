@@ -32,7 +32,12 @@ QString QgsGeometryCheckSliverPolygonAlgorithm::name() const
 
 QString QgsGeometryCheckSliverPolygonAlgorithm::displayName() const
 {
-  return QObject::tr( "Check Geometry (sliver polygon)" );
+  return QObject::tr( "Sliver polygons" );
+}
+
+QString QgsGeometryCheckSliverPolygonAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Detects sliver polygons that are too thin." );
 }
 
 QStringList QgsGeometryCheckSliverPolygonAlgorithm::tags() const
@@ -58,12 +63,12 @@ QString QgsGeometryCheckSliverPolygonAlgorithm::shortHelpString() const
                       "The thinness value is between 1 and +infinity.\n"
                       "If a polygon has an area higher than the maximum area, it is skipped (a maximum area value of 0 means no area check).\n\n"
                       "Polygons having a thinness higher than the maximum thinness are errors.\n\n"
-                      "To fix sliver polygons, use the \"Fix geometry (Area)\" processing." );
+                      "To fix sliver polygons, use the \"Fix small polygons\" algorithm." );
 }
 
 Qgis::ProcessingAlgorithmFlags QgsGeometryCheckSliverPolygonAlgorithm::flags() const
 {
-  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading;
+  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading | Qgis::ProcessingAlgorithmFlag::RequiresProject;
 }
 
 QgsGeometryCheckSliverPolygonAlgorithm *QgsGeometryCheckSliverPolygonAlgorithm::createInstance() const
@@ -82,23 +87,25 @@ void QgsGeometryCheckSliverPolygonAlgorithm::initAlgorithm( const QVariantMap &c
     QStringLiteral( "UNIQUE_ID" ), QObject::tr( "Unique feature identifier" ), QString(), QStringLiteral( "INPUT" )
   ) );
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "ERRORS" ), QObject::tr( "Errors layer" ), Qgis::ProcessingSourceType::VectorPoint
+    QStringLiteral( "ERRORS" ), QObject::tr( "Sliver polygon errors" ), Qgis::ProcessingSourceType::VectorPoint
   ) );
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "OUTPUT" ), QObject::tr( "Output layer" ), Qgis::ProcessingSourceType::VectorPolygon
+    QStringLiteral( "OUTPUT" ), QObject::tr( "Sliver polygon features" ), Qgis::ProcessingSourceType::VectorPolygon, QVariant(), true, false
   ) );
 
   addParameter( new QgsProcessingParameterNumber(
-    QStringLiteral( "MAX_THINNESS" ), QObject::tr( "Maximum thinness" ), Qgis::ProcessingNumberParameterType::Double, 20, false, 0.0
+    QStringLiteral( "MAX_THINNESS" ), QObject::tr( "Maximum thinness" ), Qgis::ProcessingNumberParameterType::Double, 20, false, 1.0
   ) );
   addParameter( new QgsProcessingParameterNumber(
     QStringLiteral( "MAX_AREA" ), QObject::tr( "Maximum area (map units squared)" ), Qgis::ProcessingNumberParameterType::Double, 0, false, 0.0
   ) );
 
-  std::unique_ptr<QgsProcessingParameterNumber> tolerance = std::make_unique<QgsProcessingParameterNumber>(
+  auto tolerance = std::make_unique<QgsProcessingParameterNumber>(
     QStringLiteral( "TOLERANCE" ), QObject::tr( "Tolerance" ), Qgis::ProcessingNumberParameterType::Integer, 8, false, 1, 13
   );
   tolerance->setFlags( tolerance->flags() | Qgis::ProcessingParameterFlag::Advanced );
+  tolerance->setHelp( QObject::tr( "The \"Tolerance\" advanced parameter defines the numerical precision of geometric operations, "
+                                   "given as an integer n, meaning that any difference smaller than 10⁻ⁿ (in map units) is considered zero." ) );
   addParameter( tolerance.release() );
 }
 
@@ -123,7 +130,6 @@ QgsFields QgsGeometryCheckSliverPolygonAlgorithm::outputFields()
   return fields;
 }
 
-
 QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback )
 {
   QString dest_output;
@@ -145,8 +151,6 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
   const std::unique_ptr<QgsFeatureSink> sink_output( parameterAsSink(
     parameters, QStringLiteral( "OUTPUT" ), context, dest_output, fields, input->wkbType(), input->sourceCrs()
   ) );
-  if ( !sink_output )
-    throw QgsProcessingException( invalidSinkError( parameters, QStringLiteral( "OUTPUT" ) ) );
 
   const std::unique_ptr<QgsFeatureSink> sink_errors( parameterAsSink(
     parameters, QStringLiteral( "ERRORS" ), context, dest_errors, fields, Qgis::WkbType::Point, input->sourceCrs()
@@ -166,8 +170,8 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
   QVariantMap configurationCheck;
   configurationCheck.insert( "maxArea", maxArea );
   configurationCheck.insert( "threshold", maxThinness );
-  const QgsProject *project = QgsProject::instance();
-  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), project->transformContext(), project );
+
+  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), context.transformContext(), context.project(), uniqueIdFieldIdx );
   const QgsGeometrySliverPolygonCheck check( &checkContext, configurationCheck );
 
   multiStepFeedback.setCurrentStep( 1 );
@@ -180,7 +184,19 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
 
   multiStepFeedback.setCurrentStep( 2 );
   feedback->setProgressText( QObject::tr( "Collecting errors…" ) );
-  check.collectErrors( checkerFeaturePools, checkErrors, messages, feedback );
+  QgsGeometryCheck::Result res = check.collectErrors( checkerFeaturePools, checkErrors, messages, feedback );
+  if ( res == QgsGeometryCheck::Result::Success )
+  {
+    feedback->pushInfo( QObject::tr( "Errors collected successfully." ) );
+  }
+  else if ( res == QgsGeometryCheck::Result::Canceled )
+  {
+    throw QgsProcessingException( QObject::tr( "Operation was canceled." ) );
+  }
+  else if ( res == QgsGeometryCheck::Result::DuplicatedUniqueId )
+  {
+    throw QgsProcessingException( QObject::tr( "Field '%1' contains non-unique values and can not be used as unique ID." ).arg( uniqueIdFieldName ) );
+  }
 
   multiStepFeedback.setCurrentStep( 3 );
   feedback->setProgressText( QObject::tr( "Exporting errors…" ) );
@@ -188,7 +204,7 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
   long i = 0;
   feedback->setProgress( 0.0 );
 
-  for ( QgsGeometryCheckError *error : checkErrors )
+  for ( const QgsGeometryCheckError *error : checkErrors )
   {
     if ( feedback->isCanceled() )
     {
@@ -209,7 +225,7 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
     f.setAttributes( attrs );
 
     f.setGeometry( error->geometry() );
-    if ( !sink_output->addFeature( f, QgsFeatureSink::FastInsert ) )
+    if ( sink_output && !sink_output->addFeature( f, QgsFeatureSink::FastInsert ) )
       throw QgsProcessingException( writeFeatureError( sink_output.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
 
     f.setGeometry( QgsGeometry::fromPoint( QgsPoint( error->location().x(), error->location().y() ) ) );
@@ -227,8 +243,15 @@ QVariantMap QgsGeometryCheckSliverPolygonAlgorithm::processAlgorithm( const QVar
     context.layerToLoadOnCompletionDetails( dest_output ).layerSortKey = 1;
   }
 
+  // cleanup memory of the pointed data
+  for ( const QgsGeometryCheckError *error : checkErrors )
+  {
+    delete error;
+  }
+
   QVariantMap outputs;
-  outputs.insert( QStringLiteral( "OUTPUT" ), dest_output );
+  if ( sink_output )
+    outputs.insert( QStringLiteral( "OUTPUT" ), dest_output );
   outputs.insert( QStringLiteral( "ERRORS" ), dest_errors );
 
   return outputs;

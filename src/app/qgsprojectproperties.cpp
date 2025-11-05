@@ -98,8 +98,13 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
 
   setupUi( this );
 
-  mExtentGroupBox->setTitleBase( tr( "Set Project Full Extent" ) );
-  mExtentGroupBox->setMapCanvas( mapCanvas, false );
+  mExtentGroupBox->setCheckable( true );
+
+  mExtentWidget = new QgsExtentWidget( parent, QgsExtentWidget::ExpandedStyle );
+  QVBoxLayout *mExtentGroupBoxLayout = qobject_cast<QVBoxLayout *>( mExtentGroupBox->layout() );
+  mExtentGroupBoxLayout->insertWidget( 0, mExtentWidget );
+
+  mExtentWidget->setMapCanvas( mapCanvas, false );
 
   mAdvertisedExtentServer->setOutputCrs( QgsProject::instance()->crs() );
   mAdvertisedExtentServer->setMapCanvas( mapCanvas, false );
@@ -134,8 +139,8 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   connect( mButtonAddStyleDatabase, &QAbstractButton::clicked, this, &QgsProjectProperties::addStyleDatabase );
   connect( mButtonRemoveStyleDatabase, &QAbstractButton::clicked, this, &QgsProjectProperties::removeStyleDatabase );
   connect( mButtonNewStyleDatabase, &QAbstractButton::clicked, this, &QgsProjectProperties::newStyleDatabase );
-  connect( mCoordinateDisplayComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=]( int ) { updateGuiForCoordinateType(); } );
-  connect( mCoordinateCrs, &QgsProjectionSelectionWidget::crsChanged, this, [=]( const QgsCoordinateReferenceSystem & ) { updateGuiForCoordinateCrs(); } );
+  connect( mCoordinateDisplayComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [this]( int ) { updateGuiForCoordinateType(); } );
+  connect( mCoordinateCrs, &QgsProjectionSelectionWidget::crsChanged, this, [this]( const QgsCoordinateReferenceSystem & ) { updateGuiForCoordinateCrs(); } );
 #if QT_VERSION >= QT_VERSION_CHECK( 6, 8, 0 )
   connect( mAddIccProfile, &QToolButton::clicked, this, static_cast<void ( QgsProjectProperties::* )()>( &QgsProjectProperties::addIccProfile ) );
   connect( mRemoveIccProfile, &QToolButton::clicked, this, &QgsProjectProperties::removeIccProfile );
@@ -206,12 +211,12 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   projectionSelector->setShowNoProjection( true );
 
   connect( buttonBox->button( QDialogButtonBox::Apply ), &QAbstractButton::clicked, this, &QgsProjectProperties::apply );
-  connect( this, &QDialog::finished, this, [=]( int result ) { if ( result == QDialog::Rejected ) cancel(); } );
+  connect( this, &QDialog::finished, this, [this]( int result ) { if ( result == QDialog::Rejected ) cancel(); } );
 
   // disconnect default connection setup by initOptionsBase for accepting dialog, and insert logic
   // to validate widgets before allowing dialog to be closed
   disconnect( mOptButtonBox, &QDialogButtonBox::accepted, this, &QDialog::accept );
-  connect( mOptButtonBox, &QDialogButtonBox::accepted, this, [=] {
+  connect( mOptButtonBox, &QDialogButtonBox::accepted, this, [this] {
     for ( QgsOptionsPageWidget *widget : std::as_const( mAdditionalProjectPropertiesWidgets ) )
     {
       if ( !widget->isValid() )
@@ -224,7 +229,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
     accept();
   } );
 
-  connect( projectionSelector, &QgsProjectionSelectionTreeWidget::crsSelected, this, [=] {
+  connect( projectionSelector, &QgsProjectionSelectionTreeWidget::crsSelected, this, [this] {
     if ( mBlockCrsUpdates || !projectionSelector->hasValidSelection() )
       return;
 
@@ -319,7 +324,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
 
   mProjectHomeLineEdit->setShowClearButton( true );
   mProjectHomeLineEdit->setText( QDir::toNativeSeparators( QgsProject::instance()->presetHomePath() ) );
-  connect( mButtonSetProjectHome, &QToolButton::clicked, this, [=] {
+  connect( mButtonSetProjectHome, &QToolButton::clicked, this, [this] {
     auto getAbsoluteHome = [this]() -> QString {
       QString currentHome = QDir::fromNativeSeparators( mProjectHomeLineEdit->text() );
       if ( !currentHome.isEmpty() )
@@ -351,7 +356,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
     }
   } );
 
-  connect( mButtonOpenProjectFolder, &QToolButton::clicked, this, [=] {
+  connect( mButtonOpenProjectFolder, &QToolButton::clicked, this, [] {
     QString path;
     QString project = !QgsProject::instance()->fileName().isEmpty() ? QgsProject::instance()->fileName() : QgsProject::instance()->originalPath();
     QgsProjectStorage *storage = QgsProject::instance()->projectStorage();
@@ -476,12 +481,13 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   grpProjectScales->setChecked( QgsProject::instance()->viewSettings()->useProjectScales() );
 
   const QgsReferencedRectangle presetExtent = QgsProject::instance()->viewSettings()->presetFullExtent();
-  mExtentGroupBox->setOutputCrs( QgsProject::instance()->crs() );
+  mExtentWidget->setOutputCrs( QgsProject::instance()->crs() );
   if ( presetExtent.isNull() )
-    mExtentGroupBox->setOutputExtentFromUser( QgsProject::instance()->viewSettings()->fullExtent(), QgsProject::instance()->crs() );
+    mExtentWidget->setOutputExtentFromUser( QgsProject::instance()->viewSettings()->fullExtent(), QgsProject::instance()->crs() );
   else
-    mExtentGroupBox->setOutputExtentFromUser( presetExtent, presetExtent.crs() );
+    mExtentWidget->setOutputExtentFromUser( presetExtent, presetExtent.crs() );
   mExtentGroupBox->setChecked( !presetExtent.isNull() );
+  mCheckBoxLoadProjectExtent->setChecked( QgsProject::instance()->viewSettings()->restoreProjectExtentOnProjectLoad() );
 
   mLayerCapabilitiesModel = new QgsLayerCapabilitiesModel( QgsProject::instance(), this );
   mLayerCapabilitiesModel->setLayerTreeModel( new QgsLayerTreeModel( QgsProject::instance()->layerTreeRoot(), mLayerCapabilitiesModel ) );
@@ -491,7 +497,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   mLayerCapabilitiesTree->setSelectionBehavior( QAbstractItemView::SelectItems );
   mLayerCapabilitiesTree->setSelectionMode( QAbstractItemView::MultiSelection );
   mLayerCapabilitiesTree->expandAll();
-  connect( mLayerCapabilitiesTree->selectionModel(), &QItemSelectionModel::selectionChanged, this, [=]( const QItemSelection &selected, const QItemSelection &deselected ) {
+  connect( mLayerCapabilitiesTree->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this]( const QItemSelection &selected, const QItemSelection &deselected ) {
     Q_UNUSED( selected )
     Q_UNUSED( deselected )
     bool hasSelection = !mLayerCapabilitiesTree->selectionModel()->selectedIndexes().isEmpty();
@@ -501,19 +507,19 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   mLayerCapabilitiesTreeFilterLineEdit->setShowClearButton( true );
   mLayerCapabilitiesTreeFilterLineEdit->setShowSearchIcon( true );
   mLayerCapabilitiesTreeFilterLineEdit->setPlaceholderText( tr( "Filter layers…" ) );
-  connect( mLayerCapabilitiesTreeFilterLineEdit, &QgsFilterLineEdit::textChanged, this, [=]( const QString &filterText ) {
+  connect( mLayerCapabilitiesTreeFilterLineEdit, &QgsFilterLineEdit::textChanged, this, [this]( const QString &filterText ) {
     mLayerCapabilitiesModel->setFilterText( filterText );
     mLayerCapabilitiesTree->expandAll();
   } );
 
-  connect( mLayerCapabilitiesToggleSelectionButton, &QToolButton::clicked, this, [=]( bool clicked ) {
+  connect( mLayerCapabilitiesToggleSelectionButton, &QToolButton::clicked, this, [this]( bool clicked ) {
     Q_UNUSED( clicked )
     const QModelIndexList indexes = mLayerCapabilitiesTree->selectionModel()->selectedIndexes();
     mLayerCapabilitiesModel->toggleSelectedItems( indexes );
     mLayerCapabilitiesTree->repaint();
   } );
 
-  connect( mShowSpatialLayersCheckBox, &QCheckBox::stateChanged, this, [=]( int state ) {
+  connect( mShowSpatialLayersCheckBox, &QCheckBox::stateChanged, this, [this]( int state ) {
     mLayerCapabilitiesModel->setShowSpatialLayersOnly( static_cast<bool>( state ) );
   } );
 
@@ -736,6 +742,9 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
   bool useAttributeFormSettings = QgsProject::instance()->readBoolEntry( QStringLiteral( "WMSFeatureInfoUseAttributeFormSettings" ), QStringLiteral( "/" ) );
   mUseAttributeFormSettingsCheckBox->setChecked( useAttributeFormSettings );
 
+  bool useOnlyMaptip = QgsProject::instance()->readBoolEntry( QStringLiteral( "WMSHTMLFeatureInfoUseOnlyMaptip" ), QStringLiteral( "/" ) );
+  mHTMLFiOnlyMaptip->setChecked( useOnlyMaptip );
+
   bool addWktGeometry = QgsProject::instance()->readBoolEntry( QStringLiteral( "WMSAddWktGeometry" ), QStringLiteral( "/" ) );
   mAddWktGeometryCheckBox->setChecked( addWktGeometry );
 
@@ -912,7 +921,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
       QCheckBox *cbp = new QCheckBox();
       cbp->setChecked( wfsLayerIdList.contains( currentLayer->id() ) );
       twWFSLayers->setCellWidget( j, 1, cbp );
-      connect( cbp, &QCheckBox::stateChanged, this, [=] { cbxWCSPubliedStateChanged( j ); } );
+      connect( cbp, &QCheckBox::stateChanged, this, [this, j] { cbxWCSPubliedStateChanged( j ); } );
 
       QSpinBox *psb = new QSpinBox();
       psb->setValue( QgsProject::instance()->readNumEntry( QStringLiteral( "WFSLayersPrecision" ), "/" + currentLayer->id(), 8 ) );
@@ -982,7 +991,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
       cbp->setChecked( wcsLayerIdList.contains( currentLayer->id() ) );
       twWCSLayers->setCellWidget( j, 1, cbp );
 
-      connect( cbp, &QCheckBox::stateChanged, this, [=] { cbxWCSPubliedStateChanged( j ); } );
+      connect( cbp, &QCheckBox::stateChanged, this, [this, j] { cbxWCSPubliedStateChanged( j ); } );
 
       j++;
     }
@@ -1109,7 +1118,7 @@ QgsProjectProperties::QgsProjectProperties( QgsMapCanvas *mapCanvas, QWidget *pa
 
   // sync metadata title and project title fields
   connect( mMetadataWidget, &QgsMetadataWidget::titleChanged, titleEdit, &QLineEdit::setText, Qt::QueuedConnection );
-  connect( titleEdit, &QLineEdit::textChanged, this, [=] { whileBlocking( mMetadataWidget )->setTitle( title() ); } );
+  connect( titleEdit, &QLineEdit::textChanged, this, [this] { whileBlocking( mMetadataWidget )->setTitle( title() ); } );
 
   //fill ts language checkbox
   QString i18nPath = QgsApplication::i18nPath();
@@ -1208,6 +1217,7 @@ void QgsProjectProperties::apply()
       return;
     }
   }
+
 
   mMapCanvas->enableMapTileRendering( mMapTileRenderingCheckBox->isChecked() );
   QgsProject::instance()->writeEntry( QStringLiteral( "RenderMapTile" ), QStringLiteral( "/" ), mMapTileRenderingCheckBox->isChecked() );
@@ -1350,12 +1360,14 @@ void QgsProjectProperties::apply()
 
   if ( mExtentGroupBox->isChecked() )
   {
-    QgsProject::instance()->viewSettings()->setPresetFullExtent( QgsReferencedRectangle( mExtentGroupBox->outputExtent(), mExtentGroupBox->outputCrs() ) );
+    QgsProject::instance()->viewSettings()->setPresetFullExtent( QgsReferencedRectangle( mExtentWidget->outputExtent(), mExtentWidget->outputCrs() ) );
   }
   else
   {
     QgsProject::instance()->viewSettings()->setPresetFullExtent( QgsReferencedRectangle() );
   }
+
+  QgsProject::instance()->viewSettings()->setRestoreProjectExtentOnProjectLoad( mCheckBoxLoadProjectExtent->isChecked() );
 
   bool isDirty = false;
   const QMap<QString, QgsMapLayer *> &mapLayers = QgsProject::instance()->mapLayers();
@@ -1566,6 +1578,7 @@ void QgsProjectProperties::apply()
   }
 
   QgsProject::instance()->writeEntry( QStringLiteral( "WMSFeatureInfoUseAttributeFormSettings" ), QStringLiteral( "/" ), mUseAttributeFormSettingsCheckBox->isChecked() );
+  QgsProject::instance()->writeEntry( QStringLiteral( "WMSHTMLFeatureInfoUseOnlyMaptip" ), QStringLiteral( "/" ), mHTMLFiOnlyMaptip->isChecked() );
   QgsProject::instance()->writeEntry( QStringLiteral( "WMSAddWktGeometry" ), QStringLiteral( "/" ), mAddWktGeometryCheckBox->isChecked() );
   QgsProject::instance()->writeEntry( QStringLiteral( "WMSSegmentizeFeatureInfoGeometry" ), QStringLiteral( "/" ), mSegmentizeFeatureInfoGeometryCheckBox->isChecked() );
   QgsProject::instance()->writeEntry( QStringLiteral( "WMSAddLayerGroupsLegendGraphic" ), QStringLiteral( "/" ), mAddLayerGroupsLegendGraphicCheckBox->isChecked() );
@@ -2017,6 +2030,7 @@ void QgsProjectProperties::updateGuiForMapUnits()
       mAreaUnitsCombo->setItemText( idx, mapUnitString );
     }
   }
+  updateGuiForCoordinateType();
 }
 
 void QgsProjectProperties::crsChanged( const QgsCoordinateReferenceSystem &crs )
@@ -2042,7 +2056,7 @@ void QgsProjectProperties::crsChanged( const QgsCoordinateReferenceSystem &crs )
     cmbEllipsoid->setEnabled( false );
   }
 
-  mExtentGroupBox->setOutputCrs( crs );
+  mExtentWidget->setOutputCrs( crs );
   mAdvertisedExtentServer->setOutputCrs( crs );
 }
 

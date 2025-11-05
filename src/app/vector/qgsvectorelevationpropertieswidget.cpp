@@ -84,7 +84,7 @@ QgsVectorElevationPropertiesWidget::QgsVectorElevationPropertiesWidget( QgsVecto
   connect( mComboBinding, qOverload<int>( &QComboBox::currentIndexChanged ), this, &QgsVectorElevationPropertiesWidget::onChanged );
   connect( mComboClamping, qOverload<int>( &QComboBox::currentIndexChanged ), this, &QgsVectorElevationPropertiesWidget::clampingChanged );
   connect( mComboBinding, qOverload<int>( &QComboBox::currentIndexChanged ), this, &QgsVectorElevationPropertiesWidget::bindingChanged );
-  connect( mTypeComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=] {
+  connect( mTypeComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [this] {
     switch ( static_cast<Qgis::VectorProfileType>( mTypeComboBox->currentData().toInt() ) )
     {
       case Qgis::VectorProfileType::IndividualFeatures:
@@ -97,7 +97,7 @@ QgsVectorElevationPropertiesWidget::QgsVectorElevationPropertiesWidget( QgsVecto
     onChanged();
   } );
 
-  connect( mStyleComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=] {
+  connect( mStyleComboBox, qOverload<int>( &QComboBox::currentIndexChanged ), this, [this] {
     switch ( static_cast<Qgis::ProfileSurfaceSymbology>( mStyleComboBox->currentData().toInt() ) )
     {
       case Qgis::ProfileSurfaceSymbology::Line:
@@ -287,7 +287,7 @@ void QgsVectorElevationPropertiesWidget::clampingChanged()
       );
       enableBinding = false; // not used in absolute mode
 
-      if ( QgsWkbTypes::hasZ( mLayer->wkbType() ) )
+      if ( mLayer && QgsWkbTypes::hasZ( mLayer->wkbType() ) )
       {
         mOffsetLabel->setText( tr( "Offset" ) );
       }
@@ -427,7 +427,7 @@ void QgsVectorElevationPropertiesWidget::initializeDataDefinedButton( QgsPropert
 
 void QgsVectorElevationPropertiesWidget::updateDataDefinedButtons()
 {
-  const auto propertyOverrideButtons { findChildren<QgsPropertyOverrideButton *>() };
+  const QList<QgsPropertyOverrideButton *> propertyOverrideButtons { findChildren<QgsPropertyOverrideButton *>() };
   for ( QgsPropertyOverrideButton *button : propertyOverrideButtons )
   {
     updateDataDefinedButton( button );

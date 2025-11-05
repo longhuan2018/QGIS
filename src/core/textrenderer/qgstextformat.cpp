@@ -39,6 +39,7 @@ QgsTextFormat::QgsTextFormat()
 }
 
 QgsTextFormat::QgsTextFormat( const QgsTextFormat &other ) //NOLINT
+//****** IMPORTANT! editing this? make sure you update the move constructor too! *****
   : mBufferSettings( other.mBufferSettings )
   , mBackgroundSettings( other.mBackgroundSettings )
   , mShadowSettings( other.mShadowSettings )
@@ -46,18 +47,51 @@ QgsTextFormat::QgsTextFormat( const QgsTextFormat &other ) //NOLINT
   , mTextFontFamily( other.mTextFontFamily )
   , mTextFontFound( other.mTextFontFound )
   , d( other.d )
+    //****** IMPORTANT! editing this? make sure you update the move constructor too! *****
+{
+
+}
+
+QgsTextFormat::QgsTextFormat( QgsTextFormat &&other ) //NOLINT
+  : mBufferSettings( std::move( other.mBufferSettings ) )
+  , mBackgroundSettings( std::move( other.mBackgroundSettings ) )
+  , mShadowSettings( std::move( other.mShadowSettings ) )
+  , mMaskSettings( std::move( other.mMaskSettings ) )
+  , mTextFontFamily( std::move( other.mTextFontFamily ) )
+  , mTextFontFound( other.mTextFontFound )
+  , d( std::move( other.d ) )
 {
 
 }
 
 QgsTextFormat &QgsTextFormat::operator=( const QgsTextFormat &other )  //NOLINT
 {
+  if ( &other == this )
+    return *this;
+
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
   d = other.d;
   mBufferSettings = other.mBufferSettings;
   mBackgroundSettings = other.mBackgroundSettings;
   mShadowSettings = other.mShadowSettings;
   mMaskSettings = other.mMaskSettings;
   mTextFontFamily = other.mTextFontFamily;
+  mTextFontFound = other.mTextFontFound;
+  return *this;
+  //****** IMPORTANT! editing this? make sure you update the move assignment operator too! *****
+}
+
+QgsTextFormat &QgsTextFormat::operator=( QgsTextFormat &&other )  //NOLINT
+{
+  if ( &other == this )
+    return *this;
+
+  d = std::move( other.d );
+  mBufferSettings = std::move( other.mBufferSettings );
+  mBackgroundSettings = std::move( other.mBackgroundSettings );
+  mShadowSettings = std::move( other.mShadowSettings );
+  mMaskSettings = std::move( other.mMaskSettings );
+  mTextFontFamily = std::move( other.mTextFontFamily );
   mTextFontFound = other.mTextFontFound;
   return *this;
 }
@@ -954,6 +988,29 @@ bool QgsTextFormat::containsAdvancedEffects() const
   return false;
 }
 
+bool QgsTextFormat::hasNonDefaultCompositionMode() const
+{
+  if ( d->blendMode != QPainter::CompositionMode_SourceOver )
+    return true;
+
+  if ( mBufferSettings.enabled() && mBufferSettings.blendMode() != QPainter::CompositionMode_SourceOver )
+    return true;
+
+  if ( mBackgroundSettings.enabled() && mBackgroundSettings.blendMode() != QPainter::CompositionMode_SourceOver )
+    return true;
+
+  if ( mShadowSettings.enabled() && mShadowSettings.blendMode() != QPainter::CompositionMode_SourceOver )
+    return true;
+
+  if ( d->mDataDefinedProperties.isActive( QgsPalLayerSettings::Property::FontBlendMode )
+       || d->mDataDefinedProperties.isActive( QgsPalLayerSettings::Property::ShadowBlendMode )
+       || d->mDataDefinedProperties.isActive( QgsPalLayerSettings::Property::BufferBlendMode )
+       || d->mDataDefinedProperties.isActive( QgsPalLayerSettings::Property::ShapeBlendMode ) )
+    return true;
+
+  return false;
+}
+
 QgsPropertyCollection &QgsTextFormat::dataDefinedProperties()
 {
   d->isValid = true;
@@ -1291,7 +1348,7 @@ QPixmap QgsTextFormat::textFormatPreviewPixmap( const QgsTextFormat &format, QSi
     }
   }
 
-  context.setUseAdvancedEffects( true );
+  context.setRasterizedRenderingPolicy( Qgis::RasterizedRenderingPolicy::Default );
   context.setFlag( Qgis::RenderContextFlag::Antialiasing, true );
   context.setPainter( &painter );
   context.setFlag( Qgis::RenderContextFlag::Antialiasing, true );

@@ -92,7 +92,7 @@ bool QgsDataItemGuiProviderUtils::handleDropUriForConnection( std::unique_ptr<Qg
   auto pushError = [shortTitle, longTitle, context]( const QString &error ) {
     QgsMessageBarItem *item = new QgsMessageBarItem( shortTitle, QObject::tr( "Import failed." ), Qgis::MessageLevel::Warning, 0, nullptr );
     QPushButton *detailsButton = new QPushButton( QObject::tr( "Details…" ) );
-    QObject::connect( detailsButton, &QPushButton::clicked, detailsButton, [=] {
+    QObject::connect( detailsButton, &QPushButton::clicked, detailsButton, [longTitle, error] {
       QgsMessageOutput *output = QgsMessageOutput::createMessageOutput();
       output->setTitle( longTitle );
       output->setMessage( error, QgsMessageOutput::MessageText );
@@ -172,7 +172,7 @@ void QgsDataItemGuiProviderUtils::handleImportVectorLayerForConnection( std::uni
   auto pushError = [shortTitle, longTitle, context]( const QString &error ) {
     QgsMessageBarItem *item = new QgsMessageBarItem( shortTitle, QObject::tr( "Import failed." ), Qgis::MessageLevel::Warning, 0, nullptr );
     QPushButton *detailsButton = new QPushButton( QObject::tr( "Details…" ) );
-    QObject::connect( detailsButton, &QPushButton::clicked, detailsButton, [=] {
+    QObject::connect( detailsButton, &QPushButton::clicked, detailsButton, [longTitle, error] {
       QgsMessageOutput *output = QgsMessageOutput::createMessageOutput();
       output->setTitle( longTitle );
       output->setMessage( error, QgsMessageOutput::MessageText );
@@ -224,4 +224,42 @@ void QgsDataItemGuiProviderUtils::handleImportVectorLayerForConnection( std::uni
   } );
 
   QgsApplication::taskManager()->addTask( exportTask.release() );
+}
+
+void QgsDataItemGuiProviderUtils::addToSubMenu( QMenu *mainMenu, QAction *actionToAdd, const QString &subMenuName )
+{
+  // this action should sit in the Manage menu. If one does not exist, create it now
+  bool foundExistingManageMenu = false;
+  const QList<QAction *> actions = mainMenu->actions();
+  for ( QAction *action : actions )
+  {
+    if ( action->text() == subMenuName )
+    {
+      action->menu()->addAction( actionToAdd );
+      foundExistingManageMenu = true;
+      break;
+    }
+  }
+  if ( !foundExistingManageMenu )
+  {
+    QMenu *addSubMenu = new QMenu( subMenuName, mainMenu );
+    addSubMenu->addAction( actionToAdd );
+    mainMenu->addMenu( addSubMenu );
+  }
+}
+
+void QgsDataItemGuiProviderUtils::refreshChildWithName( QgsDataItem *item, const QString &name )
+{
+  const QVector<QgsDataItem *> constChildren { item->children() };
+  for ( QgsDataItem *c : constChildren )
+  {
+    if ( c->name() == name )
+    {
+      if ( c->state() != Qgis::BrowserItemState::NotPopulated )
+      {
+        c->refresh();
+      }
+      break;
+    }
+  }
 }

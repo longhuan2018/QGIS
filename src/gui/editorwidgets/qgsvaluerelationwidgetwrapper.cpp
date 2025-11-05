@@ -34,6 +34,7 @@
 #include <QHeaderView>
 #include <QKeyEvent>
 #include <QStandardItemModel>
+#include <QMenu>
 
 #include <nlohmann/json.hpp>
 using namespace nlohmann;
@@ -54,6 +55,8 @@ QgsFilteredTableWidget::QgsFilteredTableWidget( QWidget *parent, bool showSearch
   mTableWidget->setShowGrid( false );
   mTableWidget->setEditTriggers( QAbstractItemView::NoEditTriggers );
   mTableWidget->setSelectionMode( QAbstractItemView::NoSelection );
+  mTableWidget->setContextMenuPolicy( Qt::CustomContextMenu );
+
   QVBoxLayout *layout = new QVBoxLayout();
   layout->addWidget( mSearchWidget );
   layout->addWidget( mTableWidget );
@@ -71,6 +74,7 @@ QgsFilteredTableWidget::QgsFilteredTableWidget( QWidget *parent, bool showSearch
   }
   setLayout( layout );
   connect( mTableWidget, &QTableWidget::itemChanged, this, &QgsFilteredTableWidget::itemChanged_p );
+  connect( mTableWidget, &QTableWidget::customContextMenuRequested, this, &QgsFilteredTableWidget::onTableWidgetCustomContextMenuRequested );
 }
 
 bool QgsFilteredTableWidget::eventFilter( QObject *watched, QEvent *event )
@@ -228,6 +232,62 @@ void QgsFilteredTableWidget::itemChanged_p( QTableWidgetItem *item )
   }
   emit itemChanged( item );
 }
+
+void QgsFilteredTableWidget::onTableWidgetCustomContextMenuRequested( const QPoint &pos )
+{
+  Q_UNUSED( pos );
+
+  // create actions
+  QAction *actionTableWidgetSelectAll = new QAction( tr( "Select All" ), this );
+  QAction *actionTableWidgetDeselectAll = new QAction( tr( "Deselect All" ), this );
+  connect( actionTableWidgetSelectAll, &QAction::triggered, this, &QgsFilteredTableWidget::onTableWidgetMenuActionSelectAllTriggered );
+  connect( actionTableWidgetDeselectAll, &QAction::triggered, this, &QgsFilteredTableWidget::onTableWidgetMenuActionDeselectAllTriggered );
+
+  QMenu *tableWidgetMenu = new QMenu( mTableWidget );
+  tableWidgetMenu->addAction( actionTableWidgetSelectAll );
+  tableWidgetMenu->addAction( actionTableWidgetDeselectAll );
+
+  tableWidgetMenu->exec( QCursor::pos() );
+
+  // destroy actions
+  disconnect( actionTableWidgetSelectAll, &QAction::triggered, nullptr, nullptr );
+  disconnect( actionTableWidgetDeselectAll, &QAction::triggered, nullptr, nullptr );
+  actionTableWidgetSelectAll->deleteLater();
+  actionTableWidgetDeselectAll->deleteLater();
+
+  // destroy menu
+  tableWidgetMenu->deleteLater();
+}
+
+void QgsFilteredTableWidget::onTableWidgetMenuActionSelectAllTriggered()
+{
+  for ( int rowIndex = 0; rowIndex < mTableWidget->rowCount(); ++rowIndex )
+  {
+    for ( int columnIndex = 0; columnIndex < mTableWidget->columnCount(); ++columnIndex )
+    {
+      QTableWidgetItem *item = whileBlocking( mTableWidget )->item( rowIndex, columnIndex );
+      if ( item && ( item->flags() & Qt::ItemIsEnabled ) )
+      {
+        item->setCheckState( Qt::Checked );
+      }
+    }
+  }
+}
+
+void QgsFilteredTableWidget::onTableWidgetMenuActionDeselectAllTriggered()
+{
+  for ( int rowIndex = 0; rowIndex < mTableWidget->rowCount(); ++rowIndex )
+  {
+    for ( int columnIndex = 0; columnIndex < mTableWidget->columnCount(); ++columnIndex )
+    {
+      QTableWidgetItem *item = whileBlocking( mTableWidget )->item( rowIndex, columnIndex );
+      if ( item && ( item->flags() & Qt::ItemIsEnabled ) )
+      {
+        item->setCheckState( Qt::Unchecked );
+      }
+    }
+  }
+}
 ///@endcond
 
 
@@ -355,7 +415,7 @@ void QgsValueRelationWidgetWrapper::initWidget( QWidget *editor )
   {
     if ( QgsFilterLineEdit *filterLineEdit = qobject_cast<QgsFilterLineEdit *>( editor ) )
     {
-      connect( filterLineEdit, &QgsFilterLineEdit::valueChanged, this, [=]( const QString & ) {
+      connect( filterLineEdit, &QgsFilterLineEdit::valueChanged, this, [this]( const QString & ) {
         if ( mSubWidgetSignalBlocking == 0 )
           emitValueChanged();
       } );
@@ -414,7 +474,16 @@ void QgsValueRelationWidgetWrapper::updateValue( const QVariant &value, bool for
       // if value doesn't exist, we show it in '(...)' (just like value map widget)
       if ( QgsVariantUtils::isNull( value ) || !forceComboInsertion )
       {
-        mComboBox->setCurrentIndex( -1 );
+        // we might have an explicit item for null (e.g. "no selection"), if so, set to that
+        for ( int i = 0; i < mComboBox->count(); i++ )
+        {
+          if ( QgsVariantUtils::isNull( mComboBox->itemData( i ) ) )
+          {
+            idx = i;
+            break;
+          }
+        }
+        mComboBox->setCurrentIndex( idx );
       }
       else
       {
@@ -455,7 +524,8 @@ void QgsValueRelationWidgetWrapper::widgetValueChanged( const QString &attribute
   // Do nothing if the value has not changed except for multi edit mode
   // In multi edit mode feature is not updated (so attributeChanged is false) until user validate it but we need to update the
   // value relation which could have an expression depending on another modified field
-  if ( attributeChanged || context().attributeFormMode() == QgsAttributeEditorContext::Mode::MultiEditMode )
+  const bool isMultieditMode { context().attributeFormMode() == QgsAttributeEditorContext::Mode::MultiEditMode };
+  if ( attributeChanged || isMultieditMode )
   {
     QVariant oldValue( value() );
     setFormFeatureAttribute( attribute, newValue );
@@ -465,7 +535,7 @@ void QgsValueRelationWidgetWrapper::widgetValueChanged( const QString &attribute
     {
       populate();
       // Restore value
-      updateValue( oldValue, false );
+      updateValue( isMultieditMode ? oldValue : value(), false );
       // If the value has changed as a result of another widget's value change,
       // we need to emit the signal to make sure other dependent widgets are
       // updated.
@@ -491,6 +561,11 @@ void QgsValueRelationWidgetWrapper::widgetValueChanged( const QString &attribute
 
 void QgsValueRelationWidgetWrapper::setFeature( const QgsFeature &feature )
 {
+  // No need to proceed further because the status of the object doesn't need to be updated.
+  if ( !formFeature().isValid() && !feature.isValid() && !mCache.isEmpty() )
+  {
+    return;
+  }
   setFormFeature( feature );
   whileBlocking( this )->populate();
   whileBlocking( this )->setValue( feature.attribute( fieldIdx() ) );

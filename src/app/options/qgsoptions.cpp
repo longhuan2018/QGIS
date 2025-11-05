@@ -15,6 +15,7 @@
  *   (at your option) any later version.                                   *
  *                                                                         *
  ***************************************************************************/
+
 #include "qgsapplication.h"
 #include "qgsoptions.h"
 #include "moc_qgsoptions.cpp"
@@ -145,7 +146,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   // some drivers apply for both raster and vector -- we treat these as siblings
   // and must ensure that checking/unchecking one also checks/unchecks the other
   // (we can't selectively just disable the raster/vector part of a GDAL driver)
-  auto syncItem = [=]( QTreeWidgetItem *changedItem, QTreeWidget *otherTree ) {
+  auto syncItem = []( QTreeWidgetItem *changedItem, QTreeWidget *otherTree ) {
     const QString driver = changedItem->data( 0, Qt::UserRole ).toString();
     for ( int i = 0; i < otherTree->topLevelItemCount(); ++i )
     {
@@ -160,10 +161,10 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
       }
     }
   };
-  connect( lstRasterDrivers, &QTreeWidget::itemChanged, this, [=]( QTreeWidgetItem *item, int ) {
+  connect( lstRasterDrivers, &QTreeWidget::itemChanged, this, [this, syncItem]( QTreeWidgetItem *item, int ) {
     syncItem( item, lstVectorDrivers );
   } );
-  connect( lstVectorDrivers, &QTreeWidget::itemChanged, this, [=]( QTreeWidgetItem *item, int ) {
+  connect( lstVectorDrivers, &QTreeWidget::itemChanged, this, [this, syncItem]( QTreeWidgetItem *item, int ) {
     syncItem( item, lstRasterDrivers );
   } );
 
@@ -172,8 +173,8 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   connect( mCustomVariablesChkBx, &QCheckBox::toggled, this, &QgsOptions::mCustomVariablesChkBx_toggled );
   connect( mCurrentVariablesQGISChxBx, &QCheckBox::toggled, this, &QgsOptions::mCurrentVariablesQGISChxBx_toggled );
   connect( buttonBox, &QDialogButtonBox::helpRequested, this, &QgsOptions::showHelp );
-  connect( cboGlobalLocale, qOverload<int>( &QComboBox::currentIndexChanged ), this, [=]( int ) { updateSampleLocaleText(); } );
-  connect( cbShowGroupSeparator, &QCheckBox::toggled, this, [=]( bool ) { updateSampleLocaleText(); } );
+  connect( cboGlobalLocale, qOverload<int>( &QComboBox::currentIndexChanged ), this, [this]( int ) { updateSampleLocaleText(); } );
+  connect( cbShowGroupSeparator, &QCheckBox::toggled, this, [this]( bool ) { updateSampleLocaleText(); } );
 
   // QgsOptionsDialogBase handles saving/restoring of geometry, splitter and current tab states,
   // switching vertical tabs between icon/text to icon-only modes (splitter collapsed to left),
@@ -182,7 +183,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   // disconnect default connection setup by initOptionsBase for accepting dialog, and insert logic
   // to validate widgets before allowing dialog to be closed
   disconnect( mOptButtonBox, &QDialogButtonBox::accepted, this, &QDialog::accept );
-  connect( mOptButtonBox, &QDialogButtonBox::accepted, this, [=] {
+  connect( mOptButtonBox, &QDialogButtonBox::accepted, this, [this] {
     for ( QgsOptionsPageWidget *widget : std::as_const( mAdditionalOptionWidgets ) )
     {
       if ( !widget->isValid() )
@@ -191,6 +192,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
         return;
       }
     }
+    saveOptions();
     accept();
   } );
 
@@ -200,7 +202,6 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   connect( cmbIconSize, qOverload<int>( &QComboBox::highlighted ), this, &QgsOptions::iconSizeChanged );
   connect( cmbIconSize, &QComboBox::editTextChanged, this, &QgsOptions::iconSizeChanged );
 
-  connect( this, &QDialog::accepted, this, &QgsOptions::saveOptions );
   connect( this, &QDialog::rejected, this, &QgsOptions::rejectOptions );
 
   QStringList styles = QStyleFactory::keys();
@@ -227,11 +228,10 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   // non-default themes are best rendered using the Fusion style, therefore changing themes must require a restart to
   lblUITheme->setText( QStringLiteral( "%1 <i>(%2)</i>" ).arg( lblUITheme->text(), tr( "QGIS restart required" ) ) );
 
-  mEnableMacrosComboBox->addItem( tr( "Never" ), QVariant::fromValue( Qgis::PythonEmbeddedMode::Never ) );
-  mEnableMacrosComboBox->addItem( tr( "Ask" ), QVariant::fromValue( Qgis::PythonEmbeddedMode::Ask ) );
-  mEnableMacrosComboBox->addItem( tr( "For This Session Only" ), QVariant::fromValue( Qgis::PythonEmbeddedMode::SessionOnly ) );
-  mEnableMacrosComboBox->addItem( tr( "Not During This Session" ), QVariant::fromValue( Qgis::PythonEmbeddedMode::NotForThisSession ) );
-  mEnableMacrosComboBox->addItem( tr( "Always (Not Recommended)" ), QVariant::fromValue( Qgis::PythonEmbeddedMode::Always ) );
+  mProjectTrustBehaviorComboBox->addItem( tr( "Never Execute" ), QVariant::fromValue( Qgis::EmbeddedScriptMode::Never ) );
+  mProjectTrustBehaviorComboBox->addItem( tr( "Never Ask for Trust" ), QVariant::fromValue( Qgis::EmbeddedScriptMode::NeverAsk ) );
+  mProjectTrustBehaviorComboBox->addItem( tr( "Ask for Trust" ), QVariant::fromValue( Qgis::EmbeddedScriptMode::Ask ) );
+  mProjectTrustBehaviorComboBox->addItem( tr( "Always Execute (Not Recommended)" ), QVariant::fromValue( Qgis::EmbeddedScriptMode::Always ) );
 
   mIdentifyHighlightColorButton->setColorDialogTitle( tr( "Identify Highlight Color" ) );
   mIdentifyHighlightColorButton->setAllowOpacity( true );
@@ -494,7 +494,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   mAutoClearAccessCache->setChecked( mSettings->value( QStringLiteral( "clear_auth_cache_on_errors" ), true, QgsSettings::Section::Auth ).toBool() );
   connect( mClearAccessCache, &QAbstractButton::clicked, this, &QgsOptions::clearAccessCache );
 
-  connect( mAutoClearAccessCache, &QCheckBox::clicked, this, [=]( bool checked ) {
+  connect( mAutoClearAccessCache, &QCheckBox::clicked, this, [this]( bool checked ) {
     mSettings->setValue( QStringLiteral( "clear_auth_cache_on_errors" ), checked, QgsSettings::Section::Auth );
   } );
 
@@ -823,8 +823,31 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   chbAskToSaveProjectChanges->setChecked( mSettings->value( QStringLiteral( "qgis/askToSaveProjectChanges" ), QVariant( true ) ).toBool() );
   mLayerDeleteConfirmationChkBx->setChecked( mSettings->value( QStringLiteral( "qgis/askToDeleteLayers" ), true ).toBool() );
   chbWarnOldProjectVersion->setChecked( mSettings->value( QStringLiteral( "/qgis/warnOldProjectVersion" ), QVariant( true ) ).toBool() );
-  Qgis::PythonEmbeddedMode pyEmbeddedMode = mSettings->enumValue( QStringLiteral( "/qgis/enablePythonEmbedded" ), Qgis::PythonEmbeddedMode::Ask );
-  mEnableMacrosComboBox->setCurrentIndex( mEnableMacrosComboBox->findData( QVariant::fromValue( pyEmbeddedMode ) ) );
+
+  Qgis::EmbeddedScriptMode embeddedScriptMode = QgsSettingsRegistryCore::settingsCodeExecutionBehaviorUndeterminedProjects->value();
+  mProjectTrustBehaviorComboBox->setCurrentIndex( mProjectTrustBehaviorComboBox->findData( QVariant::fromValue( embeddedScriptMode ) ) );
+
+  const QStringList trustedProjectsFoldersList = QgsSettingsRegistryCore::settingsCodeExecutionTrustedProjectsFolders->value();
+  for ( const QString &path : trustedProjectsFoldersList )
+  {
+    QListWidgetItem *newItem = new QListWidgetItem( mTrustedProjectsFoldersList );
+    newItem->setText( path );
+    newItem->setFlags( Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+    mTrustedProjectsFoldersList->addItem( newItem );
+  }
+  connect( mBtnAddTrustedProject, &QAbstractButton::clicked, this, &QgsOptions::addTrustedProject );
+  connect( mBtnRemoveTrustedProject, &QAbstractButton::clicked, this, &QgsOptions::removeTrustedProject );
+
+  const QStringList untrustedProjectsFoldersList = QgsSettingsRegistryCore::settingsCodeExecutionUntrustedProjectsFolders->value();
+  for ( const QString &path : untrustedProjectsFoldersList )
+  {
+    QListWidgetItem *newItem = new QListWidgetItem( mUntrustedProjectsFoldersList );
+    newItem->setText( path );
+    newItem->setFlags( Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+    mUntrustedProjectsFoldersList->addItem( newItem );
+  }
+  connect( mBtnAddUntrustedProject, &QAbstractButton::clicked, this, &QgsOptions::addUntrustedProject );
+  connect( mBtnRemoveUntrustedProject, &QAbstractButton::clicked, this, &QgsOptions::removeUntrustedProject );
 
   mDefaultPathsComboBox->addItem( tr( "Absolute" ), static_cast<int>( Qgis::FilePathType::Absolute ) );
   mDefaultPathsComboBox->addItem( tr( "Relative" ), static_cast<int>( Qgis::FilePathType::Relative ) );
@@ -886,7 +909,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
   connect( mButtonImportColors, &QAbstractButton::clicked, mTreeCustomColors, &QgsColorSchemeList::showImportColorsDialog );
   connect( mButtonExportColors, &QAbstractButton::clicked, mTreeCustomColors, &QgsColorSchemeList::showExportColorsDialog );
 
-  connect( mActionImportPalette, &QAction::triggered, this, [=] {
+  connect( mActionImportPalette, &QAction::triggered, this, [this] {
     if ( QgsCompoundColorWidget::importUserPaletteFromFile( this ) )
     {
       //refresh combobox
@@ -894,7 +917,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
       mColorSchemesComboBox->setCurrentIndex( mColorSchemesComboBox->count() - 1 );
     }
   } );
-  connect( mActionRemovePalette, &QAction::triggered, this, [=] {
+  connect( mActionRemovePalette, &QAction::triggered, this, [this] {
     //get current scheme
     QList<QgsColorScheme *> schemeList = QgsApplication::colorSchemeRegistry()->schemes();
     int prevIndex = mColorSchemesComboBox->currentIndex();
@@ -917,7 +940,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
       mColorSchemesComboBox->setCurrentIndex( prevIndex );
     }
   } );
-  connect( mActionNewPalette, &QAction::triggered, this, [=] {
+  connect( mActionNewPalette, &QAction::triggered, this, [this] {
     if ( QgsCompoundColorWidget::createNewUserPalette( this ) )
     {
       //refresh combobox
@@ -926,7 +949,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
     }
   } );
 
-  connect( mActionShowInButtons, &QAction::toggled, this, [=]( bool state ) {
+  connect( mActionShowInButtons, &QAction::toggled, this, [this]( bool state ) {
     QgsUserColorScheme *scheme = dynamic_cast<QgsUserColorScheme *>( mTreeCustomColors->scheme() );
     if ( scheme )
     {
@@ -952,7 +975,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
     mColorSchemesComboBox->setCurrentIndex( mColorSchemesComboBox->findText( customSchemes.at( 0 )->schemeName() ) );
     updateActionsForCurrentColorScheme( customSchemes.at( 0 ) );
   }
-  connect( mColorSchemesComboBox, static_cast<void ( QComboBox::* )( int )>( &QComboBox::currentIndexChanged ), this, [=]( int index ) {
+  connect( mColorSchemesComboBox, static_cast<void ( QComboBox::* )( int )>( &QComboBox::currentIndexChanged ), this, [this]( int index ) {
     //save changes to scheme
     if ( mTreeCustomColors->isDirty() )
     {
@@ -1221,7 +1244,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
 
   // Setup OpenCL Acceleration widget
 
-  connect( mGPUEnableCheckBox, &QCheckBox::toggled, this, [=]( bool checked ) {
+  connect( mGPUEnableCheckBox, &QCheckBox::toggled, this, [this]( bool checked ) {
     if ( checked )
     {
       // Since this may crash and lock users out of the settings, let's disable opencl setting before entering
@@ -1239,7 +1262,7 @@ QgsOptions::QgsOptions( QWidget *parent, Qt::WindowFlags fl, const QList<QgsOpti
           mOpenClDevicesCombo->addItem( QgsOpenClUtils::deviceInfo( QgsOpenClUtils::Info::Name, dev ), QgsOpenClUtils::deviceId( dev ) );
         }
         // Info updater
-        std::function<void( int )> infoUpdater = [=]( int ) {
+        std::function<void( int )> infoUpdater = [this]( int ) {
           mGPUInfoTextBrowser->setText( QgsOpenClUtils::deviceDescription( mOpenClDevicesCombo->currentData().toString() ) );
         };
         connect( mOpenClDevicesCombo, qOverload<int>( &QComboBox::currentIndexChanged ), infoUpdater );
@@ -1466,15 +1489,6 @@ void QgsOptions::selectProjectOnLaunch()
 
 void QgsOptions::saveOptions()
 {
-  for ( QgsOptionsPageWidget *widget : std::as_const( mAdditionalOptionWidgets ) )
-  {
-    if ( !widget->isValid() )
-    {
-      setCurrentPage( widget->objectName() );
-      return;
-    }
-  }
-
   QgsSettings settings;
 
   mSettings->setValue( QStringLiteral( "UI/UITheme" ), cmbUITheme->currentText() );
@@ -1641,7 +1655,29 @@ void QgsOptions::saveOptions()
     mSettings->setValue( QStringLiteral( "/qgis/projectTemplateDir" ), leTemplateFolder->text() );
     QgisApp::instance()->updateProjectFromTemplates();
   }
-  mSettings->setEnumValue( QStringLiteral( "/qgis/enablePythonEmbedded" ), mEnableMacrosComboBox->currentData().value<Qgis::PythonEmbeddedMode>() );
+  QgsSettingsRegistryCore::settingsCodeExecutionBehaviorUndeterminedProjects->setValue( mProjectTrustBehaviorComboBox->currentData().value<Qgis::EmbeddedScriptMode>() );
+
+  QStringList trustedProjectsFoldersList;
+  for ( int i = 0; i < mTrustedProjectsFoldersList->count(); ++i )
+  {
+    const QString path = mTrustedProjectsFoldersList->item( i )->text().trimmed();
+    if ( !path.isEmpty() )
+    {
+      trustedProjectsFoldersList << path;
+    }
+  }
+  QgsSettingsRegistryCore::settingsCodeExecutionTrustedProjectsFolders->setValue( trustedProjectsFoldersList );
+
+  QStringList untrustedProjectsFoldersList;
+  for ( int i = 0; i < mUntrustedProjectsFoldersList->count(); ++i )
+  {
+    const QString path = mUntrustedProjectsFoldersList->item( i )->text().trimmed();
+    if ( !path.isEmpty() )
+    {
+      untrustedProjectsFoldersList << path;
+    }
+  }
+  QgsSettingsRegistryCore::settingsCodeExecutionUntrustedProjectsFolders->setValue( untrustedProjectsFoldersList );
 
   mSettings->setValue( QStringLiteral( "/qgis/defaultProjectPathsRelative" ), static_cast<Qgis::FilePathType>( mDefaultPathsComboBox->currentData().toInt() ) == Qgis::FilePathType::Relative );
 
@@ -1851,9 +1887,17 @@ void QgsOptions::saveOptions()
   //
   // Locale settings
   //
-  QgsApplication::settingsLocaleUserLocale->setValue( cboTranslation->currentData().toString() );
+  if ( grpLocale->isChecked() )
+  {
+    QString newLocale = cboTranslation->currentData().toString();
+    if ( !newLocale.isEmpty() )
+      QgsApplication::settingsLocaleUserLocale->setValue( newLocale );
+
+    QString newGlobalLocale = cboGlobalLocale->currentData().toString();
+    if ( !newGlobalLocale.isEmpty() )
+      QgsApplication::settingsLocaleGlobalLocale->setValue( newGlobalLocale );
+  }
   QgsApplication::settingsLocaleOverrideFlag->setValue( grpLocale->isChecked() );
-  QgsApplication::settingsLocaleGlobalLocale->setValue( cboGlobalLocale->currentData().toString() );
 
   // Number settings
   QgsApplication::settingsLocaleShowGroupSeparator->setValue( cbShowGroupSeparator->isChecked() );
@@ -1890,8 +1934,6 @@ void QgsOptions::saveOptions()
   {
     mStyleSheetBuilder->setUserFontSize( newFontSize );
     mStyleSheetBuilder->setUserFontFamily( newUserFontFamily );
-    // trigger a style sheet build to propagate saved settings
-    mStyleSheetBuilder->updateStyleSheet();
   }
 
   mDefaultDatumTransformTableWidget->transformContext().writeSettings();
@@ -2065,6 +2107,58 @@ void QgsOptions::mCurrentVariablesQGISChxBx_toggled( bool qgisSpecific )
     mCurrentVariablesTable->sortByColumn( 0, Qt::AscendingOrder );
     mCurrentVariablesTable->resizeColumnToContents( 0 );
   }
+}
+
+void QgsOptions::addTrustedProject()
+{
+  QString path = QFileDialog::getOpenFileName(
+    this,
+    tr( "Choose a Project File" ),
+    QDir::toNativeSeparators( QDir::homePath() ),
+    tr( "Project files (*.qgs *.qgz *.QGS *.QGZ)" )
+  );
+
+  if ( !path.isEmpty() )
+  {
+    QListWidgetItem *newItem = new QListWidgetItem( mTrustedProjectsFoldersList );
+    newItem->setText( path );
+    newItem->setFlags( Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+    mTrustedProjectsFoldersList->addItem( newItem );
+    mTrustedProjectsFoldersList->setCurrentItem( newItem );
+  }
+}
+
+void QgsOptions::removeTrustedProject()
+{
+  int currentRow = mTrustedProjectsFoldersList->currentRow();
+  QListWidgetItem *itemToRemove = mTrustedProjectsFoldersList->takeItem( currentRow );
+  delete itemToRemove;
+}
+
+void QgsOptions::addUntrustedProject()
+{
+  QString path = QFileDialog::getOpenFileName(
+    this,
+    tr( "Choose a Project File" ),
+    QDir::toNativeSeparators( QDir::homePath() ),
+    tr( "Project files (*.qgs *.qgz *.QGS *.QGZ)" )
+  );
+
+  if ( !path.isEmpty() )
+  {
+    QListWidgetItem *newItem = new QListWidgetItem( mUntrustedProjectsFoldersList );
+    newItem->setText( path );
+    newItem->setFlags( Qt::ItemIsEditable | Qt::ItemIsEnabled | Qt::ItemIsSelectable );
+    mUntrustedProjectsFoldersList->addItem( newItem );
+    mUntrustedProjectsFoldersList->setCurrentItem( newItem );
+  }
+}
+
+void QgsOptions::removeUntrustedProject()
+{
+  int currentRow = mUntrustedProjectsFoldersList->currentRow();
+  QListWidgetItem *itemToRemove = mUntrustedProjectsFoldersList->takeItem( currentRow );
+  delete itemToRemove;
 }
 
 void QgsOptions::addPluginPath()

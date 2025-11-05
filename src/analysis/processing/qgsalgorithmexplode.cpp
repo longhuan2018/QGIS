@@ -58,6 +58,11 @@ QString QgsExplodeAlgorithm::shortHelpString() const
                       "same type and contain only single curve segments." );
 }
 
+QString QgsExplodeAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Creates a line layer in which each feature represents a segment from an input line layer." );
+}
+
 Qgis::ProcessingAlgorithmDocumentationFlags QgsExplodeAlgorithm::documentationFlags() const
 {
   return Qgis::ProcessingAlgorithmDocumentationFlag::RegeneratesPrimaryKey;
@@ -125,7 +130,7 @@ std::vector<QgsGeometry> QgsExplodeAlgorithm::extractAsParts( const QgsGeometry 
   if ( geometry.isMultipart() )
   {
     std::vector<QgsGeometry> parts;
-    const QgsGeometryCollection *collection = qgsgeometry_cast<const QgsGeometryCollection *>( geometry.constGet() );
+    const QgsGeometryCollection *collection = qgis::down_cast< const QgsGeometryCollection * >( geometry.constGet() );
     for ( int part = 0; part < collection->numGeometries(); ++part )
     {
       std::vector<QgsGeometry> segments = curveAsSingleSegments( qgsgeometry_cast<const QgsCurve *>( collection->geometryN( part ) ) );

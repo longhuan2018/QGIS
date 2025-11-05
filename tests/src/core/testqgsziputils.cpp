@@ -36,6 +36,12 @@ class TestQgsZipUtils : public QObject
     void specialChars();
     void testZip();
 
+    void extractFileFromZip_nonExistentZip();
+    void extractFileFromZip_emptyZipPath();
+    void extractFileFromZip_emptyFilePathInZip();
+    void extractFileFromZip_fileNotInZip();
+    void extractFileFromZip_rootSuccess();
+
   private:
     void genericTest( QString zipName, int expectedEntries, bool includeFolders, const QStringList &testFileNames );
 };
@@ -63,7 +69,7 @@ void TestQgsZipUtils::unzipWithSubdirs()
 {
   QStringList testFileNames;
   testFileNames << "/folder/folder2/landsat_b2.tif" << "/folder/points.geojson" << "/points.qml";
-  genericTest( QString( "testzip" ), 11, true, testFileNames );
+  genericTest( QString( "testzip" ), 9, true, testFileNames );
 }
 
 /**
@@ -154,7 +160,13 @@ void TestQgsZipUtils::genericTest( QString zipName, int expectedEntries, bool in
   QDirIterator it( dir, QDirIterator::Subdirectories );
   QStringList filesFromResultDir;
   while ( it.hasNext() )
-    filesFromResultDir << it.next();
+  {
+    it.next();
+    if ( !it.fileInfo().isDir() )
+    {
+      filesFromResultDir << it.filePath();
+    }
+  }
 
   // Test if ziplib matches number of files in the root folder
   QCOMPARE( files.count(), filesFromResultDir.count() );
@@ -168,6 +180,50 @@ void TestQgsZipUtils::genericTest( QString zipName, int expectedEntries, bool in
   // Delete unzipped data
   const bool testDataRemoved = dir.removeRecursively();
   QVERIFY( testDataRemoved );
+}
+
+void TestQgsZipUtils::extractFileFromZip_nonExistentZip()
+{
+  QByteArray data;
+  QVERIFY( !QgsZipUtils::extractFileFromZip( "/path/to/nothing", "none.txt", data ) );
+  QVERIFY( data.isEmpty() );
+}
+
+void TestQgsZipUtils::extractFileFromZip_emptyZipPath()
+{
+  QByteArray content;
+  QVERIFY( !QgsZipUtils::extractFileFromZip( QString(), "none.txt", content ) );
+  QVERIFY( content.isEmpty() );
+}
+
+void TestQgsZipUtils::extractFileFromZip_emptyFilePathInZip()
+{
+  const QString zipPath = QString( TEST_DATA_DIR ) + "/zip/testzip.zip";
+  QVERIFY( QFile::exists( zipPath ) );
+  QByteArray content;
+  QVERIFY( !QgsZipUtils::extractFileFromZip( zipPath, QString(), content ) );
+  QVERIFY( content.isEmpty() );
+}
+
+void TestQgsZipUtils::extractFileFromZip_fileNotInZip()
+{
+  const QString zipPath = QString( TEST_DATA_DIR ) + "/zip/testzip.zip";
+  QVERIFY( QFile::exists( zipPath ) );
+  QByteArray content;
+  QVERIFY( !QgsZipUtils::extractFileFromZip( zipPath, "move_along.txt", content ) );
+  QVERIFY( content.isEmpty() );
+}
+
+void TestQgsZipUtils::extractFileFromZip_rootSuccess()
+{
+  const QString zipPath = QString( TEST_DATA_DIR ) + "/zip/testzip.zip";
+  QVERIFY( QFile::exists( zipPath ) );
+
+  const QByteArray expectedContent = R"(GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]])";
+
+  QByteArray extractedContent;
+  QVERIFY( QgsZipUtils::extractFileFromZip( zipPath, "points.prj", extractedContent ) );
+  QCOMPARE( extractedContent, expectedContent );
 }
 
 QGSTEST_MAIN( TestQgsZipUtils )

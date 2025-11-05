@@ -100,6 +100,7 @@
 #include "qgsmaplayeraction.h"
 #include "qgssettingsentryimpl.h"
 #include "qgssettingstree.h"
+#include "qgsmessagebar.h"
 
 #include <nlohmann/json.hpp>
 
@@ -1721,11 +1722,11 @@ void QgsIdentifyResultsDialog::contextMenuEvent( QContextMenuEvent *event )
   mActionPopup->addAction( tr( "Clear Results" ), this, &QgsIdentifyResultsDialog::clear );
   mActionPopup->addAction( tr( "Clear Highlights" ), this, &QgsIdentifyResultsDialog::clearHighlights );
   mActionPopup->addAction( tr( "Highlight All" ), this, &QgsIdentifyResultsDialog::highlightAll );
-  mActionPopup->addAction( tr( "Highlight Layer" ), this, [=] { highlightLayer(); } );
+  mActionPopup->addAction( tr( "Highlight Layer" ), this, [this] { highlightLayer(); } );
   if ( layer && QgsProject::instance()->layerIsEmbedded( layer->id() ).isEmpty() )
   {
-    mActionPopup->addAction( tr( "Activate Layer" ), this, [=] { activateLayer(); } );
-    mActionPopup->addAction( tr( "Layer Properties…" ), this, [=] { layerProperties(); } );
+    mActionPopup->addAction( tr( "Activate Layer" ), this, [this] { activateLayer(); } );
+    mActionPopup->addAction( tr( "Layer Properties…" ), this, [this] { layerProperties(); } );
   }
   mActionPopup->addSeparator();
   mActionPopup->addAction( tr( "Expand All" ), this, &QgsIdentifyResultsDialog::expandAll );
@@ -1908,6 +1909,36 @@ void QgsIdentifyResultsDialog::doAction( QTreeWidgetItem *item, const QUuid &act
         idx = fldIdx;
         break;
       }
+    }
+  }
+
+  const QgsAction act = layer->actions()->action( action );
+  switch ( act.type() )
+  {
+    case Qgis::AttributeActionType::GenericPython:
+    case Qgis::AttributeActionType::Mac:
+    case Qgis::AttributeActionType::Windows:
+    case Qgis::AttributeActionType::Unix:
+    {
+      const bool allowed = QgsGui::allowExecutionOfEmbeddedScripts( QgsProject::instance() );
+      if ( !allowed )
+      {
+        QgisApp::instance()->messageBar()->pushMessage(
+          tr( "Security warning" ),
+          tr( "The action contains an embedded script which has been denied execution." ),
+          Qgis::MessageLevel::Warning
+        );
+        return;
+      }
+      break;
+    }
+
+    case Qgis::AttributeActionType::Generic:
+    case Qgis::AttributeActionType::OpenUrl:
+    case Qgis::AttributeActionType::SubmitUrlEncoded:
+    case Qgis::AttributeActionType::SubmitUrlMultipart:
+    {
+      break;
     }
   }
 

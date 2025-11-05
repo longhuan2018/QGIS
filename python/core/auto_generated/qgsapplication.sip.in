@@ -926,6 +926,13 @@ Returns the application's sensor registry, used for sensor types.
 .. versionadded:: 3.32
 %End
 
+    static QgsPlotRegistry *plotRegistry() /KeepReference/;
+%Docstring
+Returns the application's plot registry, used for plot types.
+
+.. versionadded:: 4.0
+%End
+
     static QgsMessageLog *messageLog();
 %Docstring
 Returns the application's message log.
@@ -1106,6 +1113,38 @@ generated variables (like system name, user name etc.)
     static void setCustomVariable( const QString &name, const QVariant &value );
 %Docstring
 Set a single custom expression variable.
+%End
+
+    static QStringList temporarilyTrustedProjectsFolders();
+%Docstring
+Returns the list of projects and folders that have been temporarily
+determined as trusted by the user.
+
+.. versionadded:: 4.0
+%End
+
+    static void setTemporarilyTrustedProjectsFolders( const QStringList &trustedProjectsFolders );
+%Docstring
+Sets the list of projects and folders that have been temporarily
+determined as trusted by the user.
+
+.. versionadded:: 4.0
+%End
+
+    static QStringList temporarilyUntrustedProjectsFolders();
+%Docstring
+Returns the list of projects and folders that have been temporarily
+determined as untrusted by the user.
+
+.. versionadded:: 4.0
+%End
+
+    static void setTemporarilyUntrustedProjectsFolders( const QStringList &untrustedProjectsFolders );
+%Docstring
+Sets the list of projects and folders that have been temporarily
+determined as untrusted by the user.
+
+.. versionadded:: 4.0
 %End
 
     static int scaleIconSize( int standardSize, bool applyDevicePixelRatio = false );

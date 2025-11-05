@@ -87,6 +87,8 @@
 #include "qgssymbollayerutils.h"
 #include "qgsthreadingutils.h"
 #include "qgssldexportcontext.h"
+#include "qgsobjectvisitor.h"
+#include "qgsnetworkcontentfetcherregistry.h"
 
 #include <QDir>
 #include <QFile>
@@ -572,13 +574,22 @@ void QgsVectorLayer::selectByExpression( const QString &expression, Qgis::Select
     defaultContext.emplace( QgsExpressionContextUtils::globalProjectLayerScopes( this ) );
     context = &defaultContext.value();
   }
+  else
+  {
+    context->appendScope( QgsExpressionContextUtils::layerScope( this ) );
+  }
+
+  QgsExpression exp( expression );
+  exp.prepare( context );
 
   if ( behavior == Qgis::SelectBehavior::SetSelection || behavior == Qgis::SelectBehavior::AddToSelection )
   {
     QgsFeatureRequest request = QgsFeatureRequest().setFilterExpression( expression )
-                                .setExpressionContext( *context )
-                                .setFlags( Qgis::FeatureRequestFlag::NoGeometry )
-                                .setNoAttributes();
+                                .setExpressionContext( *context );
+    request.setSubsetOfAttributes( exp.referencedColumns(), fields() );
+
+    if ( !exp.needsGeometry() )
+      request.setFlags( Qgis::FeatureRequestFlag::NoGeometry );
 
     QgsFeatureIterator features = getFeatures( request );
 
@@ -595,8 +606,6 @@ void QgsVectorLayer::selectByExpression( const QString &expression, Qgis::Select
   }
   else if ( behavior == Qgis::SelectBehavior::IntersectSelection || behavior == Qgis::SelectBehavior::RemoveFromSelection )
   {
-    QgsExpression exp( expression );
-    exp.prepare( context );
 
     QgsFeatureIds oldSelection = selectedFeatureIds();
     QgsFeatureRequest request = QgsFeatureRequest().setFilterFids( oldSelection );
@@ -1033,6 +1042,10 @@ QgsRectangle QgsVectorLayer::extent() const
 
   if ( !isSpatial() )
     return rect;
+
+  // Don't do lazy extent if the layer is currently in edit mode
+  if ( mLazyExtent2D && isEditable() )
+    mLazyExtent2D = false;
 
   if ( mDataProvider && mDataProvider->isValid() && ( mDataProvider->flags() & Qgis::DataProviderFlag::FastExtent2D ) )
   {
@@ -1887,6 +1900,96 @@ bool QgsVectorLayer::accept( QgsStyleEntityVisitorInterface *visitor ) const
   return true;
 }
 
+bool QgsVectorLayer::accept( QgsObjectEntityVisitorInterface *visitor, const QgsObjectVisitorContext &context ) const
+{
+  QGIS_PROTECT_QOBJECT_THREAD_ACCESS
+
+  if ( mActions )
+  {
+    const QList<QgsAction> actions = mActions->actions();
+    for ( const QgsAction &action : actions )
+    {
+      if ( action.command().isEmpty() )
+      {
+        continue;
+      }
+
+      switch ( action.type() )
+      {
+        case Qgis::AttributeActionType::GenericPython:
+        case Qgis::AttributeActionType::Mac:
+        case Qgis::AttributeActionType::Windows:
+        case Qgis::AttributeActionType::Unix:
+        {
+          QgsEmbeddedScriptEntity entity( Qgis::EmbeddedScriptType::Action, tr( "%1: Action ’%2’" ).arg( name(), action.name() ), action.command() );
+          if ( !visitor->visitEmbeddedScript( entity, context ) )
+          {
+            return false;
+          }
+          break;
+        }
+
+        case Qgis::AttributeActionType::Generic:
+        case Qgis::AttributeActionType::OpenUrl:
+        case Qgis::AttributeActionType::SubmitUrlEncoded:
+        case Qgis::AttributeActionType::SubmitUrlMultipart:
+        {
+          break;
+        }
+      }
+    }
+  }
+
+  QString initCode;
+  switch ( mEditFormConfig.initCodeSource() )
+  {
+    case Qgis::AttributeFormPythonInitCodeSource::Dialog:
+    {
+      initCode = QStringLiteral( "# Calling function ’%1’\n\n%2" ).arg( mEditFormConfig.initFunction(), mEditFormConfig.initCode() );
+      break;
+    }
+
+    case Qgis::AttributeFormPythonInitCodeSource::File:
+    {
+      QFile *inputFile = QgsApplication::networkContentFetcherRegistry()->localFile( mEditFormConfig.initFilePath() );
+      if ( inputFile && inputFile->open( QFile::ReadOnly ) )
+      {
+        // Read it into a string
+        QTextStream inf( inputFile );
+#if QT_VERSION < QT_VERSION_CHECK( 6, 0, 0 )
+        inf.setCodec( "UTF-8" );
+#endif
+        initCode = inf.readAll();
+        inputFile->close();
+        initCode = QStringLiteral( "# Calling function ’%1’\n# From file %2\n\n" ).arg( mEditFormConfig.initFunction(), mEditFormConfig.initFilePath() ) + initCode;
+      }
+      break;
+    }
+
+    case Qgis::AttributeFormPythonInitCodeSource::Environment:
+    {
+      initCode = QStringLiteral( "# Calling function ’%1’\n# From environment\n\n" ).arg( mEditFormConfig.initFunction() );
+      break;
+    }
+
+    case Qgis::AttributeFormPythonInitCodeSource::NoSource:
+    {
+      break;
+    }
+  }
+
+  if ( !initCode.isEmpty() )
+  {
+    QgsEmbeddedScriptEntity entity( Qgis::EmbeddedScriptType::FormInitCode, tr( "%1: Attribute form init code" ).arg( name() ), initCode );
+    if ( !visitor->visitEmbeddedScript( entity, context ) )
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool QgsVectorLayer::readXml( const QDomNode &layer_node, QgsReadWriteContext &context )
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
@@ -2697,11 +2800,11 @@ bool QgsVectorLayer::readSymbology( const QDomNode &layerNode, QString &errorMes
         const QDomElement optionsElem = cfgElem.childNodes().at( 0 ).toElement();
         QVariantMap optionsMap = QgsXmlUtils::readVariant( optionsElem ).toMap();
         // translate widget configuration strings
-        if ( widgetType == QStringLiteral( "ValueRelation" ) )
+        if ( widgetType == QLatin1String( "ValueRelation" ) )
         {
           optionsMap[ QStringLiteral( "Value" ) ] = context.projectTranslator()->translate( QStringLiteral( "project:layers:%1:fields:%2:valuerelationvalue" ).arg( layerNode.namedItem( QStringLiteral( "id" ) ).toElement().text(), fieldName ), optionsMap[ QStringLiteral( "Value" ) ].toString() );
         }
-        if ( widgetType == QStringLiteral( "ValueMap" ) )
+        if ( widgetType == QLatin1String( "ValueMap" ) )
         {
           if ( optionsMap[ QStringLiteral( "map" ) ].canConvert<QList<QVariant>>() )
           {
@@ -3061,7 +3164,7 @@ bool QgsVectorLayer::writeSymbology( QDomNode &node, QDomDocument &doc, QString 
 
       // Store referencing layers: relations where "this" is the parent layer (the referenced part, that holds the FK)
       QDomElement referencingLayersElement = doc.createElement( QStringLiteral( "referencingLayers" ) );
-      node.appendChild( referencedLayersElement );
+      node.appendChild( referencingLayersElement );
 
       const QList<QgsRelation> referencedRelations { p->relationManager()->referencedRelations( this ) };
       for ( const QgsRelation &rel : referencedRelations )
@@ -5920,7 +6023,13 @@ QString QgsVectorLayer::htmlMetadata() const
     {
       QString typeString( QStringLiteral( "%1 (%2)" ).arg( QgsWkbTypes::geometryDisplayString( geometryType() ),
                           QgsWkbTypes::displayString( wkbType() ) ) );
-      myMetadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Geometry" ) + QStringLiteral( "</td><td>" ) + typeString + QStringLiteral( "</td></tr>\n" );
+      myMetadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Geometry type" ) + QStringLiteral( "</td><td>" ) + typeString + QStringLiteral( "</td></tr>\n" );
+    }
+
+    // geom column name
+    if ( const QgsVectorDataProvider *provider = dataProvider(); !provider->geometryColumnName().isEmpty() )
+    {
+      myMetadata += QStringLiteral( "<tr><td class=\"highlight\">" ) + tr( "Geometry column" ) + QStringLiteral( "</td><td>" ) + provider->geometryColumnName() + QStringLiteral( "</td></tr>\n" );
     }
 
     // Extent

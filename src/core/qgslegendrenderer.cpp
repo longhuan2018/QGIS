@@ -46,6 +46,15 @@ QgsLegendRenderer::QgsLegendRenderer( QgsLegendRenderer &&other )
   mProxyModel->setLayerTreeModel( mLegendModel );
 }
 
+void QgsLegendRenderer::setProxyModel( QgsLayerTreeFilterProxyModel *model )
+{
+  if ( mProxyModel.get() == model )
+    return;
+
+  mProxyModel.reset( model );
+  mProxyModel->setLayerTreeModel( mLegendModel );
+}
+
 QgsLegendRenderer::~QgsLegendRenderer() = default;
 
 QSizeF QgsLegendRenderer::minimumSize( QgsRenderContext *renderContext )
@@ -960,7 +969,7 @@ QgsLegendRenderer::LegendComponent QgsLegendRenderer::drawSymbolItem( QgsLayerTr
 
   ctx.patchSize = symbolItem->userPatchSize();
 
-  QgsLayerTreeModelLegendNode::ItemMetrics im = symbolItem->draw( mSettings, &ctx );
+  QgsLayerTreeModelLegendNode::ItemMetrics im = symbolItem->draw( mSettings, ctx );
 
   if ( symbolScope )
     delete context.expressionContext().popScope();

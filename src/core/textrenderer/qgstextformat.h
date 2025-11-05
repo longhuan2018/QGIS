@@ -48,8 +48,10 @@ class CORE_EXPORT QgsTextFormat
     QgsTextFormat();
 
     QgsTextFormat( const QgsTextFormat &other );
+    SIP_SKIP QgsTextFormat( QgsTextFormat &&other );
 
     QgsTextFormat &operator=( const QgsTextFormat &other );
+    QgsTextFormat &operator=( QgsTextFormat &&other );
 
     ~QgsTextFormat();
 
@@ -740,6 +742,15 @@ class CORE_EXPORT QgsTextFormat
      * such as blend modes, which require output in raster formats to be fully respected.
      */
     bool containsAdvancedEffects() const;
+
+    /**
+     * Returns TRUE if any component of the font format requires a non-default composition mode.
+     *
+     * The default composition mode is QPainter::CompositionMode_SourceOver.
+     *
+     * \since QGIS 3.44
+     */
+    bool hasNonDefaultCompositionMode() const;
 
     /**
      * Returns TRUE if the specified font was found on the system, or FALSE

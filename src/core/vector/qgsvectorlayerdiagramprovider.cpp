@@ -91,7 +91,16 @@ QList<QgsLabelFeature *> QgsVectorLayerDiagramProvider::labelFeatures( QgsRender
   const QgsFeatureFilterProvider *featureFilterProvider = context.featureFilterProvider();
   if ( featureFilterProvider )
   {
-    featureFilterProvider->filterFeatures( qobject_cast<QgsVectorLayer *>( mLayer ), request );
+    Q_NOWARN_DEPRECATED_PUSH
+    if ( featureFilterProvider->isFilterThreadSafe() )
+    {
+      featureFilterProvider->filterFeatures( layerId(), request );
+    }
+    else
+    {
+      featureFilterProvider->filterFeatures( qobject_cast<QgsVectorLayer *>( mLayer ), request );
+    }
+    Q_NOWARN_DEPRECATED_POP
   }
   QgsFeatureIterator fit = mSource->getFeatures( request );
 
@@ -120,6 +129,9 @@ void QgsVectorLayerDiagramProvider::drawLabel( QgsRenderContext &context, pal::L
 #endif
 
   QgsDiagramLabelFeature *dlf = dynamic_cast<QgsDiagramLabelFeature *>( label->getFeaturePart()->feature() );
+  if ( !dlf )
+    return;
+
   const QgsFeature feature = dlf->feature();
 
   // at time of drawing labels the expression context won't contain a layer scope -- so we manually add it here so that

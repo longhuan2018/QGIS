@@ -32,7 +32,12 @@ QString QgsGeometryCheckGapAlgorithm::name() const
 
 QString QgsGeometryCheckGapAlgorithm::displayName() const
 {
-  return QObject::tr( "Check Geometry (Gap)" );
+  return QObject::tr( "Small gaps" );
+}
+
+QString QgsGeometryCheckGapAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Detects gaps between polygons smaller than a given area." );
 }
 
 QStringList QgsGeometryCheckGapAlgorithm::tags() const
@@ -57,12 +62,12 @@ QString QgsGeometryCheckGapAlgorithm::shortHelpString() const
                       "If an allowed gaps layer is given, the gaps contained in polygons from this layer will be ignored.\n"
                       "An optional buffer can be applied to the allowed gaps.\n\n"
                       "The neighbors output layer is needed for the fix geometry (gaps) algorithm. It is a 1-N "
-                      "relational table for correspondance between a gap and the unique id of its neighbor features." );
+                      "relational table for correspondence between a gap and the unique id of its neighbor features." );
 }
 
 Qgis::ProcessingAlgorithmFlags QgsGeometryCheckGapAlgorithm::flags() const
 {
-  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading;
+  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading | Qgis::ProcessingAlgorithmFlag::RequiresProject;
 }
 
 QgsGeometryCheckGapAlgorithm *QgsGeometryCheckGapAlgorithm::createInstance() const
@@ -97,16 +102,18 @@ void QgsGeometryCheckGapAlgorithm::initAlgorithm( const QVariantMap &configurati
     QStringLiteral( "NEIGHBORS" ), QObject::tr( "Neighbors layer" ), Qgis::ProcessingSourceType::Vector
   ) );
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "ERRORS" ), QObject::tr( "Errors layer" ), Qgis::ProcessingSourceType::VectorPoint
+    QStringLiteral( "ERRORS" ), QObject::tr( "Gap errors" ), Qgis::ProcessingSourceType::VectorPoint, QVariant(), true, false
   ) );
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "OUTPUT" ), QObject::tr( "Output layer" ), Qgis::ProcessingSourceType::VectorPolygon
+    QStringLiteral( "OUTPUT" ), QObject::tr( "Gap features" ), Qgis::ProcessingSourceType::VectorPolygon
   ) );
 
-  std::unique_ptr<QgsProcessingParameterNumber> tolerance = std::make_unique<QgsProcessingParameterNumber>(
+  auto tolerance = std::make_unique<QgsProcessingParameterNumber>(
     QStringLiteral( "TOLERANCE" ), QObject::tr( "Tolerance" ), Qgis::ProcessingNumberParameterType::Integer, 8, false, 1, 13
   );
   tolerance->setFlags( tolerance->flags() | Qgis::ProcessingParameterFlag::Advanced );
+  tolerance->setHelp( QObject::tr( "The \"Tolerance\" advanced parameter defines the numerical precision of geometric operations, "
+                                   "given as an integer n, meaning that any difference smaller than 10⁻ⁿ (in map units) is considered zero." ) );
   addParameter( tolerance.release() );
 }
 
@@ -131,7 +138,6 @@ QgsFields QgsGeometryCheckGapAlgorithm::outputFields()
   fields.append( QgsField( QStringLiteral( "gc_errorid" ), QMetaType::LongLong ) );
   return fields;
 }
-
 
 QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &parameters, QgsProcessingContext &context, QgsProcessingFeedback *feedback )
 {
@@ -158,11 +164,9 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
   const std::unique_ptr<QgsFeatureSink> sink_errors( parameterAsSink(
     parameters, QStringLiteral( "ERRORS" ), context, dest_errors, fields, Qgis::WkbType::Point, input->sourceCrs()
   ) );
-  if ( !sink_errors )
-    throw QgsProcessingException( invalidSinkError( parameters, QStringLiteral( "ERRORS" ) ) );
 
-  QString uniqueIdFieldName( parameterAsString( parameters, QStringLiteral( "UNIQUE_ID" ), context ) );
-  int uniqueIdFieldIdx = input->fields().indexFromName( uniqueIdFieldName );
+  const QString uniqueIdFieldName( parameterAsString( parameters, QStringLiteral( "UNIQUE_ID" ), context ) );
+  const int uniqueIdFieldIdx = input->fields().indexFromName( uniqueIdFieldName );
   if ( uniqueIdFieldIdx == -1 )
     throw QgsProcessingException( QObject::tr( "Missing field %1 in input layer" ).arg( uniqueIdFieldName ) );
 
@@ -177,9 +181,7 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
 
   QgsProcessingMultiStepFeedback multiStepFeedback( 3, feedback );
 
-  const QgsProject *project = QgsProject::instance();
-
-  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), project->transformContext(), project );
+  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), context.transformContext(), context.project(), uniqueIdFieldIdx );
 
   // Test detection
   QList<QgsGeometryCheckError *> checkErrors;
@@ -206,7 +208,23 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
 
   multiStepFeedback.setCurrentStep( 2 );
   feedback->setProgressText( QObject::tr( "Collecting errors…" ) );
-  check.collectErrors( checkerFeaturePools, checkErrors, messages, feedback );
+  QgsGeometryCheck::Result res = check.collectErrors( checkerFeaturePools, checkErrors, messages, feedback );
+  if ( res == QgsGeometryCheck::Result::Success )
+  {
+    feedback->pushInfo( QObject::tr( "Errors collected successfully." ) );
+  }
+  else if ( res == QgsGeometryCheck::Result::Canceled )
+  {
+    throw QgsProcessingException( QObject::tr( "Operation was canceled." ) );
+  }
+  else if ( res == QgsGeometryCheck::Result::DuplicatedUniqueId )
+  {
+    throw QgsProcessingException( QObject::tr( "Field '%1' contains non-unique values and can not be used as unique ID." ).arg( uniqueIdFieldName ) );
+  }
+  else if ( res == QgsGeometryCheck::Result::GeometryOverlayError )
+  {
+    throw QgsProcessingException( QObject::tr( "Failed to perform geometry overlay operation." ) );
+  }
 
   multiStepFeedback.setCurrentStep( 3 );
   feedback->setProgressText( QObject::tr( "Exporting errors…" ) );
@@ -214,12 +232,12 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
   long long i = 0;
   feedback->setProgress( 0.0 );
 
-  for ( QgsGeometryCheckError *error : checkErrors )
+  for ( const QgsGeometryCheckError *error : checkErrors )
   {
     if ( feedback->isCanceled() )
       break;
 
-    QgsGeometryGapCheckError *gapError = dynamic_cast<QgsGeometryGapCheckError *>( error );
+    const QgsGeometryGapCheckError *gapError = dynamic_cast<const QgsGeometryGapCheckError *>( error );
     if ( !gapError )
       break;
 
@@ -232,7 +250,7 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
                         << inputLayer->getFeature( neighborId ).attribute( uniqueIdFieldIdx )
       );
       if ( !sink_neighbors->addFeature( neighborFeature, QgsFeatureSink::FastInsert ) )
-        throw QgsProcessingException( writeFeatureError( sink_output.get(), parameters, QStringLiteral( "NEIGHBORS" ) ) );
+        throw QgsProcessingException( writeFeatureError( sink_neighbors.get(), parameters, QStringLiteral( "NEIGHBORS" ) ) );
     }
 
     QgsFeature f;
@@ -254,7 +272,7 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
       throw QgsProcessingException( writeFeatureError( sink_output.get(), parameters, QStringLiteral( "OUTPUT" ) ) );
 
     f.setGeometry( QgsGeometry::fromPoint( QgsPoint( error->location().x(), error->location().y() ) ) );
-    if ( !sink_errors->addFeature( f, QgsFeatureSink::FastInsert ) )
+    if ( sink_errors && !sink_errors->addFeature( f, QgsFeatureSink::FastInsert ) )
       throw QgsProcessingException( writeFeatureError( sink_errors.get(), parameters, QStringLiteral( "ERRORS" ) ) );
 
     i++;
@@ -264,14 +282,21 @@ QVariantMap QgsGeometryCheckGapAlgorithm::processAlgorithm( const QVariantMap &p
   // Place the point layer above the polygon layer
   if ( context.willLoadLayerOnCompletion( dest_output ) && context.willLoadLayerOnCompletion( dest_errors ) )
   {
-    context.layerToLoadOnCompletionDetails( dest_errors ).layerSortKey = 0;
-    context.layerToLoadOnCompletionDetails( dest_output ).layerSortKey = 1;
+    context.layerToLoadOnCompletionDetails( dest_errors ).layerSortKey = 1;
+    context.layerToLoadOnCompletionDetails( dest_output ).layerSortKey = 0;
+  }
+
+  // cleanup memory of the pointed data
+  for ( const QgsGeometryCheckError *error : checkErrors )
+  {
+    delete error;
   }
 
   QVariantMap outputs;
   outputs.insert( QStringLiteral( "NEIGHBORS" ), dest_neighbors );
   outputs.insert( QStringLiteral( "OUTPUT" ), dest_output );
-  outputs.insert( QStringLiteral( "ERRORS" ), dest_errors );
+  if ( sink_errors )
+    outputs.insert( QStringLiteral( "ERRORS" ), dest_errors );
 
   return outputs;
 }

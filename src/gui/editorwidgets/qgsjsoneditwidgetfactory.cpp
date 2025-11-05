@@ -18,8 +18,8 @@
 #include "qgsjsoneditwrapper.h"
 #include "qgsjsoneditconfigdlg.h"
 
-QgsJsonEditWidgetFactory::QgsJsonEditWidgetFactory( const QString &name )
-  : QgsEditorWidgetFactory( name )
+QgsJsonEditWidgetFactory::QgsJsonEditWidgetFactory( const QString &name, const QIcon &icon )
+  : QgsEditorWidgetFactory( name, icon )
 {
 }
 
@@ -54,4 +54,9 @@ unsigned int QgsJsonEditWidgetFactory::fieldScore( const QgsVectorLayer *vl, int
       return 5;
       break;
   }
+}
+
+bool QgsJsonEditWidgetFactory::isReadOnly() const
+{
+  return true;
 }

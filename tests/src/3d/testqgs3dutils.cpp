@@ -15,6 +15,7 @@
 
 #include "qgstest.h"
 
+#include "qgs3d.h"
 #include "qgs3dutils.h"
 
 #include "qgsbox3d.h"
@@ -23,8 +24,13 @@
 #include "qgs3dexportobject.h"
 #include "qgs3dmapscene.h"
 #include "qgscameracontroller.h"
+#include "qgsflatterrainsettings.h"
 #include "qgsoffscreen3dengine.h"
+#include "qgspolygon3dsymbol.h"
 #include "qgsrasterlayer.h"
+#include "qgsvectorlayer.h"
+#include "qgsvectorlayer3drenderer.h"
+#include "qgsraycastcontext.h"
 
 #include <QSize>
 #include <QtMath>
@@ -81,6 +87,11 @@ class TestQgs3DUtils : public QgsTest
     void testScreenPointToMapCoordinates();
     void testLineSegmentToClippingPlanes();
     void testLineSegmentToCameraPose();
+    void test3DSceneRay3D();
+
+  private:
+    QgsRasterLayer *mLayerRgb;
+    QgsVectorLayer *mLayerBuildings;
 };
 
 //runs before all tests
@@ -88,6 +99,13 @@ void TestQgs3DUtils::initTestCase()
 {
   QgsApplication::init();
   QgsApplication::initQgis();
+  Qgs3D::initialize();
+
+  mLayerRgb = new QgsRasterLayer( testDataPath( "/3d/rgb.tif" ), "rgb", "gdal" );
+  QVERIFY( mLayerRgb->isValid() );
+
+  mLayerBuildings = new QgsVectorLayer( testDataPath( "/3d/buildings.shp" ), "buildings", "ogr" );
+  QVERIFY( mLayerBuildings->isValid() );
 }
 
 //runs after all tests
@@ -329,8 +347,6 @@ void TestQgs3DUtils::testExportToObj()
   // case where all vertices are used
   {
     Qgs3DExportObject object( "all_faces" );
-    object.setupPositionCoordinates( positionData, QMatrix4x4() );
-    QCOMPARE( object.vertexPosition().size(), positionData.size() );
 
     // exported vertice indexes
     QVector<uint> indexData = {
@@ -366,7 +382,9 @@ void TestQgs3DUtils::testExportToObj()
       29,
     };
 
-    object.setupFaces( indexData );
+    object.setupTriangle( positionData, indexData, QMatrix4x4() );
+    QCOMPARE( object.vertexPosition().size(), positionData.size() );
+
     QCOMPARE( object.indexes().size(), indexData.size() );
 
     object.setupNormalCoordinates( normalsData, QMatrix4x4() );
@@ -404,10 +422,9 @@ void TestQgs3DUtils::testExportToObj()
     };
 
     Qgs3DExportObject object( "sparse_faces" );
-    object.setupPositionCoordinates( positionData, QMatrix4x4() );
+    object.setupTriangle( positionData, indexData, QMatrix4x4() );
     QCOMPARE( object.vertexPosition().size(), positionData.size() );
 
-    object.setupFaces( indexData );
     QCOMPARE( object.indexes().size(), indexData.size() );
 
     object.setupNormalCoordinates( normalsData, QMatrix4x4() );
@@ -519,11 +536,10 @@ void TestQgs3DUtils::testDecomposeTransformMatrix()
 
 void TestQgs3DUtils::testScreenPointToMapCoordinates()
 {
-  QgsRasterLayer *layer = new QgsRasterLayer( testDataPath( "/3d/rgb.tif" ), "rgb", "gdal" );
   Qgs3DMapSettings map;
-  map.setCrs( layer->crs() );
-  map.setExtent( layer->extent() );
-  map.setLayers( QList<QgsMapLayer *>() << layer );
+  map.setCrs( mLayerRgb->crs() );
+  map.setExtent( mLayerRgb->extent() );
+  map.setLayers( QList<QgsMapLayer *>() << mLayerRgb );
   QgsOffscreen3DEngine engine;
   const Qgs3DMapScene *scene = new Qgs3DMapScene( map, &engine );
   const QgsPoint mapPoint = Qgs3DUtils::screenPointToMapCoordinates( QPoint( 50, 50 ), QSize( 100, 100 ), scene->cameraController(), &map );
@@ -594,6 +610,85 @@ void TestQgs3DUtils::testLineSegmentToCameraPose()
   QCOMPARE( camPose.pitchAngle(), 90 );
   QCOMPARE( camPose.headingAngle(), 45 );
   QGSCOMPARENEAR( camPose.distanceFromCenterPoint(), 52.5, 0.2 );
+}
+
+void TestQgs3DUtils::test3DSceneRay3D()
+{
+  // configure map Settings
+  Qgs3DMapSettings mapSettings;
+  mapSettings.setCrs( mLayerRgb->crs() );
+  mapSettings.setExtent( mLayerRgb->extent() );
+  mapSettings.setLayers( QList<QgsMapLayer *>() << mLayerBuildings << mLayerRgb );
+
+  QgsFlatTerrainSettings *flatTerrainSettings = new QgsFlatTerrainSettings;
+  mapSettings.setTerrainSettings( flatTerrainSettings );
+
+  QgsPhongMaterialSettings materialSettings;
+  materialSettings.setAmbient( Qt::lightGray );
+  QgsPolygon3DSymbol *symbol3d = new QgsPolygon3DSymbol;
+  symbol3d->setMaterialSettings( materialSettings.clone() );
+  symbol3d->setExtrusionHeight( 10.f );
+  QgsVectorLayer3DRenderer *renderer3d = new QgsVectorLayer3DRenderer( symbol3d );
+  mLayerBuildings->setRenderer3D( renderer3d );
+
+  // create the 3d scene
+  const QSize winSize( 640, 480 ); // default window size
+  QgsOffscreen3DEngine engine;
+  engine.setSize( winSize );
+  Qgs3DMapScene *scene = new Qgs3DMapScene( mapSettings, &engine );
+  engine.setRootEntity( scene );
+
+  scene->cameraController()->setLookingAtPoint( QVector3D( 0, -280, 0 ), 50, 40.0, -10.0 );
+
+  // This is needed to ensure that the nodes of mLayerBuildings are loaded
+  Qgs3DUtils::captureSceneImage( engine, scene );
+
+  // click on a building
+  // building and terrain are hit
+  // the distance to the building should be smaller than the distance to the terrain
+  Qt3DRender::QCamera *camera = scene->cameraController()->camera();
+  const QPoint clickedPoint1( 115, 374 );
+  const QgsRay3D ray1 = Qgs3DUtils::rayFromScreenPoint( clickedPoint1, winSize, camera );
+  QgsRayCastContext context;
+  context.setMaximumDistance( camera->farPlane() );
+  const QgsRayCastResult result1 = Qgs3DUtils::castRay( scene, ray1, context );
+
+  const QList< QgsRayCastHit > terrainHits1 = result1.terrainHits();
+  const QList< QgsRayCastHit > allHits1 = result1.allHits();
+  const QList< QgsRayCastHit > buildingsHits1 = result1.layerHits( mLayerBuildings );
+
+  QVERIFY( result1.hasLayerHits() );
+  QVERIFY( result1.hasTerrainHits() );
+  QCOMPARE( allHits1.size(), 2 );
+  QCOMPARE( terrainHits1.size(), 1 );
+  QCOMPARE( buildingsHits1.size(), 1 );
+
+  const double buildingDistance1 = buildingsHits1.constFirst().distance();
+  const double terrainDistance1 = terrainHits1.constFirst().distance();
+  QGSCOMPARENEAR( buildingDistance1, 33.59, 1.0 );
+  QGSCOMPARENEAR( terrainDistance1, 45.46, 1.0 );
+
+
+  // clicking on the terrain
+  // the building layer should not be hit
+  const QPoint clickedPoint2( 419, 326 );
+  const QgsRay3D ray2 = Qgs3DUtils::rayFromScreenPoint( clickedPoint2, winSize, camera );
+  const QgsRayCastResult result2 = Qgs3DUtils::castRay( scene, ray2, context );
+
+  const QList< QgsRayCastHit > terrainHits2 = result2.terrainHits();
+  const QList< QgsRayCastHit > allHits2 = result2.allHits();
+  const QList< QgsRayCastHit > buildingsHits2 = result2.layerHits( mLayerBuildings );
+
+  QVERIFY( !result2.hasLayerHits() );
+  QVERIFY( result2.hasTerrainHits() );
+  QCOMPARE( allHits2.size(), 1 );
+  QCOMPARE( terrainHits2.size(), 1 );
+  QCOMPARE( buildingsHits2.size(), 0 );
+
+  const double terrainDistance2 = terrainHits2.constFirst().distance();
+  QGSCOMPARENEAR( terrainDistance2, 45.59, 1.0 );
+
+  delete scene;
 }
 
 

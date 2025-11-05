@@ -373,6 +373,21 @@ bool QgsAfsProvider::addFeatures( QgsFeatureList &flist, Flags )
   if ( flist.isEmpty() )
     return true; // for consistency!
 
+  // special handling for object ID field -- explicitly reset "Autogenerate" strings for
+  // field to QgsUnsetAttributeValue. This is required to maintain stable API which allowed
+  // provider default value clause strings to be used as an alias for unset attributes.
+  // TODO QGIS 5 - We can remove this when we no longer need to respect that.
+  for ( int i = 0; i < flist.size(); ++i )
+  {
+    QgsFeature &f = flist[i];
+    if ( mSharedData->mObjectIdFieldIdx >= 0
+         && f.attributes().size() > mSharedData->mObjectIdFieldIdx
+         && f.attribute( mSharedData->mObjectIdFieldIdx ) == QLatin1String( "Autogenerate" ) )
+    {
+      f.setAttribute( mSharedData->mObjectIdFieldIdx, QgsUnsetAttributeValue() );
+    }
+  }
+
   QString error;
   QgsFeedback feedback;
   const bool res = mSharedData->addFeatures( flist, error, &feedback );
@@ -642,7 +657,7 @@ QString QgsAfsProvider::defaultValueClause( int fieldId ) const
 
 bool QgsAfsProvider::skipConstraintCheck( int fieldIndex, QgsFieldConstraints::Constraint, const QVariant &value ) const
 {
-  return fieldIndex == mSharedData->mObjectIdFieldIdx && value.toString() == QLatin1String( "Autogenerate" );
+  return fieldIndex == mSharedData->mObjectIdFieldIdx && ( QgsVariantUtils::isUnsetAttributeValue( value ) || value.toString() == QLatin1String( "Autogenerate" ) );
 }
 
 QString QgsAfsProvider::subsetString() const

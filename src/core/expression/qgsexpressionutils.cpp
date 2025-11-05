@@ -122,7 +122,7 @@ QgsMapLayer *QgsExpressionUtils::getMapLayerPrivate( const QVariant &value, cons
       if ( QThread::currentThread() == store->thread() )
         findLayerInStoreFunction();
       else
-        QMetaObject::invokeMethod( store, findLayerInStoreFunction, Qt::BlockingQueuedConnection );
+        QMetaObject::invokeMethod( store, std::move( findLayerInStoreFunction ), Qt::BlockingQueuedConnection );
       if ( ml )
         return ml;
     }
@@ -175,6 +175,28 @@ QgsCoordinateReferenceSystem QgsExpressionUtils::getCrsValue( const QVariant &va
   return crs;
 }
 
+QTimeZone QgsExpressionUtils::getTimeZoneValue( const QVariant &value, QgsExpression *parent )
+{
+  if ( QgsVariantUtils::isNull( value ) )
+  {
+    return QTimeZone();
+  }
+
+  QTimeZone tz;
+  bool isTz = false;
+  if ( value.userType() == qMetaTypeId< QTimeZone>() )
+  {
+    isTz = true;
+    tz = value.value<QTimeZone>();
+  }
+
+  if ( !tz.isValid() )
+  {
+    parent->setEvalErrorString( isTz ? QObject::tr( "Input time zone is invalid" )
+                                : QObject::tr( "Cannot convert '%1' to a time zone" ).arg( value.toString() ) );
+  }
+  return tz;
+}
 
 void QgsExpressionUtils::executeLambdaForMapLayer( const QVariant &value, const QgsExpressionContext *context, QgsExpression *expression, const std::function<void ( QgsMapLayer * )> &function, bool &foundLayer )
 {
@@ -253,7 +275,7 @@ void QgsExpressionUtils::executeLambdaForMapLayer( const QVariant &value, const 
     for ( QgsMapLayerStore *store : stores )
     {
       QPointer< QgsMapLayerStore > storePointer( store );
-      auto findLayerInStoreFunction = [ storePointer, identifier, function, &foundLayer ]
+      auto findLayerInStoreFunction = [ storePointer = std::move( storePointer ), identifier, function, &foundLayer ]
       {
         QgsMapLayer *ml = nullptr;
         if ( QgsMapLayerStore *store = storePointer.data() )

@@ -545,6 +545,9 @@ string. Uses :py:class:`QgsExpression`
 
     virtual QgsMapLayerElevationProperties *elevationProperties();
 
+    virtual QgsAbstractProfileSource *profileSource();
+    virtual QString profileSourceId() const;
+    virtual QString profileSourceName() const;
     virtual QgsAbstractProfileGenerator *createProfileGenerator( const QgsProfileRequest &request ) /Factory/;
 
 
@@ -2108,7 +2111,7 @@ server.
    Use :py:func:`~QgsVectorLayer.setFieldConfigurationFlag` instead.
 %End
 
-    virtual bool deleteAttribute( int attr );
+     virtual bool deleteAttribute( int attr );
 %Docstring
 Deletes an attribute field (but does not commit it).
 
@@ -2808,6 +2811,9 @@ Sets the coordinate transform context to ``transformContext``
 
 
     virtual bool accept( QgsStyleEntityVisitorInterface *visitor ) const;
+
+
+    virtual bool accept( QgsObjectEntityVisitorInterface *visitor, const QgsObjectVisitorContext &context ) const;
 
 
   signals:

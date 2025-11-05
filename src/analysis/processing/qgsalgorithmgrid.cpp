@@ -80,6 +80,10 @@ QString QgsGridAlgorithm::shortHelpString() const
                       "selected spacing, that is not true for the other points that define that extent."
   );
 }
+QString QgsGridAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Creates a vector layer with a grid covering a given extent." );
+}
 
 QgsGridAlgorithm *QgsGridAlgorithm::createInstance() const
 {
@@ -207,7 +211,7 @@ void QgsGridAlgorithm::createPointGrid( std::unique_ptr<QgsFeatureSink> &sink, Q
       cnt++;
 
       thisProgress = static_cast<int>( ( static_cast<double>( cnt ) / static_cast<double>( cellcnt ) ) * 100 );
-      if ( thisProgress != lastProgress )
+      if ( feedback && thisProgress != lastProgress )
       {
         lastProgress = thisProgress;
         feedback->setProgress( lastProgress );
@@ -279,14 +283,15 @@ void QgsGridAlgorithm::createLineGrid( std::unique_ptr<QgsFeatureSink> &sink, Qg
 
     //use 50 as count multiplicator because only half of the features are processed at this point
     thisProgress = static_cast<int>( ( static_cast<double>( cnt ) / cntMax ) * 50 );
-    if ( thisProgress != lastProgress )
+    if ( feedback && thisProgress != lastProgress )
     {
       lastProgress = thisProgress;
       feedback->setProgress( lastProgress );
     }
   }
   //set progress to 50 manually in case the division doesn't amount to 50.
-  feedback->setProgress( 50 );
+  if ( feedback )
+    feedback->setProgress( 50 );
 
   //longitude lines
   cnt = 0;
@@ -300,7 +305,7 @@ void QgsGridAlgorithm::createLineGrid( std::unique_ptr<QgsFeatureSink> &sink, Qg
 
   while ( x <= mGridExtent.xMaximum() )
   {
-    if ( feedback->isCanceled() )
+    if ( feedback && feedback->isCanceled() )
       break;
 
     const QgsPoint pt1 = QgsPoint( x, mGridExtent.yMaximum() );
@@ -315,13 +320,14 @@ void QgsGridAlgorithm::createLineGrid( std::unique_ptr<QgsFeatureSink> &sink, Qg
     cnt++;
 
     thisProgress = static_cast<int>( static_cast<double>( 50 ) + ( static_cast<double>( cnt ) / cntMax ) * 100 );
-    if ( thisProgress != lastProgress )
+    if ( feedback && thisProgress != lastProgress )
     {
       lastProgress = thisProgress;
       feedback->setProgress( lastProgress );
     }
   }
-  feedback->setProgress( 100 );
+  if ( feedback )
+    feedback->setProgress( 100 );
 }
 
 void QgsGridAlgorithm::createRectangleGrid( std::unique_ptr<QgsFeatureSink> &sink, QgsProcessingFeedback *feedback )
@@ -366,7 +372,7 @@ void QgsGridAlgorithm::createRectangleGrid( std::unique_ptr<QgsFeatureSink> &sin
       cnt++;
 
       thisProgress = static_cast<int>( ( static_cast<double>( cnt ) / static_cast<double>( cellcnt ) ) * 100 );
-      if ( thisProgress != lastProgress )
+      if ( feedback && thisProgress != lastProgress )
       {
         lastProgress = thisProgress;
         feedback->setProgress( lastProgress );
@@ -444,7 +450,7 @@ void QgsGridAlgorithm::createDiamondGrid( std::unique_ptr<QgsFeatureSink> &sink,
       cnt++;
 
       thisProgress = static_cast<int>( ( static_cast<double>( cnt ) / static_cast<double>( cellcnt ) ) * 100 );
-      if ( thisProgress != lastProgress )
+      if ( feedback && thisProgress != lastProgress )
       {
         lastProgress = thisProgress;
         feedback->setProgress( lastProgress );
@@ -533,7 +539,7 @@ void QgsGridAlgorithm::createHexagonGrid( std::unique_ptr<QgsFeatureSink> &sink,
       cnt++;
 
       thisProgress = static_cast<int>( ( static_cast<double>( cnt ) / static_cast<double>( cellcnt ) ) * 100 );
-      if ( thisProgress != lastProgress )
+      if ( feedback && thisProgress != lastProgress )
       {
         lastProgress = thisProgress;
         feedback->setProgress( lastProgress );

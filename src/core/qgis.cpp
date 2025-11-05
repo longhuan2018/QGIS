@@ -126,77 +126,471 @@ void qgsFree( void *ptr )
   free( ptr );
 }
 
-bool qgsVariantLessThan( const QVariant &lhs, const QVariant &rhs )
+int qgsVariantCompare( const QVariant &lhs, const QVariant &rhs, bool strictTypeCheck )
 {
   // invalid < NULL < any value
   if ( !lhs.isValid() )
-    return rhs.isValid();
+  {
+    return rhs.isValid() ? -1 : 0;
+  }
   else if ( lhs.isNull() )
-    return rhs.isValid() && !rhs.isNull();
+  {
+    if ( !rhs.isValid() )
+      return 1;
+    if ( rhs.isNull() )
+      return 0;
+    return -1;
+  }
   else if ( !rhs.isValid() || rhs.isNull() )
-    return false;
+  {
+    return 1;
+  }
 
+  if ( strictTypeCheck && lhs.userType() != rhs.userType() )
+  {
+    return lhs.userType() < rhs.userType() ? -1 : 1;
+  }
+
+  // both valid
   switch ( lhs.userType() )
   {
     case QMetaType::Type::Int:
-      return lhs.toInt() < rhs.toInt();
+    case QMetaType::Type::Char:
+    case QMetaType::Type::Short:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::Int:
+        case QMetaType::Type::Char:
+        case QMetaType::Type::Short:
+        {
+          const int lhsInt = lhs.toInt();
+          const int rhsInt = rhs.toInt();
+          return lhsInt < rhsInt ? -1 : ( lhsInt == rhsInt ? 0 : 1 );
+        }
+
+        case QMetaType::Type::Long:
+        case QMetaType::Type::LongLong:
+        {
+          const long long lhsInt = lhs.toLongLong();
+          const long long rhsInt = rhs.toLongLong();
+          return lhsInt < rhsInt ? -1 : ( lhsInt == rhsInt ? 0 : 1 );
+        }
+
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        {
+          const double lhsDouble = static_cast< double >( lhs.toInt() );
+          const double rhsDouble = rhs.toDouble();
+
+          // consider NaN < any non-NaN
+          const bool lhsIsNan = std::isnan( lhsDouble );
+          const bool rhsIsNan = std::isnan( rhsDouble );
+          if ( lhsIsNan )
+          {
+            return rhsIsNan ? 0 : -1;
+          }
+          else if ( rhsIsNan )
+          {
+            return 1;
+          }
+
+          return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+        }
+
+        case QMetaType::Type::QString:
+        {
+          bool ok = false;
+          const double rhsDouble = rhs.toDouble( &ok );
+          if ( ok )
+          {
+            const double lhsDouble = static_cast< double >( lhs.toInt() );
+            return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
+
     case QMetaType::Type::UInt:
-      return lhs.toUInt() < rhs.toUInt();
+    case QMetaType::Type::UChar:
+    case QMetaType::Type::UShort:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::UInt:
+        case QMetaType::Type::UChar:
+        case QMetaType::Type::UShort:
+        {
+          const uint lhsUInt = lhs.toUInt();
+          const uint rhsUInt = rhs.toUInt();
+          return lhsUInt < rhsUInt ? -1 : ( lhsUInt == rhsUInt ? 0 : 1 );
+        }
+
+        case QMetaType::Type::ULong:
+        case QMetaType::Type::ULongLong:
+        {
+          const qulonglong lhsInt = lhs.toULongLong();
+          const qulonglong rhsInt = rhs.toULongLong();
+          return lhsInt < rhsInt ? -1 : ( lhsInt == rhsInt ? 0 : 1 );
+        }
+
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        {
+          const double lhsDouble = static_cast< double >( lhs.toUInt() );
+          const double rhsDouble = rhs.toDouble();
+
+          // consider NaN < any non-NaN
+          const bool lhsIsNan = std::isnan( lhsDouble );
+          const bool rhsIsNan = std::isnan( rhsDouble );
+          if ( lhsIsNan )
+          {
+            return rhsIsNan ? 0 : -1;
+          }
+          else if ( rhsIsNan )
+          {
+            return 1;
+          }
+
+          return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+        }
+
+        case QMetaType::Type::QString:
+        {
+          bool ok = false;
+          const double rhsDouble = rhs.toDouble( &ok );
+          if ( ok )
+          {
+            const double lhsDouble = static_cast< double >( lhs.toUInt() );
+            return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
+
     case QMetaType::Type::LongLong:
-      return lhs.toLongLong() < rhs.toLongLong();
+    case QMetaType::Type::Long:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::Int:
+        case QMetaType::Type::Char:
+        case QMetaType::Type::Short:
+        case QMetaType::Type::LongLong:
+        case QMetaType::Type::Long:
+        {
+          const qlonglong lhsLongLong = lhs.toLongLong();
+          const qlonglong rhsLongLong = rhs.toLongLong();
+          return lhsLongLong < rhsLongLong ? -1 : ( lhsLongLong == rhsLongLong ? 0 : 1 );
+        }
+
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        {
+          const double lhsDouble = static_cast< double >( lhs.toLongLong() );
+          const double rhsDouble = rhs.toDouble();
+
+          // consider NaN < any non-NaN
+          const bool lhsIsNan = std::isnan( lhsDouble );
+          const bool rhsIsNan = std::isnan( rhsDouble );
+          if ( lhsIsNan )
+          {
+            return rhsIsNan ? 0 : -1;
+          }
+          else if ( rhsIsNan )
+          {
+            return 1;
+          }
+
+          return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+        }
+
+        case QMetaType::Type::QString:
+        {
+          bool ok = false;
+          const double rhsDouble = rhs.toDouble( &ok );
+          if ( ok )
+          {
+            const double lhsDouble = static_cast< double >( lhs.toLongLong() );
+            return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
+
     case QMetaType::Type::ULongLong:
-      return lhs.toULongLong() < rhs.toULongLong();
+    case QMetaType::Type::ULong:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::UInt:
+        case QMetaType::Type::UChar:
+        case QMetaType::Type::UShort:
+        case QMetaType::Type::ULongLong:
+        case QMetaType::Type::ULong:
+        {
+          const qulonglong lhsULongLong = lhs.toULongLong();
+          const qulonglong rhsULongLong = rhs.toULongLong();
+          return lhsULongLong < rhsULongLong ? -1 : ( lhsULongLong == rhsULongLong ? 0 : 1 );
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
+
     case QMetaType::Type::Double:
-      return lhs.toDouble() < rhs.toDouble();
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::Int:
+        case QMetaType::Type::Char:
+        case QMetaType::Type::Short:
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        case QMetaType::Type::LongLong:
+        case QMetaType::Type::Long:
+        case QMetaType::Type::ULongLong:
+        case QMetaType::Type::ULong:
+        case QMetaType::Type::QString:
+        {
+          const double lhsDouble = lhs.toDouble();
+          bool rhsIsDoubleCompatible = false;
+          const double rhsDouble = rhs.toDouble( &rhsIsDoubleCompatible );
+          if ( rhsIsDoubleCompatible )
+          {
+            // consider NaN < any non-NaN
+            const bool lhsIsNan = std::isnan( lhsDouble );
+            const bool rhsIsNan = std::isnan( rhsDouble );
+            if ( lhsIsNan )
+            {
+              return rhsIsNan ? 0 : -1;
+            }
+            else if ( rhsIsNan )
+            {
+              return 1;
+            }
+
+            return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+      break;
+    }
+
+    case QMetaType::Type::Float:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::Int:
+        case QMetaType::Type::Char:
+        case QMetaType::Type::Short:
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        case QMetaType::Type::LongLong:
+        case QMetaType::Type::Long:
+        case QMetaType::Type::ULongLong:
+        case QMetaType::Type::ULong:
+        case QMetaType::Type::QString:
+        {
+          const float lhsFloat = lhs.toFloat();
+          bool rhsIsFloatCompatible = false;
+          const float rhsFloat = rhs.toFloat( &rhsIsFloatCompatible );
+          if ( rhsIsFloatCompatible )
+          {
+            // consider NaN < any non-NaN
+            const bool lhsIsNan = std::isnan( lhsFloat );
+            const bool rhsIsNan = std::isnan( rhsFloat );
+            if ( lhsIsNan )
+            {
+              return rhsIsNan ? 0 : -1;
+            }
+            else if ( rhsIsNan )
+            {
+              return 1;
+            }
+
+            return lhsFloat < rhsFloat ? -1 : ( lhsFloat == rhsFloat ? 0 : 1 );
+          }
+          break;
+        }
+        default:
+          break;
+      }
+      break;
+    }
+
     case QMetaType::Type::QChar:
-      return lhs.toChar() < rhs.toChar();
+    {
+      if ( rhs.userType() == QMetaType::Type::QChar )
+      {
+        const QChar lhsChar = lhs.toChar();
+        const QChar rhsChar = rhs.toChar();
+        return lhsChar < rhsChar ? -1 : ( lhsChar == rhsChar ? 0 : 1 );
+      }
+      break;
+    }
+
     case QMetaType::Type::QDate:
-      return lhs.toDate() < rhs.toDate();
+    {
+      if ( rhs.userType() == QMetaType::Type::QDate )
+      {
+        const QDate lhsDate = lhs.toDate();
+        const QDate rhsDate = rhs.toDate();
+        return lhsDate < rhsDate ? -1 : ( lhsDate == rhsDate ? 0 : 1 );
+      }
+      break;
+    }
+
     case QMetaType::Type::QTime:
-      return lhs.toTime() < rhs.toTime();
+    {
+      if ( rhs.userType() == QMetaType::Type::QTime )
+      {
+        const QTime lhsTime = lhs.toTime();
+        const QTime rhsTime = rhs.toTime();
+        return lhsTime < rhsTime ? -1 : ( lhsTime == rhsTime ? 0 : 1 );
+      }
+      break;
+    }
+
     case QMetaType::Type::QDateTime:
-      return lhs.toDateTime() < rhs.toDateTime();
+    {
+      if ( rhs.userType() == QMetaType::Type::QDateTime )
+      {
+        const QDateTime lhsTime = lhs.toDateTime();
+        const QDateTime rhsTime = rhs.toDateTime();
+        return lhsTime < rhsTime ? -1 : ( lhsTime == rhsTime ? 0 : 1 );
+      }
+      break;
+    }
+
     case QMetaType::Type::Bool:
-      return lhs.toBool() < rhs.toBool();
+    {
+      if ( rhs.userType() == QMetaType::Type::Bool )
+      {
+        const bool lhsBool = lhs.toBool();
+        const bool rhsBool = rhs.toBool();
+        return lhsBool == rhsBool ? 0 : ( lhsBool ? 1 : -1 );
+      }
+      break;
+    }
 
     case QMetaType::Type::QVariantList:
     {
-      const QList<QVariant> &lhsl = lhs.toList();
-      const QList<QVariant> &rhsl = rhs.toList();
+      if ( rhs.userType() == QMetaType::Type::QVariantList )
+      {
+        const QList<QVariant> &lhsl = lhs.toList();
+        const QList<QVariant> &rhsl = rhs.toList();
 
-      int i, n = std::min( lhsl.size(), rhsl.size() );
-      for ( i = 0; i < n && lhsl[i].userType() == rhsl[i].userType() && qgsVariantEqual( lhsl[i], rhsl[i] ); i++ )
-        ;
+        int i, n = std::min( lhsl.size(), rhsl.size() );
+        for ( i = 0; i < n && lhsl[i].userType() == rhsl[i].userType() && qgsVariantCompare( lhsl[i], rhsl[i] ) == 0; i++ )
+          ;
 
-      if ( i == n )
-        return lhsl.size() < rhsl.size();
-      else
-        return qgsVariantLessThan( lhsl[i], rhsl[i] );
+        if ( i == n )
+          return lhsl.size() < rhsl.size() ? -1 : ( lhsl.size() > rhsl.size() ? 1 : 0 );
+        else
+          return qgsVariantCompare( lhsl[i], rhsl[i] );
+      }
+      break;
     }
 
     case QMetaType::Type::QStringList:
     {
-      const QStringList &lhsl = lhs.toStringList();
-      const QStringList &rhsl = rhs.toStringList();
+      if ( rhs.userType() == QMetaType::Type::QStringList )
+      {
+        const QStringList &lhsl = lhs.toStringList();
+        const QStringList &rhsl = rhs.toStringList();
 
-      int i, n = std::min( lhsl.size(), rhsl.size() );
-      for ( i = 0; i < n && lhsl[i] == rhsl[i]; i++ )
-        ;
+        int i, n = std::min( lhsl.size(), rhsl.size() );
+        for ( i = 0; i < n && lhsl[i] == rhsl[i]; i++ )
+          ;
 
-      if ( i == n )
-        return lhsl.size() < rhsl.size();
-      else
-        return lhsl[i] < rhsl[i];
+        if ( i == n )
+          return lhsl.size() < rhsl.size() ? -1 : ( lhsl.size() > rhsl.size() ? 1 : 0 );
+        else
+          return lhsl[i] < rhsl[i] ? -1 : ( lhsl[i] == rhsl[i] ? 0 : 1 );
+      }
+      break;
+    }
+
+    case QMetaType::Type::QString:
+    {
+      switch ( rhs.userType() )
+      {
+        case QMetaType::Type::Int:
+        case QMetaType::Type::Char:
+        case QMetaType::Type::Short:
+        case QMetaType::Type::Double:
+        case QMetaType::Type::Float:
+        case QMetaType::Type::LongLong:
+        case QMetaType::Type::Long:
+        case QMetaType::Type::ULongLong:
+        case QMetaType::Type::ULong:
+        {
+          // try string to numeric conversion
+          bool lhsIsDoubleCompatible = false;
+          const double lhsDouble = lhs.toDouble( &lhsIsDoubleCompatible );
+          if ( lhsIsDoubleCompatible )
+          {
+            const double rhsDouble = rhs.toDouble();
+            // consider NaN < any non-NaN
+            const bool lhsIsNan = std::isnan( lhsDouble );
+            const bool rhsIsNan = std::isnan( rhsDouble );
+            if ( lhsIsNan )
+            {
+              return rhsIsNan ? 0 : -1;
+            }
+            else if ( rhsIsNan )
+            {
+              return 1;
+            }
+
+            return lhsDouble < rhsDouble ? -1 : ( lhsDouble == rhsDouble ? 0 : 1 );
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+
+      break;
     }
 
     default:
-      return QString::localeAwareCompare( lhs.toString(), rhs.toString() ) < 0;
+      break;
   }
+  return std::clamp( QString::localeAwareCompare( lhs.toString(), rhs.toString() ), -1, 1 );
+}
+
+bool qgsVariantLessThan( const QVariant &lhs, const QVariant &rhs )
+{
+  return qgsVariantCompare( lhs, rhs ) < 0;
 }
 
 bool qgsVariantGreaterThan( const QVariant &lhs, const QVariant &rhs )
 {
-  return ! qgsVariantLessThan( lhs, rhs );
+  return qgsVariantCompare( lhs, rhs ) > 0;
 }
 
 QString qgsVsiPrefix( const QString &path )
@@ -255,7 +649,21 @@ uint qHash( const QVariant &variant )
 
 bool qgsVariantEqual( const QVariant &lhs, const QVariant &rhs )
 {
-  return ( lhs.isNull() == rhs.isNull() && lhs == rhs ) || ( lhs.isNull() && rhs.isNull() && lhs.isValid() && rhs.isValid() );
+  if ( lhs.isNull() == rhs.isNull() )
+  {
+    if ( lhs.type() == QVariant::String && rhs.type() == QVariant::String )
+    {
+      const QString lhsString = lhs.toString();
+      const QString rhsString = rhs.toString();
+      return lhsString.isNull() == rhsString.isNull()
+             && lhsString.isEmpty() == rhsString.isEmpty()
+             && lhsString == rhsString;
+    }
+    if ( lhs == rhs )
+      return true;
+  }
+
+  return ( lhs.isNull() && rhs.isNull() && lhs.isValid() && rhs.isValid() );
 }
 
 QString Qgis::defaultProjectScales()
@@ -289,6 +697,15 @@ QString Qgis::devVersion()
 QString Qgis::geosVersion()
 {
   return GEOSversion();
+}
+
+bool Qgis::hasQtWebkit()
+{
+#ifdef WITH_QTWEBKIT
+  return true;
+#else
+  return false;
+#endif
 }
 
 int Qgis::geosVersionInt()
@@ -326,4 +743,3 @@ bool qMapLessThanKey<QVariantList>( const QVariantList &key1, const QVariantList
   return qgsVariantGreaterThan( key1, key2 ) && key1 != key2;
 }
 #endif
-

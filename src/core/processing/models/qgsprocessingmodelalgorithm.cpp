@@ -343,6 +343,7 @@ QVariantMap QgsProcessingModelAlgorithm::processAlgorithm( const QVariantMap &pa
   QVariantMap &childInputs = context.modelResult().rawChildInputs();
   QVariantMap &childResults = context.modelResult().rawChildOutputs();
   QSet< QString > &executed = context.modelResult().executedChildIds();
+  QMap< QString, QgsProcessingModelChildAlgorithmResult > &contextChildResults = context.modelResult().childResults();
 
   // start with initial configuration from the context's model configuration (allowing us to
   // resume execution using a previous state)
@@ -362,7 +363,7 @@ QVariantMap QgsProcessingModelAlgorithm::processAlgorithm( const QVariantMap &pa
   QVariantMap finalResults;
 
   bool executedAlg = true;
-  int previousHtmlLogLength = feedback->htmlLog().length();
+  int previousHtmlLogLength = feedback ? feedback->htmlLog().length() : 0;
   int countExecuted = 0;
   while ( executedAlg && countExecuted < toExecute.count() )
   {
@@ -454,6 +455,19 @@ QVariantMap QgsProcessingModelAlgorithm::processAlgorithm( const QVariantMap &pa
 
       QElapsedTimer childTime;
       childTime.start();
+
+      QVariantMap outerScopeChildInputs = childInputs;
+      QVariantMap outerScopePrevChildResults = childResults;
+      QSet< QString > outerScopeExecuted = executed;
+      QMap< QString, QgsProcessingModelChildAlgorithmResult > outerScopeContextChildResult = contextChildResults;
+      if ( dynamic_cast< QgsProcessingModelAlgorithm * >( childAlg.get() ) )
+      {
+        // don't allow results from outer models to "leak" into child models
+        childInputs.clear();
+        childResults.clear();
+        executed.clear();
+        contextChildResults.clear();
+      }
 
       bool ok = false;
 
@@ -550,6 +564,14 @@ QVariantMap QgsProcessingModelAlgorithm::processAlgorithm( const QVariantMap &pa
 
       if ( !ppRes.isEmpty() )
         results = ppRes;
+
+      if ( dynamic_cast< QgsProcessingModelAlgorithm * >( childAlg.get() ) )
+      {
+        childInputs = outerScopeChildInputs;
+        childResults = outerScopePrevChildResults;
+        executed = outerScopeExecuted;
+        contextChildResults = outerScopeContextChildResult;
+      }
 
       childResults.insert( childId, results );
       childResult.setOutputs( results );
@@ -674,8 +696,8 @@ QVariantMap QgsProcessingModelAlgorithm::processAlgorithm( const QVariantMap &pa
       }
 
       // trim out just the portion of the overall log which relates to this child
-      const QString thisAlgorithmHtmlLog = feedback->htmlLog().mid( previousHtmlLogLength );
-      previousHtmlLogLength = feedback->htmlLog().length();
+      const QString thisAlgorithmHtmlLog = feedback ? feedback->htmlLog().mid( previousHtmlLogLength ) : QString();
+      previousHtmlLogLength = feedback ? feedback->htmlLog().length() : 0;
 
       if ( !runResult )
       {
@@ -747,7 +769,8 @@ QStringList QgsProcessingModelAlgorithm::asPythonCode( const QgsProcessing::Pyth
     const QString base = safeName( name, capitalize );
     QString candidate = base;
     int i = 1;
-    while ( friendlyNames.contains( candidate ) )
+    // iterate over friendlyNames value to find candidate
+    while ( std::find( friendlyNames.cbegin(), friendlyNames.cend(), candidate ) != friendlyNames.cend() )
     {
       i++;
       candidate = QStringLiteral( "%1_%2" ).arg( base ).arg( i );

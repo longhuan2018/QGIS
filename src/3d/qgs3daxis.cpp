@@ -35,7 +35,6 @@
 #include "qgsterrainentity.h"
 #include "qgscoordinatereferencesystemutils.h"
 #include "qgswindow3dengine.h"
-#include "qgsraycastingutils_p.h"
 #include "qgs3dwiredmesh_p.h"
 #include "qgsframegraph.h"
 #include "qgsabstractterrainsettings.h"
@@ -121,11 +120,6 @@ void Qgs3DAxis::init3DObjectPicking()
 // will be called by Qgs3DMapCanvas::eventFilter
 bool Qgs3DAxis::handleEvent( QEvent *event )
 {
-  if ( event->type() == QEvent::ShortcutOverride )
-  {
-    return handleKeyEvent( static_cast<QKeyEvent *>( event ) );
-  }
-
   if ( event->type() == QEvent::MouseButtonPress )
   {
     // register mouse click to detect dragging
@@ -202,7 +196,7 @@ bool Qgs3DAxis::handleEvent( QEvent *event )
 
 void Qgs3DAxis::onTouchedByRay( const Qt3DRender::QAbstractRayCaster::Hits &hits )
 {
-  int mHitsFound = -1;
+  int hitFoundIdx = -1;
   if ( !hits.empty() )
   {
     if ( 2 <= QgsLogger::debugLevel() )
@@ -220,18 +214,25 @@ void Qgs3DAxis::onTouchedByRay( const Qt3DRender::QAbstractRayCaster::Hits &hits
       QgsDebugMsgLevel( os.str().c_str(), 2 );
     }
 
-    for ( int i = 0; i < hits.length() && mHitsFound == -1; ++i )
+    for ( int i = 0; i < hits.length() && hitFoundIdx == -1; ++i )
     {
-      if ( hits.at( i ).distance() < 500.0f && hits.at( i ).entity() && ( hits.at( i ).entity() == mCubeRoot || hits.at( i ).entity() == mAxisRoot || hits.at( i ).entity()->parent() == mCubeRoot || hits.at( i ).entity()->parent() == mAxisRoot ) )
+      Qt3DCore::QEntity *hitEntity = hits.at( i ).entity();
+      // In Qt6, a Qt3DExtras::Text2DEntity contains a private entity: Qt3DExtras::DistanceFieldTextRenderer
+      // The Text2DEntity needs to be retrieved to handle proper picking
+      if ( hitEntity && qobject_cast<Qt3DExtras::QText2DEntity *>( hitEntity->parentEntity() ) )
       {
-        mHitsFound = i;
+        hitEntity = hitEntity->parentEntity();
+      }
+      if ( hits.at( i ).distance() < 500.0f && hitEntity && ( hitEntity == mCubeRoot || hitEntity == mAxisRoot || hitEntity->parent() == mCubeRoot || hitEntity->parent() == mAxisRoot ) )
+      {
+        hitFoundIdx = i;
       }
     }
   }
 
   if ( mLastClickedButton == Qt::NoButton ) // hover
   {
-    if ( mHitsFound != -1 )
+    if ( hitFoundIdx != -1 )
     {
       if ( mCanvas->cursor() != Qt::ArrowCursor )
       {
@@ -248,7 +249,7 @@ void Qgs3DAxis::onTouchedByRay( const Qt3DRender::QAbstractRayCaster::Hits &hits
       }
     }
   }
-  else if ( mLastClickedButton == Qt::MouseButton::RightButton && mHitsFound != -1 ) // show menu
+  else if ( mLastClickedButton == Qt::MouseButton::RightButton && hitFoundIdx != -1 ) // show menu
   {
     displayMenuAt( mLastClickedPos );
   }
@@ -256,40 +257,45 @@ void Qgs3DAxis::onTouchedByRay( const Qt3DRender::QAbstractRayCaster::Hits &hits
   {
     hideMenu();
 
-    if ( mHitsFound != -1 )
+    if ( hitFoundIdx != -1 )
     {
-      if ( hits.at( mHitsFound ).entity() == mCubeRoot || hits.at( mHitsFound ).entity()->parent() == mCubeRoot )
+      Qt3DCore::QEntity *hitEntity = hits.at( hitFoundIdx ).entity();
+      if ( hitEntity && qobject_cast<Qt3DExtras::QText2DEntity *>( hitEntity->parentEntity() ) )
       {
-        switch ( hits.at( mHitsFound ).primitiveIndex() / 2 )
+        hitEntity = hitEntity->parentEntity();
+      }
+      if ( hitEntity && ( hitEntity == mCubeRoot || hitEntity->parent() == mCubeRoot ) )
+      {
+        switch ( hits.at( hitFoundIdx ).primitiveIndex() / 2 )
         {
           case 0: // "East face";
             QgsDebugMsgLevel( "Qgs3DAxis: East face clicked", 2 );
-            onCameraViewChangeEast();
+            mCameraController->rotateCameraToEast();
             break;
 
           case 1: // "West face ";
             QgsDebugMsgLevel( "Qgs3DAxis: West face clicked", 2 );
-            onCameraViewChangeWest();
+            mCameraController->rotateCameraToWest();
             break;
 
           case 2: // "North face ";
             QgsDebugMsgLevel( "Qgs3DAxis: North face clicked", 2 );
-            onCameraViewChangeNorth();
+            mCameraController->rotateCameraToNorth();
             break;
 
           case 3: // "South face";
             QgsDebugMsgLevel( "Qgs3DAxis: South face clicked", 2 );
-            onCameraViewChangeSouth();
+            mCameraController->rotateCameraToSouth();
             break;
 
           case 4: // "Top face ";
             QgsDebugMsgLevel( "Qgs3DAxis: Top face clicked", 2 );
-            onCameraViewChangeTop();
+            mCameraController->rotateCameraToTop();
             break;
 
           case 5: // "Bottom face ";
             QgsDebugMsgLevel( "Qgs3DAxis: Bottom face clicked", 2 );
-            onCameraViewChangeBottom();
+            mCameraController->rotateCameraToBottom();
             break;
 
           default:
@@ -319,7 +325,7 @@ void Qgs3DAxis::constructLabelsScene( Qt3DCore::QEntity *parent3DScene )
   mTwoDLabelSceneEntity->setEnabled( true );
 
   mTwoDLabelCamera = mRenderView->labelCamera();
-  mTwoDLabelCamera->setUpVector( QVector3D( 0.0f, 0.0f, 1.0f ) );
+  mTwoDLabelCamera->setUpVector( QVector3D( 0.0f, 1.0f, 0.0f ) );
   mTwoDLabelCamera->setViewCenter( QVector3D( 0.0f, 0.0f, 0.0f ) );
   mTwoDLabelCamera->setPosition( QVector3D( 0.0f, 0.0f, 100.0f ) );
 }
@@ -437,50 +443,6 @@ void Qgs3DAxis::createAxisScene()
 
     updateAxisLabelPosition();
   }
-}
-
-bool Qgs3DAxis::handleKeyEvent( QKeyEvent *keyEvent )
-{
-  bool ret = false;
-  if ( keyEvent->modifiers() | Qt::ControlModifier )
-  {
-    ret = true;
-    switch ( keyEvent->key() )
-    {
-      case Qt::Key_8:
-        onCameraViewChangeNorth();
-        break;
-
-      case Qt::Key_6:
-        onCameraViewChangeEast();
-        break;
-
-      case Qt::Key_2:
-        onCameraViewChangeSouth();
-        break;
-
-      case Qt::Key_4:
-        onCameraViewChangeWest();
-        break;
-
-      case Qt::Key_9:
-        onCameraViewChangeTop();
-        break;
-
-      case Qt::Key_3:
-        onCameraViewChangeBottom();
-        break;
-
-      case Qt::Key_5:
-        onCameraViewChangeHome();
-        break;
-
-      default:
-        ret = false;
-        break;
-    }
-  }
-  return ret;
 }
 
 void Qgs3DAxis::createMenu()
@@ -603,21 +565,22 @@ void Qgs3DAxis::createMenu()
   mMenu->addMenu( vertPosMenu );
 
   // axis view menu
-  QAction *viewHomeAct = new QAction( tr( "&Home" ) + "\t Ctrl+1", mMenu );
-  QAction *viewTopAct = new QAction( tr( "&Top" ) + "\t Ctrl+5", mMenu );
+  // Make sure to sync the key combinations with QgsCameraController::keyboardEventFilter()!
+  QAction *viewHomeAct = new QAction( tr( "&Home" ) + "\t Ctrl+5", mMenu );
+  QAction *viewTopAct = new QAction( tr( "&Top" ) + "\t Ctrl+9", mMenu );
   QAction *viewNorthAct = new QAction( tr( "&North" ) + "\t Ctrl+8", mMenu );
   QAction *viewEastAct = new QAction( tr( "&East" ) + "\t Ctrl+6", mMenu );
   QAction *viewSouthAct = new QAction( tr( "&South" ) + "\t Ctrl+2", mMenu );
   QAction *viewWestAct = new QAction( tr( "&West" ) + "\t Ctrl+4", mMenu );
-  QAction *viewBottomAct = new QAction( tr( "&Bottom" ), mMenu );
+  QAction *viewBottomAct = new QAction( tr( "&Bottom" ) + "\t Ctrl+3", mMenu );
 
-  connect( viewHomeAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeHome );
-  connect( viewTopAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeTop );
-  connect( viewNorthAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeNorth );
-  connect( viewEastAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeEast );
-  connect( viewSouthAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeSouth );
-  connect( viewWestAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeWest );
-  connect( viewBottomAct, &QAction::triggered, this, &Qgs3DAxis::onCameraViewChangeBottom );
+  connect( viewHomeAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToHome );
+  connect( viewTopAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToTop );
+  connect( viewNorthAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToNorth );
+  connect( viewEastAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToEast );
+  connect( viewSouthAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToSouth );
+  connect( viewWestAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToWest );
+  connect( viewBottomAct, &QAction::triggered, mCameraController, &QgsCameraController::rotateCameraToBottom );
 
   QMenu *viewMenu = new QMenu( QStringLiteral( "Camera View" ), mMenu );
   viewMenu->addAction( viewHomeAct );
@@ -655,32 +618,6 @@ void Qgs3DAxis::onAxisModeChanged( Qgs3DAxisSettings::Mode mode )
   s.setMode( mode );
   mMapSettings->set3DAxisSettings( s );
 }
-
-void Qgs3DAxis::onCameraViewChange( float pitch, float yaw )
-{
-  QgsVector3D pos = mCameraController->lookingAtPoint();
-  double elevation = 0.0;
-  if ( mMapSettings->terrainRenderingEnabled() )
-  {
-    QgsDebugMsgLevel( "Checking elevation from terrain...", 2 );
-    QVector3D camPos = mCameraController->camera()->position();
-    QgsRayCastingUtils::Ray3D ray( camPos, pos.toVector3D() - camPos, mCameraController->camera()->farPlane() );
-    const QVector<QgsRayCastingUtils::RayHit> hits = mMapScene->terrainEntity()->rayIntersection( ray, QgsRayCastingUtils::RayCastContext() );
-    if ( !hits.isEmpty() )
-    {
-      elevation = hits.at( 0 ).pos.z();
-      QgsDebugMsgLevel( QString( "Computed elevation from terrain: %1" ).arg( elevation ), 2 );
-    }
-    else
-    {
-      QgsDebugMsgLevel( "Unable to obtain elevation from terrain", 2 );
-    }
-  }
-  pos.set( pos.x(), pos.y(), elevation + mMapSettings->terrainSettings()->elevationOffset() );
-
-  mCameraController->setLookingAtPoint( pos, ( mCameraController->camera()->position() - pos.toVector3D() ).length(), pitch, yaw );
-}
-
 
 void Qgs3DAxis::createCube()
 {

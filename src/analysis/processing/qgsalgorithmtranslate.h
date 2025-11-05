@@ -38,6 +38,7 @@ class QgsTranslateAlgorithm : public QgsProcessingFeatureBasedAlgorithm
     QString group() const override;
     QString groupId() const override;
     QString shortHelpString() const override;
+    QString shortDescription() const override;
     QgsTranslateAlgorithm *createInstance() const override SIP_FACTORY;
     void initParameters( const QVariantMap &configuration = QVariantMap() ) override;
     bool supportInPlaceEdit( const QgsMapLayer *layer ) const override;
@@ -49,6 +50,7 @@ class QgsTranslateAlgorithm : public QgsProcessingFeatureBasedAlgorithm
     Qgis::WkbType outputWkbType( Qgis::WkbType inputWkbType ) const override;
 
   private:
+    mutable Qgis::WkbType mOutputWkbType = Qgis::WkbType::Unknown;
     double mDeltaX = 0.0;
     bool mDynamicDeltaX = false;
     QgsProperty mDeltaXProperty;

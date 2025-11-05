@@ -56,7 +56,7 @@ QgsGpsToolBar::QgsGpsToolBar( QgsAppGpsConnection *connection, QgsMapCanvas *can
   mConnectAction->setCheckable( true );
   addAction( mConnectAction );
 
-  connect( mConnectAction, &QAction::toggled, this, [=]( bool connect ) {
+  connect( mConnectAction, &QAction::toggled, this, [this]( bool connect ) {
     if ( connect )
       mConnection->connectGps();
     else
@@ -68,7 +68,7 @@ QgsGpsToolBar::QgsGpsToolBar( QgsAppGpsConnection *connection, QgsMapCanvas *can
   mRecenterAction->setIcon( QgsApplication::getThemeIcon( QStringLiteral( "/gpsicons/mActionRecenter.svg" ) ) );
   mRecenterAction->setEnabled( false );
 
-  connect( mRecenterAction, &QAction::triggered, this, [=] {
+  connect( mRecenterAction, &QAction::triggered, this, [this] {
     if ( mConnection->lastValidLocation().isEmpty() )
       return;
 
@@ -143,7 +143,7 @@ QgsGpsToolBar::QgsGpsToolBar( QgsAppGpsConnection *connection, QgsMapCanvas *can
   mCreateFeatureAction->setEnabled( false );
   mAddTrackVertexAction->setEnabled( false );
   mResetFeatureAction->setEnabled( false );
-  connect( mConnection, &QgsAppGpsConnection::statusChanged, this, [=]( Qgis::DeviceConnectionStatus status ) {
+  connect( mConnection, &QgsAppGpsConnection::statusChanged, this, [this]( Qgis::DeviceConnectionStatus status ) {
     switch ( status )
     {
       case Qgis::DeviceConnectionStatus::Disconnected:
@@ -185,7 +185,7 @@ QgsGpsToolBar::QgsGpsToolBar( QgsAppGpsConnection *connection, QgsMapCanvas *can
 
   connect( QgsProject::instance()->gpsSettings(), &QgsProjectGpsSettings::destinationLayerChanged, this, &QgsGpsToolBar::destinationLayerChanged );
 
-  connect( QgsProject::instance()->gpsSettings(), &QgsProjectGpsSettings::automaticallyAddTrackVerticesChanged, this, [=]( bool enabled ) { setAddVertexButtonEnabled( !enabled ); } );
+  connect( QgsProject::instance()->gpsSettings(), &QgsProjectGpsSettings::automaticallyAddTrackVerticesChanged, this, [this]( bool enabled ) { setAddVertexButtonEnabled( !enabled ); } );
   setAddVertexButtonEnabled( !QgsProject::instance()->gpsSettings()->automaticallyAddTrackVertices() );
 
   adjustSize();
@@ -354,44 +354,38 @@ void QgsGpsToolBar::destinationLayerChanged( QgsVectorLayer *vlayer )
   QString buttonLabel = tr( "Create Feature" );
   QString buttonToolTip = tr( "Create Feature" );
   QString icon = QStringLiteral( "mActionCaptureLine.svg" );
-  ;
-  if ( vlayer )
+
+  const Qgis::GeometryType layerGeometryType = vlayer->geometryType();
+  bool enable = true;
+
+  switch ( layerGeometryType )
   {
-    const Qgis::GeometryType layerGeometryType = vlayer->geometryType();
-    bool enable = true;
+    case Qgis::GeometryType::Point:
+      buttonLabel = tr( "Create Point Feature at Location" );
+      buttonToolTip = tr( "Create a new point feature at the current GPS location" );
+      icon = QStringLiteral( "mActionCapturePoint.svg" );
+      break;
 
-    switch ( layerGeometryType )
-    {
-      case Qgis::GeometryType::Point:
-        buttonLabel = tr( "Create Point Feature at Location" );
-        buttonToolTip = tr( "Create a new point feature at the current GPS location" );
-        icon = QStringLiteral( "mActionCapturePoint.svg" );
-        break;
+    case Qgis::GeometryType::Line:
+      buttonLabel = tr( "Create Line Feature from Track" );
+      buttonToolTip = tr( "Create a new line feature using the current GPS track" );
+      icon = QStringLiteral( "mActionCaptureLine.svg" );
+      break;
 
-      case Qgis::GeometryType::Line:
-        buttonLabel = tr( "Create Line Feature from Track" );
-        buttonToolTip = tr( "Create a new line feature using the current GPS track" );
-        icon = QStringLiteral( "mActionCaptureLine.svg" );
-        break;
+    case Qgis::GeometryType::Polygon:
+      buttonLabel = tr( "Create Polygon Feature from Track" );
+      buttonToolTip = tr( "Create a new polygon feature using the current GPS track" );
+      icon = QStringLiteral( "mActionCapturePolygon.svg" );
+      break;
 
-      case Qgis::GeometryType::Polygon:
-        buttonLabel = tr( "Create Polygon Feature from Track" );
-        buttonToolTip = tr( "Create a new polygon feature using the current GPS track" );
-        icon = QStringLiteral( "mActionCapturePolygon.svg" );
-        break;
-
-      case Qgis::GeometryType::Unknown:
-      case Qgis::GeometryType::Null:
-        enable = false;
-        break;
-    }
-
-    mCreateFeatureAction->setEnabled( enable );
+    case Qgis::GeometryType::Unknown:
+    case Qgis::GeometryType::Null:
+      enable = false;
+      break;
   }
-  else
-  {
-    mCreateFeatureAction->setEnabled( false );
-  }
+
+  mCreateFeatureAction->setEnabled( enable );
+
   mCreateFeatureAction->setText( buttonLabel );
   mCreateFeatureAction->setIcon( QgsApplication::getThemeIcon( icon ) );
   mCreateFeatureAction->setToolTip( buttonToolTip );
@@ -408,7 +402,7 @@ void QgsGpsToolBar::destinationMenuAboutToShow()
   followAction->setCheckable( true );
   followAction->setChecked( QgsProject::instance()->gpsSettings()->destinationFollowsActiveLayer() );
 
-  connect( followAction, &QAction::toggled, this, [=]( bool checked ) {
+  connect( followAction, &QAction::toggled, this, []( bool checked ) {
     if ( checked && !QgsProject::instance()->gpsSettings()->destinationFollowsActiveLayer() )
     {
       QgsProject::instance()->gpsSettings()->setDestinationFollowsActiveLayer( true );
@@ -431,7 +425,7 @@ void QgsGpsToolBar::destinationMenuAboutToShow()
     if ( actionLayerId == currentLayerId && !QgsProject::instance()->gpsSettings()->destinationFollowsActiveLayer() )
       layerAction->setChecked( true );
 
-    connect( layerAction, &QAction::toggled, this, [=]( bool checked ) {
+    connect( layerAction, &QAction::toggled, this, [actionLayerId]( bool checked ) {
       if ( checked )
       {
         QgsVectorLayer *layer = qobject_cast<QgsVectorLayer *>( QgsProject::instance()->mapLayer( actionLayerId ) );
@@ -475,7 +469,7 @@ void QgsGpsToolBar::createLocationWidget()
     showComponentAction->setChecked( visibleComponents & component );
     locationMenu->addAction( showComponentAction );
 
-    connect( showComponentAction, &QAction::toggled, this, [=]( bool checked ) {
+    connect( showComponentAction, &QAction::toggled, this, [this, component]( bool checked ) {
       const Qgis::GpsInformationComponents currentVisibleComponents = settingShowInToolbar->value();
       if ( checked )
       {

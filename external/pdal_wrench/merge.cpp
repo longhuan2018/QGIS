@@ -99,6 +99,18 @@ static std::unique_ptr<PipelineManager> pipeline(ParallelJobInfo *tile)
         last.push_back(filterExpr);
     }
 
+    // this is a special case for merging COPC files
+    // writers.copc does not support multiple inputs
+    //  merge step is necessary before writing the output
+    if (ends_with(tile->outputFilename, ".copc.laz"))
+    {
+        Stage *merge = &manager->makeFilter("filters.merge");
+        for (Stage *stage : last)
+            merge->setInput(*stage);
+        last.clear();
+        last.push_back(merge);
+    }
+
     pdal::Options options;
     options.add(pdal::Option("forward", "all"));
     Stage* writer = &manager->makeWriter(tile->outputFilename, "", options);
@@ -126,9 +138,42 @@ void Merge::preparePipelines(std::vector<std::unique_ptr<PipelineManager>>& pipe
             inputFiles.push_back(line);
         }
     }
+    
+    std::vector<std::string> vpcFilesToRemove;
+    vpcFilesToRemove.reserve(inputFiles.size());
+
+    for (const std::string& inputFile : inputFiles)
+    {
+        if (ends_with(inputFile, ".vpc"))
+        {   
+            vpcFilesToRemove.push_back(inputFile);
+
+            VirtualPointCloud vpc;
+            if (!vpc.read(inputFile))
+            {
+                std::cerr << "could not open input VPC: " << inputFile << std::endl;
+                return;
+            }
+            
+            for (const VirtualPointCloud::File& vpcSingleFile : vpc.files)
+            {
+                inputFiles.push_back(vpcSingleFile.filename);
+            }
+        }
+    }
+
+    for (const std::string& f : vpcFilesToRemove)
+    {
+        inputFiles.erase(std::remove(inputFiles.begin(), inputFiles.end(), f), inputFiles.end());
+    }
 
     tile.inputFilenames = inputFiles;
     tile.outputFilename = outputFile;
+
+    if (ends_with(outputFile, ".copc.laz"))
+    {
+        isStreaming = false;
+    }
 
     pipelines.push_back(pipeline(&tile));
 

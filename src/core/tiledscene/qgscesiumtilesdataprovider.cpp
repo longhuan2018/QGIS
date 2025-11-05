@@ -37,6 +37,7 @@
 #include "qgstiledscenetile.h"
 #include "qgsreadwritelocker.h"
 #include "qgstiledownloadmanager.h"
+#include "qgsellipsoidutils.h"
 
 #include <QUrl>
 #include <QIcon>
@@ -91,7 +92,12 @@ class QgsCesiumTiledSceneIndex final : public QgsAbstractTiledSceneIndex
       const QgsCoordinateTransformContext &transformContext );
 
     std::unique_ptr< QgsTiledSceneTile > tileFromJson( const json &node, const QUrl &baseUrl, const QgsTiledSceneTile *parent, Qgis::Axis gltfUpAxis );
-    QgsTiledSceneNode *nodeFromJson( const json &node, const QUrl &baseUrl, QgsTiledSceneNode *parent, Qgis::Axis gltfUpAxis );
+
+    /**
+     * If \a parent is NULLPTR, then the new node is returned. If \a parent is set, then the newly created node will be automatically
+     * parented to that node and NULLPTR will be returned.
+     */
+    std::unique_ptr< QgsTiledSceneNode > nodeFromJson( const json &node, const QUrl &baseUrl, QgsTiledSceneNode *parent, Qgis::Axis gltfUpAxis );
     void refineNodeFromJson( QgsTiledSceneNode *node, const QUrl &baseUrl, const json &json );
 
     QgsTiledSceneTile rootTile() const final;
@@ -190,7 +196,7 @@ QgsCesiumTiledSceneIndex::QgsCesiumTiledSceneIndex( const json &tileset, const Q
     }
   }
 
-  mRootNode.reset( nodeFromJson( tileset[ "root" ], rootUrl, nullptr, gltfUpAxis ) );
+  mRootNode = nodeFromJson( tileset[ "root" ], rootUrl, nullptr, gltfUpAxis );
 }
 
 std::unique_ptr< QgsTiledSceneTile > QgsCesiumTiledSceneIndex::tileFromJson( const json &json, const QUrl &baseUrl, const QgsTiledSceneTile *parent, Qgis::Axis gltfUpAxis )
@@ -345,14 +351,11 @@ std::unique_ptr< QgsTiledSceneTile > QgsCesiumTiledSceneIndex::tileFromJson( con
   return tile;
 }
 
-QgsTiledSceneNode *QgsCesiumTiledSceneIndex::nodeFromJson( const json &json, const QUrl &baseUrl, QgsTiledSceneNode *parent, Qgis::Axis gltfUpAxis )
+std::unique_ptr<QgsTiledSceneNode> QgsCesiumTiledSceneIndex::nodeFromJson( const json &json, const QUrl &baseUrl, QgsTiledSceneNode *parent, Qgis::Axis gltfUpAxis )
 {
   std::unique_ptr< QgsTiledSceneTile > tile = tileFromJson( json, baseUrl, parent ? parent->tile() : nullptr, gltfUpAxis );
   auto newNode = std::make_unique< QgsTiledSceneNode >( tile.release() );
   mNodeMap.insert( newNode->tile()->id(), newNode.get() );
-
-  if ( parent )
-    parent->addChild( newNode.get() );
 
   if ( json.contains( "children" ) )
   {
@@ -362,7 +365,15 @@ QgsTiledSceneNode *QgsCesiumTiledSceneIndex::nodeFromJson( const json &json, con
     }
   }
 
-  return newNode.release();
+  if ( parent )
+  {
+    parent->addChild( newNode.release() );
+    return nullptr;
+  }
+  else
+  {
+    return newNode;
+  }
 }
 
 void QgsCesiumTiledSceneIndex::refineNodeFromJson( QgsTiledSceneNode *node, const QUrl &baseUrl, const json &json )
@@ -923,7 +934,7 @@ QgsCesiumTilesDataProvider::QgsCesiumTilesDataProvider( const QgsCesiumTilesData
 
 Qgis::DataProviderFlags QgsCesiumTilesDataProvider::flags() const
 {
-  return Qgis::DataProviderFlag::FastExtent2D;
+  return mProviderFlags;
 }
 
 Qgis::TiledSceneProviderCapabilities QgsCesiumTilesDataProvider::capabilities() const
@@ -987,7 +998,16 @@ bool QgsCesiumTilesDataProvider::init()
         return false;
       }
 
-      mShared->mLayerMetadata.setTitle( QString::fromStdString( assetInfoJson["name"].get<std::string>() ) );
+      const QString name = QString::fromStdString( assetInfoJson["name"].get<std::string>() );
+      if ( name.compare( QLatin1String( "Google Photorealistic 3D Tiles" ), Qt::CaseInsensitive ) == 0 )
+      {
+        // consider Google Photorealistic 3D Tiles as a basemap source, as this completely covers
+        // the globe and contains embedded terrain
+        mProviderFlags.setFlag( Qgis::DataProviderFlag::IsBasemapSource, true );
+        mProviderFlags.setFlag( Qgis::DataProviderFlag::Is3DBasemapSource, true );
+      }
+
+      mShared->mLayerMetadata.setTitle( name );
       mShared->mLayerMetadata.setAbstract( QString::fromStdString( assetInfoJson["description"].get<std::string>() ) );
       const QString attribution = QString::fromStdString( assetInfoJson["attribution"].get<std::string>() );
       if ( !attribution.isEmpty() )

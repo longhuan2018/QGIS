@@ -20,10 +20,13 @@
 #include "qgsmaplayerutils.h"
 #include "qgscoordinatetransform.h"
 #include <QDomElement>
+#include "qgsmessagelog.h"
+
 
 QgsProjectViewSettings::QgsProjectViewSettings( QgsProject *project )
   : QObject( project )
   , mProject( project )
+  , mRestoreProjectExtentOnProjectLoad( false )
 {
 
 }
@@ -71,6 +74,17 @@ void QgsProjectViewSettings::setPresetFullExtent( const QgsReferencedRectangle &
   emit presetFullExtentChanged();
 }
 
+void QgsProjectViewSettings::setRestoreProjectExtentOnProjectLoad( bool projectExtentCheckboxState )
+{
+  mRestoreProjectExtentOnProjectLoad = projectExtentCheckboxState;
+}
+
+bool QgsProjectViewSettings::restoreProjectExtentOnProjectLoad( )
+{
+  return mRestoreProjectExtentOnProjectLoad;
+}
+
+
 QgsReferencedRectangle QgsProjectViewSettings::fullExtent() const
 {
   if ( !mProject )
@@ -89,7 +103,7 @@ QgsReferencedRectangle QgsProjectViewSettings::fullExtent() const
     QList< QgsMapLayer * > nonBaseMapLayers;
     std::copy_if( layers.begin(), layers.end(),
                   std::back_inserter( nonBaseMapLayers ),
-    []( const QgsMapLayer * layer ) { return !( layer->properties() & Qgis::MapLayerProperty::IsBasemapLayer ); } );
+    []( const QgsMapLayer * layer ) { return !( layer->properties() & Qgis::MapLayerProperty::IsBasemapLayer ) && !( layer->properties() & Qgis::MapLayerProperty::Is3DBasemapLayer ); } );
 
     // unless ALL layers from the project are basemap layers, we exclude these by default as their extent won't be useful for the project.
     if ( !nonBaseMapLayers.empty( ) )
@@ -198,6 +212,7 @@ bool QgsProjectViewSettings::readXml( const QDomElement &element, const QgsReadW
   }
 
   mDefaultRotation = element.attribute( QStringLiteral( "rotation" ), QStringLiteral( "0" ) ).toDouble();
+  mRestoreProjectExtentOnProjectLoad = element.attribute( QStringLiteral( "LoadProjectExtent" ), QStringLiteral( "0" ) ).toInt();
 
   return true;
 }
@@ -206,6 +221,11 @@ QDomElement QgsProjectViewSettings::writeXml( QDomDocument &doc, const QgsReadWr
 {
   QDomElement element = doc.createElement( QStringLiteral( "ProjectViewSettings" ) );
   element.setAttribute( QStringLiteral( "UseProjectScales" ), mUseProjectScales ? QStringLiteral( "1" ) : QStringLiteral( "0" ) );
+
+  if ( mRestoreProjectExtentOnProjectLoad )
+  {
+    element.setAttribute( QStringLiteral( "LoadProjectExtent" ), QStringLiteral( "1" ) );
+  }
 
   element.setAttribute( QStringLiteral( "rotation" ), qgsDoubleToString( mDefaultRotation ) );
 

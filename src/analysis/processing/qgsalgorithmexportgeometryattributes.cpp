@@ -49,11 +49,21 @@ QString QgsExportGeometryAttributesAlgorithm::groupId() const
 
 QString QgsExportGeometryAttributesAlgorithm::shortHelpString() const
 {
-  return QObject::tr( "Computes geometric properties of the features in a vector layer. Algorithm generates a new "
+  return QObject::tr( "This algorithm computes geometric properties of the features in a vector layer. The algorithm generates a new "
                       "vector layer with the same content as the input one, but with additional attributes in its "
                       "attributes table, containing geometric measurements.\n\n"
                       "Depending on the geometry type of the vector layer, the attributes added to the table will "
                       "be different." );
+}
+
+QString QgsExportGeometryAttributesAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Computes geometric properties of the features in a vector layer." );
+}
+
+Qgis::ProcessingAlgorithmDocumentationFlags QgsExportGeometryAttributesAlgorithm::documentationFlags() const
+{
+  return Qgis::ProcessingAlgorithmDocumentationFlag::RespectsEllipsoid;
 }
 
 QgsExportGeometryAttributesAlgorithm *QgsExportGeometryAttributesAlgorithm::createInstance() const
@@ -247,9 +257,13 @@ QgsAttributes QgsExportGeometryAttributesAlgorithm::pointAttributes( const QgsGe
       attrs.append( point->m() );
     }
   }
+  else if ( const QgsGeometryCollection *collection = qgsgeometry_cast<const QgsGeometryCollection *>( geom.constGet() ) )
+  {
+    attrs.append( collection->numGeometries() );
+  }
   else
   {
-    attrs.append( qgsgeometry_cast<const QgsGeometryCollection *>( geom.constGet() )->numGeometries() );
+    attrs.append( 0 );
   }
   return attrs;
 }

@@ -191,7 +191,7 @@ QgsStyleItemsListWidget::QgsStyleItemsListWidget( QWidget *parent )
 
   lblSymbolName->clear();
 
-  connect( mButtonIconView, &QToolButton::toggled, this, [=]( bool active ) {
+  connect( mButtonIconView, &QToolButton::toggled, this, [this]( bool active ) {
     if ( active )
     {
       mSymbolViewStackedWidget->setCurrentIndex( 0 );
@@ -199,7 +199,7 @@ QgsStyleItemsListWidget::QgsStyleItemsListWidget( QWidget *parent )
       QgsSettings().setValue( QStringLiteral( "UI/symbolsList/lastIconView" ), 0, QgsSettings::Gui );
     }
   } );
-  connect( mButtonListView, &QToolButton::toggled, this, [=]( bool active ) {
+  connect( mButtonListView, &QToolButton::toggled, this, [this]( bool active ) {
     if ( active )
     {
       QgsSettings().setValue( QStringLiteral( "UI/symbolsList/lastIconView" ), 1, QgsSettings::Gui );
@@ -251,6 +251,12 @@ void QgsStyleItemsListWidget::setStyle( QgsStyle *style )
 
   mSymbolTreeView->setSelectionModel( viewSymbols->selectionModel() );
   connect( viewSymbols->selectionModel(), &QItemSelectionModel::currentChanged, this, &QgsStyleItemsListWidget::onSelectionChanged );
+  connect( viewSymbols, &QListView::activated, this, [this]( const QModelIndex &index ) {
+    onSelectionChanged( index, QModelIndex() );
+  } );
+  connect( mSymbolTreeView, &QTreeView::activated, this, [this]( const QModelIndex &index ) {
+    onSelectionChanged( index, QModelIndex() );
+  } );
 
   populateGroups();
   connect( groupsCombo, static_cast<void ( QComboBox::* )( int )>( &QComboBox::currentIndexChanged ), this, &QgsStyleItemsListWidget::groupsCombo_currentIndexChanged );
@@ -541,16 +547,27 @@ void QgsStyleItemsListWidget::openStyleManager()
        || !QgsGui::windowManager()->openStandardDialog( QgsWindowManagerInterface::DialogStyleManager ) )
   {
     // fallback to modal dialog
-    QgsStyleManagerDialog dlg( mStyle, this );
-    dlg.exec();
+    std::unique_ptr< QgsStyleManagerDialog > dlg;
+    if ( mStyle && mStyle != QgsStyle::defaultStyle() )
+    {
+      dlg = std::make_unique< QgsStyleManagerDialog >( mStyle, this );
+    }
+    else
+    {
+      dlg = std::make_unique< QgsStyleManagerDialog >( this );
+    }
+    dlg->exec();
 
     updateModelFilters(); // probably not needed -- the model should automatically update if any changes were made
   }
 }
 
-void QgsStyleItemsListWidget::onSelectionChanged( const QModelIndex &index )
+void QgsStyleItemsListWidget::onSelectionChanged( const QModelIndex &index, const QModelIndex &previous )
 {
   if ( !mModel )
+    return;
+
+  if ( index.row() == previous.row() )
     return;
 
   const QString symbolName = mModel->data( mModel->index( index.row(), QgsStyleModel::Name ) ).toString();

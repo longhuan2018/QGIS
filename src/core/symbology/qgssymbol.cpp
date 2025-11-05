@@ -87,6 +87,9 @@ QgsSymbolBufferSettings::QgsSymbolBufferSettings( const QgsSymbolBufferSettings 
 
 QgsSymbolBufferSettings &QgsSymbolBufferSettings::operator=( const QgsSymbolBufferSettings &other )
 {
+  if ( &other == this )
+    return *this;
+
   mEnabled = other.mEnabled;
   mSize = other.mSize;
   mSizeUnit = other.mSizeUnit;
@@ -1091,8 +1094,8 @@ void QgsSymbol::drawPreviewIcon( QPainter *painter, QSize size, QgsRenderContext
     screen.updateRenderContextForScreen( *context );
   }
 
-  const bool prevForceVector = context->forceVectorOutput();
-  context->setForceVectorOutput( true );
+  Qgis::RasterizedRenderingPolicy oldRasterizedRenderingPolicy = context->rasterizedRenderingPolicy();
+  context->setRasterizedRenderingPolicy( Qgis::RasterizedRenderingPolicy::PreferVector );
 
   const double opacity = expressionContext ? dataDefinedProperties().valueAsDouble( QgsSymbol::Property::Opacity, *expressionContext, mOpacity * 100 ) * 0.01 : mOpacity;
 
@@ -1242,7 +1245,7 @@ void QgsSymbol::drawPreviewIcon( QPainter *painter, QSize size, QgsRenderContext
     QgsPainting::drawPicture( context->painter(), QPointF( 0, 0 ), *pictureForDeferredRendering );
   }
 
-  context->setForceVectorOutput( prevForceVector );
+  context->setRasterizedRenderingPolicy( oldRasterizedRenderingPolicy );
 }
 
 void QgsSymbol::exportImage( const QString &path, const QString &format, QSize size )
@@ -1365,6 +1368,43 @@ QString QgsSymbol::dump() const
     // TODO:
   }
   return s;
+}
+
+bool QgsSymbol::rendersIdenticallyTo( const QgsSymbol *other ) const
+{
+  if ( !other )
+    return false;
+
+  if ( mType != other->mType
+       || !qgsDoubleNear( mExtentBuffer, other->mExtentBuffer )
+       || mExtentBufferSizeUnit != other->mExtentBufferSizeUnit
+       || !qgsDoubleNear( mOpacity, other->mOpacity )
+       || mRenderHints != other->mRenderHints
+       || mSymbolFlags != other->mSymbolFlags
+       || mClipFeaturesToExtent != other->mClipFeaturesToExtent
+       || mForceRHR != other->mForceRHR
+
+       // TODO: consider actual buffer settings
+       || mBufferSettings
+       || other->mBufferSettings
+
+       // TODO: consider actual animation settings
+       || mAnimationSettings.isAnimated()
+       || other->mAnimationSettings.isAnimated() )
+    return false;
+
+  // TODO -- we could slacken this check if we ignore disabled layers
+  if ( mLayers.count() != other->mLayers.count() )
+  {
+    return false;
+  }
+
+  for ( int i = 0; i < mLayers.count(); ++i )
+  {
+    if ( !mLayers.at( i )->rendersIdenticallyTo( other->mLayers.at( i ) ) )
+      return false;
+  }
+  return true;
 }
 
 void QgsSymbol::toSld( QDomDocument &doc, QDomElement &element, QVariantMap props ) const
@@ -1814,7 +1854,7 @@ void QgsSymbol::renderFeature( const QgsFeature &feature, QgsRenderContext &cont
 
         QPolygonF pts;
 
-        const QgsGeometryCollection *geomCollection = dynamic_cast<const QgsGeometryCollection *>( processedGeometry );
+        const QgsGeometryCollection *geomCollection = qgis::down_cast<const QgsGeometryCollection *>( processedGeometry );
         const unsigned int num = geomCollection->numGeometries();
 
         // Sort components by approximate area (probably a bit faster than using
@@ -1845,7 +1885,7 @@ void QgsSymbol::renderFeature( const QgsFeature &feature, QgsRenderContext &cont
       case Qgis::WkbType::PolyhedralSurface:
       case Qgis::WkbType::TIN:
       {
-        const QgsPolyhedralSurface *polySurface = qgsgeometry_cast<const QgsPolyhedralSurface *>( processedGeometry );
+        const QgsPolyhedralSurface *polySurface = qgis::down_cast<const QgsPolyhedralSurface *>( processedGeometry );
 
         const int num = polySurface->numPatches();
         for ( int i = 0; i < num; ++i )
@@ -2227,7 +2267,14 @@ void QgsSymbol::renderFeature( const QgsFeature &feature, QgsRenderContext &cont
         z = 0.0;
         if ( ct.isValid() )
         {
-          ct.transformInPlace( x, y, z );
+          try
+          {
+            ct.transformInPlace( x, y, z );
+          }
+          catch ( QgsCsException & )
+          {
+            continue;
+          }
         }
         mapPoint.setX( x );
         mapPoint.setY( y );

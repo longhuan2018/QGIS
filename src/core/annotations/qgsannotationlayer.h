@@ -234,13 +234,14 @@ class CORE_EXPORT QgsAnnotationLayer : public QgsMapLayer
     std::unique_ptr< QgsAnnotationLayerSpatialIndex > mSpatialIndex;
     QSet< QString > mNonIndexedItems;
 
-    QgsDataProvider *mDataProvider = nullptr;
+    std::unique_ptr<QgsDataProvider> mDataProvider;
 
     std::unique_ptr< QgsPaintEffect > mPaintEffect;
 
     QgsMapLayerRef mLinkedLayer;
 
     friend class QgsAnnotationLayerRenderer;
+    friend class QgsAnnotationLayerChunkLoader;
 
 };
 

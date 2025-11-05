@@ -32,7 +32,12 @@ QString QgsFixGeometryOverlapAlgorithm::name() const
 
 QString QgsFixGeometryOverlapAlgorithm::displayName() const
 {
-  return QObject::tr( "Fix geometry (overlap)" );
+  return QObject::tr( "Delete overlaps" );
+}
+
+QString QgsFixGeometryOverlapAlgorithm::shortDescription() const
+{
+  return QObject::tr( "Deletes overlaps detected with the \"Overlaps\" algorithm from the \"Check geometry\" section." );
 }
 
 QStringList QgsFixGeometryOverlapAlgorithm::tags() const
@@ -52,7 +57,7 @@ QString QgsFixGeometryOverlapAlgorithm::groupId() const
 
 QString QgsFixGeometryOverlapAlgorithm::shortHelpString() const
 {
-  return QObject::tr( "This algorithm deletes overlap sections based on an error layer from the check overlap algorithm.\n" );
+  return QObject::tr( "This algorithm deletes overlap sections based on an error layer from the \"Overlap\" algorithm in the \"Check geometry\" section.\n" );
 }
 
 QgsFixGeometryOverlapAlgorithm *QgsFixGeometryOverlapAlgorithm::createInstance() const
@@ -64,7 +69,6 @@ void QgsFixGeometryOverlapAlgorithm::initAlgorithm( const QVariantMap &configura
 {
   Q_UNUSED( configuration )
 
-  // Inputs
   addParameter( new QgsProcessingParameterFeatureSource(
     QStringLiteral( "INPUT" ), QObject::tr( "Input layer" ), QList<int>() << static_cast<int>( Qgis::ProcessingSourceType::VectorPolygon )
   ) );
@@ -86,18 +90,19 @@ void QgsFixGeometryOverlapAlgorithm::initAlgorithm( const QVariantMap &configura
     Qgis::ProcessingFieldParameterDataType::Numeric
   ) );
 
-  // Outputs
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "OUTPUT" ), QObject::tr( "Output layer" ), Qgis::ProcessingSourceType::VectorPolygon
+    QStringLiteral( "OUTPUT" ), QObject::tr( "No-overlap layer" ), Qgis::ProcessingSourceType::VectorPolygon
   ) );
   addParameter( new QgsProcessingParameterFeatureSink(
-    QStringLiteral( "REPORT" ), QObject::tr( "Report layer" ), Qgis::ProcessingSourceType::VectorPoint
+    QStringLiteral( "REPORT" ), QObject::tr( "Report layer from fixing overlaps" ), Qgis::ProcessingSourceType::VectorPoint
   ) );
 
-  std::unique_ptr<QgsProcessingParameterNumber> tolerance = std::make_unique<QgsProcessingParameterNumber>(
+  auto tolerance = std::make_unique<QgsProcessingParameterNumber>(
     QStringLiteral( "TOLERANCE" ), QObject::tr( "Tolerance" ), Qgis::ProcessingNumberParameterType::Integer, 8, false, 1, 13
   );
   tolerance->setFlags( tolerance->flags() | Qgis::ProcessingParameterFlag::Advanced );
+  tolerance->setHelp( QObject::tr( "The \"Tolerance\" advanced parameter defines the numerical precision of geometric operations, "
+                                   "given as an integer n, meaning that any difference smaller than 10⁻ⁿ (in map units) is considered zero." ) );
   addParameter( tolerance.release() );
 }
 
@@ -156,9 +161,7 @@ QVariantMap QgsFixGeometryOverlapAlgorithm::processAlgorithm( const QVariantMap 
   if ( !sink_report )
     throw QgsProcessingException( invalidSinkError( parameters, QStringLiteral( "REPORT" ) ) );
 
-  const QgsProject *project = QgsProject::instance();
-  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), project->transformContext(), project );
-  QStringList messages;
+  QgsGeometryCheckContext checkContext = QgsGeometryCheckContext( mTolerance, input->sourceCrs(), context.transformContext(), context.project() );
 
   const QgsGeometryOverlapCheck check( &checkContext, QVariantMap() );
 
@@ -178,6 +181,9 @@ QVariantMap QgsFixGeometryOverlapAlgorithm::processAlgorithm( const QVariantMap 
   multiStepFeedback.setProgressText( QObject::tr( "Fixing errors..." ) );
   while ( errorFeaturesIt.nextFeature( errorFeature ) )
   {
+    if ( feedback->isCanceled() )
+      break;
+
     progression++;
     multiStepFeedback.setProgress( static_cast<double>( static_cast<long double>( progression ) / totalProgression ) * 100 );
     reportFeature.setGeometry( errorFeature.geometry() );
@@ -199,10 +205,10 @@ QVariantMap QgsFixGeometryOverlapAlgorithm::processAlgorithm( const QVariantMap 
       reportFeature.setAttributes( errorFeature.attributes() << QObject::tr( "Overlap feature not found or invalid" ) << false );
 
     else if ( it.nextFeature( testDuplicateIdFeature ) )
-      throw QgsProcessingException( QObject::tr( "More than one feature found in input layer with value \"%1\" in unique field \"%2\"" ).arg( idValue ).arg( featIdFieldName ) );
+      throw QgsProcessingException( QObject::tr( "More than one feature found in input layer with value \"%1\" in unique field \"%2\"" ).arg( idValue, featIdFieldName ) );
 
     else if ( overlapIt.nextFeature( testDuplicateIdFeature ) )
-      throw QgsProcessingException( QObject::tr( "More than one overlap feature found in input layer with value \"%1\" in unique field \"%2\"" ).arg( overlapIdValue ).arg( overlapFeatIdFieldName ) );
+      throw QgsProcessingException( QObject::tr( "More than one overlap feature found in input layer with value \"%1\" in unique field \"%2\"" ).arg( overlapIdValue, overlapFeatIdFieldName ) );
 
     else if ( inputFeature.geometry().isNull() )
       reportFeature.setAttributes( errorFeature.attributes() << QObject::tr( "Feature geometry is null" ) << false );
@@ -220,7 +226,7 @@ QVariantMap QgsFixGeometryOverlapAlgorithm::processAlgorithm( const QVariantMap 
         errorFeature.attribute( errorValueIdFieldName ),
         QgsGeometryCheckerUtils::LayerFeature( &featurePool, overlapFeature, &checkContext, false )
       );
-      for ( QgsGeometryCheck::Changes changes : changesList )
+      for ( const QgsGeometryCheck::Changes &changes : std::as_const( changesList ) )
         checkError.handleChanges( changes );
 
       QgsGeometryCheck::Changes changes;
@@ -245,6 +251,9 @@ QVariantMap QgsFixGeometryOverlapAlgorithm::processAlgorithm( const QVariantMap 
   QgsFeatureIterator fixedFeaturesIt = fixedLayer->getFeatures();
   while ( fixedFeaturesIt.nextFeature( fixedFeature ) )
   {
+    if ( feedback->isCanceled() )
+      break;
+
     progression++;
     multiStepFeedback.setProgress( static_cast<double>( static_cast<long double>( progression ) / totalProgression ) * 100 );
     if ( !sink_output->addFeature( fixedFeature, QgsFeatureSink::FastInsert ) )
@@ -268,7 +277,7 @@ bool QgsFixGeometryOverlapAlgorithm::prepareAlgorithm( const QVariantMap &parame
 
 Qgis::ProcessingAlgorithmFlags QgsFixGeometryOverlapAlgorithm::flags() const
 {
-  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading;
+  return QgsProcessingAlgorithm::flags() | Qgis::ProcessingAlgorithmFlag::NoThreading | Qgis::ProcessingAlgorithmFlag::RequiresProject;
 }
 
 ///@endcond

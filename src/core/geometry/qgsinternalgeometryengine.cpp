@@ -768,6 +768,12 @@ QgsLineString *doDensify( const QgsLineString *ring, int extraNodesPerSegment = 
 
 QgsAbstractGeometry *densifyGeometry( const QgsAbstractGeometry *geom, int extraNodesPerSegment = 1, double distance = 1 )
 {
+  if ( extraNodesPerSegment < 0 && qgsDoubleNear( distance, 0 ) )
+  {
+    // no change
+    return geom->clone();
+  }
+
   std::unique_ptr< QgsAbstractGeometry > segmentizedCopy;
   if ( QgsWkbTypes::isCurvedType( geom->wkbType() ) )
   {
@@ -1820,7 +1826,11 @@ QgsGeometry QgsInternalGeometryEngine::orientedMinimumBoundingBox( double &area,
   QgsPoint pt1;
   QgsPoint pt2;
   // get first point
-  hull->nextVertex( vertexId, pt0 );
+  if ( !hull->nextVertex( vertexId, pt0 ) )
+  {
+    return QgsGeometry();
+  }
+
   pt1 = pt0;
   double totalRotation = 0;
   while ( hull->nextVertex( vertexId, pt2 ) )

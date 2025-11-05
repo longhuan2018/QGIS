@@ -10,6 +10,7 @@ __author__ = "Sebastian Dietrich"
 __date__ = "19/11/2015"
 __copyright__ = "Copyright 2015, The QGIS Project"
 
+
 import codecs
 import os
 import re
@@ -17,6 +18,7 @@ from io import BytesIO
 from shutil import copyfile
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
+from lxml import etree as et
 
 from osgeo import ogr
 from qgis.PyQt import sip
@@ -42,6 +44,7 @@ from qgis.core import (
     QgsSettings,
     QgsUnitTypes,
     QgsVectorLayer,
+    QgsElevationProfile,
 )
 import unittest
 from qgis.testing import start_app, QgisTestCase
@@ -424,6 +427,34 @@ class TestQgsProject(QgisTestCase):
                 p2.scaleMethod(), Qgis.ScaleCalculationMethod.HorizontalTop
             )
 
+    def test_elevation_profile_manager(self):
+        p = QgsProject()
+        self.assertFalse(p.elevationProfileManager().profiles())
+        profile = QgsElevationProfile(p)
+        profile.setName("p1")
+        p.elevationProfileManager().addProfile(profile)
+        profile = QgsElevationProfile(p)
+        profile.setName("p2")
+        p.elevationProfileManager().addProfile(profile)
+        self.assertCountEqual(
+            [profile.name() for profile in p.elevationProfileManager().profiles()],
+            ["p1", "p2"],
+        )
+
+        with TemporaryDirectory() as d:
+            path = os.path.join(d, "elevation_profiles.qgs")
+            self.assertTrue(p.write(path))
+            # Verify
+            p2 = QgsProject()
+            self.assertTrue(p2.read(path))
+            self.assertCountEqual(
+                [profile.name() for profile in p2.elevationProfileManager().profiles()],
+                ["p1", "p2"],
+            )
+
+        p.clear()
+        self.assertFalse(p.elevationProfileManager().profiles())
+
     def testReadEntry(self):
         prj = QgsProject.instance()
         prj.read(os.path.join(TEST_DATA_DIR, "labeling/test-labeling.qgs"))
@@ -509,6 +540,27 @@ class TestQgsProject(QgisTestCase):
         self.assertEqual(QgsProject.instance().count(), 2)
 
         QgsProject.instance().removeAllMapLayers()
+
+    def test_mapLayer(self):
+        """test retrieving map layers by ID"""
+        p = QgsProject()
+        self.assertIsNone(p.mapLayer("nope"))
+
+        l1 = createLayer("test")
+        self.assertIsNone(p.mapLayer(l1.id()))
+        p.addMapLayer(l1)
+        self.assertEqual(p.mapLayer(l1.id()), l1)
+
+        l2 = createLayer("test2")
+        self.assertIsNone(p.mapLayer(l2.id()))
+        p.addMapLayer(l2)
+        self.assertEqual(p.mapLayer(l1.id()), l1)
+        self.assertEqual(p.mapLayer(l2.id()), l2)
+
+        # ensure main annotation layer can be retrieved by id
+        self.assertEqual(
+            p.mapLayer(p.mainAnnotationLayer().id()), p.mainAnnotationLayer()
+        )
 
     def test_addMapLayerAlreadyAdded(self):
         """test that already added layers can't be readded to registry"""
@@ -1374,6 +1426,27 @@ class TestQgsProject(QgisTestCase):
             self.assertIn('source="./points.shp"', content)
             self.assertIn('source="./landsat_4326.tif"', content)
 
+    def testTitle(self):
+        p = QgsProject()
+        title_changed_spy = QSignalSpy(p.titleChanged)
+        self.assertFalse(p.title())
+
+        p.setTitle("QGIS rocks!")
+        self.assertEqual(len(title_changed_spy), 1)
+        self.assertEqual(p.title(), "QGIS rocks!")
+
+        p.setTitle("QGIS rocks!")
+        self.assertEqual(len(title_changed_spy), 1)
+
+        project_metadata = p.metadata()
+        project_metadata.setTitle("QGIS rules!")
+        p.setMetadata(project_metadata)
+        self.assertEqual(len(title_changed_spy), 2)
+        self.assertEqual(p.title(), "QGIS rules!")
+
+        p.setMetadata(project_metadata)
+        self.assertEqual(len(title_changed_spy), 2)
+
     def testHomePath(self):
         p = QgsProject()
         path_changed_spy = QSignalSpy(p.homePathChanged)
@@ -2118,6 +2191,38 @@ class TestQgsProject(QgisTestCase):
         self.assertEqual(QgsLayerNotesUtils.layerNotes(layers[0]), "my notes")
 
         del project
+
+    def testVectorExtentIsStored(self):
+        """
+        Test that vector layer extent is stored in the project
+        Test for GH #61181
+        """
+
+        tmpDir = QTemporaryDir()
+        tmpFile = f"{tmpDir.path()}/project.qgs"
+        for ext in ["shp", "shx", "dbf"]:
+            copyfile(
+                os.path.join(TEST_DATA_DIR, "points." + ext),
+                os.path.join(tmpDir.path(), "points." + ext),
+            )
+
+        project = QgsProject()
+
+        l0 = QgsVectorLayer(os.path.join(tmpDir.path(), "points.shp"), "points", "ogr")
+        # l0.extent()
+        self.assertTrue(l0.isValid())
+        self.assertTrue(project.addMapLayers([l0]))
+        self.assertTrue(project.write(tmpFile))
+
+        del project
+
+        # Read the project.qgs as XML using etree and check that the maplayer extent is in the XML file
+        with open(tmpFile) as f:
+            xml = f.read()
+            root = et.XML(xml)
+            layerXML = root.findall(".//projectlayers/maplayer")[0]
+            extentXML = layerXML.findall(".//extent")[0]
+            self.assertNotEqual(len(extentXML.getchildren()), 0)
 
 
 if __name__ == "__main__":

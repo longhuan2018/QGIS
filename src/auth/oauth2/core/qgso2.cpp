@@ -42,7 +42,7 @@ QgsO2::QgsO2( const QString &authcfg, QgsAuthOAuth2Config *oauth2config, QObject
   , mOAuth2Config( oauth2config )
 {
   static std::once_flag initialized;
-  std::call_once( initialized, [=]() {
+  std::call_once( initialized, []() {
     setLoggingFunction( []( const QString &message, LogLevel level ) {
 #ifdef QGISDEBUG
       switch ( level )
@@ -56,8 +56,8 @@ QgsO2::QgsO2( const QString &authcfg, QgsAuthOAuth2Config *oauth2config, QObject
           break;
       }
 #else
-                                         ( void ) message;
-                                         ( void ) level;
+                                        ( void ) message;
+                                        ( void ) level;
 #endif
     } );
   } );
@@ -170,9 +170,8 @@ void QgsO2::setVerificationResponseContent()
   if ( verhtml.open( QIODevice::ReadOnly | QIODevice::Text ) )
   {
     setReplyContent( QString::fromUtf8( verhtml.readAll() )
-                       .replace( QLatin1String( "{{ H2_TITLE }}" ), tr( "QGIS OAuth2 verification has finished" ) )
-                       .replace( QLatin1String( "{{ H3_TITLE }}" ), tr( "If you have not been returned to QGIS, bring the application to the forefront." ) )
-                       .replace( QLatin1String( "{{ CLOSE_WINDOW }}" ), tr( "Close window" ) )
+                       .replace( QLatin1String( "{{ H2_TITLE }}" ), tr( "QGIS OAuth2 verification has finished." ) )
+                       .replace( QLatin1String( "{{ H3_TITLE }}" ), tr( "You can close this window and return to QGIS." ) )
                        .toUtf8()
     );
   }

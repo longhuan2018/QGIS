@@ -122,7 +122,7 @@ QgsAnnotationLayer::QgsAnnotationLayer( const QString &name, const LayerOptions 
 
   QgsDataProvider::ProviderOptions providerOptions;
   providerOptions.transformContext = options.transformContext;
-  mDataProvider = new QgsAnnotationLayerDataProvider( providerOptions, Qgis::DataProviderReadFlags() );
+  mDataProvider = std::make_unique<QgsAnnotationLayerDataProvider>( providerOptions, Qgis::DataProviderReadFlags() );
 
   mPaintEffect.reset( QgsPaintEffectRegistry::defaultStack() );
   mPaintEffect->setEnabled( false );
@@ -132,7 +132,7 @@ QgsAnnotationLayer::~QgsAnnotationLayer()
 {
   emit willBeDeleted();
   qDeleteAll( mItems );
-  delete mDataProvider;
+
 }
 
 void QgsAnnotationLayer::reset()
@@ -266,7 +266,8 @@ QStringList QgsAnnotationLayer::itemsInBounds( const QgsRectangle &bounds, QgsRe
   // we also have to search through any non-indexed items
   for ( const QString &uuid : mNonIndexedItems )
   {
-    if ( mItems.value( uuid )->boundingBox( context ).intersects( bounds ) )
+    auto it = mItems.constFind( uuid );
+    if ( it != mItems.constEnd() && it.value()->boundingBox( context ).intersects( bounds ) )
       res << uuid;
   }
 
@@ -609,14 +610,14 @@ QgsDataProvider *QgsAnnotationLayer::dataProvider()
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  return mDataProvider;
+  return mDataProvider.get();
 }
 
 const QgsDataProvider *QgsAnnotationLayer::dataProvider() const
 {
   QGIS_PROTECT_QOBJECT_THREAD_ACCESS
 
-  return mDataProvider;
+  return mDataProvider.get();
 }
 
 QString QgsAnnotationLayer::htmlMetadata() const

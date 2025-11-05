@@ -104,7 +104,7 @@ QMap<int, QString> QgsPointCloudDataProvider::lasClassificationCodes()
   };
 
   static std::once_flag initialized;
-  std::call_once( initialized, [ = ]( )
+  std::call_once( initialized, []( )
   {
     for ( int i = 19; i <= 63; ++i )
       sCodes.insert( i, QStringLiteral( "Reserved" ) );
@@ -141,7 +141,7 @@ QMap<int, QString> QgsPointCloudDataProvider::translatedLasClassificationCodes()
   };
 
   static std::once_flag initialized;
-  std::call_once( initialized, [ = ]( )
+  std::call_once( initialized, []( )
   {
     for ( int i = 19; i <= 63; ++i )
       sCodes.insert( i, QObject::tr( "Reserved" ) );
@@ -218,7 +218,7 @@ struct MapIndexedPointCloudNode
 
   MapIndexedPointCloudNode( QgsPointCloudRequest &request, const QgsVector3D &indexScale, const QgsVector3D &indexOffset,
                             const QgsGeometry &extentGeometry, const QgsDoubleRange &zRange, QgsPointCloudIndex index, int pointsLimit )
-    : mRequest( request ), mIndexScale( indexScale ), mIndexOffset( indexOffset ), mExtentGeometry( extentGeometry ), mZRange( zRange ), mIndex( index ), mPointsLimit( pointsLimit )
+    : mRequest( request ), mIndexScale( indexScale ), mIndexOffset( indexOffset ), mExtentGeometry( extentGeometry ), mZRange( zRange ), mIndex( std::move( index ) ), mPointsLimit( pointsLimit )
   { }
 
   QVector<QVariantMap> operator()( QgsPointCloudNodeId n )

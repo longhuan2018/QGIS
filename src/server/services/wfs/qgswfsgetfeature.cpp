@@ -93,6 +93,18 @@ namespace QgsWfs
     QgsJsonExporter mJsonExporter;
   } // namespace
 
+  QString getSrsNameFromVersion( const QgsCoordinateReferenceSystem &crs )
+  {
+    if ( mWfsParameters.versionAsNumber() >= QgsProjectVersion( 1, 1, 0 ) )
+    {
+      return crs.toOgcUrn();
+    }
+    else
+    {
+      return crs.authid();
+    }
+  }
+
   void writeGetFeature( QgsServerInterface *serverIface, const QgsProject *project, const QString &version, const QgsServerRequest &request, QgsServerResponse &response )
   {
     Q_UNUSED( version )
@@ -148,7 +160,7 @@ namespace QgsWfs
         continue;
       }
 
-      QString name = layerTypeName( layer );
+      QString name = layer->serverProperties()->wfsTypeName();
 
       if ( typeNameList.contains( name ) )
       {
@@ -350,7 +362,9 @@ namespace QgsWfs
                                << QgsExpressionContextUtils::projectScope( project )
                                << QgsExpressionContextUtils::layerScope( vlayer );
           accessControlRequest.setExpressionContext( accessControlContext );
+          Q_NOWARN_DEPRECATED_PUSH
           accessControl->filterFeatures( vlayer, accessControlRequest );
+          Q_NOWARN_DEPRECATED_POP
         }
         else
         {
@@ -427,7 +441,7 @@ namespace QgsWfs
       {
         // fallback to a default value
         // geojson uses 'EPSG:4326' by default
-        outputSrsName = ( aRequest.outputFormat == QgsWfsParameters::Format::GeoJSON ) ? QStringLiteral( "EPSG:4326" ) : vlayer->crs().authid();
+        outputSrsName = ( aRequest.outputFormat == QgsWfsParameters::Format::GeoJSON ) ? QStringLiteral( "EPSG:4326" ) : getSrsNameFromVersion( vlayer->crs() );
       }
 
       QgsCoordinateReferenceSystem outputCrs;
@@ -651,9 +665,7 @@ namespace QgsWfs
         }
 
         query.serverFids = fidsMapIt.value();
-        QgsFeatureRequest featureRequest;
-
-        query.featureRequest = featureRequest;
+        query.featureRequest = QgsFeatureRequest();
         request.queries.append( query );
         ++fidsMapIt;
       }
@@ -824,7 +836,6 @@ namespace QgsWfs
         getFeatureQuery &query = *qIt;
         query.featureRequest.setFilterRect( extent ).setFlags( query.featureRequest.flags() | Qgis::FeatureRequestFlag::ExactIntersect );
       }
-      return request;
     }
     else if ( paramContainsFilters )
     {
@@ -861,7 +872,6 @@ namespace QgsWfs
           ++filterIt;
         }
       }
-      return request;
     }
 
     QStringList sortByList = mWfsParameters.sortBy();
@@ -1027,7 +1037,7 @@ namespace QgsWfs
     getFeatureQuery query;
     query.typeName = typeName;
     query.srsName = srsName;
-    query.featureRequest = featureRequest;
+    query.featureRequest = std::move( featureRequest );
     query.serverFids = serverFids;
     query.propertyList = propertyList;
     return query;
@@ -1259,7 +1269,7 @@ namespace QgsWfs
         {
           // If requested SRS (outputSrsName) is different from rect CRS (crs) we need to transform the envelope
           const QString requestSrsName = request.serverParameters().value( QStringLiteral( "SRSNAME" ) );
-          const QString outputSrsName = !requestSrsName.isEmpty() ? requestSrsName : crs.authid();
+          const QString outputSrsName = !requestSrsName.isEmpty() ? requestSrsName : getSrsNameFromVersion( crs );
           QgsCoordinateReferenceSystem outputCrs;
           outputCrs.createFromUserInput( outputSrsName );
 
@@ -1289,7 +1299,7 @@ namespace QgsWfs
           {
             if ( crs.isValid() && outputSrsName.isEmpty() )
             {
-              envElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
+              envElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
             }
             bbElem.appendChild( envElem );
             doc.appendChild( bbElem );
@@ -1302,7 +1312,7 @@ namespace QgsWfs
           {
             if ( crs.isValid() )
             {
-              boxElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
+              boxElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
             }
             bbElem.appendChild( boxElem );
             doc.appendChild( bbElem );
@@ -1471,8 +1481,8 @@ namespace QgsWfs
 
           if ( crs.isValid() )
           {
-            boxElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
-            gmlElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
+            boxElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
+            gmlElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
           }
 
           bbElem.appendChild( boxElem );
@@ -1564,8 +1574,8 @@ namespace QgsWfs
 
           if ( crs.isValid() && params.srsName.isEmpty() )
           {
-            boxElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
-            gmlElem.setAttribute( QStringLiteral( "srsName" ), crs.authid() );
+            boxElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
+            gmlElem.setAttribute( QStringLiteral( "srsName" ), getSrsNameFromVersion( crs ) );
           }
           else if ( !params.srsName.isEmpty() )
           {

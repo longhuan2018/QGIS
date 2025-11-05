@@ -122,6 +122,7 @@ try:
     QgsApplication.defaultStyleModel = staticmethod(QgsApplication.defaultStyleModel)
     QgsApplication.fontManager = staticmethod(QgsApplication.fontManager)
     QgsApplication.sensorRegistry = staticmethod(QgsApplication.sensorRegistry)
+    QgsApplication.plotRegistry = staticmethod(QgsApplication.plotRegistry)
     QgsApplication.messageLog = staticmethod(QgsApplication.messageLog)
     QgsApplication.authManager = staticmethod(QgsApplication.authManager)
     QgsApplication.authConfigurationStorageRegistry = staticmethod(QgsApplication.authConfigurationStorageRegistry)
@@ -146,6 +147,10 @@ try:
     QgsApplication.customVariables = staticmethod(QgsApplication.customVariables)
     QgsApplication.setCustomVariables = staticmethod(QgsApplication.setCustomVariables)
     QgsApplication.setCustomVariable = staticmethod(QgsApplication.setCustomVariable)
+    QgsApplication.temporarilyTrustedProjectsFolders = staticmethod(QgsApplication.temporarilyTrustedProjectsFolders)
+    QgsApplication.setTemporarilyTrustedProjectsFolders = staticmethod(QgsApplication.setTemporarilyTrustedProjectsFolders)
+    QgsApplication.temporarilyUntrustedProjectsFolders = staticmethod(QgsApplication.temporarilyUntrustedProjectsFolders)
+    QgsApplication.setTemporarilyUntrustedProjectsFolders = staticmethod(QgsApplication.setTemporarilyUntrustedProjectsFolders)
     QgsApplication.scaleIconSize = staticmethod(QgsApplication.scaleIconSize)
     QgsApplication.setTranslation = staticmethod(QgsApplication.setTranslation)
     QgsApplication.__overridden_methods__ = ['event', 'notify']

@@ -22,6 +22,7 @@
 #include "qgspointcloudlayer.h"
 #include "qgspointcloudexpression.h"
 #include "qgsrasterlayerelevationproperties.h"
+#include "qgscopcprovider.h"
 
 #include <QRegularExpression>
 
@@ -131,13 +132,6 @@ QString QgsPdalAlgorithmBase::fixOutputFileName( const QString &inputFileName, c
 
 void QgsPdalAlgorithmBase::checkOutputFormat( const QString &inputFileName, const QString &outputFileName )
 {
-  if ( outputFileName.endsWith( QStringLiteral( ".copc.laz" ), Qt::CaseInsensitive ) )
-    throw QgsProcessingException(
-      QObject::tr( "This algorithm does not support output to COPC. Please use LAS or LAZ as the output format. "
-                   "LAS/LAZ files get automatically converted to COPC when loaded in QGIS, alternatively you can use "
-                   "\"Create COPC\" algorithm." )
-    );
-
   bool inputIsVpc = inputFileName.endsWith( QStringLiteral( ".vpc" ), Qt::CaseInsensitive );
   bool outputIsVpc = outputFileName.endsWith( QStringLiteral( ".vpc" ), Qt::CaseInsensitive );
   if ( !inputIsVpc && outputIsVpc )
@@ -175,6 +169,11 @@ QVariantMap QgsPdalAlgorithmBase::processAlgorithm( const QVariantMap &parameter
   const QStringList processArgs = createArgumentLists( parameters, context, feedback );
   const QString wrenchPath = wrenchExecutableBinary();
 
+  if ( !QFileInfo::exists( wrenchPath ) )
+  {
+    throw QgsProcessingException( QObject::tr( "wrench executable is not found. Either use QGIS build with PDAL support or provide correct path via QGIS_WRENCH_EXECUTABLE environment variable." ) );
+  }
+
   QStringList logArgs;
   const thread_local QRegularExpression re( "[\\s\\\"\\'\\(\\)\\&;]" );
   for ( const QString &arg : processArgs )
@@ -195,10 +194,10 @@ QVariantMap QgsPdalAlgorithmBase::processAlgorithm( const QVariantMap &parameter
   QString buffer;
 
   QgsBlockingProcess wrenchProcess( wrenchPath, processArgs );
-  wrenchProcess.setStdErrHandler( [=]( const QByteArray &ba ) {
+  wrenchProcess.setStdErrHandler( [feedback]( const QByteArray &ba ) {
     feedback->reportError( ba.trimmed() );
   } );
-  wrenchProcess.setStdOutHandler( [=, &progress, &buffer]( const QByteArray &ba ) {
+  wrenchProcess.setStdOutHandler( [feedback, &progress, &buffer]( const QByteArray &ba ) {
     QString data( ba );
 
     QRegularExpression re( "\\.*(\\d+)?\\.*$" );
@@ -286,6 +285,48 @@ QVariantMap QgsPdalAlgorithmBase::processAlgorithm( const QVariantMap &parameter
   }
 
   return outputs;
+}
+
+QgsPointCloudLayer *QgsPdalAlgorithmBase::parameterAsPointCloudLayer( const QVariantMap &parameters, const QString &name, QgsProcessingContext &context, QgsProcessing::LayerOptionsFlags flags ) const
+{
+  QgsPointCloudLayer *layer = QgsProcessingParameters::parameterAsPointCloudLayer( parameterDefinition( name ), parameters, context, flags );
+
+  // if layer or its data provider are empty return nullptr
+  if ( !layer || !layer->dataProvider() )
+    return nullptr;
+
+  // if COPC provider, return as it is
+  if ( layer->dataProvider()->name() == QLatin1String( "copc" ) )
+  {
+    return layer;
+  }
+
+  // if source is remote file, use it as it is
+  const QUrl url = QUrl( layer->source() );
+  if ( url.isValid() && ( url.scheme() == "http" || url.scheme() == "https" ) )
+  {
+    return layer;
+  }
+
+  // for local files try to find COPC index file
+  const QString copcFileName = QgsPdalAlgorithmBase::copcIndexFile( layer->source() );
+
+  if ( QFileInfo::exists( copcFileName ) )
+  {
+    QgsPointCloudLayer *copcLayer = new QgsPointCloudLayer( copcFileName, layer->name(), "copc" );
+    if ( copcLayer && copcLayer->isValid() )
+      return copcLayer;
+  }
+
+  return layer;
+}
+
+QString QgsPdalAlgorithmBase::copcIndexFile( const QString &filename )
+{
+  const QFileInfo fi( filename );
+  const QDir directory = fi.absoluteDir();
+  const QString outputFile = QStringLiteral( "%1/%2.copc.laz" ).arg( directory.absolutePath() ).arg( fi.completeBaseName() );
+  return outputFile;
 }
 
 ///@endcond
